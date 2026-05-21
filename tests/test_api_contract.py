@@ -89,19 +89,23 @@ def test_admin_pages() -> None:
     entities = client.get('/admin/entities')
     import_page = client.get('/admin/audience-import')
     audiences = client.get('/admin/audiences')
+    campaigns = client.get('/admin/campaigns')
     assert home.status_code == 200
     assert entities.status_code == 200
     assert import_page.status_code == 200
     assert audiences.status_code == 200
+    assert campaigns.status_code == 200
     assert 'Email Engine Admin' in home.text
     assert 'Email Engine Entity Workbench' in entities.text
     assert 'Email Engine Audience Import' in import_page.text
     assert 'Email Engine Audience Builder' in audiences.text
+    assert 'Email Engine Campaign Manager' in campaigns.text
     assert '/tester' in home.text
     assert '/template-editor' in home.text
     assert '/admin/entities' in home.text
     assert '/admin/audience-import' in home.text
     assert '/admin/audiences' in home.text
+    assert '/admin/campaigns' in home.text
     assert '/docs' in home.text
 
 

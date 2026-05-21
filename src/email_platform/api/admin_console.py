@@ -24,6 +24,11 @@ def admin_audiences() -> str:
     return ADMIN_AUDIENCES_HTML
 
 
+@router.get('/admin/campaigns', response_class=HTMLResponse, include_in_schema=False)
+def admin_campaigns() -> str:
+    return ADMIN_CAMPAIGNS_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -116,6 +121,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/audiences">
       <strong>Audience Builder</strong>
       <span>Create, preview, update, and delete rule-based audiences.</span>
+    </a>
+    <a href="/admin/campaigns">
+      <strong>Campaign Manager</strong>
+      <span>Create campaigns, launch dry runs or queues, and inspect delivery state.</span>
     </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
@@ -889,6 +898,383 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
 
     resetForm();
     loadAudiences().catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
+ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Campaign Manager</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: 280px minmax(420px, .9fr) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .items {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      text-align: left;
+      color: var(--text);
+    }
+    .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    pre {
+      margin: 0;
+      min-height: 320px;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+      .inline { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Campaign Manager</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Campaigns</h2><button id="refresh">Refresh</button></div>
+      <div class="body">
+        <button class="secondary" id="new">New</button>
+        <div class="items" id="items"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head">
+        <h2>Editor</h2>
+        <div class="actions">
+          <button id="save">Save</button>
+          <button class="danger" id="delete">Delete</button>
+        </div>
+      </div>
+      <div class="body">
+        <label>Name
+          <input id="name" />
+        </label>
+        <div class="inline">
+          <label>Template
+            <select id="template"></select>
+          </label>
+          <label>Audience
+            <select id="audience"></select>
+          </label>
+        </div>
+        <label>Audience query JSON
+          <textarea id="audienceQuery"></textarea>
+        </label>
+        <label>Launch variables JSON
+          <textarea id="variables"></textarea>
+        </label>
+        <div class="actions">
+          <button class="secondary" id="dryRun">Dry Run</button>
+          <button id="launch">Queue Launch</button>
+          <button class="secondary" id="analytics">Analytics</button>
+          <button class="secondary" id="jobs">Jobs</button>
+          <button class="secondary" id="records">Records</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    let selectedId = "";
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function parseJson(id, fallback) {
+      const raw = document.getElementById(id).value.trim();
+      return raw ? JSON.parse(raw) : fallback;
+    }
+
+    function selectedAudienceId() {
+      const value = document.getElementById("audience").value;
+      return value || null;
+    }
+
+    function selectedTemplateId() {
+      return document.getElementById("template").value;
+    }
+
+    function resetForm() {
+      selectedId = "";
+      document.getElementById("name").value = `campaign-${Date.now()}`;
+      document.getElementById("audienceQuery").value = "{}";
+      document.getElementById("variables").value = "{}";
+    }
+
+    function selectCampaign(item) {
+      selectedId = item.id;
+      document.getElementById("name").value = item.name || "";
+      document.getElementById("template").value = item.template_id || "";
+      document.getElementById("audienceQuery").value = JSON.stringify(
+        item.audience_query || {},
+        null,
+        2
+      );
+      writeResult(item);
+    }
+
+    async function loadCampaigns() {
+      const data = await request("/api/v1/campaigns/list?limit=100&offset=0");
+      const container = document.getElementById("items");
+      container.textContent = "";
+      data.items.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.status} - ${item.id}`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectCampaign(item));
+        container.appendChild(button);
+      });
+    }
+
+    async function loadLookups() {
+      const templates = await request("/api/v1/templates/list?limit=100&offset=0");
+      const audiences = await request("/api/v1/audiences/list?limit=100&offset=0");
+      const templateSelect = document.getElementById("template");
+      const audienceSelect = document.getElementById("audience");
+      templateSelect.textContent = "";
+      audienceSelect.textContent = "";
+      audiences.items.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name;
+        audienceSelect.appendChild(option);
+      });
+      templates.items.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name;
+        templateSelect.appendChild(option);
+      });
+    }
+
+    async function saveCampaign() {
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        template_id: selectedTemplateId(),
+        audience_query: parseJson("audienceQuery", {})
+      };
+      const path = selectedId ? `/api/v1/campaigns/${selectedId}` : "/api/v1/campaigns";
+      const method = selectedId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectedId = saved.id;
+      await loadCampaigns();
+    }
+
+    async function deleteCampaign() {
+      if (!selectedId) {
+        writeResult("Select a campaign first.", false);
+        return;
+      }
+      await request(`/api/v1/campaigns/${selectedId}`, { method: "DELETE" });
+      resetForm();
+      await loadCampaigns();
+    }
+
+    async function launchCampaign(dryRun) {
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
+        return;
+      }
+      const payload = {
+        audience_id: selectedAudienceId(),
+        variables: parseJson("variables", {}),
+        dry_run: dryRun
+      };
+      await request(`/api/v1/campaigns/${selectedId}/launch`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    }
+
+    async function loadAnalytics() {
+      if (!selectedId) {
+        writeResult("Select a campaign first.", false);
+        return;
+      }
+      await request(`/api/v1/campaigns/${selectedId}/analytics`);
+    }
+
+    async function loadJobs() {
+      const query = selectedId ? `?campaign_id=${selectedId}` : "?limit=100&offset=0";
+      await request(`/api/v1/campaign-send-jobs/list${query}`);
+    }
+
+    async function loadRecords() {
+      const query = selectedId ? `?campaign_id=${selectedId}` : "?limit=100&offset=0";
+      await request(`/api/v1/email-send-records/list${query}`);
+    }
+
+    document.getElementById("refresh").addEventListener("click", () => {
+      loadCampaigns().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("new").addEventListener("click", resetForm);
+    document.getElementById("save").addEventListener("click", () => {
+      saveCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("delete").addEventListener("click", () => {
+      deleteCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("dryRun").addEventListener("click", () => {
+      launchCampaign(true).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("launch").addEventListener("click", () => {
+      launchCampaign(false).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("analytics").addEventListener("click", () => {
+      loadAnalytics().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("jobs").addEventListener("click", () => {
+      loadJobs().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("records").addEventListener("click", () => {
+      loadRecords().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    resetForm();
+    loadLookups()
+      .then(loadCampaigns)
+      .catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""
