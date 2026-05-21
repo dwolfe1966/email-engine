@@ -39,6 +39,11 @@ def admin_analytics() -> str:
     return ADMIN_ANALYTICS_HTML
 
 
+@router.get('/admin/data-sources', response_class=HTMLResponse, include_in_schema=False)
+def admin_data_sources() -> str:
+    return ADMIN_DATA_SOURCES_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -118,6 +123,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/campaigns">Campaign Manager</a>
       <a href="/admin/delivery">Delivery Manager</a>
       <a href="/admin/analytics">Analytics</a>
+      <a href="/admin/data-sources">Data Sources</a>
       <a href="/docs">Docs</a>
     </nav>
   </header>
@@ -149,6 +155,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/analytics">
       <strong>Analytics</strong>
       <span>Review campaign metrics, events, send jobs, send records, and tracking links.</span>
+    </a>
+    <a href="/admin/data-sources">
+      <strong>Data Sources</strong>
+      <span>Manage source definitions, credentials references, mappings, and plans.</span>
     </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
@@ -324,6 +334,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -730,6 +741,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1243,6 +1255,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1726,6 +1739,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1979,6 +1993,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -2120,6 +2135,430 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
 </html>"""
 
 
+ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Data Sources</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: 280px minmax(420px, .9fr) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      min-width: 0;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .items {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 190px);
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      text-align: left;
+      color: var(--text);
+    }
+    .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    pre {
+      margin: 0;
+      min-height: 300px;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1280px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .inline { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Data Sources</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Sources</h2><button id="refreshSources">Refresh</button></div>
+      <div class="body">
+        <button class="secondary" id="newSource">New Source</button>
+        <div class="items" id="sources"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head">
+        <h2>Editor</h2>
+        <div class="actions">
+          <button id="saveSource">Save Source</button>
+          <button class="danger" id="deleteSource">Delete Source</button>
+        </div>
+      </div>
+      <div class="body">
+        <label>Name
+          <input id="sourceName" />
+        </label>
+        <div class="inline">
+          <label>Type
+            <select id="sourceType">
+              <option value="manual">manual</option>
+              <option value="csv">csv</option>
+              <option value="rest_api">rest_api</option>
+              <option value="postgres">postgres</option>
+              <option value="mysql">mysql</option>
+              <option value="snowflake">snowflake</option>
+              <option value="bigquery">bigquery</option>
+            </select>
+          </label>
+          <label>Secret ref
+            <input id="secretRef" />
+          </label>
+        </div>
+        <label>Config JSON
+          <textarea id="sourceConfig"></textarea>
+        </label>
+        <div class="head">
+          <h2>Mappings</h2>
+          <button class="secondary" id="refreshMappings">Refresh</button>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="newMapping">New Mapping</button>
+          <button id="saveMapping">Save Mapping</button>
+          <button class="danger" id="deleteMapping">Delete Mapping</button>
+        </div>
+        <label>Mapping name
+          <input id="mappingName" />
+        </label>
+        <label>Object type
+          <input id="objectType" value="contact" />
+        </label>
+        <label>Mapping JSON
+          <textarea id="mappingJson"></textarea>
+        </label>
+        <label>Extraction plan JSON
+          <textarea id="extractionPlan"></textarea>
+        </label>
+        <div class="items" id="mappings"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    let selectedSourceId = "";
+    let selectedMappingId = "";
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function parseJson(id, fallback) {
+      const raw = document.getElementById(id).value.trim();
+      return raw ? JSON.parse(raw) : fallback;
+    }
+
+    function resetSource() {
+      selectedSourceId = "";
+      selectedMappingId = "";
+      document.getElementById("sourceName").value = `source-${Date.now()}`;
+      document.getElementById("sourceType").value = "manual";
+      document.getElementById("secretRef").value = "";
+      document.getElementById("sourceConfig").value = JSON.stringify({ source: "admin" }, null, 2);
+      resetMapping();
+    }
+
+    function resetMapping() {
+      selectedMappingId = "";
+      document.getElementById("mappingName").value = `mapping-${Date.now()}`;
+      document.getElementById("objectType").value = "contact";
+      document.getElementById("mappingJson").value = JSON.stringify(
+        { email: "email", first_name: "first_name", attributes: {} },
+        null,
+        2
+      );
+      document.getElementById("extractionPlan").value = "{}";
+    }
+
+    function selectSource(item) {
+      selectedSourceId = item.id;
+      selectedMappingId = "";
+      document.getElementById("sourceName").value = item.name || "";
+      document.getElementById("sourceType").value = item.source_type || "manual";
+      document.getElementById("secretRef").value = item.secret_ref || "";
+      document.getElementById("sourceConfig").value = JSON.stringify(item.config || {}, null, 2);
+      writeResult(item);
+      resetMapping();
+      loadMappings().catch((error) => writeResult(error.message, false));
+    }
+
+    function selectMapping(item) {
+      selectedMappingId = item.id;
+      selectedSourceId = item.data_source_id || selectedSourceId;
+      document.getElementById("mappingName").value = item.name || "";
+      document.getElementById("objectType").value = item.object_type || "contact";
+      document.getElementById("mappingJson").value = JSON.stringify(item.mapping || {}, null, 2);
+      document.getElementById("extractionPlan").value = JSON.stringify(
+        item.extraction_plan || {},
+        null,
+        2
+      );
+      writeResult(item);
+    }
+
+    async function loadSources() {
+      const data = await request("/api/v1/data-sources/list?limit=100&offset=0");
+      const container = document.getElementById("sources");
+      container.textContent = "";
+      data.items.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.source_type} - ${item.status} - ${item.id}`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectSource(item));
+        container.appendChild(button);
+      });
+    }
+
+    async function loadMappings() {
+      const query = selectedSourceId
+        ? `?data_source_id=${selectedSourceId}`
+        : "?limit=100&offset=0";
+      const data = await request(`/api/v1/data-source-mappings/list${query}`);
+      const container = document.getElementById("mappings");
+      container.textContent = "";
+      data.items.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.object_type} - ${item.id}`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectMapping(item));
+        container.appendChild(button);
+      });
+    }
+
+    async function saveSource() {
+      const payload = {
+        name: document.getElementById("sourceName").value.trim(),
+        source_type: document.getElementById("sourceType").value,
+        config: parseJson("sourceConfig", {}),
+        secret_ref: document.getElementById("secretRef").value.trim() || null
+      };
+      const path = selectedSourceId
+        ? `/api/v1/data-sources/${selectedSourceId}`
+        : "/api/v1/data-sources";
+      const method = selectedSourceId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectedSourceId = saved.id;
+      await loadSources();
+    }
+
+    async function deleteSource() {
+      if (!selectedSourceId) {
+        writeResult("Select a data source first.", false);
+        return;
+      }
+      await request(`/api/v1/data-sources/${selectedSourceId}`, { method: "DELETE" });
+      resetSource();
+      await loadSources();
+      await loadMappings();
+    }
+
+    async function saveMapping() {
+      if (!selectedSourceId) {
+        writeResult("Select or save a data source first.", false);
+        return;
+      }
+      const payload = {
+        data_source_id: selectedSourceId,
+        name: document.getElementById("mappingName").value.trim(),
+        object_type: document.getElementById("objectType").value.trim(),
+        mapping: parseJson("mappingJson", {}),
+        extraction_plan: parseJson("extractionPlan", {})
+      };
+      const path = selectedMappingId
+        ? `/api/v1/data-source-mappings/${selectedMappingId}`
+        : "/api/v1/data-source-mappings";
+      const method = selectedMappingId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectedMappingId = saved.id;
+      await loadMappings();
+    }
+
+    async function deleteMapping() {
+      if (!selectedMappingId) {
+        writeResult("Select a mapping first.", false);
+        return;
+      }
+      await request(`/api/v1/data-source-mappings/${selectedMappingId}`, { method: "DELETE" });
+      resetMapping();
+      await loadMappings();
+    }
+
+    document.getElementById("refreshSources").addEventListener("click", () => {
+      loadSources().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("refreshMappings").addEventListener("click", () => {
+      loadMappings().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("newSource").addEventListener("click", resetSource);
+    document.getElementById("newMapping").addEventListener("click", resetMapping);
+    document.getElementById("saveSource").addEventListener("click", () => {
+      saveSource().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("deleteSource").addEventListener("click", () => {
+      deleteSource().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("saveMapping").addEventListener("click", () => {
+      saveMapping().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("deleteMapping").addEventListener("click", () => {
+      deleteMapping().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    resetSource();
+    loadSources()
+      .then(loadMappings)
+      .catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
 ADMIN_ENTITIES_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -2250,6 +2689,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>

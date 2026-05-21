@@ -175,6 +175,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>

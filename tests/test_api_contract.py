@@ -79,6 +79,7 @@ def test_api_tester_page() -> None:
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
     assert '/admin/analytics' in response.text
+    assert '/admin/data-sources' in response.text
     assert '/docs' in response.text
 
 
@@ -94,6 +95,7 @@ def test_template_editor_page() -> None:
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
     assert '/admin/analytics' in response.text
+    assert '/admin/data-sources' in response.text
 
 
 def test_admin_pages() -> None:
@@ -105,6 +107,7 @@ def test_admin_pages() -> None:
     campaigns = client.get('/admin/campaigns')
     delivery = client.get('/admin/delivery')
     analytics = client.get('/admin/analytics')
+    data_sources = client.get('/admin/data-sources')
     assert home.status_code == 200
     assert entities.status_code == 200
     assert import_page.status_code == 200
@@ -112,6 +115,7 @@ def test_admin_pages() -> None:
     assert campaigns.status_code == 200
     assert delivery.status_code == 200
     assert analytics.status_code == 200
+    assert data_sources.status_code == 200
     assert 'Email Engine Admin' in home.text
     assert 'Email Engine Entity Workbench' in entities.text
     assert 'Email Engine Audience Import' in import_page.text
@@ -122,6 +126,8 @@ def test_admin_pages() -> None:
     assert 'Process Queued' in delivery.text
     assert 'Email Engine Analytics' in analytics.text
     assert 'Campaign Analytics' in analytics.text
+    assert 'Email Engine Data Sources' in data_sources.text
+    assert 'Save Source' in data_sources.text
     assert 'Preview Audience' in campaigns.text
     assert 'Preview Template' in campaigns.text
     assert 'Matched Contacts' in campaigns.text
@@ -133,6 +139,7 @@ def test_admin_pages() -> None:
     assert '/admin/campaigns' in home.text
     assert '/admin/delivery' in home.text
     assert '/admin/analytics' in home.text
+    assert '/admin/data-sources' in home.text
     assert '/docs' in home.text
 
 
