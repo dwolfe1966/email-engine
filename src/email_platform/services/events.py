@@ -12,10 +12,14 @@ class EventService:
         self.db = db
 
     def record(self, payload: EventCreate) -> EmailEvent:
-        event = EmailEvent(**payload.model_dump())
-        self.db.add(event)
+        event = self.record_no_commit(payload)
         self.db.commit()
         self.db.refresh(event)
+        return event
+
+    def record_no_commit(self, payload: EventCreate) -> EmailEvent:
+        event = EmailEvent(**payload.model_dump())
+        self.db.add(event)
         return event
 
     def list(self, limit: int = 100, offset: int = 0) -> list[EmailEvent]:

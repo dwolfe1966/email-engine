@@ -69,7 +69,7 @@ This backlog is organized around the target platform capabilities:
 - Add durable `email_send_records` separate from provider events. **Initial foundation shipped.**
 - Add campaign fanout jobs and per-recipient send jobs. **Initial foundation shipped.**
 - Add queue backend abstraction, starting with database-backed queues and moving to SQS/RabbitMQ.
-- Add worker process for batch rendering and sending.
+- Add worker process for batch rendering and sending. **Initial on-demand processor shipped.**
 - Add retry/backoff handling for transient delivery errors.
 - Add domain throttling rules and per-provider rate controls.
 - Add suppression checks before send.

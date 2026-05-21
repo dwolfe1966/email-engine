@@ -37,6 +37,7 @@ from email_platform.schemas.contracts import (
     DataSourceRead,
     DataSourceUpdate,
     DeleteResponse,
+    DeliveryRunRead,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -55,6 +56,7 @@ from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
+from email_platform.services.delivery import DeliveryService
 from email_platform.services.events import EventService
 from email_platform.services.sending import SendingService
 from email_platform.services.templates import TemplateService
@@ -220,6 +222,19 @@ def list_email_send_records(
         'offset': offset,
         'total': service.count_send_records(campaign_id=campaign_id, send_job_id=send_job_id),
     }
+
+
+@router.post('/delivery/process-queued', response_model=DeliveryRunRead)
+def process_queued_delivery(
+    db: DbSession,
+    settings: SettingsDep,
+    limit: Limit = 25,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+) -> DeliveryRunRead:
+    return DeliveryService(db, settings).process_queued(
+        limit=limit, campaign_id=campaign_id, send_job_id=send_job_id
+    )
 
 
 @router.get('/audiences/contacts', response_model=list[ContactRead])

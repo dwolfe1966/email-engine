@@ -16,6 +16,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}',
         '/api/v1/campaigns/{campaign_id}/launch',
         '/api/v1/campaign-send-jobs/list',
+        '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
         '/api/v1/audiences/contacts',
         '/api/v1/audiences/contacts/list',

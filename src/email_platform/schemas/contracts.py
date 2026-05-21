@@ -138,6 +138,13 @@ class EmailSendRecordRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class DeliveryRunRead(BaseModel):
+    claimed_count: int
+    sent_count: int
+    failed_count: int
+    processed_record_ids: list[str]
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType
