@@ -17,21 +17,51 @@ Interactive OpenAPI docs are available at:
 Templates:
 
 - `GET /api/v1/templates?limit=100&offset=0`
+- `GET /api/v1/templates/list?limit=100&offset=0`
 - `POST /api/v1/templates`
 - `GET /api/v1/templates/{template_id}`
+- `PATCH /api/v1/templates/{template_id}`
+- `DELETE /api/v1/templates/{template_id}`
 
 Campaigns:
 
 - `GET /api/v1/campaigns?limit=100&offset=0`
+- `GET /api/v1/campaigns/list?limit=100&offset=0`
 - `POST /api/v1/campaigns`
 - `GET /api/v1/campaigns/{campaign_id}`
+- `PATCH /api/v1/campaigns/{campaign_id}`
+- `DELETE /api/v1/campaigns/{campaign_id}`
 
 Contacts:
 
 - `GET /api/v1/audiences/contacts?limit=100&offset=0`
+- `GET /api/v1/audiences/contacts/list?limit=100&offset=0`
 - `POST /api/v1/audiences/contacts`
 - `GET /api/v1/audiences/contacts/{contact_id}`
+- `PATCH /api/v1/audiences/contacts/{contact_id}`
+- `DELETE /api/v1/audiences/contacts/{contact_id}`
 - `POST /api/v1/audiences/contacts/{contact_id}/unsubscribe-token`
+
+Data sources and audiences:
+
+- `GET /api/v1/data-sources?limit=100&offset=0`
+- `GET /api/v1/data-sources/list?limit=100&offset=0`
+- `POST /api/v1/data-sources`
+- `GET /api/v1/data-sources/{data_source_id}`
+- `PATCH /api/v1/data-sources/{data_source_id}`
+- `DELETE /api/v1/data-sources/{data_source_id}`
+- `GET /api/v1/data-source-mappings?limit=100&offset=0`
+- `GET /api/v1/data-source-mappings/list?limit=100&offset=0`
+- `POST /api/v1/data-source-mappings`
+- `PATCH /api/v1/data-source-mappings/{mapping_id}`
+- `DELETE /api/v1/data-source-mappings/{mapping_id}`
+- `GET /api/v1/audiences?limit=100&offset=0`
+- `GET /api/v1/audiences/list?limit=100&offset=0`
+- `POST /api/v1/audiences`
+- `GET /api/v1/audiences/{audience_id}`
+- `PATCH /api/v1/audiences/{audience_id}`
+- `DELETE /api/v1/audiences/{audience_id}`
+- `POST /api/v1/audiences/preview`
 
 Sending and events:
 
@@ -44,7 +74,7 @@ Sending and events:
 
 ## Current Integration Notes
 
-- Pagination is offset-based with `limit` capped at 500.
+- Pagination is offset-based with `limit` capped at 500. Existing list endpoints still return arrays; `/list` variants return `{ "items": [], "limit": 100, "offset": 0, "total": 0 }`.
 - CORS is controlled by `CORS_ORIGINS`.
 - Authentication is not implemented yet. Put the deployed API behind a private network, gateway, or platform auth until API-key or session authentication is added.
 - `POST /api/v1/emails/send` sends to an existing contact using an existing template. The render context includes contact fields, contact `attributes`, flattened contact attributes, and request `variables`; request variables win on key conflicts.

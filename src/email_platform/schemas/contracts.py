@@ -1,3 +1,4 @@
+from typing import Generic, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -11,6 +12,19 @@ from email_platform.models.entities import (
 )
 
 JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
+T = TypeVar('T')
+
+
+class ListResponse(BaseModel, Generic[T]):
+    items: list[T]
+    limit: int
+    offset: int
+    total: int
+
+
+class DeleteResponse(BaseModel):
+    status: str = 'deleted'
+    id: UUID
 
 
 class ContactUpsert(BaseModel):
@@ -19,6 +33,15 @@ class ContactUpsert(BaseModel):
     last_name: str | None = None
     source: str | None = None
     attributes: JsonObject = Field(default_factory=dict)
+
+
+class ContactUpdate(BaseModel):
+    email: EmailStr | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    source: str | None = None
+    attributes: JsonObject | None = None
+    is_unsubscribed: bool | None = None
 
 
 class ContactRead(ContactUpsert):
@@ -35,6 +58,13 @@ class TemplateCreate(BaseModel):
     text_body: str | None = None
 
 
+class TemplateUpdate(BaseModel):
+    name: str | None = None
+    subject: str | None = None
+    html_body: str | None = None
+    text_body: str | None = None
+
+
 class TemplateRead(TemplateCreate):
     id: UUID
 
@@ -45,6 +75,13 @@ class CampaignCreate(BaseModel):
     name: str
     template_id: UUID
     audience_query: JsonObject = Field(default_factory=dict)
+
+
+class CampaignUpdate(BaseModel):
+    name: str | None = None
+    template_id: UUID | None = None
+    audience_query: JsonObject | None = None
+    status: CampaignStatus | None = None
 
 
 class CampaignRead(CampaignCreate):
@@ -58,6 +95,14 @@ class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType
     config: JsonObject = Field(default_factory=dict)
+    secret_ref: str | None = None
+
+
+class DataSourceUpdate(BaseModel):
+    name: str | None = None
+    source_type: DataSourceType | None = None
+    status: DataSourceStatus | None = None
+    config: JsonObject | None = None
     secret_ref: str | None = None
 
 
@@ -76,6 +121,14 @@ class DataSourceMappingCreate(BaseModel):
     extraction_plan: JsonObject = Field(default_factory=dict)
 
 
+class DataSourceMappingUpdate(BaseModel):
+    data_source_id: UUID | None = None
+    name: str | None = None
+    object_type: str | None = None
+    mapping: JsonObject | None = None
+    extraction_plan: JsonObject | None = None
+
+
 class DataSourceMappingRead(DataSourceMappingCreate):
     id: UUID
 
@@ -86,6 +139,13 @@ class AudienceCreate(BaseModel):
     name: str
     description: str | None = None
     rule_tree: JsonObject = Field(default_factory=dict)
+
+
+class AudienceUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: AudienceStatus | None = None
+    rule_tree: JsonObject | None = None
 
 
 class AudienceRead(AudienceCreate):

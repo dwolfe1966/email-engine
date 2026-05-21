@@ -2,12 +2,12 @@ import hmac
 from hashlib import sha256
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
 from email_platform.models.entities import Contact
-from email_platform.schemas.contracts import ContactUpsert
+from email_platform.schemas.contracts import ContactUpdate, ContactUpsert
 
 
 class ContactService:
@@ -31,8 +31,29 @@ class ContactService:
         statement = select(Contact).order_by(Contact.created_at.desc()).limit(limit).offset(offset)
         return list(self.db.scalars(statement).all())
 
+    def count(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Contact)) or 0
+
     def get(self, contact_id: UUID) -> Contact | None:
         return self.db.get(Contact, contact_id)
+
+    def update(self, contact_id: UUID, payload: ContactUpdate) -> Contact | None:
+        contact = self.get(contact_id)
+        if not contact:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(contact, key, value)
+        self.db.commit()
+        self.db.refresh(contact)
+        return contact
+
+    def delete(self, contact_id: UUID) -> bool:
+        contact = self.get(contact_id)
+        if not contact:
+            return False
+        self.db.delete(contact)
+        self.db.commit()
+        return True
 
     def unsubscribe(self, contact_id: UUID) -> Contact | None:
         contact = self.get(contact_id)

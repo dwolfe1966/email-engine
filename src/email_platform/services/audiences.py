@@ -1,11 +1,11 @@
 from collections.abc import Mapping
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import Audience, Contact
-from email_platform.schemas.contracts import AudienceCreate
+from email_platform.schemas.contracts import AudienceCreate, AudienceUpdate
 
 
 class AudienceService:
@@ -26,8 +26,32 @@ class AudienceService:
         )
         return list(self.db.scalars(statement).all())
 
+    def count(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Audience)) or 0
+
     def get(self, audience_id: UUID) -> Audience | None:
         return self.db.get(Audience, audience_id)
+
+    def update(self, audience_id: UUID, payload: AudienceUpdate) -> Audience | None:
+        audience = self.get(audience_id)
+        if not audience:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(audience, key, value)
+        if payload.rule_tree is not None:
+            count, _ = self.preview(payload.rule_tree, limit=1)
+            audience.estimated_count = count
+        self.db.commit()
+        self.db.refresh(audience)
+        return audience
+
+    def delete(self, audience_id: UUID) -> bool:
+        audience = self.get(audience_id)
+        if not audience:
+            return False
+        self.db.delete(audience)
+        self.db.commit()
+        return True
 
     def preview(
         self, rule_tree: Mapping[str, object], limit: int = 25

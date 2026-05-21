@@ -20,21 +20,29 @@ from email_platform.schemas.contracts import (
     AudiencePreviewRead,
     AudiencePreviewRequest,
     AudienceRead,
+    AudienceUpdate,
     CampaignCreate,
     CampaignRead,
+    CampaignUpdate,
     ContactRead,
+    ContactUpdate,
     ContactUpsert,
     DataSourceCreate,
     DataSourceMappingCreate,
     DataSourceMappingRead,
+    DataSourceMappingUpdate,
     DataSourceRead,
+    DataSourceUpdate,
+    DeleteResponse,
     EmailSendRequest,
     EmailSendResponse,
     EventCreate,
     EventRead,
+    ListResponse,
     SendResponse,
     TemplateCreate,
     TemplateRead,
+    TemplateUpdate,
     TestEmailSendRequest,
     UnsubscribeRead,
     UnsubscribeTokenRead,
@@ -63,6 +71,21 @@ def list_templates(
     return TemplateService(db).list(limit=limit, offset=offset)
 
 
+@router.get('/templates/list', response_model=ListResponse[TemplateRead])
+def list_templates_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = TemplateService(db)
+    return {
+        'items': service.list(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
+
+
 @router.post('/templates', response_model=TemplateRead)
 def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
     return TemplateService(db).create(payload)
@@ -76,6 +99,23 @@ def get_template(template_id: UUID, db: DbSession) -> EmailTemplate:
     return template
 
 
+@router.patch('/templates/{template_id}', response_model=TemplateRead)
+def update_template(
+    template_id: UUID, payload: TemplateUpdate, db: DbSession
+) -> EmailTemplate:
+    template = TemplateService(db).update(template_id, payload)
+    if not template:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return template
+
+
+@router.delete('/templates/{template_id}', response_model=DeleteResponse)
+def delete_template(template_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not TemplateService(db).delete(template_id):
+        raise HTTPException(status_code=404, detail='Template not found')
+    return {'id': template_id}
+
+
 @router.get('/campaigns', response_model=list[CampaignRead])
 def list_campaigns(
     db: DbSession,
@@ -83,6 +123,21 @@ def list_campaigns(
     offset: Offset = 0,
 ) -> list[Campaign]:
     return CampaignService(db).list(limit=limit, offset=offset)
+
+
+@router.get('/campaigns/list', response_model=ListResponse[CampaignRead])
+def list_campaigns_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = CampaignService(db)
+    return {
+        'items': service.list(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
 
 
 @router.post('/campaigns', response_model=CampaignRead)
@@ -98,6 +153,23 @@ def get_campaign(campaign_id: UUID, db: DbSession) -> Campaign:
     return campaign
 
 
+@router.patch('/campaigns/{campaign_id}', response_model=CampaignRead)
+def update_campaign(
+    campaign_id: UUID, payload: CampaignUpdate, db: DbSession
+) -> Campaign:
+    campaign = CampaignService(db).update(campaign_id, payload)
+    if not campaign:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return campaign
+
+
+@router.delete('/campaigns/{campaign_id}', response_model=DeleteResponse)
+def delete_campaign(campaign_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not CampaignService(db).delete(campaign_id):
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return {'id': campaign_id}
+
+
 @router.get('/audiences/contacts', response_model=list[ContactRead])
 def list_contacts(
     db: DbSession,
@@ -105,6 +177,21 @@ def list_contacts(
     offset: Offset = 0,
 ) -> list[Contact]:
     return ContactService(db).list(limit=limit, offset=offset)
+
+
+@router.get('/audiences/contacts/list', response_model=ListResponse[ContactRead])
+def list_contacts_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = ContactService(db)
+    return {
+        'items': service.list(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
 
 
 @router.post('/audiences/contacts', response_model=ContactRead)
@@ -120,6 +207,21 @@ def get_contact(contact_id: UUID, db: DbSession) -> Contact:
     return contact
 
 
+@router.patch('/audiences/contacts/{contact_id}', response_model=ContactRead)
+def update_contact(contact_id: UUID, payload: ContactUpdate, db: DbSession) -> Contact:
+    contact = ContactService(db).update(contact_id, payload)
+    if not contact:
+        raise HTTPException(status_code=404, detail='Contact not found')
+    return contact
+
+
+@router.delete('/audiences/contacts/{contact_id}', response_model=DeleteResponse)
+def delete_contact(contact_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not ContactService(db).delete(contact_id):
+        raise HTTPException(status_code=404, detail='Contact not found')
+    return {'id': contact_id}
+
+
 @router.get('/data-sources', response_model=list[DataSourceRead])
 def list_data_sources(
     db: DbSession,
@@ -127,6 +229,21 @@ def list_data_sources(
     offset: Offset = 0,
 ) -> list[DataSource]:
     return DataSourceService(db).list_items(limit=limit, offset=offset)
+
+
+@router.get('/data-sources/list', response_model=ListResponse[DataSourceRead])
+def list_data_sources_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = DataSourceService(db)
+    return {
+        'items': service.list_items(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
 
 
 @router.post('/data-sources', response_model=DataSourceRead)
@@ -142,6 +259,23 @@ def get_data_source(data_source_id: UUID, db: DbSession) -> DataSource:
     return data_source
 
 
+@router.patch('/data-sources/{data_source_id}', response_model=DataSourceRead)
+def update_data_source(
+    data_source_id: UUID, payload: DataSourceUpdate, db: DbSession
+) -> DataSource:
+    data_source = DataSourceService(db).update(data_source_id, payload)
+    if not data_source:
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return data_source
+
+
+@router.delete('/data-sources/{data_source_id}', response_model=DeleteResponse)
+def delete_data_source(data_source_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not DataSourceService(db).delete(data_source_id):
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return {'id': data_source_id}
+
+
 @router.get('/data-source-mappings', response_model=list[DataSourceMappingRead])
 def list_data_source_mappings(
     db: DbSession,
@@ -154,6 +288,24 @@ def list_data_source_mappings(
     )
 
 
+@router.get('/data-source-mappings/list', response_model=ListResponse[DataSourceMappingRead])
+def list_data_source_mappings_enveloped(
+    db: DbSession,
+    data_source_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = DataSourceService(db)
+    return {
+        'items': service.list_mappings(
+            data_source_id=data_source_id, limit=limit, offset=offset
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_mappings(data_source_id=data_source_id),
+    }
+
+
 @router.post('/data-source-mappings', response_model=DataSourceMappingRead)
 def create_data_source_mapping(
     payload: DataSourceMappingCreate, db: DbSession
@@ -164,6 +316,26 @@ def create_data_source_mapping(
     return data_source_service.create_mapping(payload)
 
 
+@router.patch('/data-source-mappings/{mapping_id}', response_model=DataSourceMappingRead)
+def update_data_source_mapping(
+    mapping_id: UUID, payload: DataSourceMappingUpdate, db: DbSession
+) -> DataSourceMapping:
+    data_source_service = DataSourceService(db)
+    if payload.data_source_id and not data_source_service.get(payload.data_source_id):
+        raise HTTPException(status_code=404, detail='Data source not found')
+    mapping = data_source_service.update_mapping(mapping_id, payload)
+    if not mapping:
+        raise HTTPException(status_code=404, detail='Data source mapping not found')
+    return mapping
+
+
+@router.delete('/data-source-mappings/{mapping_id}', response_model=DeleteResponse)
+def delete_data_source_mapping(mapping_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not DataSourceService(db).delete_mapping(mapping_id):
+        raise HTTPException(status_code=404, detail='Data source mapping not found')
+    return {'id': mapping_id}
+
+
 @router.get('/audiences', response_model=list[AudienceRead])
 def list_audiences(
     db: DbSession,
@@ -171,6 +343,21 @@ def list_audiences(
     offset: Offset = 0,
 ) -> list[Audience]:
     return AudienceService(db).list_items(limit=limit, offset=offset)
+
+
+@router.get('/audiences/list', response_model=ListResponse[AudienceRead])
+def list_audiences_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = AudienceService(db)
+    return {
+        'items': service.list_items(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
 
 
 @router.post('/audiences', response_model=AudienceRead)
@@ -184,6 +371,21 @@ def get_audience(audience_id: UUID, db: DbSession) -> Audience:
     if not audience:
         raise HTTPException(status_code=404, detail='Audience not found')
     return audience
+
+
+@router.patch('/audiences/{audience_id}', response_model=AudienceRead)
+def update_audience(audience_id: UUID, payload: AudienceUpdate, db: DbSession) -> Audience:
+    audience = AudienceService(db).update(audience_id, payload)
+    if not audience:
+        raise HTTPException(status_code=404, detail='Audience not found')
+    return audience
+
+
+@router.delete('/audiences/{audience_id}', response_model=DeleteResponse)
+def delete_audience(audience_id: UUID, db: DbSession) -> dict[str, UUID]:
+    if not AudienceService(db).delete(audience_id):
+        raise HTTPException(status_code=404, detail='Audience not found')
+    return {'id': audience_id}
 
 
 @router.post('/audiences/preview', response_model=AudiencePreviewRead)

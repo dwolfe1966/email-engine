@@ -2,11 +2,11 @@ from collections.abc import Mapping
 from uuid import UUID
 
 from jinja2 import Template
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import EmailTemplate
-from email_platform.schemas.contracts import TemplateCreate
+from email_platform.schemas.contracts import TemplateCreate, TemplateUpdate
 
 
 class TemplateService:
@@ -29,8 +29,29 @@ class TemplateService:
         )
         return list(self.db.scalars(statement).all())
 
+    def count(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(EmailTemplate)) or 0
+
     def get(self, template_id: UUID) -> EmailTemplate | None:
         return self.db.get(EmailTemplate, template_id)
+
+    def update(self, template_id: UUID, payload: TemplateUpdate) -> EmailTemplate | None:
+        template = self.get(template_id)
+        if not template:
+            return None
+        for key, value in payload.model_dump(exclude_unset=True).items():
+            setattr(template, key, value)
+        self.db.commit()
+        self.db.refresh(template)
+        return template
+
+    def delete(self, template_id: UUID) -> bool:
+        template = self.get(template_id)
+        if not template:
+            return False
+        self.db.delete(template)
+        self.db.commit()
+        return True
 
     def render(
         self, template: EmailTemplate, variables: Mapping[str, object]
