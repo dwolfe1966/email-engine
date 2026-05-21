@@ -22,3 +22,10 @@ def test_openapi_exposes_gui_integration_paths() -> None:
     }
 
     assert expected_paths.issubset(paths.keys())
+
+
+def test_api_tester_page() -> None:
+    client = TestClient(app)
+    response = client.get('/tester')
+    assert response.status_code == 200
+    assert 'Email Engine API Tester' in response.text

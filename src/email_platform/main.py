@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from email_platform.api.routes import router
+from email_platform.api.test_console import router as test_console_router
 from email_platform.core.settings import get_settings
 from email_platform.db.session import SessionLocal
 
@@ -30,3 +31,4 @@ def ready() -> dict[str, str]:
 
 
 app.include_router(router)
+app.include_router(test_console_router)
