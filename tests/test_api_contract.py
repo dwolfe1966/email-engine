@@ -45,6 +45,18 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/events',
         '/api/v1/events/{event_id}',
         '/api/v1/unsubscribe/{token}',
+        '/api/templates',
+        '/api/templates/{template_id}',
+        '/api/templates/{template_id}/versions',
+        '/api/render',
+        '/api/render-document',
+        '/api/contacts',
+        '/api/contacts/_meta',
+        '/api/segments',
+        '/api/segments/preview',
+        '/api/sends',
+        '/api/sends/{send_id}/launch',
+        '/api/reports/overview',
     }
 
     assert expected_paths.issubset(paths.keys())
