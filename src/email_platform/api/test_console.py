@@ -172,8 +172,8 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
             <button class="secondary" data-action="createCampaign">Create Campaign</button>
             <button class="secondary" data-action="recordEvent">Record Event</button>
             <button class="secondary" data-action="unsubscribeToken">Unsubscribe Token</button>
-            <button class="secondary" data-action="sendContact">Send Contact</button>
-            <button class="secondary" data-action="sendTest">Send Test</button>
+            <button class="secondary" data-action="sendEmail">Send Email</button>
+            <button class="secondary" data-action="sendTestEmail">Send Test Email</button>
           </div>
         </div>
       </section>
@@ -332,9 +332,9 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
         );
         setState("unsubscribeToken", token.token);
       },
-      async sendTest() {
+      async sendTestEmail() {
         if (!state.templateId) await actions.createTemplate();
-        await request("send test", "/api/v1/send/test", {
+        await request("send test email", "/api/v1/tests/send-email", {
           method: "POST",
           body: JSON.stringify({
             template_id: state.templateId,
@@ -343,10 +343,10 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
           }),
         });
       },
-      async sendContact() {
+      async sendEmail() {
         if (!state.templateId) await actions.createTemplate();
         if (!state.contactId) await actions.upsertContact();
-        await request("send contact", "/api/v1/send/contact", {
+        await request("send email", "/api/v1/emails/send", {
           method: "POST",
           body: JSON.stringify({
             template_id: state.templateId,
@@ -377,8 +377,8 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
         await actions.createCampaign();
         await actions.recordEvent();
         await actions.unsubscribeToken();
-        await actions.sendContact();
-        await actions.sendTest();
+        await actions.sendEmail();
+        await actions.sendTestEmail();
         await actions.listAll();
       },
     };

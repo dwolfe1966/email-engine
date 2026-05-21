@@ -48,13 +48,13 @@ class CampaignRead(CampaignCreate):
     model_config = {'from_attributes': True}
 
 
-class TestSendRequest(BaseModel):
+class TestEmailSendRequest(BaseModel):
     template_id: UUID
     to_email: EmailStr
     variables: JsonObject = Field(default_factory=dict)
 
 
-class ContactSendRequest(BaseModel):
+class EmailSendRequest(BaseModel):
     contact_id: UUID
     template_id: UUID
     variables: JsonObject = Field(default_factory=dict)
@@ -67,7 +67,7 @@ class SendResponse(BaseModel):
     status_code: int
 
 
-class ContactSendResponse(SendResponse):
+class EmailSendResponse(SendResponse):
     contact_id: UUID
     template_id: UUID
     campaign_id: UUID | None = None

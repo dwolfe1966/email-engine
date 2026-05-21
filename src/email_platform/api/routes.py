@@ -11,15 +11,15 @@ from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignRead,
     ContactRead,
-    ContactSendRequest,
-    ContactSendResponse,
     ContactUpsert,
+    EmailSendRequest,
+    EmailSendResponse,
     EventCreate,
     EventRead,
     SendResponse,
     TemplateCreate,
     TemplateRead,
-    TestSendRequest,
+    TestEmailSendRequest,
     UnsubscribeRead,
     UnsubscribeTokenRead,
 )
@@ -121,9 +121,9 @@ def create_unsubscribe_token(
     }
 
 
-@router.post('/send/test', response_model=SendResponse)
-def send_test(
-    payload: TestSendRequest,
+@router.post('/tests/send-email', response_model=SendResponse)
+def send_test_email(
+    payload: TestEmailSendRequest,
     db: DbSession,
     settings: SettingsDep,
 ) -> dict[str, str | int | None]:
@@ -137,14 +137,23 @@ def send_test(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post('/send/contact', response_model=ContactSendResponse)
-def send_to_contact(
-    payload: ContactSendRequest,
+@router.post('/send/test', response_model=SendResponse, include_in_schema=False)
+def send_test_email_legacy(
+    payload: TestEmailSendRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, str | int | None]:
+    return send_test_email(payload, db, settings)
+
+
+@router.post('/emails/send', response_model=EmailSendResponse)
+def send_email(
+    payload: EmailSendRequest,
     db: DbSession,
     settings: SettingsDep,
 ) -> dict[str, str | int | UUID | None]:
     try:
-        return SendingService(db, settings).send_to_contact(
+        return SendingService(db, settings).send_email_to_contact(
             payload.contact_id,
             payload.template_id,
             payload.variables,
@@ -154,6 +163,15 @@ def send_to_contact(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post('/send/contact', response_model=EmailSendResponse, include_in_schema=False)
+def send_email_legacy(
+    payload: EmailSendRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, str | int | UUID | None]:
+    return send_email(payload, db, settings)
 
 
 @router.get('/events', response_model=list[EventRead])

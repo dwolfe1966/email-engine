@@ -46,8 +46,8 @@ The smoke test verified:
 - `POST /api/v1/templates`
 - `POST /api/v1/audiences/contacts`
 - `POST /api/v1/audiences/contacts/{contact_id}/unsubscribe-token`
-- `POST /api/v1/send/contact`
-- `POST /api/v1/send/test`
+- `POST /api/v1/emails/send`
+- `POST /api/v1/tests/send-email`
 
 ## Next Deployment Tasks
 

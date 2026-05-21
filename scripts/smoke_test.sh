@@ -46,7 +46,7 @@ echo "Generating unsubscribe token..."
 curl -fsS -X POST "$BASE_URL/api/v1/audiences/contacts/$contact_id/unsubscribe-token" >/dev/null
 
 echo "Sending contact email..."
-curl -fsS "$BASE_URL/api/v1/send/contact" \
+curl -fsS "$BASE_URL/api/v1/emails/send" \
   -H "Content-Type: application/json" \
   -d "{
     \"template_id\": \"$template_id\",
@@ -54,8 +54,8 @@ curl -fsS "$BASE_URL/api/v1/send/contact" \
     \"variables\": {\"first_name\": \"Smoke\"}
   }" >/dev/null
 
-echo "Sending console test email..."
-curl -fsS "$BASE_URL/api/v1/send/test" \
+echo "Sending test email..."
+curl -fsS "$BASE_URL/api/v1/tests/send-email" \
   -H "Content-Type: application/json" \
   -d "{
     \"template_id\": \"$template_id\",

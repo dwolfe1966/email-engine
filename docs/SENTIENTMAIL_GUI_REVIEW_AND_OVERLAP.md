@@ -146,7 +146,7 @@ This creates avoidable setup failures. Pick one default port or document `API_TA
 | `POST /api/segments/preview` | Audience preview | None | Missing |
 | `GET /api/contacts` | Paginated `{ total, limit, offset, items }` with filters | `GET /api/v1/audiences/contacts` returns `ContactRead[]` | Path, filters, envelope mismatch |
 | `GET /api/sends` | `{ items: SendDetail[] }` | `GET /api/v1/campaigns` partially maps | Semantics mismatch |
-| `POST /api/sends/{id}/launch` | Resolve recipients, simulate/send, return metrics | None; only `POST /api/v1/send/test` | Missing production send lifecycle |
+| `POST /api/sends/{id}/launch` | Resolve recipients, simulate/send, return metrics | None; only single-email send/test endpoints | Missing production send lifecycle |
 | `GET /api/events` | Not directly used by GUI; reports query events | `GET /api/v1/events` | Backend overlap |
 | `GET /api/reports/overview` | Dashboard rollups | None | Missing |
 | `GET /api/approvals` | Approval queue | None | Missing |

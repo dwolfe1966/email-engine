@@ -81,8 +81,8 @@ tests/              unit/API tests
 - `POST /api/v1/audiences/contacts`
 - `GET /api/v1/audiences/contacts/{contact_id}`
 - `POST /api/v1/audiences/contacts/{contact_id}/unsubscribe-token`
-- `POST /api/v1/send/contact`
-- `POST /api/v1/send/test`
+- `POST /api/v1/emails/send`
+- `POST /api/v1/tests/send-email`
 - `GET /api/v1/events`
 - `POST /api/v1/events`
 - `GET /api/v1/events/{event_id}`

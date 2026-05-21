@@ -43,7 +43,7 @@ class SendingService:
             'status_code': result.status_code,
         }
 
-    def send_to_contact(
+    def send_email_to_contact(
         self,
         contact_id: UUID,
         template_id: UUID,
@@ -89,7 +89,7 @@ class SendingService:
                     'provider': result.provider,
                     'status_code': result.status_code,
                     'template_id': str(template.id),
-                    'source': 'send_to_contact',
+                    'source': 'send_email_to_contact',
                 },
             )
         )

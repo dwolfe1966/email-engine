@@ -100,9 +100,10 @@ Recommended next work:
 Original plan requires generating SMTP envelopes per recipient after merging dynamic user-specific
 data into templates.
 
-Current implementation only renders one template for one test recipient through
-`POST /api/v1/send/test`. It does not create durable envelopes, add campaign headers, add tracking
-URLs/pixels, or place messages on a sender queue.
+Current implementation can render and send a single recipient email through
+`POST /api/v1/emails/send` and a test email through `POST /api/v1/tests/send-email`. It does not
+create durable envelopes, add campaign headers, add tracking URLs/pixels, or place messages on a
+sender queue.
 
 Gap severity: **High**.
 
