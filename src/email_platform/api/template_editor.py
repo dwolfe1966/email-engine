@@ -99,6 +99,29 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     button.secondary { background: white; color: var(--blue); }
     button:disabled { opacity: .55; cursor: not-allowed; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f9fafb;
+    }
+    .toolbar button, .toolbar select {
+      min-height: 32px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+    .toolbar button {
+      min-width: 34px;
+      background: white;
+      color: var(--blue);
+    }
+    .toolbar select {
+      width: auto;
+    }
     .template-list { display: grid; gap: 6px; max-height: calc(100vh - 160px); overflow: auto; }
     .template-item {
       border: 1px solid var(--line);
@@ -130,6 +153,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       border-radius: 6px;
       background: white;
     }
+    #visualEditor { min-height: 360px; }
     .error { color: var(--red); }
     @media (max-width: 1100px) {
       main { grid-template-columns: 1fr; }
@@ -170,6 +194,27 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
         </label>
         <label>Subject
           <input id="subject" value="Hello {{ first_name }}" />
+        </label>
+        <label>Visual Designer
+          <div class="toolbar">
+            <select id="formatBlock">
+              <option value="p">Paragraph</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+              <option value="blockquote">Quote</option>
+            </select>
+            <button class="secondary" type="button" data-command="bold">B</button>
+            <button class="secondary" type="button" data-command="italic">I</button>
+            <button class="secondary" type="button" data-command="underline">U</button>
+            <button class="secondary" type="button" data-command="insertUnorderedList">List</button>
+            <button class="secondary" type="button" data-command="insertOrderedList">1-2</button>
+            <button class="secondary" type="button" id="insertLink">Link</button>
+            <button class="secondary" type="button" id="insertVariable">Variable</button>
+            <button class="secondary" type="button" id="syncFromSource">Source -> Visual</button>
+            <button class="secondary" type="button" id="syncToSource">Visual -> Source</button>
+          </div>
+          <iframe id="visualEditor"></iframe>
         </label>
         <label>HTML
           <textarea id="htmlBody"><p>Hello {{ first_name }},</p>
@@ -225,7 +270,7 @@ li {
   </main>
 
   <script>
-    const state = { templateId: "" };
+    const state = { templateId: "", visualReady: false };
 
     function value(id) { return document.getElementById(id).value; }
 
@@ -237,7 +282,38 @@ li {
       return JSON.parse(value("variablesJson") || "{}");
     }
 
+    function visualDocument() {
+      return document.getElementById("visualEditor").contentDocument;
+    }
+
+    function htmlDocument(html, css) {
+      return `<!doctype html><html><head><style>
+        body { padding: 14px; min-height: 320px; outline: none; }
+        ${css || ""}
+      </style></head><body contenteditable="true">${html || ""}</body></html>`;
+    }
+
+    function loadVisualFromSource() {
+      const frame = document.getElementById("visualEditor");
+      frame.srcdoc = htmlDocument(value("htmlBody"), value("cssBody"));
+    }
+
+    function syncSourceFromVisual() {
+      const doc = visualDocument();
+      if (!doc || !doc.body) return;
+      document.getElementById("htmlBody").value = doc.body.innerHTML.trim();
+    }
+
+    function runCommand(command, value = null) {
+      const doc = visualDocument();
+      if (!doc) return;
+      doc.body.focus();
+      doc.execCommand(command, false, value);
+      syncSourceFromVisual();
+    }
+
     function payload() {
+      syncSourceFromVisual();
       return {
         name: value("templateName"),
         subject: value("subject"),
@@ -285,6 +361,7 @@ li {
       document.getElementById("htmlBody").value = template.html_body;
       document.getElementById("cssBody").value = template.css_body || "";
       document.getElementById("textBody").value = template.text_body || "";
+      loadVisualFromSource();
       log({ selected: template.id });
     }
 
@@ -319,9 +396,36 @@ li {
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
+    document.getElementById("htmlBody").addEventListener("blur", loadVisualFromSource);
+    document.getElementById("cssBody").addEventListener("blur", loadVisualFromSource);
+    document.getElementById("syncFromSource").addEventListener("click", loadVisualFromSource);
+    document.getElementById("syncToSource").addEventListener("click", syncSourceFromVisual);
+    document.getElementById("formatBlock").addEventListener("change", (event) => {
+      runCommand("formatBlock", event.target.value);
+    });
+    document.querySelectorAll("[data-command]").forEach((button) => {
+      button.addEventListener("click", () => runCommand(button.dataset.command));
+    });
+    document.getElementById("insertLink").addEventListener("click", () => {
+      const url = prompt("URL");
+      if (url) runCommand("createLink", url);
+    });
+    document.getElementById("insertVariable").addEventListener("click", () => {
+      const variable = prompt("Variable name", "first_name");
+      if (variable) runCommand("insertText", `{{ ${variable} }}`);
+    });
+    document.getElementById("visualEditor").addEventListener("load", () => {
+      const doc = visualDocument();
+      if (!doc) return;
+      doc.designMode = "on";
+      doc.body.addEventListener("input", syncSourceFromVisual);
+      doc.body.addEventListener("blur", syncSourceFromVisual);
+      state.visualReady = true;
+    });
     document.getElementById("newTemplate").addEventListener("click", () => {
       state.templateId = "";
       document.getElementById("templateName").value = `template-${Date.now()}`;
+      loadVisualFromSource();
       log({ mode: "new" });
     });
     document.getElementById("openTester").addEventListener("click", () => {
@@ -335,6 +439,7 @@ li {
     });
 
     document.getElementById("templateName").value = `template-${Date.now()}`;
+    loadVisualFromSource();
     loadTemplates().catch((error) => log({ error: error.message }));
   </script>
 </body>
