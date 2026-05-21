@@ -33,6 +33,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/audiences/contacts/{contact_id}/unsubscribe-token',
         '/api/v1/audiences',
         '/api/v1/audiences/list',
+        '/api/v1/audiences/import-csv',
         '/api/v1/audiences/{audience_id}',
         '/api/v1/audiences/preview',
         '/api/v1/data-sources',
@@ -85,13 +86,17 @@ def test_admin_pages() -> None:
     client = TestClient(app)
     home = client.get('/admin')
     entities = client.get('/admin/entities')
+    import_page = client.get('/admin/audience-import')
     assert home.status_code == 200
     assert entities.status_code == 200
+    assert import_page.status_code == 200
     assert 'Email Engine Admin' in home.text
     assert 'Email Engine Entity Workbench' in entities.text
+    assert 'Email Engine Audience Import' in import_page.text
     assert '/tester' in home.text
     assert '/template-editor' in home.text
     assert '/admin/entities' in home.text
+    assert '/admin/audience-import' in home.text
     assert '/docs' in home.text
 
 

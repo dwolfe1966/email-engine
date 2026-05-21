@@ -14,6 +14,11 @@ def admin_entities() -> str:
     return ADMIN_ENTITIES_HTML
 
 
+@router.get('/admin/audience-import', response_class=HTMLResponse, include_in_schema=False)
+def admin_audience_import() -> str:
+    return ADMIN_AUDIENCE_IMPORT_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -99,6 +104,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <strong>Template Editor</strong>
       <span>Edit subject, HTML, CSS, text, variables, validation, and preview.</span>
     </a>
+    <a href="/admin/audience-import">
+      <strong>Audience Import</strong>
+      <span>Upload a CSV file, upsert contacts, and create an audience.</span>
+    </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
       <span>Run manual send, campaign, delivery, suppression, and tracking workflows.</span>
@@ -108,6 +117,259 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <span>Inspect the generated OpenAPI schema and execute raw endpoints.</span>
     </a>
   </main>
+</body>
+</html>"""
+
+
+ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Audience Import</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --green: #067647;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(340px, 440px) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+      max-width: 1180px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { padding: 12px; display: grid; gap: 12px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .status {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      color: var(--muted);
+      background: #fbfcfe;
+      line-height: 1.45;
+    }
+    .status.ok { border-color: #8ed6b0; color: var(--green); background: #f0fdf4; }
+    .status.error { border-color: #f2a6a0; color: var(--red); background: #fff4f2; }
+    pre {
+      margin: 0;
+      min-height: 360px;
+      max-height: calc(100vh - 210px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    .sample {
+      margin: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfe;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      overflow: auto;
+    }
+    @media (max-width: 900px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Audience Import</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>CSV Import</h2></div>
+      <div class="body">
+        <label>Audience name
+          <input id="audienceName" />
+        </label>
+        <label>Description
+          <textarea id="description"></textarea>
+        </label>
+        <label>Source
+          <input id="source" value="csv_import" />
+        </label>
+        <label>CSV file
+          <input id="file" type="file" accept=".csv,text/csv" />
+        </label>
+        <div class="actions">
+          <button id="import">Import CSV</button>
+          <button class="secondary" id="loadAudiences">Load Audiences</button>
+          <button class="secondary" id="loadContacts">Load Contacts</button>
+        </div>
+        <div class="status" id="status">
+          Required column: email. Optional: first_name, last_name, source.
+          Other columns become contact attributes.
+        </div>
+        <pre class="sample">email,first_name,last_name,plan,company
+alex@example.com,Alex,Taylor,trial,Example Co
+sam@example.com,Sam,Rivera,active,Acme Inc</pre>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const audienceName = document.getElementById("audienceName");
+    audienceName.value = `csv-audience-${Date.now()}`;
+
+    function setStatus(message, type = "") {
+      status.className = `status ${type}`.trim();
+      status.textContent = message;
+    }
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function importCsv() {
+      const file = document.getElementById("file").files[0];
+      if (!file) {
+        setStatus("Choose a CSV file first.", "error");
+        return;
+      }
+      const form = new FormData();
+      form.append("audience_name", audienceName.value.trim());
+      form.append("description", document.getElementById("description").value.trim());
+      form.append("source", document.getElementById("source").value.trim() || "csv_import");
+      form.append("file", file);
+      setStatus("Importing CSV...");
+      const response = await fetch("/api/v1/audiences/import-csv", {
+        method: "POST",
+        body: form
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) {
+        setStatus(data.detail || "Import failed.", "error");
+        return;
+      }
+      setStatus(
+        `Imported ${data.imported_count} contacts into audience ${data.audience_id}.`,
+        "ok"
+      );
+    }
+
+    async function loadJson(path) {
+      const response = await fetch(path);
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      setStatus(
+        response.ok ? `Loaded ${path}.` : `Failed to load ${path}.`,
+        response.ok ? "" : "error"
+      );
+    }
+
+    document.getElementById("import").addEventListener("click", () => {
+      importCsv().catch((error) => {
+        writeResult(error.message, false);
+        setStatus(error.message, "error");
+      });
+    });
+    document.getElementById("loadAudiences").addEventListener("click", () => {
+      loadJson("/api/v1/audiences/list?limit=100&offset=0");
+    });
+    document.getElementById("loadContacts").addEventListener("click", () => {
+      loadJson("/api/v1/audiences/contacts/list?limit=100&offset=0");
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+  </script>
 </body>
 </html>"""
 

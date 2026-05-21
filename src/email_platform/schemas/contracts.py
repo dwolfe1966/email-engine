@@ -350,6 +350,16 @@ class AudiencePreviewRead(BaseModel):
     sample_contacts: list[ContactRead]
 
 
+class AudienceImportRead(BaseModel):
+    audience_id: UUID
+    import_id: UUID
+    imported_count: int
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    errors: list[str] = Field(default_factory=list)
+
+
 class TestEmailSendRequest(BaseModel):
     template_id: UUID
     to_email: EmailStr

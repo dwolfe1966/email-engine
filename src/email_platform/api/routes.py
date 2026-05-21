@@ -3,7 +3,7 @@ from typing import Annotated
 from urllib.parse import quote, urlparse
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,7 @@ from email_platform.models.entities import (
 )
 from email_platform.schemas.contracts import (
     AudienceCreate,
+    AudienceImportRead,
     AudiencePreviewRead,
     AudiencePreviewRequest,
     AudienceRead,
@@ -71,6 +72,7 @@ from email_platform.schemas.contracts import (
     UnsubscribeTokenRead,
 )
 from email_platform.services.analytics import AnalyticsService
+from email_platform.services.audience_imports import AudienceImportService
 from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
@@ -659,6 +661,36 @@ def list_audiences_enveloped(
 @router.post('/audiences', response_model=AudienceRead)
 def create_audience(payload: AudienceCreate, db: DbSession) -> Audience:
     return AudienceService(db).create(payload)
+
+
+@router.post('/audiences/import-csv', response_model=AudienceImportRead)
+async def import_audience_csv(
+    db: DbSession,
+    file: Annotated[UploadFile, File()],
+    audience_name: Annotated[str, Form()],
+    description: Annotated[str | None, Form()] = None,
+    source: Annotated[str, Form()] = 'csv_import',
+) -> AudienceImportRead:
+    if not (file.filename or '').lower().endswith('.csv'):
+        raise HTTPException(status_code=400, detail='Upload must be a CSV file')
+    try:
+        result = AudienceImportService(db).import_csv(
+            await file.read(),
+            audience_name=audience_name,
+            description=description,
+            source=source,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AudienceImportRead(
+        audience_id=result.audience.id,
+        import_id=result.import_id,
+        imported_count=result.imported_count,
+        created_count=result.created_count,
+        updated_count=result.updated_count,
+        skipped_count=result.skipped_count,
+        errors=result.errors,
+    )
 
 
 @router.get('/audiences/{audience_id}', response_model=AudienceRead)
