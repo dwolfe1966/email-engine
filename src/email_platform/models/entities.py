@@ -62,6 +62,22 @@ class AudienceStatus(StrEnum):
     archived = 'archived'
 
 
+class SendJobStatus(StrEnum):
+    queued = 'queued'
+    processing = 'processing'
+    completed = 'completed'
+    failed = 'failed'
+
+
+class EmailSendStatus(StrEnum):
+    queued = 'queued'
+    sending = 'sending'
+    sent = 'sent'
+    failed = 'failed'
+    suppressed = 'suppressed'
+    skipped = 'skipped'
+
+
 class Contact(Base):
     __tablename__ = 'contacts'
     __table_args__ = (UniqueConstraint('email', name='uq_contacts_email'),)
@@ -155,6 +171,56 @@ class Campaign(Base):
     audience_query: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    template: Mapped[EmailTemplate] = relationship()
+
+
+class CampaignSendJob(Base):
+    __tablename__ = 'campaign_send_jobs'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    campaign_id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey('campaigns.id'))
+    status: Mapped[SendJobStatus] = mapped_column(Enum(SendJobStatus), default=SendJobStatus.queued)
+    audience_rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    requested_count: Mapped[int] = mapped_column(Integer, default=0)
+    queued_count: Mapped[int] = mapped_column(Integer, default=0)
+    suppressed_count: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    campaign: Mapped[Campaign] = relationship()
+
+
+class EmailSendRecord(Base):
+    __tablename__ = 'email_send_records'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    campaign_id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey('campaigns.id'))
+    send_job_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaign_send_jobs.id')
+    )
+    contact_id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey('contacts.id'))
+    template_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('email_templates.id')
+    )
+    status: Mapped[EmailSendStatus] = mapped_column(
+        Enum(EmailSendStatus), default=EmailSendStatus.queued, index=True
+    )
+    to_email: Mapped[str] = mapped_column(String(320), index=True)
+    variables: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    provider: Mapped[str | None] = mapped_column(String(100))
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    campaign: Mapped[Campaign] = relationship()
+    contact: Mapped[Contact] = relationship()
+    send_job: Mapped[CampaignSendJob] = relationship()
     template: Mapped[EmailTemplate] = relationship()
 
 

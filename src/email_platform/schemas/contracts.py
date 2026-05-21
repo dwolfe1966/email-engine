@@ -9,6 +9,8 @@ from email_platform.models.entities import (
     DataSourceStatus,
     DataSourceType,
     EmailEventType,
+    EmailSendStatus,
+    SendJobStatus,
 )
 
 JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
@@ -87,6 +89,51 @@ class CampaignUpdate(BaseModel):
 class CampaignRead(CampaignCreate):
     id: UUID
     status: CampaignStatus
+
+    model_config = {'from_attributes': True}
+
+
+class CampaignLaunchRequest(BaseModel):
+    audience_id: UUID | None = None
+    rule_tree: JsonObject | None = None
+    variables: JsonObject = Field(default_factory=dict)
+    dry_run: bool = False
+
+
+class CampaignLaunchRead(BaseModel):
+    job_id: UUID
+    campaign_id: UUID
+    status: SendJobStatus
+    requested_count: int
+    queued_count: int
+    suppressed_count: int
+    dry_run: bool
+
+
+class CampaignSendJobRead(BaseModel):
+    id: UUID
+    campaign_id: UUID
+    status: SendJobStatus
+    requested_count: int
+    queued_count: int
+    suppressed_count: int
+    metadata_json: JsonObject
+
+    model_config = {'from_attributes': True}
+
+
+class EmailSendRecordRead(BaseModel):
+    id: UUID
+    campaign_id: UUID
+    send_job_id: UUID
+    contact_id: UUID
+    template_id: UUID
+    status: EmailSendStatus
+    to_email: EmailStr
+    variables: JsonObject
+    provider: str | None = None
+    provider_message_id: str | None = None
+    error_message: str | None = None
 
     model_config = {'from_attributes': True}
 

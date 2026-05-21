@@ -22,7 +22,10 @@ from email_platform.schemas.contracts import (
     AudienceRead,
     AudienceUpdate,
     CampaignCreate,
+    CampaignLaunchRead,
+    CampaignLaunchRequest,
     CampaignRead,
+    CampaignSendJobRead,
     CampaignUpdate,
     ContactRead,
     ContactUpdate,
@@ -34,6 +37,7 @@ from email_platform.schemas.contracts import (
     DataSourceRead,
     DataSourceUpdate,
     DeleteResponse,
+    EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
     EventCreate,
@@ -122,7 +126,7 @@ def list_campaigns(
     limit: Limit = 100,
     offset: Offset = 0,
 ) -> list[Campaign]:
-    return CampaignService(db).list(limit=limit, offset=offset)
+    return CampaignService(db).list_items(limit=limit, offset=offset)
 
 
 @router.get('/campaigns/list', response_model=ListResponse[CampaignRead])
@@ -133,7 +137,7 @@ def list_campaigns_enveloped(
 ) -> dict[str, object]:
     service = CampaignService(db)
     return {
-        'items': service.list(limit=limit, offset=offset),
+        'items': service.list_items(limit=limit, offset=offset),
         'limit': limit,
         'offset': offset,
         'total': service.count(),
@@ -168,6 +172,54 @@ def delete_campaign(campaign_id: UUID, db: DbSession) -> dict[str, UUID]:
     if not CampaignService(db).delete(campaign_id):
         raise HTTPException(status_code=404, detail='Campaign not found')
     return {'id': campaign_id}
+
+
+@router.post('/campaigns/{campaign_id}/launch', response_model=CampaignLaunchRead)
+def launch_campaign(
+    campaign_id: UUID, payload: CampaignLaunchRequest, db: DbSession
+) -> CampaignLaunchRead:
+    try:
+        launch = CampaignService(db).launch(campaign_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if not launch:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return launch
+
+
+@router.get('/campaign-send-jobs/list', response_model=ListResponse[CampaignSendJobRead])
+def list_campaign_send_jobs(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = CampaignService(db)
+    return {
+        'items': service.list_send_jobs(campaign_id=campaign_id, limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_send_jobs(campaign_id=campaign_id),
+    }
+
+
+@router.get('/email-send-records/list', response_model=ListResponse[EmailSendRecordRead])
+def list_email_send_records(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = CampaignService(db)
+    return {
+        'items': service.list_send_records(
+            campaign_id=campaign_id, send_job_id=send_job_id, limit=limit, offset=offset
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_send_records(campaign_id=campaign_id, send_job_id=send_job_id),
+    }
 
 
 @router.get('/audiences/contacts', response_model=list[ContactRead])
