@@ -4,9 +4,9 @@
 
 - Platform: Vercel
 - Project: `email-engine-api`
-- Production alias: `https://email-engine-api.vercel.app`
-- Latest verified deployment: `https://email-engine-80n4d73dz-dwolfe1966s-projects.vercel.app`
-- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/44RcYnRZmiF4numt4CmTLzb83ciG`
+- Production alias: `https://email-engine.app`
+- Latest verified deployment: `https://email-engine-klbmgc5yl-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/6GNTTFkjUebngzs5wwbtbx847VMu`
 
 ## Database
 
@@ -22,13 +22,15 @@
 - Production app path rewrite: all paths route to `/api/index.py`
 - Neon migrations were run with `DATABASE_URL_UNPOOLED` from `.env.local`.
 - The application normalizes Neon/Vercel `postgresql://` and `postgres://` URLs to SQLAlchemy's `postgresql+psycopg://` driver URL.
+- Production email provider: SendGrid.
+- The API tester at `/tester` can send an actual provider-backed email to a contact using an existing template and JSON variables.
 
 ## Verification
 
 Live smoke test:
 
 ```bash
-BASE_URL=https://email-engine-api.vercel.app scripts/smoke_test.sh
+BASE_URL=https://email-engine.app CONTACT_EMAIL=<recipient@example.com> scripts/smoke_test.sh
 ```
 
 Result:
@@ -44,11 +46,11 @@ The smoke test verified:
 - `POST /api/v1/templates`
 - `POST /api/v1/audiences/contacts`
 - `POST /api/v1/audiences/contacts/{contact_id}/unsubscribe-token`
+- `POST /api/v1/send/contact`
 - `POST /api/v1/send/test`
 
 ## Next Deployment Tasks
 
 - Replace `CORS_ORIGINS=["*"]` with the deployed GUI origin once the admin UI URL is final.
-- Replace `EMAIL_PROVIDER=console` with `sendgrid` or `smtp` after sender/domain verification.
 - Add app-level authentication before exposing the API beyond private testing.
-- Commit and push these deployment artifacts so Vercel can use Git-based production deployments.
+- Restrict `CORS_ORIGINS=["*"]` after the deployed admin GUI origin is final.

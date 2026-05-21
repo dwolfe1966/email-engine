@@ -155,7 +155,14 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
           </div>
           <label>Template HTML
             <textarea id="htmlBody"><p>Hello {{ first_name }},
-this is a console-provider test.</p></textarea>
+Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
+          </label>
+          <label>Email data JSON
+            <textarea id="variablesJson">{
+  "first_name": "Smoke",
+  "plan": "trial",
+  "note": "Sent from the API tester"
+}</textarea>
           </label>
           <div class="actions">
             <button class="secondary" data-action="health">Health</button>
@@ -250,6 +257,17 @@ this is a console-provider test.</p></textarea>
       return data;
     }
 
+    function readVariables() {
+      try {
+        const variables = JSON.parse(document.getElementById("variablesJson").value || "{}");
+        variables.first_name = variables.first_name || document.getElementById("firstName").value;
+        return variables;
+      } catch (error) {
+        log("email data JSON", { message: error.message }, false);
+        throw error;
+      }
+    }
+
     const actions = {
       health: () => request("health", "/health"),
       ready: () => request("ready", "/ready"),
@@ -260,7 +278,7 @@ this is a console-provider test.</p></textarea>
             name: `api-tester-${Date.now()}`,
             subject: "Hello {{ first_name }}",
             html_body: document.getElementById("htmlBody").value,
-            text_body: "Hello {{ first_name }}, this is a console-provider test.",
+            text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
           }),
         });
         setState("templateId", template.id);
@@ -273,7 +291,7 @@ this is a console-provider test.</p></textarea>
             first_name: document.getElementById("firstName").value,
             last_name: "Tester",
             source: "api_tester",
-            attributes: { manual_test: true },
+            attributes: { manual_test: true, ...readVariables() },
           }),
         });
         setState("contactId", contact.id);
@@ -321,7 +339,7 @@ this is a console-provider test.</p></textarea>
           body: JSON.stringify({
             template_id: state.templateId,
             to_email: document.getElementById("contactEmail").value,
-            variables: { first_name: document.getElementById("firstName").value },
+            variables: readVariables(),
           }),
         });
       },
@@ -334,7 +352,7 @@ this is a console-provider test.</p></textarea>
             template_id: state.templateId,
             contact_id: state.contactId,
             campaign_id: state.campaignId || null,
-            variables: { first_name: document.getElementById("firstName").value },
+            variables: readVariables(),
           }),
         });
       },
