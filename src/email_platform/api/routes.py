@@ -493,6 +493,13 @@ def list_contacts_enveloped(
     }
 
 
+@router.get('/audiences/contacts/meta')
+def contacts_metadata(
+    db: DbSession, sample_limit: Limit = 25, scan_limit: Limit = 500
+) -> dict[str, object]:
+    return ContactService(db).metadata(sample_limit=sample_limit, scan_limit=scan_limit)
+
+
 @router.post('/audiences/contacts', response_model=ContactRead)
 def upsert_contact(payload: ContactUpsert, db: DbSession) -> Contact:
     return ContactService(db).upsert(payload)

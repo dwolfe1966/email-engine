@@ -633,6 +633,35 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       background: #fbfcfe;
     }
     .rule code { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 7px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .contact-table {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 650; background: #fbfcfe; }
+    td code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
     pre {
       margin: 0;
       min-height: 300px;
@@ -720,6 +749,22 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
         <label>Rule tree JSON
           <textarea id="ruleTree"></textarea>
         </label>
+        <div class="actions">
+          <button class="secondary" id="loadContactMeta">Load Contact Fields</button>
+          <button class="secondary" id="loadContactSamples">Sample Contacts</button>
+        </div>
+        <div>
+          <h2>Core Fields</h2>
+          <div class="chips" id="coreFields"></div>
+        </div>
+        <div>
+          <h2>Attribute Fields</h2>
+          <div class="chips" id="attributeFields"></div>
+        </div>
+        <div>
+          <h2>Contact Samples</h2>
+          <div class="contact-table" id="contactSamples"></div>
+        </div>
       </div>
     </section>
     <section>
@@ -743,6 +788,16 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       try { return text ? JSON.parse(text) : null; } catch { return text; }
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
     async function request(path, options = {}) {
       const response = await fetch(path, {
         headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -752,6 +807,72 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       writeResult(data, response.ok);
       if (!response.ok) throw new Error(data.detail || `${path} failed`);
       return data;
+    }
+
+    function insertField(field) {
+      document.getElementById("field").value = field;
+    }
+
+    function renderChips(containerId, fields) {
+      const container = document.getElementById(containerId);
+      container.textContent = "";
+      fields.forEach((field) => {
+        const button = document.createElement("button");
+        button.className = "chip";
+        button.type = "button";
+        button.textContent = field;
+        button.addEventListener("click", () => insertField(field));
+        container.appendChild(button);
+      });
+    }
+
+    function renderContacts(containerId, contacts) {
+      const container = document.getElementById(containerId);
+      if (!contacts.length) {
+        container.textContent = "No contacts to show.";
+        return;
+      }
+      const rows = contacts.map((contact) => {
+        const attrs = Object.entries(contact.attributes || {})
+          .slice(0, 8)
+          .map(([key, value]) => `${escapeHtml(key)}=${escapeHtml(value)}`)
+          .join("<br>");
+        return `
+          <tr>
+            <td>${escapeHtml(contact.email)}</td>
+            <td>${escapeHtml(contact.first_name || "")}</td>
+            <td>${escapeHtml(contact.last_name || "")}</td>
+            <td>${escapeHtml(contact.source || "")}</td>
+            <td><code>${attrs}</code></td>
+          </tr>
+        `;
+      }).join("");
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>First</th>
+              <th>Last</th>
+              <th>Source</th>
+              <th>Attributes</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    async function loadContactMeta() {
+      const data = await request(
+        "/api/v1/audiences/contacts/meta?sample_limit=50&scan_limit=500"
+      );
+      renderChips("coreFields", data.fields || []);
+      renderChips(
+        "attributeFields",
+        (data.attribute_keys || []).map((key) => `attributes.${key}`)
+      );
+      renderContacts("contactSamples", data.sample_contacts || []);
     }
 
     function currentRuleTree() {
@@ -848,10 +969,11 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
 
     async function previewAudience() {
       const ruleTree = currentRuleTree();
-      await request("/api/v1/audiences/preview", {
+      const data = await request("/api/v1/audiences/preview", {
         method: "POST",
         body: JSON.stringify({ rule_tree: ruleTree, limit: 25 })
       });
+      renderContacts("contactSamples", data.sample_contacts || []);
     }
 
     async function saveAudience() {
@@ -883,6 +1005,12 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     document.getElementById("new").addEventListener("click", resetForm);
     document.getElementById("addRule").addEventListener("click", addRule);
     document.getElementById("operator").addEventListener("change", syncRuleTree);
+    document.getElementById("loadContactMeta").addEventListener("click", () => {
+      loadContactMeta().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadContactSamples").addEventListener("click", () => {
+      loadContactMeta().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("preview").addEventListener("click", () => {
       previewAudience().catch((error) => writeResult(error.message, false));
     });
@@ -897,7 +1025,9 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     });
 
     resetForm();
-    loadAudiences().catch((error) => writeResult(error.message, false));
+    loadAudiences()
+      .then(loadContactMeta)
+      .catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""

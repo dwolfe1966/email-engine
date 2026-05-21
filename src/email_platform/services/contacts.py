@@ -35,6 +35,42 @@ class ContactService:
     def count(self) -> int:
         return self.db.scalar(select(func.count()).select_from(Contact)) or 0
 
+    def metadata(self, sample_limit: int = 25, scan_limit: int = 500) -> dict[str, object]:
+        sources = self.db.execute(
+            select(Contact.source, func.count())
+            .where(Contact.source.is_not(None))
+            .group_by(Contact.source)
+            .order_by(Contact.source)
+        ).all()
+        scanned_contacts = self.list(limit=scan_limit, offset=0)
+        sample_contacts = scanned_contacts[:sample_limit]
+        attribute_keys = sorted(
+            {
+                key
+                for contact in scanned_contacts
+                for key in contact.attributes.keys()
+            }
+        )
+        return {
+            'total': self.count(),
+            'scanned_count': len(scanned_contacts),
+            'fields': ['email', 'first_name', 'last_name', 'source', 'is_unsubscribed'],
+            'attribute_keys': attribute_keys,
+            'sources': [{'source': source, 'count': count} for source, count in sources],
+            'sample_contacts': [
+                {
+                    'id': contact.id,
+                    'email': contact.email,
+                    'first_name': contact.first_name,
+                    'last_name': contact.last_name,
+                    'source': contact.source,
+                    'is_unsubscribed': contact.is_unsubscribed,
+                    'attributes': contact.attributes,
+                }
+                for contact in sample_contacts
+            ],
+        }
+
     def get(self, contact_id: UUID) -> Contact | None:
         return self.db.get(Contact, contact_id)
 

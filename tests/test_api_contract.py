@@ -29,6 +29,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/suppressions',
         '/api/v1/audiences/contacts',
         '/api/v1/audiences/contacts/list',
+        '/api/v1/audiences/contacts/meta',
         '/api/v1/audiences/contacts/{contact_id}',
         '/api/v1/audiences/contacts/{contact_id}/unsubscribe-token',
         '/api/v1/audiences',
@@ -99,6 +100,7 @@ def test_admin_pages() -> None:
     assert 'Email Engine Entity Workbench' in entities.text
     assert 'Email Engine Audience Import' in import_page.text
     assert 'Email Engine Audience Builder' in audiences.text
+    assert 'Load Contact Fields' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert '/tester' in home.text
     assert '/template-editor' in home.text
