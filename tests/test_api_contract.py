@@ -78,6 +78,7 @@ def test_api_tester_page() -> None:
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
+    assert '/admin/analytics' in response.text
     assert '/docs' in response.text
 
 
@@ -92,6 +93,7 @@ def test_template_editor_page() -> None:
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
+    assert '/admin/analytics' in response.text
 
 
 def test_admin_pages() -> None:
@@ -102,12 +104,14 @@ def test_admin_pages() -> None:
     audiences = client.get('/admin/audiences')
     campaigns = client.get('/admin/campaigns')
     delivery = client.get('/admin/delivery')
+    analytics = client.get('/admin/analytics')
     assert home.status_code == 200
     assert entities.status_code == 200
     assert import_page.status_code == 200
     assert audiences.status_code == 200
     assert campaigns.status_code == 200
     assert delivery.status_code == 200
+    assert analytics.status_code == 200
     assert 'Email Engine Admin' in home.text
     assert 'Email Engine Entity Workbench' in entities.text
     assert 'Email Engine Audience Import' in import_page.text
@@ -116,6 +120,8 @@ def test_admin_pages() -> None:
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
+    assert 'Email Engine Analytics' in analytics.text
+    assert 'Campaign Analytics' in analytics.text
     assert 'Preview Audience' in campaigns.text
     assert 'Preview Template' in campaigns.text
     assert 'Matched Contacts' in campaigns.text
@@ -126,6 +132,7 @@ def test_admin_pages() -> None:
     assert '/admin/audiences' in home.text
     assert '/admin/campaigns' in home.text
     assert '/admin/delivery' in home.text
+    assert '/admin/analytics' in home.text
     assert '/docs' in home.text
 
 

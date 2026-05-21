@@ -34,6 +34,11 @@ def admin_delivery() -> str:
     return ADMIN_DELIVERY_HTML
 
 
+@router.get('/admin/analytics', response_class=HTMLResponse, include_in_schema=False)
+def admin_analytics() -> str:
+    return ADMIN_ANALYTICS_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -112,6 +117,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/audiences">Audience Builder</a>
       <a href="/admin/campaigns">Campaign Manager</a>
       <a href="/admin/delivery">Delivery Manager</a>
+      <a href="/admin/analytics">Analytics</a>
       <a href="/docs">Docs</a>
     </nav>
   </header>
@@ -139,6 +145,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/delivery">
       <strong>Delivery Manager</strong>
       <span>Process queued delivery and inspect jobs, records, suppressions, and tracking.</span>
+    </a>
+    <a href="/admin/analytics">
+      <strong>Analytics</strong>
+      <span>Review campaign metrics, events, send jobs, send records, and tracking links.</span>
     </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
@@ -313,6 +323,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -718,6 +729,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1230,6 +1242,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1712,6 +1725,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1839,6 +1853,268 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     });
 
     loadJobs().catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
+ADMIN_ANALYTICS_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Analytics</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input {
+      min-width: 0;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    pre {
+      margin: 0;
+      min-height: calc(100vh - 180px);
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1000px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .inline { grid-template-columns: 1fr; }
+      pre { min-height: 360px; max-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Analytics</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Inputs</h2></div>
+      <div class="body">
+        <label>Campaign ID
+          <input id="campaignId" />
+        </label>
+        <label>Send job ID
+          <input id="sendJobId" />
+        </label>
+        <label>Send record ID
+          <input id="sendRecordId" />
+        </label>
+        <div class="inline">
+          <label>Limit
+            <input id="limit" type="number" min="1" max="500" value="100" />
+          </label>
+          <label>Offset
+            <input id="offset" type="number" min="0" value="0" />
+          </label>
+        </div>
+        <div class="actions">
+          <button id="campaignAnalytics">Campaign Analytics</button>
+          <button class="secondary" id="reportsOverview">Reports Overview</button>
+          <button class="secondary" id="events">Events</button>
+          <button class="secondary" id="jobs">Send Jobs</button>
+          <button class="secondary" id="records">Send Records</button>
+          <button class="secondary" id="trackingLinks">Tracking Links</button>
+          <button class="secondary" id="clear">Clear</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path) {
+      const response = await fetch(path);
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function value(id) {
+      return document.getElementById(id).value.trim();
+    }
+
+    function pageQuery() {
+      const params = new URLSearchParams();
+      params.set("limit", value("limit") || "100");
+      params.set("offset", value("offset") || "0");
+      return params;
+    }
+
+    async function campaignAnalytics() {
+      if (!value("campaignId")) {
+        writeResult("Enter a campaign ID first.", false);
+        return;
+      }
+      const params = new URLSearchParams();
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      await request(`/api/v1/campaigns/${value("campaignId")}/analytics${suffix}`);
+    }
+
+    async function reportsOverview() {
+      await request("/api/reports/overview");
+    }
+
+    async function loadEvents() {
+      await request(`/api/v1/events?${pageQuery().toString()}`);
+    }
+
+    async function loadJobs() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
+    }
+
+    async function loadRecords() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      await request(`/api/v1/email-send-records/list?${params.toString()}`);
+    }
+
+    async function trackingLinks() {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      await request(`/api/v1/email-send-records/${value("sendRecordId")}/tracking-links`);
+    }
+
+    document.getElementById("campaignAnalytics").addEventListener("click", () => {
+      campaignAnalytics().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("reportsOverview").addEventListener("click", () => {
+      reportsOverview().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("events").addEventListener("click", () => {
+      loadEvents().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("jobs").addEventListener("click", () => {
+      loadJobs().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("records").addEventListener("click", () => {
+      loadRecords().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("trackingLinks").addEventListener("click", () => {
+      trackingLinks().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    reportsOverview().catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""
@@ -1973,6 +2249,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
