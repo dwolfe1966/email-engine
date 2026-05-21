@@ -76,9 +76,26 @@ class TemplatePreviewRequest(BaseModel):
 
 
 class TemplatePreviewRead(BaseModel):
+    ok: bool = True
     subject: str
     html_body: str
     text_body: str | None = None
+    errors: list[str] = Field(default_factory=list)
+    undeclared_variables: list[str] = Field(default_factory=list)
+
+
+class TemplateValidationRequest(BaseModel):
+    subject: str
+    html_body: str
+    text_body: str | None = None
+    variables: JsonObject = Field(default_factory=dict)
+
+
+class TemplateValidationRead(BaseModel):
+    ok: bool
+    errors: list[str] = Field(default_factory=list)
+    undeclared_variables: list[str] = Field(default_factory=list)
+    missing_variables: list[str] = Field(default_factory=list)
 
 
 class TemplateRead(TemplateCreate):

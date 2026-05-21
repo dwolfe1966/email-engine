@@ -48,11 +48,11 @@ This backlog is organized around the target platform capabilities:
 
 ## P4: Template Development
 
-- Add template preview and validation endpoints.
-- Add template variable extraction and required-variable contracts.
+- Add template preview and validation endpoints. **Initial sandboxed preview/validation shipped.**
+- Add template variable extraction and required-variable contracts. **Initial undeclared/missing variable extraction shipped.**
 - Add template versions with immutable snapshots.
 - Add reusable partials/components.
-- Add support for robust Jinja2 features with a sandboxed environment.
+- Add support for robust Jinja2 features with a sandboxed environment. **Initial sandboxed renderer shipped.**
 - Add template linting for unsubscribe links, tracking links, missing variables, and unsafe content.
 - Add approval workflow for production templates.
 

@@ -178,6 +178,7 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
           <div class="actions">
             <button class="secondary" data-action="health">Health</button>
             <button class="secondary" data-action="ready">Ready</button>
+            <button class="secondary" data-action="validateTemplate">Validate Template</button>
             <button class="secondary" data-action="previewTemplate">Preview Template</button>
             <button class="secondary" data-action="createTemplate">Create Template</button>
             <button class="secondary" data-action="upsertContact">Upsert Contact</button>
@@ -321,6 +322,17 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
     const actions = {
       health: () => request("health", "/health"),
       ready: () => request("ready", "/ready"),
+      async validateTemplate() {
+        await request("validate template", "/api/v1/templates/validate", {
+          method: "POST",
+          body: JSON.stringify({
+            subject: "Hello {{ first_name }}",
+            html_body: document.getElementById("htmlBody").value,
+            text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
+            variables: readVariables(),
+          }),
+        });
+      },
       async previewTemplate() {
         await request("preview template", "/api/v1/templates/preview", {
           method: "POST",
@@ -512,6 +524,7 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
       async runAll() {
         await actions.health();
         await actions.ready();
+        await actions.validateTemplate();
         await actions.createTemplate();
         await actions.previewTemplate();
         await actions.upsertContact();

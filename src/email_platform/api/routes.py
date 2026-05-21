@@ -55,6 +55,8 @@ from email_platform.schemas.contracts import (
     TemplatePreviewRequest,
     TemplateRead,
     TemplateUpdate,
+    TemplateValidationRead,
+    TemplateValidationRequest,
     TestEmailSendRequest,
     UnsubscribeRead,
     UnsubscribeTokenRead,
@@ -110,6 +112,13 @@ def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
 @router.post('/templates/preview', response_model=TemplatePreviewRead)
 def preview_template(payload: TemplatePreviewRequest, db: DbSession) -> TemplatePreviewRead:
     return TemplateService(db).preview(payload)
+
+
+@router.post('/templates/validate', response_model=TemplateValidationRead)
+def validate_template(
+    payload: TemplateValidationRequest, db: DbSession
+) -> TemplateValidationRead:
+    return TemplateService(db).validate(payload)
 
 
 @router.get('/templates/{template_id}', response_model=TemplateRead)

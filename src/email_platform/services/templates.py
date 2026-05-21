@@ -1,7 +1,9 @@
 from collections.abc import Mapping
 from uuid import UUID
 
-from jinja2 import Template
+from jinja2 import StrictUndefined, meta
+from jinja2.exceptions import TemplateError
+from jinja2.sandbox import SandboxedEnvironment
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -11,7 +13,11 @@ from email_platform.schemas.contracts import (
     TemplatePreviewRead,
     TemplatePreviewRequest,
     TemplateUpdate,
+    TemplateValidationRead,
+    TemplateValidationRequest,
 )
+
+template_environment = SandboxedEnvironment(autoescape=False, undefined=StrictUndefined)
 
 
 class TemplateService:
@@ -61,17 +67,78 @@ class TemplateService:
     def render(
         self, template: EmailTemplate, variables: Mapping[str, object]
     ) -> tuple[str, str, str | None]:
-        subject = Template(template.subject).render(**variables)
-        html = Template(template.html_body).render(**variables)
-        text = Template(template.text_body).render(**variables) if template.text_body else None
+        subject = self._render_source(template.subject, variables)
+        html = self._render_source(template.html_body, variables)
+        text = self._render_source(template.text_body, variables) if template.text_body else None
         return subject, html, text
 
     def preview(self, payload: TemplatePreviewRequest) -> TemplatePreviewRead:
-        variables = payload.variables
-        return TemplatePreviewRead(
-            subject=Template(payload.subject).render(**variables),
-            html_body=Template(payload.html_body).render(**variables),
-            text_body=Template(payload.text_body).render(**variables)
-            if payload.text_body
-            else None,
+        validation = self.validate(
+            TemplateValidationRequest(
+                subject=payload.subject,
+                html_body=payload.html_body,
+                text_body=payload.text_body,
+                variables=payload.variables,
+            )
         )
+        if not validation.ok:
+            return TemplatePreviewRead(
+                ok=False,
+                subject='',
+                html_body='',
+                text_body=None,
+                errors=validation.errors,
+                undeclared_variables=validation.undeclared_variables,
+            )
+        variables = payload.variables
+        try:
+            return TemplatePreviewRead(
+                ok=True,
+                subject=self._render_source(payload.subject, variables),
+                html_body=self._render_source(payload.html_body, variables),
+                text_body=self._render_source(payload.text_body, variables)
+                if payload.text_body
+                else None,
+                undeclared_variables=validation.undeclared_variables,
+            )
+        except TemplateError as exc:
+            return TemplatePreviewRead(
+                ok=False,
+                subject='',
+                html_body='',
+                text_body=None,
+                errors=[str(exc)],
+                undeclared_variables=validation.undeclared_variables,
+            )
+
+    def validate(self, payload: TemplateValidationRequest) -> TemplateValidationRead:
+        errors: list[str] = []
+        undeclared_variables: set[str] = set()
+        for label, source in self._sources(payload).items():
+            try:
+                parsed = template_environment.parse(source)
+                undeclared_variables.update(meta.find_undeclared_variables(parsed))
+            except TemplateError as exc:
+                errors.append(f'{label}: {exc}')
+        missing_variables = sorted(
+            variable
+            for variable in undeclared_variables
+            if variable not in payload.variables
+        )
+        return TemplateValidationRead(
+            ok=not errors and not missing_variables,
+            errors=errors,
+            undeclared_variables=sorted(undeclared_variables),
+            missing_variables=missing_variables,
+        )
+
+    def _render_source(self, source: str, variables: Mapping[str, object]) -> str:
+        return template_environment.from_string(source).render(**variables)
+
+    def _sources(
+        self, payload: TemplateValidationRequest | TemplatePreviewRequest
+    ) -> dict[str, str]:
+        sources = {'subject': payload.subject, 'html_body': payload.html_body}
+        if payload.text_body:
+            sources['text_body'] = payload.text_body
+        return sources
