@@ -360,6 +360,14 @@ class AudienceImportRead(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class AudienceImportPreviewRead(BaseModel):
+    headers: list[str]
+    row_count: int
+    sample_rows: list[dict[str, str]]
+    inferred_mapping: dict[str, str]
+    errors: list[str] = Field(default_factory=list)
+
+
 class TestEmailSendRequest(BaseModel):
     template_id: UUID
     to_email: EmailStr

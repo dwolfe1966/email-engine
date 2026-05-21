@@ -183,7 +183,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
     h2 { margin: 0; font-size: 14px; }
     .body { padding: 12px; display: grid; gap: 12px; }
     label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-    input, textarea {
+    input, select, textarea {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -243,6 +243,24 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       font-size: 12px;
       overflow: auto;
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 650; background: #fbfcfe; }
+    .preview {
+      max-height: 310px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
     @media (max-width: 900px) {
       header { align-items: flex-start; flex-direction: column; }
       main { grid-template-columns: 1fr; }
@@ -276,6 +294,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
           <input id="file" type="file" accept=".csv,text/csv" />
         </label>
         <div class="actions">
+          <button class="secondary" id="preview">Preview Mapping</button>
           <button id="import">Import CSV</button>
           <button class="secondary" id="loadAudiences">Load Audiences</button>
           <button class="secondary" id="loadContacts">Load Contacts</button>
@@ -287,6 +306,8 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
         <pre class="sample">email,first_name,last_name,plan,company
 alex@example.com,Alex,Taylor,trial,Example Co
 sam@example.com,Sam,Rivera,active,Acme Inc</pre>
+        <div class="preview" id="mapping"></div>
+        <div class="preview" id="sampleRows"></div>
       </div>
     </section>
     <section>
@@ -300,6 +321,7 @@ sam@example.com,Sam,Rivera,active,Acme Inc</pre>
     const status = document.getElementById("status");
     const result = document.getElementById("result");
     const audienceName = document.getElementById("audienceName");
+    const targetOptions = ["email", "first_name", "last_name", "source", "attribute", "ignore"];
     audienceName.value = `csv-audience-${Date.now()}`;
 
     function setStatus(message, type = "") {
@@ -316,6 +338,97 @@ sam@example.com,Sam,Rivera,active,Acme Inc</pre>
       try { return text ? JSON.parse(text) : null; } catch { return text; }
     }
 
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function selectedMapping() {
+      const mapping = {};
+      document.querySelectorAll("[data-column]").forEach((select) => {
+        mapping[select.dataset.column] = select.value;
+      });
+      return mapping;
+    }
+
+    function renderMapping(preview) {
+      const mapping = document.getElementById("mapping");
+      const rows = preview.headers.map((header) => {
+        const safeHeader = escapeHtml(header);
+        const inferred = preview.inferred_mapping[header] || "attribute";
+        const options = targetOptions.map((target) => {
+          const selected = target === inferred ? " selected" : "";
+          return `<option value="${target}"${selected}>${target}</option>`;
+        }).join("");
+        return `
+          <tr>
+            <td>${safeHeader}</td>
+            <td><select data-column="${safeHeader}">${options}</select></td>
+          </tr>
+        `;
+      }).join("");
+      mapping.innerHTML = `
+        <table>
+          <thead><tr><th>CSV column</th><th>Import target</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+      renderSampleRows(preview);
+    }
+
+    function renderSampleRows(preview) {
+      const sampleRows = document.getElementById("sampleRows");
+      if (!preview.sample_rows.length) {
+        sampleRows.innerHTML = "";
+        return;
+      }
+      const head = preview.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+      const body = preview.sample_rows.map((row) => {
+        const cells = preview.headers.map((header) => (
+          `<td>${escapeHtml(row[header] || "")}</td>`
+        )).join("");
+        return `<tr>${cells}</tr>`;
+      }).join("");
+      sampleRows.innerHTML = `
+        <table>
+          <thead><tr>${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
+    async function previewCsv() {
+      const file = document.getElementById("file").files[0];
+      if (!file) {
+        setStatus("Choose a CSV file first.", "error");
+        return;
+      }
+      const form = new FormData();
+      form.append("sample_limit", "8");
+      form.append("file", file);
+      setStatus("Reading CSV preview...");
+      const response = await fetch("/api/v1/audiences/import-csv/preview", {
+        method: "POST",
+        body: form
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) {
+        setStatus(data.detail || "Preview failed.", "error");
+        return;
+      }
+      renderMapping(data);
+      setStatus(
+        data.errors.length ? data.errors.join(" ") : `Previewed ${data.row_count} rows.`,
+        data.errors.length ? "error" : "ok"
+      );
+    }
+
     async function importCsv() {
       const file = document.getElementById("file").files[0];
       if (!file) {
@@ -326,6 +439,7 @@ sam@example.com,Sam,Rivera,active,Acme Inc</pre>
       form.append("audience_name", audienceName.value.trim());
       form.append("description", document.getElementById("description").value.trim());
       form.append("source", document.getElementById("source").value.trim() || "csv_import");
+      form.append("column_mapping", JSON.stringify(selectedMapping()));
       form.append("file", file);
       setStatus("Importing CSV...");
       const response = await fetch("/api/v1/audiences/import-csv", {
@@ -354,6 +468,12 @@ sam@example.com,Sam,Rivera,active,Acme Inc</pre>
       );
     }
 
+    document.getElementById("preview").addEventListener("click", () => {
+      previewCsv().catch((error) => {
+        writeResult(error.message, false);
+        setStatus(error.message, "error");
+      });
+    });
     document.getElementById("import").addEventListener("click", () => {
       importCsv().catch((error) => {
         writeResult(error.message, false);

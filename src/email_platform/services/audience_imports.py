@@ -27,6 +27,15 @@ CORE_FIELD_ALIASES = {
 
 
 @dataclass
+class AudienceImportPreview:
+    headers: list[str]
+    row_count: int
+    sample_rows: list[dict[str, str]]
+    inferred_mapping: dict[str, str]
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass
 class AudienceImportResult:
     audience: Audience
     import_id: UUID
@@ -47,6 +56,7 @@ class AudienceImportService:
         audience_name: str,
         description: str | None = None,
         source: str = 'csv_import',
+        column_mapping: dict[str, str] | None = None,
     ) -> AudienceImportResult:
         if self.db.scalar(select(Audience).where(Audience.name == audience_name)):
             raise ValueError('Audience name already exists')
@@ -63,7 +73,7 @@ class AudienceImportService:
 
         for index, row in enumerate(rows, start=2):
             try:
-                payload = self._row_to_contact(row, import_id, source)
+                payload = self._row_to_contact(row, import_id, source, column_mapping)
             except ValueError as exc:
                 skipped_count += 1
                 errors.append(f'Row {index}: {exc}')
@@ -117,6 +127,26 @@ class AudienceImportService:
             errors=errors,
         )
 
+    def preview_csv(self, content: bytes, sample_limit: int = 10) -> AudienceImportPreview:
+        rows = self._read_rows(content)
+        headers = list(rows[0].keys()) if rows else self._read_headers(content)
+        inferred_mapping = {
+            header: CORE_FIELD_ALIASES.get(self._normalize_key(header), 'attribute')
+            for header in headers
+        }
+        errors: list[str] = []
+        if 'email' not in inferred_mapping.values():
+            errors.append(
+                'No email column was inferred. Map one CSV column to email before import.'
+            )
+        return AudienceImportPreview(
+            headers=headers,
+            row_count=len(rows),
+            sample_rows=rows[:sample_limit],
+            inferred_mapping=inferred_mapping,
+            errors=errors,
+        )
+
     def _read_rows(self, content: bytes) -> list[dict[str, str]]:
         try:
             text = content.decode('utf-8-sig')
@@ -128,8 +158,24 @@ class AudienceImportService:
             raise ValueError('CSV header row is required')
         return list(reader)
 
+    def _read_headers(self, content: bytes) -> list[str]:
+        try:
+            text = content.decode('utf-8-sig')
+        except UnicodeDecodeError as exc:
+            raise ValueError('CSV must be UTF-8 encoded') from exc
+
+        reader = csv.reader(io.StringIO(text))
+        try:
+            return next(reader)
+        except StopIteration as exc:
+            raise ValueError('CSV header row is required') from exc
+
     def _row_to_contact(
-        self, row: dict[str, str], import_id: UUID, default_source: str
+        self,
+        row: dict[str, str],
+        import_id: UUID,
+        default_source: str,
+        column_mapping: dict[str, str] | None = None,
     ) -> ContactUpsert:
         values: dict[str, str | None] = {
             'email': None,
@@ -147,11 +193,14 @@ class AudienceImportService:
             value = raw_value.strip() if isinstance(raw_value, str) else ''
             if not key or not value:
                 continue
-            core_field = CORE_FIELD_ALIASES.get(key)
-            if core_field:
-                values[core_field] = value
-            else:
+            target = self._mapped_target(raw_key, key, column_mapping)
+            if target == 'ignore':
+                continue
+            if target == 'attribute':
                 attributes[key] = value
+                continue
+            if target in values:
+                values[target] = value
 
         if not values['email']:
             raise ValueError('missing email')
@@ -168,3 +217,15 @@ class AudienceImportService:
         if not key:
             return ''
         return '_'.join(key.strip().lower().replace('-', '_').split())
+
+    def _mapped_target(
+        self,
+        raw_key: str | None,
+        normalized_key: str,
+        column_mapping: dict[str, str] | None,
+    ) -> str:
+        if column_mapping:
+            mapped = column_mapping.get(raw_key or '') or column_mapping.get(normalized_key)
+            if mapped in {'email', 'first_name', 'last_name', 'source', 'attribute', 'ignore'}:
+                return mapped
+        return CORE_FIELD_ALIASES.get(normalized_key, 'attribute')

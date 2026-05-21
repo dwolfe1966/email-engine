@@ -34,6 +34,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/audiences',
         '/api/v1/audiences/list',
         '/api/v1/audiences/import-csv',
+        '/api/v1/audiences/import-csv/preview',
         '/api/v1/audiences/{audience_id}',
         '/api/v1/audiences/preview',
         '/api/v1/data-sources',

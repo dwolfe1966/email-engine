@@ -22,6 +22,7 @@ from email_platform.models.entities import (
 )
 from email_platform.schemas.contracts import (
     AudienceCreate,
+    AudienceImportPreviewRead,
     AudienceImportRead,
     AudiencePreviewRead,
     AudiencePreviewRequest,
@@ -670,17 +671,27 @@ async def import_audience_csv(
     audience_name: Annotated[str, Form()],
     description: Annotated[str | None, Form()] = None,
     source: Annotated[str, Form()] = 'csv_import',
+    column_mapping: Annotated[str | None, Form()] = None,
 ) -> AudienceImportRead:
     if not (file.filename or '').lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail='Upload must be a CSV file')
     try:
+        parsed_mapping_raw = json.loads(column_mapping) if column_mapping else None
+        if parsed_mapping_raw is not None and not isinstance(parsed_mapping_raw, dict):
+            raise ValueError('column_mapping must be a JSON object')
+        parsed_mapping = (
+            {str(key): str(value) for key, value in parsed_mapping_raw.items()}
+            if parsed_mapping_raw
+            else None
+        )
         result = AudienceImportService(db).import_csv(
             await file.read(),
             audience_name=audience_name,
             description=description,
             source=source,
+            column_mapping=parsed_mapping,
         )
-    except ValueError as exc:
+    except (json.JSONDecodeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return AudienceImportRead(
         audience_id=result.audience.id,
@@ -690,6 +701,29 @@ async def import_audience_csv(
         updated_count=result.updated_count,
         skipped_count=result.skipped_count,
         errors=result.errors,
+    )
+
+
+@router.post('/audiences/import-csv/preview', response_model=AudienceImportPreviewRead)
+async def preview_audience_csv(
+    db: DbSession,
+    file: Annotated[UploadFile, File()],
+    sample_limit: Annotated[int, Form(ge=1, le=25)] = 10,
+) -> AudienceImportPreviewRead:
+    if not (file.filename or '').lower().endswith('.csv'):
+        raise HTTPException(status_code=400, detail='Upload must be a CSV file')
+    try:
+        preview = AudienceImportService(db).preview_csv(
+            await file.read(), sample_limit=sample_limit
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return AudienceImportPreviewRead(
+        headers=preview.headers,
+        row_count=preview.row_count,
+        sample_rows=preview.sample_rows,
+        inferred_mapping=preview.inferred_mapping,
+        errors=preview.errors,
     )
 
 
