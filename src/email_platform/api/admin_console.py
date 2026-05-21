@@ -29,6 +29,11 @@ def admin_campaigns() -> str:
     return ADMIN_CAMPAIGNS_HTML
 
 
+@router.get('/admin/delivery', response_class=HTMLResponse, include_in_schema=False)
+def admin_delivery() -> str:
+    return ADMIN_DELIVERY_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -106,6 +111,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/audience-import">Audience Import</a>
       <a href="/admin/audiences">Audience Builder</a>
       <a href="/admin/campaigns">Campaign Manager</a>
+      <a href="/admin/delivery">Delivery Manager</a>
       <a href="/docs">Docs</a>
     </nav>
   </header>
@@ -129,6 +135,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/campaigns">
       <strong>Campaign Manager</strong>
       <span>Create campaigns, launch dry runs or queues, and inspect delivery state.</span>
+    </a>
+    <a href="/admin/delivery">
+      <strong>Delivery Manager</strong>
+      <span>Process queued delivery and inspect jobs, records, suppressions, and tracking.</span>
     </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
@@ -302,6 +312,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -706,6 +717,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1217,6 +1229,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1579,6 +1592,258 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
 </html>"""
 
 
+ADMIN_DELIVERY_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Delivery Manager</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input {
+      min-width: 0;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    pre {
+      margin: 0;
+      min-height: calc(100vh - 180px);
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1000px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .inline { grid-template-columns: 1fr; }
+      pre { min-height: 360px; max-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Delivery Manager</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Operations</h2></div>
+      <div class="body">
+        <div class="inline">
+          <label>Campaign ID
+            <input id="campaignId" />
+          </label>
+          <label>Send job ID
+            <input id="sendJobId" />
+          </label>
+        </div>
+        <div class="inline">
+          <label>Send record ID
+            <input id="sendRecordId" />
+          </label>
+          <label>Limit
+            <input id="limit" type="number" min="1" max="500" value="25" />
+          </label>
+        </div>
+        <div class="actions">
+          <button id="processQueued">Process Queued</button>
+          <button class="secondary" id="loadJobs">Load Jobs</button>
+          <button class="secondary" id="loadRecords">Load Records</button>
+          <button class="secondary" id="loadSuppressions">Suppressions</button>
+          <button class="secondary" id="trackingLinks">Tracking Links</button>
+          <button class="secondary" id="clear">Clear</button>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, options);
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function value(id) {
+      return document.getElementById(id).value.trim();
+    }
+
+    function limitQuery() {
+      return `limit=${encodeURIComponent(value("limit") || "25")}&offset=0`;
+    }
+
+    function scopedQuery() {
+      const params = new URLSearchParams(limitQuery());
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      return params.toString();
+    }
+
+    async function processQueued() {
+      const params = new URLSearchParams();
+      params.set("limit", value("limit") || "25");
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      await request(`/api/v1/delivery/process-queued?${params.toString()}`, {
+        method: "POST"
+      });
+    }
+
+    async function loadJobs() {
+      const params = new URLSearchParams(limitQuery());
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
+    }
+
+    async function loadRecords() {
+      await request(`/api/v1/email-send-records/list?${scopedQuery()}`);
+    }
+
+    async function loadSuppressions() {
+      await request(`/api/v1/suppressions?${limitQuery()}`);
+    }
+
+    async function trackingLinks() {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      await request(`/api/v1/email-send-records/${value("sendRecordId")}/tracking-links`);
+    }
+
+    document.getElementById("processQueued").addEventListener("click", () => {
+      processQueued().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadJobs").addEventListener("click", () => {
+      loadJobs().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadRecords").addEventListener("click", () => {
+      loadRecords().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadSuppressions").addEventListener("click", () => {
+      loadSuppressions().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("trackingLinks").addEventListener("click", () => {
+      trackingLinks().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    loadJobs().catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
 ADMIN_ENTITIES_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -1707,6 +1972,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
