@@ -46,7 +46,7 @@ strict = true
 plugins = []
 
 [[tool.mypy.overrides]]
-module = ["sendgrid", "sendgrid.helpers.mail"]
+module = ["sendgrid", "sendgrid.helpers.eventwebhook", "sendgrid.helpers.mail"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

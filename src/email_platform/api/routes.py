@@ -1,7 +1,8 @@
+import json
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings, get_settings
@@ -66,6 +67,7 @@ from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
 from email_platform.services.templates import TemplateService
+from email_platform.services.webhook_security import SendGridWebhookVerifier, WebhookSignatureError
 
 router = APIRouter(prefix='/api/v1')
 DbSession = Annotated[Session, Depends(get_db)]
@@ -244,10 +246,26 @@ def process_queued_delivery(
 
 
 @router.post('/provider-webhooks/sendgrid', response_model=ProviderWebhookIngestRead)
-def ingest_sendgrid_webhook(
-    payload: list[SendGridWebhookEvent],
+async def ingest_sendgrid_webhook(
+    request: Request,
     db: DbSession,
+    settings: SettingsDep,
 ) -> ProviderWebhookIngestRead:
+    raw_body = await request.body()
+    try:
+        SendGridWebhookVerifier(settings).verify(
+            raw_body,
+            request.headers.get(SendGridWebhookVerifier.signature_header),
+            request.headers.get(SendGridWebhookVerifier.timestamp_header),
+        )
+    except WebhookSignatureError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    try:
+        raw_events = json.loads(raw_body)
+        payload = [SendGridWebhookEvent.model_validate(item) for item in raw_events]
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail='Invalid SendGrid webhook payload') from exc
     return ProviderWebhookService(db).ingest_sendgrid(payload)
 
 

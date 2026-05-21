@@ -76,7 +76,7 @@ This backlog is organized around the target platform capabilities:
 
 ## P7: Tracking And Provider Webhooks
 
-- Add SendGrid webhook endpoint with signature verification. **Initial unsigned ingestion shipped; signature verification remains.**
+- Add SendGrid webhook endpoint with signature verification. **Verifier support shipped; production enforcement requires configuring the SendGrid public key.**
 - Add suppression updates for hard bounces, spam complaints, and unsubscribes. **Initial suppression handling shipped.**
 - Add open pixel endpoint with signed tracking IDs.
 - Add click redirect endpoint with signed tracking IDs.

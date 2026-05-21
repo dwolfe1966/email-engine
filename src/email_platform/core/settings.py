@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     email_provider: str = 'console'
     default_from_email: EmailStr = 'no-reply@example.com'
     sendgrid_api_key: str | None = None
+    sendgrid_event_webhook_public_key: str | None = None
+    sendgrid_event_webhook_require_signature: bool = True
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None
