@@ -9,6 +9,7 @@ from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import EventCreate
 from email_platform.services.contacts import ContactService
 from email_platform.services.events import EventService
+from email_platform.services.suppressions import SuppressionService
 from email_platform.services.templates import TemplateService
 
 
@@ -19,6 +20,7 @@ class SendingService:
         self.provider = build_email_provider(settings)
         self.contact_service = ContactService(db)
         self.event_service = EventService(db)
+        self.suppression_service = SuppressionService(db)
         self.template_service = TemplateService(db)
 
     def send_test(
@@ -55,6 +57,8 @@ class SendingService:
             raise ValueError('Contact not found')
         if contact.is_unsubscribed:
             raise PermissionError('Contact is unsubscribed')
+        if self.suppression_service.is_suppressed(contact.email):
+            raise PermissionError('Contact is suppressed')
 
         template = self.template_service.get(template_id)
         if not template:

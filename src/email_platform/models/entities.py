@@ -78,6 +78,13 @@ class EmailSendStatus(StrEnum):
     skipped = 'skipped'
 
 
+class SuppressionReason(StrEnum):
+    hard_bounce = 'hard_bounce'
+    spam_complaint = 'spam_complaint'
+    unsubscribe = 'unsubscribe'
+    manual = 'manual'
+
+
 class Contact(Base):
     __tablename__ = 'contacts'
     __table_args__ = (UniqueConstraint('email', name='uq_contacts_email'),)
@@ -222,6 +229,24 @@ class EmailSendRecord(Base):
     contact: Mapped[Contact] = relationship()
     send_job: Mapped[CampaignSendJob] = relationship()
     template: Mapped[EmailTemplate] = relationship()
+
+
+class Suppression(Base):
+    __tablename__ = 'suppressions'
+    __table_args__ = (UniqueConstraint('email', 'reason', name='uq_suppressions_email_reason'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    contact_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('contacts.id')
+    )
+    reason: Mapped[SuppressionReason] = mapped_column(Enum(SuppressionReason), index=True)
+    source: Mapped[str] = mapped_column(String(100), default='system')
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    contact: Mapped[Contact | None] = relationship()
 
 
 class EmailEvent(Base):

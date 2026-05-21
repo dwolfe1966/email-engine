@@ -18,6 +18,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
+        '/api/v1/provider-webhooks/sendgrid',
+        '/api/v1/suppressions',
         '/api/v1/audiences/contacts',
         '/api/v1/audiences/contacts/list',
         '/api/v1/audiences/contacts/{contact_id}',

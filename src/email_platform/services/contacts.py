@@ -6,8 +6,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
-from email_platform.models.entities import Contact
+from email_platform.models.entities import Contact, SuppressionReason
 from email_platform.schemas.contracts import ContactUpdate, ContactUpsert
+from email_platform.services.suppressions import SuppressionService
 
 
 class ContactService:
@@ -60,6 +61,12 @@ class ContactService:
         if not contact:
             return None
         contact.is_unsubscribed = True
+        SuppressionService(self.db).create_or_update(
+            email=contact.email,
+            reason=SuppressionReason.unsubscribe,
+            source='unsubscribe_endpoint',
+            contact_id=contact.id,
+        )
         self.db.commit()
         self.db.refresh(contact)
         return contact

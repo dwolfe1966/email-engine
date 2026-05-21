@@ -14,6 +14,7 @@ from email_platform.models.entities import (
     DataSourceMapping,
     EmailEvent,
     EmailTemplate,
+    Suppression,
 )
 from email_platform.schemas.contracts import (
     AudienceCreate,
@@ -44,7 +45,10 @@ from email_platform.schemas.contracts import (
     EventCreate,
     EventRead,
     ListResponse,
+    ProviderWebhookIngestRead,
+    SendGridWebhookEvent,
     SendResponse,
+    SuppressionRead,
     TemplateCreate,
     TemplateRead,
     TemplateUpdate,
@@ -58,7 +62,9 @@ from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
 from email_platform.services.delivery import DeliveryService
 from email_platform.services.events import EventService
+from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
+from email_platform.services.suppressions import SuppressionService
 from email_platform.services.templates import TemplateService
 
 router = APIRouter(prefix='/api/v1')
@@ -235,6 +241,23 @@ def process_queued_delivery(
     return DeliveryService(db, settings).process_queued(
         limit=limit, campaign_id=campaign_id, send_job_id=send_job_id
     )
+
+
+@router.post('/provider-webhooks/sendgrid', response_model=ProviderWebhookIngestRead)
+def ingest_sendgrid_webhook(
+    payload: list[SendGridWebhookEvent],
+    db: DbSession,
+) -> ProviderWebhookIngestRead:
+    return ProviderWebhookService(db).ingest_sendgrid(payload)
+
+
+@router.get('/suppressions', response_model=list[SuppressionRead])
+def list_suppressions(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[Suppression]:
+    return SuppressionService(db).list_items(limit=limit, offset=offset)
 
 
 @router.get('/audiences/contacts', response_model=list[ContactRead])

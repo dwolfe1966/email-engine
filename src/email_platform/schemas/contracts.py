@@ -11,6 +11,7 @@ from email_platform.models.entities import (
     EmailEventType,
     EmailSendStatus,
     SendJobStatus,
+    SuppressionReason,
 )
 
 JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
@@ -143,6 +144,36 @@ class DeliveryRunRead(BaseModel):
     sent_count: int
     failed_count: int
     processed_record_ids: list[str]
+
+
+class SuppressionRead(BaseModel):
+    id: UUID
+    email: EmailStr
+    contact_id: UUID | None = None
+    reason: SuppressionReason
+    source: str
+    provider_message_id: str | None = None
+    metadata_json: JsonObject
+
+    model_config = {'from_attributes': True}
+
+
+class SendGridWebhookEvent(BaseModel):
+    email: EmailStr
+    event: str
+    sg_message_id: str | None = None
+    smtp_id: str | None = None
+    reason: str | None = None
+    url: str | None = None
+    timestamp: int | None = None
+
+    model_config = {'extra': 'allow'}
+
+
+class ProviderWebhookIngestRead(BaseModel):
+    processed_count: int
+    suppressed_count: int
+    updated_send_records: int
 
 
 class DataSourceCreate(BaseModel):

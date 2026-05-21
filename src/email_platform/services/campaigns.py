@@ -19,6 +19,7 @@ from email_platform.schemas.contracts import (
     CampaignUpdate,
 )
 from email_platform.services.audiences import AudienceService
+from email_platform.services.suppressions import SuppressionService
 
 
 class CampaignService:
@@ -92,8 +93,9 @@ class CampaignService:
         queued_count = 0
         suppressed_count = 0
         if not payload.dry_run:
+            suppression_service = SuppressionService(self.db)
             for contact in contacts:
-                if contact.is_unsubscribed:
+                if contact.is_unsubscribed or suppression_service.is_suppressed(contact.email):
                     suppressed_count += 1
                     self._add_send_record(
                         campaign, job, contact, payload, EmailSendStatus.suppressed
