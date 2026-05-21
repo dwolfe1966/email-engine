@@ -1,8 +1,10 @@
 import json
 from typing import Annotated
+from urllib.parse import quote, urlparse
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings, get_settings
@@ -45,6 +47,7 @@ from email_platform.schemas.contracts import (
     EmailSendResponse,
     EventCreate,
     EventRead,
+    JsonObject,
     ListResponse,
     ProviderWebhookIngestRead,
     SendGridWebhookEvent,
@@ -58,6 +61,8 @@ from email_platform.schemas.contracts import (
     TemplateValidationRead,
     TemplateValidationRequest,
     TestEmailSendRequest,
+    TrackingEventRead,
+    TrackingLinksRead,
     UnsubscribeRead,
     UnsubscribeTokenRead,
 )
@@ -71,6 +76,7 @@ from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
 from email_platform.services.templates import TemplateService
+from email_platform.services.tracking import TrackingService
 from email_platform.services.webhook_security import SendGridWebhookVerifier, WebhookSignatureError
 
 router = APIRouter(prefix='/api/v1')
@@ -78,6 +84,25 @@ DbSession = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 Limit = Annotated[int, Query(ge=1, le=500)]
 Offset = Annotated[int, Query(ge=0)]
+TRANSPARENT_GIF = (
+    b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!'
+    b'\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00'
+    b'\x01\x00\x00\x02\x02D\x01\x00;'
+)
+
+
+def _tracking_request_metadata(request: Request) -> JsonObject:
+    client_host = request.client.host if request.client else None
+    return {
+        'ip': client_host,
+        'user_agent': request.headers.get('user-agent'),
+        'referer': request.headers.get('referer'),
+    }
+
+
+def _is_http_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme in {'http', 'https'} and bool(parsed.netloc)
 
 
 @router.get('/templates', response_model=list[TemplateRead])
@@ -246,6 +271,118 @@ def list_email_send_records(
         'offset': offset,
         'total': service.count_send_records(campaign_id=campaign_id, send_job_id=send_job_id),
     }
+
+
+@router.get('/email-send-records/{send_record_id}/tracking-links', response_model=TrackingLinksRead)
+def get_email_send_record_tracking_links(
+    send_record_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+    target_url: str | None = None,
+) -> TrackingLinksRead:
+    service = TrackingService(db, settings.unsubscribe_secret)
+    send_record = service.get_send_record(send_record_id)
+    if not send_record:
+        raise HTTPException(status_code=404, detail='Send record not found')
+
+    token = service.create_token(send_record_id)
+    open_url = str(request.url_for('record_tracking_open', token=token))
+    click_url_base = str(request.url_for('record_tracking_click', token=token))
+    click_url_template = f'{click_url_base}?url={{target_url}}'
+    click_url = (
+        f'{click_url_base}?url={quote(target_url, safe="")}'
+        if target_url
+        else click_url_template
+    )
+    return TrackingLinksRead(
+        send_record_id=send_record_id,
+        token=token,
+        open_url=open_url,
+        click_url=click_url,
+        click_url_template=click_url_template,
+    )
+
+
+@router.get('/tracking/open/{token}', include_in_schema=False)
+def record_tracking_open(
+    token: str,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> Response:
+    try:
+        TrackingService(db, settings.unsubscribe_secret).record_open(
+            token, _tracking_request_metadata(request)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return Response(
+        content=TRANSPARENT_GIF,
+        media_type='image/gif',
+        headers={'Cache-Control': 'no-store, max-age=0'},
+    )
+
+
+@router.get('/tracking/click/{token}', response_model=None)
+def record_tracking_click(
+    token: str,
+    url: str,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> RedirectResponse:
+    if not _is_http_url(url):
+        raise HTTPException(status_code=400, detail='Click redirect URL must be http or https')
+    try:
+        TrackingService(db, settings.unsubscribe_secret).record_click(
+            token, {**_tracking_request_metadata(request), 'target_url': url}
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return RedirectResponse(url, status_code=302)
+
+
+@router.post('/tracking/open/{token}', response_model=TrackingEventRead)
+def record_tracking_open_api(
+    token: str,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> TrackingEventRead:
+    try:
+        event = TrackingService(db, settings.unsubscribe_secret).record_open(
+            token, _tracking_request_metadata(request)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    send_record_id = UUID(str(event.metadata_json['send_record_id']))
+    return TrackingEventRead(
+        event_id=event.id, send_record_id=send_record_id, event_type=event.event_type
+    )
+
+
+@router.post('/tracking/click/{token}', response_model=TrackingEventRead)
+def record_tracking_click_api(
+    token: str,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+    target_url: str | None = None,
+) -> TrackingEventRead:
+    metadata = _tracking_request_metadata(request)
+    if target_url:
+        if not _is_http_url(target_url):
+            raise HTTPException(status_code=400, detail='Click URL must be http or https')
+        metadata['target_url'] = target_url
+    try:
+        event = TrackingService(db, settings.unsubscribe_secret).record_click(token, metadata)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    send_record_id = UUID(str(event.metadata_json['send_record_id']))
+    return TrackingEventRead(
+        event_id=event.id, send_record_id=send_record_id, event_type=event.event_type
+    )
 
 
 @router.post('/delivery/process-queued', response_model=DeliveryRunRead)

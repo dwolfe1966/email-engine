@@ -20,6 +20,9 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
+        '/api/v1/email-send-records/{send_record_id}/tracking-links',
+        '/api/v1/tracking/click/{token}',
+        '/api/v1/tracking/open/{token}',
         '/api/v1/provider-webhooks/sendgrid',
         '/api/v1/suppressions',
         '/api/v1/audiences/contacts',
@@ -51,3 +54,10 @@ def test_api_tester_page() -> None:
     response = client.get('/tester')
     assert response.status_code == 200
     assert 'Email Engine API Tester' in response.text
+
+
+def test_template_editor_page() -> None:
+    client = TestClient(app)
+    response = client.get('/template-editor')
+    assert response.status_code == 200
+    assert 'Email Engine Template Editor' in response.text

@@ -176,6 +176,21 @@ class DeliveryRunRead(BaseModel):
     processed_record_ids: list[str]
 
 
+class TrackingLinksRead(BaseModel):
+    send_record_id: UUID
+    token: str
+    open_url: str
+    click_url: str
+    click_url_template: str
+
+
+class TrackingEventRead(BaseModel):
+    status: str = 'recorded'
+    event_id: UUID
+    send_record_id: UUID
+    event_type: EmailEventType
+
+
 class SuppressionRead(BaseModel):
     id: UUID
     email: EmailStr
