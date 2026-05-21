@@ -561,11 +561,12 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     h1 { margin: 0; font-size: 20px; }
     main {
       display: grid;
-      grid-template-columns: 280px minmax(420px, .9fr) minmax(420px, 1fr);
+      grid-template-columns: 280px minmax(360px, 1fr) minmax(360px, 1fr);
       gap: 14px;
       padding: 14px;
     }
     section {
+      min-width: 0;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -580,9 +581,10 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       gap: 8px;
     }
     h2 { margin: 0; font-size: 14px; }
-    .body { padding: 12px; display: grid; gap: 10px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
     label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
     input, select, textarea {
+      min-width: 0;
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -627,10 +629,11 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     .item small { display: block; color: var(--muted); margin-top: 3px; }
     .rule-grid {
       display: grid;
-      grid-template-columns: 1.1fr .8fr 1fr auto;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 8px;
       align-items: end;
     }
+    .rule-grid button { min-height: 37px; }
     .rule-list { display: grid; gap: 6px; }
     .rule {
       display: grid;
@@ -684,10 +687,9 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       font-size: 12px;
       white-space: pre-wrap;
     }
-    @media (max-width: 1100px) {
+    @media (max-width: 1280px) {
       main { grid-template-columns: 1fr; }
       header { align-items: flex-start; flex-direction: column; }
-      .rule-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
