@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from email_platform.api.admin_console import router as admin_console_router
@@ -19,6 +20,11 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+
+@app.get('/', include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse('/admin', status_code=307)
 
 
 @app.get('/health')

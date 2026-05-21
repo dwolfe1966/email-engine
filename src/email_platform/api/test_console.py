@@ -137,9 +137,9 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
     <h1>Email Engine API Tester</h1>
     <p>Manual same-origin test console for the deployed FastAPI endpoints.</p>
     <div class="actions" style="margin-top:10px">
-      <button class="secondary" onclick="location.href='/admin'">Admin</button>
-      <button class="secondary" onclick="location.href='/admin/entities'">Entities</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
       <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>

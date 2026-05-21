@@ -67,6 +67,9 @@ def test_api_tester_page() -> None:
     response = client.get('/tester')
     assert response.status_code == 200
     assert 'Email Engine API Tester' in response.text
+    assert '/template-editor' in response.text
+    assert '/admin/entities' in response.text
+    assert '/docs' in response.text
 
 
 def test_template_editor_page() -> None:
@@ -74,6 +77,7 @@ def test_template_editor_page() -> None:
     response = client.get('/template-editor')
     assert response.status_code == 200
     assert 'Email Engine Template Editor' in response.text
+    assert 'Entity Workbench' in response.text
 
 
 def test_admin_pages() -> None:
@@ -84,3 +88,14 @@ def test_admin_pages() -> None:
     assert entities.status_code == 200
     assert 'Email Engine Admin' in home.text
     assert 'Email Engine Entity Workbench' in entities.text
+    assert '/tester' in home.text
+    assert '/template-editor' in home.text
+    assert '/admin/entities' in home.text
+    assert '/docs' in home.text
+
+
+def test_root_redirects_to_admin() -> None:
+    client = TestClient(app, follow_redirects=False)
+    response = client.get('/')
+    assert response.status_code == 307
+    assert response.headers['location'] == '/admin'

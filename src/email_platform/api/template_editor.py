@@ -165,7 +165,8 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     <h1>Email Engine Template Editor</h1>
     <div class="actions">
       <button class="secondary" id="openTester">Tester</button>
-      <button class="secondary" id="openAdmin">Admin</button>
+      <button class="secondary" id="openTemplateEditor">Template Editor</button>
+      <button class="secondary" id="openEntities">Entity Workbench</button>
       <button class="secondary" id="openDocs">Docs</button>
     </div>
   </header>
@@ -431,8 +432,11 @@ li {
     document.getElementById("openTester").addEventListener("click", () => {
       window.open("/tester", "_blank", "noopener,noreferrer");
     });
-    document.getElementById("openAdmin").addEventListener("click", () => {
-      window.open("/admin", "_blank", "noopener,noreferrer");
+    document.getElementById("openTemplateEditor").addEventListener("click", () => {
+      window.open("/template-editor", "_blank", "noopener,noreferrer");
+    });
+    document.getElementById("openEntities").addEventListener("click", () => {
+      window.open("/admin/entities", "_blank", "noopener,noreferrer");
     });
     document.getElementById("openDocs").addEventListener("click", () => {
       window.open("/docs", "_blank", "noopener,noreferrer");

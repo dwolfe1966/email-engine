@@ -40,11 +40,23 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       font-size: 14px;
     }
     header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
       padding: 18px 22px;
       background: var(--panel);
       border-bottom: 1px solid var(--line);
     }
     h1 { margin: 0; font-size: 20px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; }
+    nav a {
+      min-height: auto;
+      padding: 8px 10px;
+      border-color: var(--blue);
+      color: var(--blue);
+      font-weight: 650;
+    }
     main {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -69,7 +81,15 @@ ADMIN_HOME_HTML = r"""<!doctype html>
   </style>
 </head>
 <body>
-  <header><h1>Email Engine Admin</h1></header>
+  <header>
+    <h1>Email Engine Admin</h1>
+    <nav>
+      <a href="/tester">Tester</a>
+      <a href="/template-editor">Template Editor</a>
+      <a href="/admin/entities">Entity Workbench</a>
+      <a href="/docs">Docs</a>
+    </nav>
+  </header>
   <main>
     <a href="/admin/entities">
       <strong>Entity Workbench</strong>
@@ -211,9 +231,9 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Entity Workbench</h1>
     <div class="actions">
-      <button class="secondary" onclick="location.href='/admin'">Admin</button>
-      <button class="secondary" onclick="location.href='/template-editor'">Templates</button>
       <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
