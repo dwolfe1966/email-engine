@@ -141,6 +141,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     <h1>Email Engine Template Editor</h1>
     <div class="actions">
       <button class="secondary" id="openTester">Tester</button>
+      <button class="secondary" id="openAdmin">Admin</button>
       <button class="secondary" id="openDocs">Docs</button>
     </div>
   </header>
@@ -182,6 +183,18 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
   <li>{{ loop.index }}. {{ item }}</li>
 {% endfor %}
 </ul></textarea>
+        </label>
+        <label>CSS
+          <textarea id="cssBody">body {
+  font-family: Arial, sans-serif;
+  color: #17202a;
+}
+p {
+  line-height: 1.5;
+}
+li {
+  margin: 4px 0;
+}</textarea>
         </label>
         <label>Text
           <textarea id="textBody">Hello {{ first_name }}. Your plan is {{ plan }}.</textarea>
@@ -229,6 +242,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
         name: value("templateName"),
         subject: value("subject"),
         html_body: value("htmlBody"),
+        css_body: value("cssBody") || null,
         text_body: value("textBody") || null,
       };
     }
@@ -269,6 +283,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       document.getElementById("templateName").value = template.name;
       document.getElementById("subject").value = template.subject;
       document.getElementById("htmlBody").value = template.html_body;
+      document.getElementById("cssBody").value = template.css_body || "";
       document.getElementById("textBody").value = template.text_body || "";
       log({ selected: template.id });
     }
@@ -311,6 +326,9 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     });
     document.getElementById("openTester").addEventListener("click", () => {
       window.open("/tester", "_blank", "noopener,noreferrer");
+    });
+    document.getElementById("openAdmin").addEventListener("click", () => {
+      window.open("/admin", "_blank", "noopener,noreferrer");
     });
     document.getElementById("openDocs").addEventListener("click", () => {
       window.open("/docs", "_blank", "noopener,noreferrer");

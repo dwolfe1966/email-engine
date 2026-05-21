@@ -136,6 +136,12 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine API Tester</h1>
     <p>Manual same-origin test console for the deployed FastAPI endpoints.</p>
+    <div class="actions" style="margin-top:10px">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entities</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
   </header>
   <main>
     <div class="body" style="padding:0">
@@ -328,6 +334,7 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
           body: JSON.stringify({
             subject: "Hello {{ first_name }}",
             html_body: document.getElementById("htmlBody").value,
+            css_body: "body { font-family: Arial, sans-serif; }",
             text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
             variables: readVariables(),
           }),
@@ -339,6 +346,7 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
           body: JSON.stringify({
             subject: "Hello {{ first_name }}",
             html_body: document.getElementById("htmlBody").value,
+            css_body: "body { font-family: Arial, sans-serif; }",
             text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
             variables: readVariables(),
           }),
@@ -351,6 +359,7 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
             name: `api-tester-${Date.now()}`,
             subject: "Hello {{ first_name }}",
             html_body: document.getElementById("htmlBody").value,
+            css_body: "body { font-family: Arial, sans-serif; }",
             text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
           }),
         });

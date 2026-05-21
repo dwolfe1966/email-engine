@@ -68,7 +68,7 @@ class TemplateService:
         self, template: EmailTemplate, variables: Mapping[str, object]
     ) -> tuple[str, str, str | None]:
         subject = self._render_source(template.subject, variables)
-        html = self._render_source(template.html_body, variables)
+        html = self._render_html(template.html_body, template.css_body, variables)
         text = self._render_source(template.text_body, variables) if template.text_body else None
         return subject, html, text
 
@@ -77,6 +77,7 @@ class TemplateService:
             TemplateValidationRequest(
                 subject=payload.subject,
                 html_body=payload.html_body,
+                css_body=payload.css_body,
                 text_body=payload.text_body,
                 variables=payload.variables,
             )
@@ -95,7 +96,10 @@ class TemplateService:
             return TemplatePreviewRead(
                 ok=True,
                 subject=self._render_source(payload.subject, variables),
-                html_body=self._render_source(payload.html_body, variables),
+                html_body=self._render_html(payload.html_body, payload.css_body, variables),
+                css_body=self._render_source(payload.css_body, variables)
+                if payload.css_body
+                else None,
                 text_body=self._render_source(payload.text_body, variables)
                 if payload.text_body
                 else None,
@@ -135,10 +139,26 @@ class TemplateService:
     def _render_source(self, source: str, variables: Mapping[str, object]) -> str:
         return template_environment.from_string(source).render(**variables)
 
+    def _render_html(
+        self, html_body: str, css_body: str | None, variables: Mapping[str, object]
+    ) -> str:
+        html = self._render_source(html_body, variables)
+        if not css_body:
+            return html
+        css = self._render_source(css_body, variables)
+        style_block = f'<style>\n{css}\n</style>'
+        lower_html = html.lower()
+        head_index = lower_html.find('</head>')
+        if head_index >= 0:
+            return f'{html[:head_index]}{style_block}\n{html[head_index:]}'
+        return f'{style_block}\n{html}'
+
     def _sources(
         self, payload: TemplateValidationRequest | TemplatePreviewRequest
     ) -> dict[str, str]:
         sources = {'subject': payload.subject, 'html_body': payload.html_body}
+        if payload.css_body:
+            sources['css_body'] = payload.css_body
         if payload.text_body:
             sources['text_body'] = payload.text_body
         return sources

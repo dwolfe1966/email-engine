@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from email_platform.api.admin_console import router as admin_console_router
 from email_platform.api.routes import router
 from email_platform.api.template_editor import router as template_editor_router
 from email_platform.api.test_console import router as test_console_router
@@ -32,5 +33,6 @@ def ready() -> dict[str, str]:
 
 
 app.include_router(router)
+app.include_router(admin_console_router)
 app.include_router(test_console_router)
 app.include_router(template_editor_router)

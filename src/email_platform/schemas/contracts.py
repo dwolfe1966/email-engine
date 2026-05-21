@@ -58,6 +58,7 @@ class TemplateCreate(BaseModel):
     name: str
     subject: str
     html_body: str
+    css_body: str | None = None
     text_body: str | None = None
 
 
@@ -65,12 +66,14 @@ class TemplateUpdate(BaseModel):
     name: str | None = None
     subject: str | None = None
     html_body: str | None = None
+    css_body: str | None = None
     text_body: str | None = None
 
 
 class TemplatePreviewRequest(BaseModel):
     subject: str
     html_body: str
+    css_body: str | None = None
     text_body: str | None = None
     variables: JsonObject = Field(default_factory=dict)
 
@@ -79,6 +82,7 @@ class TemplatePreviewRead(BaseModel):
     ok: bool = True
     subject: str
     html_body: str
+    css_body: str | None = None
     text_body: str | None = None
     errors: list[str] = Field(default_factory=list)
     undeclared_variables: list[str] = Field(default_factory=list)
@@ -87,6 +91,7 @@ class TemplatePreviewRead(BaseModel):
 class TemplateValidationRequest(BaseModel):
     subject: str
     html_body: str
+    css_body: str | None = None
     text_body: str | None = None
     variables: JsonObject = Field(default_factory=dict)
 

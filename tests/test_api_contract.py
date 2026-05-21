@@ -62,3 +62,13 @@ def test_template_editor_page() -> None:
     response = client.get('/template-editor')
     assert response.status_code == 200
     assert 'Email Engine Template Editor' in response.text
+
+
+def test_admin_pages() -> None:
+    client = TestClient(app)
+    home = client.get('/admin')
+    entities = client.get('/admin/entities')
+    assert home.status_code == 200
+    assert entities.status_code == 200
+    assert 'Email Engine Admin' in home.text
+    assert 'Email Engine Entity Workbench' in entities.text
