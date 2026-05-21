@@ -7,8 +7,9 @@ Create Date: 2026-05-20
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = '0001_initial_schema'
 down_revision: str | None = None
@@ -17,8 +18,27 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    campaign_status = postgresql.ENUM('draft', 'scheduled', 'sending', 'sent', 'paused', name='campaignstatus')
-    event_type = postgresql.ENUM('queued', 'sent', 'delivered', 'opened', 'clicked', 'bounced', 'complained', 'unsubscribed', name='emaileventtype')
+    campaign_status = postgresql.ENUM(
+        'draft',
+        'scheduled',
+        'sending',
+        'sent',
+        'paused',
+        name='campaignstatus',
+        create_type=False,
+    )
+    event_type = postgresql.ENUM(
+        'queued',
+        'sent',
+        'delivered',
+        'opened',
+        'clicked',
+        'bounced',
+        'complained',
+        'unsubscribed',
+        name='emaileventtype',
+        create_type=False,
+    )
     campaign_status.create(op.get_bind(), checkfirst=True)
     event_type.create(op.get_bind(), checkfirst=True)
 
@@ -76,8 +96,15 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['contact_id'], ['contacts.id']),
         sa.PrimaryKeyConstraint('id'),
     )
-    op.create_index(op.f('ix_email_events_event_type'), 'email_events', ['event_type'], unique=False)
-    op.create_index(op.f('ix_email_events_provider_message_id'), 'email_events', ['provider_message_id'], unique=False)
+    op.create_index(
+        op.f('ix_email_events_event_type'), 'email_events', ['event_type'], unique=False
+    )
+    op.create_index(
+        op.f('ix_email_events_provider_message_id'),
+        'email_events',
+        ['provider_message_id'],
+        unique=False,
+    )
 
 
 def downgrade() -> None:

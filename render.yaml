@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: email-engine
+    runtime: docker
+    plan: starter
+    healthCheckPath: /ready
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: APP_NAME
+        value: Email Platform
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: email-engine-db
+          property: connectionString
+      - key: EMAIL_PROVIDER
+        value: console
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: UNSUBSCRIBE_SECRET
+        generateValue: true
+      - key: SENDGRID_API_KEY
+        sync: false
+
+databases:
+  - name: email-engine-db
+    plan: starter

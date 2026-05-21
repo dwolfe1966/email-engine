@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -14,7 +15,9 @@ class SendingService:
         self.provider = build_email_provider(settings)
         self.template_service = TemplateService(db)
 
-    def send_test(self, template_id: UUID, to_email: str, variables: dict) -> dict:
+    def send_test(
+        self, template_id: UUID, to_email: str, variables: Mapping[str, object]
+    ) -> dict[str, str | int | None]:
         template = self.template_service.get(template_id)
         if not template:
             raise ValueError('Template not found')

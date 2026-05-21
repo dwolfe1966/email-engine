@@ -1,14 +1,15 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from email_platform.core.settings import get_settings
 from email_platform.db.session import Base
 from email_platform.models import entities  # noqa: F401
 
 config = context.config
-config.set_main_option('sqlalchemy.url', get_settings().database_url)
+settings = get_settings()
+config.set_main_option('sqlalchemy.url', settings.database_migration_url or settings.database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

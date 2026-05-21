@@ -9,5 +9,25 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U email_platform -d email_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  api:
+    build: .
+    environment:
+      APP_NAME: Email Platform
+      ENVIRONMENT: local
+      CORS_ORIGINS: '["*"]'
+      DATABASE_URL: postgresql+psycopg://email_platform:email_platform@postgres:5432/email_platform
+      EMAIL_PROVIDER: console
+      DEFAULT_FROM_EMAIL: no-reply@example.com
+      UNSUBSCRIBE_SECRET: local-dev-secret
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   postgres-data:

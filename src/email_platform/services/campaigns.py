@@ -1,3 +1,6 @@
+from uuid import UUID
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import Campaign
@@ -14,3 +17,12 @@ class CampaignService:
         self.db.commit()
         self.db.refresh(campaign)
         return campaign
+
+    def list(self, limit: int = 100, offset: int = 0) -> list[Campaign]:
+        statement = (
+            select(Campaign).order_by(Campaign.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(self.db.scalars(statement).all())
+
+    def get(self, campaign_id: UUID) -> Campaign | None:
+        return self.db.get(Campaign, campaign_id)

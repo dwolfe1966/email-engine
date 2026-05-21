@@ -4,13 +4,15 @@ from pydantic import BaseModel, EmailStr, Field
 
 from email_platform.models.entities import CampaignStatus, EmailEventType
 
+JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
+
 
 class ContactUpsert(BaseModel):
     email: EmailStr
     first_name: str | None = None
     last_name: str | None = None
     source: str | None = None
-    attributes: dict = Field(default_factory=dict)
+    attributes: JsonObject = Field(default_factory=dict)
 
 
 class ContactRead(ContactUpsert):
@@ -36,7 +38,7 @@ class TemplateRead(TemplateCreate):
 class CampaignCreate(BaseModel):
     name: str
     template_id: UUID
-    audience_query: dict = Field(default_factory=dict)
+    audience_query: JsonObject = Field(default_factory=dict)
 
 
 class CampaignRead(CampaignCreate):
@@ -49,7 +51,13 @@ class CampaignRead(CampaignCreate):
 class TestSendRequest(BaseModel):
     template_id: UUID
     to_email: EmailStr
-    variables: dict = Field(default_factory=dict)
+    variables: JsonObject = Field(default_factory=dict)
+
+
+class SendResponse(BaseModel):
+    provider: str
+    provider_message_id: str | None = None
+    status_code: int
 
 
 class EventCreate(BaseModel):
@@ -57,4 +65,20 @@ class EventCreate(BaseModel):
     campaign_id: UUID | None = None
     event_type: EmailEventType
     provider_message_id: str | None = None
-    metadata_json: dict = Field(default_factory=dict)
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class EventRead(EventCreate):
+    id: UUID
+
+    model_config = {'from_attributes': True}
+
+
+class UnsubscribeTokenRead(BaseModel):
+    contact_id: UUID
+    token: str
+
+
+class UnsubscribeRead(BaseModel):
+    status: str
+    contact_id: UUID

@@ -1,19 +1,25 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings, get_settings
 from email_platform.db.session import get_db
+from email_platform.models.entities import Campaign, Contact, EmailEvent, EmailTemplate
 from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignRead,
     ContactRead,
     ContactUpsert,
     EventCreate,
+    EventRead,
+    SendResponse,
     TemplateCreate,
     TemplateRead,
     TestSendRequest,
+    UnsubscribeRead,
+    UnsubscribeTokenRead,
 )
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
@@ -22,50 +28,147 @@ from email_platform.services.sending import SendingService
 from email_platform.services.templates import TemplateService
 
 router = APIRouter(prefix='/api/v1')
+DbSession = Annotated[Session, Depends(get_db)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
+Limit = Annotated[int, Query(ge=1, le=500)]
+Offset = Annotated[int, Query(ge=0)]
+
+
+@router.get('/templates', response_model=list[TemplateRead])
+def list_templates(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[EmailTemplate]:
+    return TemplateService(db).list(limit=limit, offset=offset)
 
 
 @router.post('/templates', response_model=TemplateRead)
-def create_template(payload: TemplateCreate, db: Session = Depends(get_db)):
+def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
     return TemplateService(db).create(payload)
 
 
 @router.get('/templates/{template_id}', response_model=TemplateRead)
-def get_template(template_id: UUID, db: Session = Depends(get_db)):
+def get_template(template_id: UUID, db: DbSession) -> EmailTemplate:
     template = TemplateService(db).get(template_id)
     if not template:
         raise HTTPException(status_code=404, detail='Template not found')
     return template
 
 
+@router.get('/campaigns', response_model=list[CampaignRead])
+def list_campaigns(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[Campaign]:
+    return CampaignService(db).list(limit=limit, offset=offset)
+
+
 @router.post('/campaigns', response_model=CampaignRead)
-def create_campaign(payload: CampaignCreate, db: Session = Depends(get_db)):
+def create_campaign(payload: CampaignCreate, db: DbSession) -> Campaign:
     return CampaignService(db).create(payload)
 
 
+@router.get('/campaigns/{campaign_id}', response_model=CampaignRead)
+def get_campaign(campaign_id: UUID, db: DbSession) -> Campaign:
+    campaign = CampaignService(db).get(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return campaign
+
+
+@router.get('/audiences/contacts', response_model=list[ContactRead])
+def list_contacts(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[Contact]:
+    return ContactService(db).list(limit=limit, offset=offset)
+
+
 @router.post('/audiences/contacts', response_model=ContactRead)
-def upsert_contact(payload: ContactUpsert, db: Session = Depends(get_db)):
+def upsert_contact(payload: ContactUpsert, db: DbSession) -> Contact:
     return ContactService(db).upsert(payload)
 
 
-@router.post('/send/test')
+@router.get('/audiences/contacts/{contact_id}', response_model=ContactRead)
+def get_contact(contact_id: UUID, db: DbSession) -> Contact:
+    contact = ContactService(db).get(contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail='Contact not found')
+    return contact
+
+
+@router.post(
+    '/audiences/contacts/{contact_id}/unsubscribe-token',
+    response_model=UnsubscribeTokenRead,
+)
+def create_unsubscribe_token(
+    contact_id: UUID,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, UUID | str]:
+    contact_service = ContactService(db)
+    contact = contact_service.get(contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail='Contact not found')
+    return {
+        'contact_id': contact.id,
+        'token': contact_service.build_unsubscribe_token(contact.id, settings),
+    }
+
+
+@router.post('/send/test', response_model=SendResponse)
 def send_test(
     payload: TestSendRequest,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-):
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, str | int | None]:
     try:
-        return SendingService(db, settings).send_test(payload.template_id, str(payload.to_email), payload.variables)
+        return SendingService(db, settings).send_test(
+            payload.template_id,
+            str(payload.to_email),
+            payload.variables,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get('/events', response_model=list[EventRead])
+def list_events(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[EmailEvent]:
+    return EventService(db).list(limit=limit, offset=offset)
+
+
 @router.post('/events')
-def record_event(payload: EventCreate, db: Session = Depends(get_db)):
+def record_event(payload: EventCreate, db: DbSession) -> dict[str, UUID | str]:
     event = EventService(db).record(payload)
     return {'id': event.id, 'status': 'recorded'}
 
 
-@router.get('/unsubscribe/{token}')
-def unsubscribe(token: str):
-    # TODO: verify signed token and mark contact unsubscribed.
-    return {'status': 'received', 'token': token}
+@router.get('/events/{event_id}', response_model=EventRead)
+def get_event(event_id: UUID, db: DbSession) -> EmailEvent:
+    event = EventService(db).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail='Event not found')
+    return event
+
+
+@router.get('/unsubscribe/{token}', response_model=UnsubscribeRead)
+def unsubscribe(
+    token: str,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, UUID | str]:
+    contact_service = ContactService(db)
+    contact_id = contact_service.verify_unsubscribe_token(token, settings)
+    if not contact_id:
+        raise HTTPException(status_code=400, detail='Invalid unsubscribe token')
+    contact = contact_service.unsubscribe(contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail='Contact not found')
+    return {'status': 'unsubscribed', 'contact_id': contact.id}

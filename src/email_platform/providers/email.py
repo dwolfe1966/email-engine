@@ -1,6 +1,6 @@
+import smtplib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -65,6 +65,8 @@ class SmtpEmailProvider(EmailProvider):
         self.settings = settings
 
     def send(self, message: EmailMessage) -> EmailDeliveryResult:
+        if not self.settings.smtp_host:
+            raise ValueError('SMTP_HOST is required for smtp provider')
         mime = MIMEMultipart('alternative')
         mime['Subject'] = message.subject
         mime['From'] = message.from_email
