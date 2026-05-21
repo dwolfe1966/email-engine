@@ -2,7 +2,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-from email_platform.models.entities import CampaignStatus, EmailEventType
+from email_platform.models.entities import (
+    AudienceStatus,
+    CampaignStatus,
+    DataSourceStatus,
+    DataSourceType,
+    EmailEventType,
+)
 
 JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
 
@@ -46,6 +52,58 @@ class CampaignRead(CampaignCreate):
     status: CampaignStatus
 
     model_config = {'from_attributes': True}
+
+
+class DataSourceCreate(BaseModel):
+    name: str
+    source_type: DataSourceType
+    config: JsonObject = Field(default_factory=dict)
+    secret_ref: str | None = None
+
+
+class DataSourceRead(DataSourceCreate):
+    id: UUID
+    status: DataSourceStatus
+
+    model_config = {'from_attributes': True}
+
+
+class DataSourceMappingCreate(BaseModel):
+    data_source_id: UUID
+    name: str
+    object_type: str
+    mapping: JsonObject = Field(default_factory=dict)
+    extraction_plan: JsonObject = Field(default_factory=dict)
+
+
+class DataSourceMappingRead(DataSourceMappingCreate):
+    id: UUID
+
+    model_config = {'from_attributes': True}
+
+
+class AudienceCreate(BaseModel):
+    name: str
+    description: str | None = None
+    rule_tree: JsonObject = Field(default_factory=dict)
+
+
+class AudienceRead(AudienceCreate):
+    id: UUID
+    status: AudienceStatus
+    estimated_count: int
+
+    model_config = {'from_attributes': True}
+
+
+class AudiencePreviewRequest(BaseModel):
+    rule_tree: JsonObject
+    limit: int = Field(default=25, ge=1, le=100)
+
+
+class AudiencePreviewRead(BaseModel):
+    estimated_count: int
+    sample_contacts: list[ContactRead]
 
 
 class TestEmailSendRequest(BaseModel):

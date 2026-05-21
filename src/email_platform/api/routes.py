@@ -6,12 +6,28 @@ from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings, get_settings
 from email_platform.db.session import get_db
-from email_platform.models.entities import Campaign, Contact, EmailEvent, EmailTemplate
+from email_platform.models.entities import (
+    Audience,
+    Campaign,
+    Contact,
+    DataSource,
+    DataSourceMapping,
+    EmailEvent,
+    EmailTemplate,
+)
 from email_platform.schemas.contracts import (
+    AudienceCreate,
+    AudiencePreviewRead,
+    AudiencePreviewRequest,
+    AudienceRead,
     CampaignCreate,
     CampaignRead,
     ContactRead,
     ContactUpsert,
+    DataSourceCreate,
+    DataSourceMappingCreate,
+    DataSourceMappingRead,
+    DataSourceRead,
     EmailSendRequest,
     EmailSendResponse,
     EventCreate,
@@ -23,8 +39,10 @@ from email_platform.schemas.contracts import (
     UnsubscribeRead,
     UnsubscribeTokenRead,
 )
+from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
+from email_platform.services.data_sources import DataSourceService
 from email_platform.services.events import EventService
 from email_platform.services.sending import SendingService
 from email_platform.services.templates import TemplateService
@@ -100,6 +118,78 @@ def get_contact(contact_id: UUID, db: DbSession) -> Contact:
     if not contact:
         raise HTTPException(status_code=404, detail='Contact not found')
     return contact
+
+
+@router.get('/data-sources', response_model=list[DataSourceRead])
+def list_data_sources(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[DataSource]:
+    return DataSourceService(db).list_items(limit=limit, offset=offset)
+
+
+@router.post('/data-sources', response_model=DataSourceRead)
+def create_data_source(payload: DataSourceCreate, db: DbSession) -> DataSource:
+    return DataSourceService(db).create(payload)
+
+
+@router.get('/data-sources/{data_source_id}', response_model=DataSourceRead)
+def get_data_source(data_source_id: UUID, db: DbSession) -> DataSource:
+    data_source = DataSourceService(db).get(data_source_id)
+    if not data_source:
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return data_source
+
+
+@router.get('/data-source-mappings', response_model=list[DataSourceMappingRead])
+def list_data_source_mappings(
+    db: DbSession,
+    data_source_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[DataSourceMapping]:
+    return DataSourceService(db).list_mappings(
+        data_source_id=data_source_id, limit=limit, offset=offset
+    )
+
+
+@router.post('/data-source-mappings', response_model=DataSourceMappingRead)
+def create_data_source_mapping(
+    payload: DataSourceMappingCreate, db: DbSession
+) -> DataSourceMapping:
+    data_source_service = DataSourceService(db)
+    if not data_source_service.get(payload.data_source_id):
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return data_source_service.create_mapping(payload)
+
+
+@router.get('/audiences', response_model=list[AudienceRead])
+def list_audiences(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[Audience]:
+    return AudienceService(db).list_items(limit=limit, offset=offset)
+
+
+@router.post('/audiences', response_model=AudienceRead)
+def create_audience(payload: AudienceCreate, db: DbSession) -> Audience:
+    return AudienceService(db).create(payload)
+
+
+@router.get('/audiences/{audience_id}', response_model=AudienceRead)
+def get_audience(audience_id: UUID, db: DbSession) -> Audience:
+    audience = AudienceService(db).get(audience_id)
+    if not audience:
+        raise HTTPException(status_code=404, detail='Audience not found')
+    return audience
+
+
+@router.post('/audiences/preview', response_model=AudiencePreviewRead)
+def preview_audience(payload: AudiencePreviewRequest, db: DbSession) -> dict[str, object]:
+    count, sample_contacts = AudienceService(db).preview(payload.rule_tree, payload.limit)
+    return {'estimated_count': count, 'sample_contacts': sample_contacts}
 
 
 @router.post(

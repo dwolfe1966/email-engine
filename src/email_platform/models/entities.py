@@ -3,7 +3,17 @@ from enum import StrEnum
 from uuid import UUID as PyUUID
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -28,6 +38,28 @@ class EmailEventType(StrEnum):
     bounced = 'bounced'
     complained = 'complained'
     unsubscribed = 'unsubscribed'
+
+
+class DataSourceType(StrEnum):
+    postgres = 'postgres'
+    mysql = 'mysql'
+    snowflake = 'snowflake'
+    bigquery = 'bigquery'
+    rest_api = 'rest_api'
+    csv = 'csv'
+    manual = 'manual'
+
+
+class DataSourceStatus(StrEnum):
+    draft = 'draft'
+    active = 'active'
+    paused = 'paused'
+
+
+class AudienceStatus(StrEnum):
+    draft = 'draft'
+    active = 'active'
+    archived = 'archived'
 
 
 class Contact(Base):
@@ -56,6 +88,56 @@ class EmailTemplate(Base):
     html_body: Mapped[str] = mapped_column(Text)
     text_body: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DataSource(Base):
+    __tablename__ = 'data_sources'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    source_type: Mapped[DataSourceType] = mapped_column(Enum(DataSourceType), index=True)
+    status: Mapped[DataSourceStatus] = mapped_column(
+        Enum(DataSourceStatus), default=DataSourceStatus.draft
+    )
+    config: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    secret_ref: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+
+class DataSourceMapping(Base):
+    __tablename__ = 'data_source_mappings'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    data_source_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('data_sources.id')
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    object_type: Mapped[str] = mapped_column(String(100), index=True)
+    mapping: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    extraction_plan: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    data_source: Mapped[DataSource] = relationship()
+
+
+class Audience(Base):
+    __tablename__ = 'audiences'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[AudienceStatus] = mapped_column(
+        Enum(AudienceStatus), default=AudienceStatus.draft
+    )
+    rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    estimated_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
 
 
 class Campaign(Base):

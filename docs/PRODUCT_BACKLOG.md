@@ -1,40 +1,102 @@
 # Product Backlog
 
-## P0: Deployable MVP
+This backlog is organized around the target platform capabilities:
+
+1. Mapping and pulling from complex heterogeneous data stores
+2. Audience building
+3. Campaign management
+4. Template development with robust dynamic-template language
+5. Journey management
+6. Delivery management with work queues
+7. Tracking
+8. Analytics
+
+## P0: Platform Foundation
 
 - Add production authentication for GUI-to-API requests.
-- Add provider webhook endpoints for SendGrid and SMTP-compatible event ingestion.
-- Add campaign send orchestration beyond test sends.
-- Add CI Postgres service or test database strategy for DB-backed endpoint tests.
-- Add release-phase migration command in the chosen hosting platform.
-
-## P1: GUI Integration
-
-- Add update/delete endpoints for templates, campaigns, and contacts.
-- Add campaign status transitions: draft, scheduled, paused, sending, sent.
-- Add audience filtering based on contact attributes and unsubscribe status.
 - Add list response envelopes with `items`, `limit`, `offset`, and `total`.
-- Add validation and preview endpoints for template variables.
+- Add update/delete endpoints for templates, campaigns, contacts, data sources, and audiences.
+- Add audit logs for admin mutations.
+- Add structured JSON logging and request IDs.
+- Add release-phase migration automation for the deployment platform.
 
-## P2: Email Platform Core
+## P1: Data Source Mapping And Ingestion
 
-- Add background workers for campaign fanout and retry handling.
-- Add email send records separate from provider event records.
-- Add suppression lists for bounced, complained, and unsubscribed addresses.
-- Add template versioning and approval workflow.
-- Add click/open tracking with signed redirect and pixel endpoints.
+- Add `data_sources` for Postgres, MySQL, Snowflake, BigQuery, REST APIs, CSV/S3, and manual uploads.
+- Add `data_source_mappings` to map external fields into canonical contact/profile/event objects.
+- Add connection validation endpoints that do not expose credentials.
+- Add schema discovery endpoints for tables, columns, and sample rows.
+- Add ingestion jobs with status, counts, errors, and retry metadata.
+- Add normalized profile/contact attribute merge rules.
+- Add read-only connector execution with allowlisted queries or parameterized extraction plans.
 
-## P3: Operations and Compliance
+## P2: Audience Building
 
-- Add structured logging, request IDs, and metrics.
-- Add rate limits for public endpoints.
-- Add audit logs for contact and campaign changes.
-- Add data export/delete workflows for privacy requests.
-- Add domain authentication setup docs for the selected provider.
+- Add `audiences` with rule-tree definitions over contact fields, attributes, events, and imported data.
+- Add audience preview endpoints with estimated counts and sample contacts.
+- Add materialized audience membership snapshots for repeatable campaign sends.
+- Add exclusion logic for unsubscribed, suppressed, bounced, complained, and manually excluded contacts.
+- Add audience versioning so a campaign can reference the exact audience definition used at send time.
 
-## P4: Analytics
+## P3: Campaign Management
 
-- Add campaign rollups for sent, delivered, opened, clicked, bounced, complained, and unsubscribed counts.
-- Add event timeline endpoints for contacts and campaigns.
+- Add campaign update/delete endpoints and status transitions.
+- Add campaign scheduling fields and launch endpoint.
+- Add campaign approval gates and validation checks.
+- Add campaign send summary fields: queued, sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed.
+- Add campaign cloning and draft/version workflow.
+
+## P4: Template Development
+
+- Add template preview and validation endpoints.
+- Add template variable extraction and required-variable contracts.
+- Add template versions with immutable snapshots.
+- Add reusable partials/components.
+- Add support for robust Jinja2 features with a sandboxed environment.
+- Add template linting for unsubscribe links, tracking links, missing variables, and unsafe content.
+- Add approval workflow for production templates.
+
+## P5: Journey Management
+
+- Add `journeys`, `journey_steps`, and `journey_enrollments`.
+- Add trigger types: event, audience entry, schedule, API call, and manual enrollment.
+- Add delay/wait steps and conditional branches.
+- Add suppression and exit rules.
+- Add journey run history and per-contact timeline.
+
+## P6: Delivery Management And Work Queues
+
+- Add durable `email_send_records` separate from provider events.
+- Add campaign fanout jobs and per-recipient send jobs.
+- Add queue backend abstraction, starting with database-backed queues and moving to SQS/RabbitMQ.
+- Add worker process for batch rendering and sending.
+- Add retry/backoff handling for transient delivery errors.
+- Add domain throttling rules and per-provider rate controls.
+- Add suppression checks before send.
+
+## P7: Tracking And Provider Webhooks
+
+- Add SendGrid webhook endpoint with signature verification.
+- Add suppression updates for hard bounces, spam complaints, and unsubscribes.
+- Add open pixel endpoint with signed tracking IDs.
+- Add click redirect endpoint with signed tracking IDs.
+- Add provider message ID correlation to send records.
+- Add event timeline endpoints for contacts, campaigns, and journeys.
+
+## P8: Analytics
+
+- Add campaign rollups for sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed, and suppressed counts.
 - Add dashboard summary endpoint for the GUI.
-- Add cohort/audience performance reporting.
+- Add audience performance reports.
+- Add journey performance reports by step and branch.
+- Add provider/domain deliverability reports.
+- Add cohort reports by source, segment, and imported data attributes.
+
+## P9: Scale, Operations, And Compliance
+
+- Add staging environment and deployment promotion gates.
+- Add dependency/security scanning.
+- Add load tests for ingestion, audience preview, campaign fanout, and provider delivery.
+- Add OpenTelemetry tracing and metrics.
+- Add privacy export/delete workflows.
+- Add Terraform/Pulumi for production infrastructure once worker/queue needs outgrow Vercel.
