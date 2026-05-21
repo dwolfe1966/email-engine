@@ -110,6 +110,9 @@ def test_admin_pages() -> None:
     assert 'Email Engine Audience Builder' in audiences.text
     assert 'Load Contact Fields' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
+    assert 'Preview Audience' in campaigns.text
+    assert 'Preview Template' in campaigns.text
+    assert 'Matched Contacts' in campaigns.text
     assert '/tester' in home.text
     assert '/template-editor' in home.text
     assert '/admin/entities' in home.text

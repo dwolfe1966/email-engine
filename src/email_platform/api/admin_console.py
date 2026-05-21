@@ -1157,6 +1157,32 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
+    .preview-table {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 650; background: #fbfcfe; }
+    td code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+    iframe {
+      width: 100%;
+      min-height: 220px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
     pre {
       margin: 0;
       min-height: 320px;
@@ -1227,12 +1253,21 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <textarea id="variables"></textarea>
         </label>
         <div class="actions">
+          <button class="secondary" id="previewAudience">Preview Audience</button>
+          <button class="secondary" id="previewTemplate">Preview Template</button>
           <button class="secondary" id="dryRun">Dry Run</button>
           <button id="launch">Queue Launch</button>
           <button class="secondary" id="analytics">Analytics</button>
           <button class="secondary" id="jobs">Jobs</button>
           <button class="secondary" id="records">Records</button>
         </div>
+        <div>
+          <h2>Matched Contacts</h2>
+          <div class="preview-table" id="matchedContacts"></div>
+        </div>
+        <label>Template Preview
+          <iframe id="templatePreview"></iframe>
+        </label>
       </div>
     </section>
     <section>
@@ -1244,6 +1279,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
   </main>
   <script>
     let selectedId = "";
+    let templateItems = [];
+    let audienceItems = [];
     const result = document.getElementById("result");
 
     function writeResult(data, ok = true) {
@@ -1266,6 +1303,16 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       return data;
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
     function parseJson(id, fallback) {
       const raw = document.getElementById(id).value.trim();
       return raw ? JSON.parse(raw) : fallback;
@@ -1278,6 +1325,61 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
 
     function selectedTemplateId() {
       return document.getElementById("template").value;
+    }
+
+    function selectedAudience() {
+      const audienceId = selectedAudienceId();
+      return audienceItems.find((item) => item.id === audienceId) || null;
+    }
+
+    function selectedTemplate() {
+      const templateId = selectedTemplateId();
+      return templateItems.find((item) => item.id === templateId) || null;
+    }
+
+    function renderContacts(contacts) {
+      const container = document.getElementById("matchedContacts");
+      if (!contacts.length) {
+        container.textContent = "No matching contacts.";
+        return;
+      }
+      const rows = contacts.map((contact) => {
+        const attrs = Object.entries(contact.attributes || {})
+          .slice(0, 6)
+          .map(([key, value]) => `${escapeHtml(key)}=${escapeHtml(value)}`)
+          .join("<br>");
+        return `
+          <tr>
+            <td>${escapeHtml(contact.email)}</td>
+            <td>${escapeHtml(contact.first_name || "")}</td>
+            <td>${escapeHtml(contact.last_name || "")}</td>
+            <td>${escapeHtml(contact.source || "")}</td>
+            <td><code>${attrs}</code></td>
+          </tr>
+        `;
+      }).join("");
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>First</th>
+              <th>Last</th>
+              <th>Source</th>
+              <th>Attributes</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function renderTemplatePreview(preview) {
+      const frame = document.getElementById("templatePreview");
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      doc.open();
+      doc.write(preview.html_body || "");
+      doc.close();
     }
 
     function resetForm() {
@@ -1319,6 +1421,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     async function loadLookups() {
       const templates = await request("/api/v1/templates/list?limit=100&offset=0");
       const audiences = await request("/api/v1/audiences/list?limit=100&offset=0");
+      templateItems = templates.items;
+      audienceItems = audiences.items;
       const templateSelect = document.getElementById("template");
       const audienceSelect = document.getElementById("audience");
       templateSelect.textContent = "";
@@ -1335,6 +1439,35 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         option.textContent = item.name;
         templateSelect.appendChild(option);
       });
+    }
+
+    async function previewSelectedAudience() {
+      const audience = selectedAudience();
+      const ruleTree = audience ? audience.rule_tree : parseJson("audienceQuery", {});
+      const data = await request("/api/v1/audiences/preview", {
+        method: "POST",
+        body: JSON.stringify({ rule_tree: ruleTree || {}, limit: 25 })
+      });
+      renderContacts(data.sample_contacts || []);
+    }
+
+    async function previewSelectedTemplate() {
+      const template = selectedTemplate();
+      if (!template) {
+        writeResult("Select a template first.", false);
+        return;
+      }
+      const data = await request("/api/v1/templates/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: template.subject,
+          html_body: template.html_body,
+          css_body: template.css_body,
+          text_body: template.text_body,
+          variables: parseJson("variables", {})
+        })
+      });
+      renderTemplatePreview(data);
     }
 
     async function saveCampaign() {
@@ -1400,6 +1533,18 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     document.getElementById("new").addEventListener("click", resetForm);
     document.getElementById("save").addEventListener("click", () => {
       saveCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("previewAudience").addEventListener("click", () => {
+      previewSelectedAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("previewTemplate").addEventListener("click", () => {
+      previewSelectedTemplate().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("audience").addEventListener("change", () => {
+      previewSelectedAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("template").addEventListener("change", () => {
+      previewSelectedTemplate().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("delete").addEventListener("click", () => {
       deleteCampaign().catch((error) => writeResult(error.message, false));
