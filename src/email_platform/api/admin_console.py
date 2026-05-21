@@ -19,6 +19,11 @@ def admin_audience_import() -> str:
     return ADMIN_AUDIENCE_IMPORT_HTML
 
 
+@router.get('/admin/audiences', response_class=HTMLResponse, include_in_schema=False)
+def admin_audiences() -> str:
+    return ADMIN_AUDIENCES_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -107,6 +112,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/audience-import">
       <strong>Audience Import</strong>
       <span>Upload a CSV file, upsert contacts, and create an audience.</span>
+    </a>
+    <a href="/admin/audiences">
+      <strong>Audience Builder</strong>
+      <span>Create, preview, update, and delete rule-based audiences.</span>
     </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
@@ -489,6 +498,397 @@ sam@example.com,Sam,Rivera,active,Acme Inc</pre>
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";
     });
+  </script>
+</body>
+</html>"""
+
+
+ADMIN_AUDIENCES_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Audience Builder</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: 280px minmax(420px, .9fr) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .items {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      text-align: left;
+      color: var(--text);
+    }
+    .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .rule-grid {
+      display: grid;
+      grid-template-columns: 1.1fr .8fr 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .rule-list { display: grid; gap: 6px; }
+    .rule {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fbfcfe;
+    }
+    .rule code { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+    pre {
+      margin: 0;
+      min-height: 300px;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+      .rule-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Audience Builder</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head">
+        <h2>Audiences</h2>
+        <button id="refresh">Refresh</button>
+      </div>
+      <div class="body">
+        <div class="actions">
+          <button class="secondary" id="new">New</button>
+          <button class="secondary" onclick="location.href='/admin/audience-import'">Import</button>
+        </div>
+        <div class="items" id="items"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head">
+        <h2>Builder</h2>
+        <div class="actions">
+          <button class="secondary" id="preview">Preview</button>
+          <button id="save">Save</button>
+          <button class="danger" id="delete">Delete</button>
+        </div>
+      </div>
+      <div class="body">
+        <label>Name
+          <input id="name" />
+        </label>
+        <label>Description
+          <input id="description" />
+        </label>
+        <label>Operator
+          <select id="operator">
+            <option value="and">Match all rules</option>
+            <option value="or">Match any rule</option>
+          </select>
+        </label>
+        <div class="rule-grid">
+          <label>Field
+            <input id="field" value="attributes.plan" />
+          </label>
+          <label>Comparator
+            <select id="comparator">
+              <option value="eq">equals</option>
+              <option value="ne">does not equal</option>
+              <option value="contains">contains</option>
+              <option value="exists">exists</option>
+              <option value="not_exists">does not exist</option>
+            </select>
+          </label>
+          <label>Value
+            <input id="value" value="trial" />
+          </label>
+          <button class="secondary" id="addRule">Add</button>
+        </div>
+        <div class="rule-list" id="rules"></div>
+        <label>Rule tree JSON
+          <textarea id="ruleTree"></textarea>
+        </label>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    let selectedId = "";
+    let rules = [];
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function currentRuleTree() {
+      const raw = document.getElementById("ruleTree").value.trim();
+      return raw ? JSON.parse(raw) : { operator: "and", rules: [] };
+    }
+
+    function syncRuleTree() {
+      const tree = {
+        operator: document.getElementById("operator").value,
+        rules
+      };
+      document.getElementById("ruleTree").value = JSON.stringify(tree, null, 2);
+    }
+
+    function renderRules() {
+      const container = document.getElementById("rules");
+      container.textContent = "";
+      rules.forEach((rule, index) => {
+        const row = document.createElement("div");
+        row.className = "rule";
+        const code = document.createElement("code");
+        code.textContent = `${rule.field} ${rule.comparator} ${rule.value ?? ""}`;
+        const remove = document.createElement("button");
+        remove.className = "danger";
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => {
+          rules.splice(index, 1);
+          syncRuleTree();
+          renderRules();
+        });
+        row.append(code, remove);
+        container.appendChild(row);
+      });
+    }
+
+    function loadRuleTree(tree) {
+      const nextTree = tree && typeof tree === "object" ? tree : {};
+      document.getElementById("operator").value = nextTree.operator || "and";
+      rules = Array.isArray(nextTree.rules)
+        ? nextTree.rules.filter((rule) => rule && rule.field)
+        : [];
+      syncRuleTree();
+      renderRules();
+    }
+
+    function resetForm() {
+      selectedId = "";
+      document.getElementById("name").value = `audience-${Date.now()}`;
+      document.getElementById("description").value = "";
+      loadRuleTree({ operator: "and", rules: [] });
+    }
+
+    function selectAudience(item) {
+      selectedId = item.id;
+      document.getElementById("name").value = item.name || "";
+      document.getElementById("description").value = item.description || "";
+      loadRuleTree(item.rule_tree || {});
+      writeResult(item);
+    }
+
+    async function loadAudiences() {
+      const data = await request("/api/v1/audiences/list?limit=100&offset=0");
+      const container = document.getElementById("items");
+      container.textContent = "";
+      data.items.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.status} · ${item.estimated_count} contacts`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectAudience(item));
+        container.appendChild(button);
+      });
+    }
+
+    function addRule() {
+      const field = document.getElementById("field").value.trim();
+      if (!field) {
+        writeResult("Field is required.", false);
+        return;
+      }
+      const comparator = document.getElementById("comparator").value;
+      const value = document.getElementById("value").value.trim();
+      const rule = { field, comparator };
+      if (!["exists", "not_exists"].includes(comparator)) rule.value = value;
+      rules.push(rule);
+      syncRuleTree();
+      renderRules();
+    }
+
+    async function previewAudience() {
+      const ruleTree = currentRuleTree();
+      await request("/api/v1/audiences/preview", {
+        method: "POST",
+        body: JSON.stringify({ rule_tree: ruleTree, limit: 25 })
+      });
+    }
+
+    async function saveAudience() {
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        description: document.getElementById("description").value.trim() || null,
+        rule_tree: currentRuleTree()
+      };
+      const path = selectedId ? `/api/v1/audiences/${selectedId}` : "/api/v1/audiences";
+      const method = selectedId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectedId = saved.id;
+      await loadAudiences();
+    }
+
+    async function deleteAudience() {
+      if (!selectedId) {
+        writeResult("Select an audience first.", false);
+        return;
+      }
+      await request(`/api/v1/audiences/${selectedId}`, { method: "DELETE" });
+      resetForm();
+      await loadAudiences();
+    }
+
+    document.getElementById("refresh").addEventListener("click", () => {
+      loadAudiences().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("new").addEventListener("click", resetForm);
+    document.getElementById("addRule").addEventListener("click", addRule);
+    document.getElementById("operator").addEventListener("change", syncRuleTree);
+    document.getElementById("preview").addEventListener("click", () => {
+      previewAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("save").addEventListener("click", () => {
+      saveAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("delete").addEventListener("click", () => {
+      deleteAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    resetForm();
+    loadAudiences().catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""
