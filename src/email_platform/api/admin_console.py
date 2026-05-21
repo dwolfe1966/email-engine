@@ -99,9 +99,13 @@ ADMIN_HOME_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Admin</h1>
     <nav>
+      <a href="/admin">Admin</a>
       <a href="/tester">Tester</a>
       <a href="/template-editor">Template Editor</a>
       <a href="/admin/entities">Entity Workbench</a>
+      <a href="/admin/audience-import">Audience Import</a>
+      <a href="/admin/audiences">Audience Builder</a>
+      <a href="/admin/campaigns">Campaign Manager</a>
       <a href="/docs">Docs</a>
     </nav>
   </header>
@@ -289,9 +293,15 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Audience Import</h1>
     <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
       <button class="secondary" onclick="location.href='/tester'">Tester</button>
       <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
       <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -685,9 +695,15 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Audience Builder</h1>
     <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
       <button class="secondary" onclick="location.href='/tester'">Tester</button>
       <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
       <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1164,9 +1180,15 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Campaign Manager</h1>
     <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
       <button class="secondary" onclick="location.href='/tester'">Tester</button>
       <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
       <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
@@ -1529,9 +1551,15 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Entity Workbench</h1>
     <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
       <button class="secondary" onclick="location.href='/tester'">Tester</button>
       <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
       <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>

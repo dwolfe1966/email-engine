@@ -71,8 +71,12 @@ def test_api_tester_page() -> None:
     response = client.get('/tester')
     assert response.status_code == 200
     assert 'Email Engine API Tester' in response.text
+    assert '/admin' in response.text
     assert '/template-editor' in response.text
     assert '/admin/entities' in response.text
+    assert '/admin/audience-import' in response.text
+    assert '/admin/audiences' in response.text
+    assert '/admin/campaigns' in response.text
     assert '/docs' in response.text
 
 
@@ -82,6 +86,10 @@ def test_template_editor_page() -> None:
     assert response.status_code == 200
     assert 'Email Engine Template Editor' in response.text
     assert 'Entity Workbench' in response.text
+    assert '/admin' in response.text
+    assert '/admin/audience-import' in response.text
+    assert '/admin/audiences' in response.text
+    assert '/admin/campaigns' in response.text
 
 
 def test_admin_pages() -> None:

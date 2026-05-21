@@ -164,10 +164,16 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
   <header>
     <h1>Email Engine Template Editor</h1>
     <div class="actions">
-      <button class="secondary" id="openTester">Tester</button>
-      <button class="secondary" id="openTemplateEditor">Template Editor</button>
-      <button class="secondary" id="openEntities">Entity Workbench</button>
-      <button class="secondary" id="openDocs">Docs</button>
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
     </div>
   </header>
   <main>
@@ -429,19 +435,6 @@ li {
       loadVisualFromSource();
       log({ mode: "new" });
     });
-    document.getElementById("openTester").addEventListener("click", () => {
-      window.open("/tester", "_blank", "noopener,noreferrer");
-    });
-    document.getElementById("openTemplateEditor").addEventListener("click", () => {
-      window.open("/template-editor", "_blank", "noopener,noreferrer");
-    });
-    document.getElementById("openEntities").addEventListener("click", () => {
-      window.open("/admin/entities", "_blank", "noopener,noreferrer");
-    });
-    document.getElementById("openDocs").addEventListener("click", () => {
-      window.open("/docs", "_blank", "noopener,noreferrer");
-    });
-
     document.getElementById("templateName").value = `template-${Date.now()}`;
     loadVisualFromSource();
     loadTemplates().catch((error) => log({ error: error.message }));
