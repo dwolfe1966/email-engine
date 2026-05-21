@@ -11,6 +11,8 @@ from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignRead,
     ContactRead,
+    ContactSendRequest,
+    ContactSendResponse,
     ContactUpsert,
     EventCreate,
     EventRead,
@@ -133,6 +135,25 @@ def send_test(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post('/send/contact', response_model=ContactSendResponse)
+def send_to_contact(
+    payload: ContactSendRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, str | int | UUID | None]:
+    try:
+        return SendingService(db, settings).send_to_contact(
+            payload.contact_id,
+            payload.template_id,
+            payload.variables,
+            payload.campaign_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get('/events', response_model=list[EventRead])

@@ -165,6 +165,7 @@ this is a console-provider test.</p></textarea>
             <button class="secondary" data-action="createCampaign">Create Campaign</button>
             <button class="secondary" data-action="recordEvent">Record Event</button>
             <button class="secondary" data-action="unsubscribeToken">Unsubscribe Token</button>
+            <button class="secondary" data-action="sendContact">Send Contact</button>
             <button class="secondary" data-action="sendTest">Send Test</button>
           </div>
         </div>
@@ -324,6 +325,19 @@ this is a console-provider test.</p></textarea>
           }),
         });
       },
+      async sendContact() {
+        if (!state.templateId) await actions.createTemplate();
+        if (!state.contactId) await actions.upsertContact();
+        await request("send contact", "/api/v1/send/contact", {
+          method: "POST",
+          body: JSON.stringify({
+            template_id: state.templateId,
+            contact_id: state.contactId,
+            campaign_id: state.campaignId || null,
+            variables: { first_name: document.getElementById("firstName").value },
+          }),
+        });
+      },
       listTemplates: () => request("list templates", "/api/v1/templates"),
       listContacts: () => request("list contacts", "/api/v1/audiences/contacts"),
       listCampaigns: () => request("list campaigns", "/api/v1/campaigns"),
@@ -345,6 +359,7 @@ this is a console-provider test.</p></textarea>
         await actions.createCampaign();
         await actions.recordEvent();
         await actions.unsubscribeToken();
+        await actions.sendContact();
         await actions.sendTest();
         await actions.listAll();
       },

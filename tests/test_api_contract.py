@@ -15,6 +15,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/audiences/contacts',
         '/api/v1/audiences/contacts/{contact_id}',
         '/api/v1/audiences/contacts/{contact_id}/unsubscribe-token',
+        '/api/v1/send/contact',
         '/api/v1/send/test',
         '/api/v1/events',
         '/api/v1/events/{event_id}',

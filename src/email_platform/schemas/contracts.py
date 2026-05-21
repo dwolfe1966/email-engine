@@ -54,10 +54,23 @@ class TestSendRequest(BaseModel):
     variables: JsonObject = Field(default_factory=dict)
 
 
+class ContactSendRequest(BaseModel):
+    contact_id: UUID
+    template_id: UUID
+    variables: JsonObject = Field(default_factory=dict)
+    campaign_id: UUID | None = None
+
+
 class SendResponse(BaseModel):
     provider: str
     provider_message_id: str | None = None
     status_code: int
+
+
+class ContactSendResponse(SendResponse):
+    contact_id: UUID
+    template_id: UUID
+    campaign_id: UUID | None = None
 
 
 class EventCreate(BaseModel):
