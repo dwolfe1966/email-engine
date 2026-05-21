@@ -57,6 +57,8 @@ class DeliveryService:
                 sent_count += 1
                 self.event_service.record_no_commit(
                     EventCreate(
+                        send_record_id=record.id,
+                        send_job_id=record.send_job_id,
                         contact_id=record.contact_id,
                         campaign_id=record.campaign_id,
                         event_type=EmailEventType.sent,
@@ -65,6 +67,7 @@ class DeliveryService:
                             'provider': result.provider,
                             'status_code': result.status_code,
                             'send_record_id': str(record.id),
+                            'send_job_id': str(record.send_job_id),
                             'source': 'delivery_worker',
                         },
                     )

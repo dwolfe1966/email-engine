@@ -253,6 +253,12 @@ class EmailEvent(Base):
     __tablename__ = 'email_events'
 
     id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    send_record_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('email_send_records.id'), index=True
+    )
+    send_job_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaign_send_jobs.id'), index=True
+    )
     contact_id: Mapped[PyUUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey('contacts.id')
     )
@@ -263,3 +269,6 @@ class EmailEvent(Base):
     provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
     metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    send_record: Mapped[EmailSendRecord | None] = relationship()
+    send_job: Mapped[CampaignSendJob | None] = relationship()

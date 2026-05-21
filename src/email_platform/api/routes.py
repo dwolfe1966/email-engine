@@ -25,6 +25,7 @@ from email_platform.schemas.contracts import (
     AudiencePreviewRequest,
     AudienceRead,
     AudienceUpdate,
+    CampaignAnalyticsRead,
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
@@ -66,6 +67,7 @@ from email_platform.schemas.contracts import (
     UnsubscribeRead,
     UnsubscribeTokenRead,
 )
+from email_platform.services.analytics import AnalyticsService
 from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
@@ -236,6 +238,18 @@ def launch_campaign(
     if not launch:
         raise HTTPException(status_code=404, detail='Campaign not found')
     return launch
+
+
+@router.get('/campaigns/{campaign_id}/analytics', response_model=CampaignAnalyticsRead)
+def get_campaign_analytics(
+    campaign_id: UUID,
+    db: DbSession,
+    send_job_id: UUID | None = None,
+) -> CampaignAnalyticsRead:
+    metrics = AnalyticsService(db).campaign_metrics(campaign_id, send_job_id)
+    if not metrics:
+        raise HTTPException(status_code=404, detail='Campaign or send job not found')
+    return metrics
 
 
 @router.get('/campaign-send-jobs/list', response_model=ListResponse[CampaignSendJobRead])

@@ -54,6 +54,8 @@ class TrackingService:
 
         event = EventService(self.db).record_no_commit(
             EventCreate(
+                send_record_id=send_record.id,
+                send_job_id=send_record.send_job_id,
                 contact_id=send_record.contact_id,
                 campaign_id=send_record.campaign_id,
                 event_type=event_type,

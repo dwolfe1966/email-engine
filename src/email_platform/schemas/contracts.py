@@ -176,6 +176,32 @@ class DeliveryRunRead(BaseModel):
     processed_record_ids: list[str]
 
 
+class MetricCount(BaseModel):
+    name: str
+    count: int
+
+
+class CampaignAnalyticsRead(BaseModel):
+    campaign_id: UUID
+    send_job_id: UUID | None = None
+    requested_count: int
+    queued_count: int
+    sent_count: int
+    failed_count: int
+    suppressed_count: int
+    delivered_count: int
+    opened_count: int
+    clicked_count: int
+    bounced_count: int
+    complained_count: int
+    unsubscribed_count: int
+    open_rate: float
+    click_rate: float
+    bounce_rate: float
+    status_counts: list[MetricCount]
+    event_counts: list[MetricCount]
+
+
 class TrackingLinksRead(BaseModel):
     send_record_id: UUID
     token: str
@@ -322,6 +348,8 @@ class EmailSendResponse(SendResponse):
 
 
 class EventCreate(BaseModel):
+    send_record_id: UUID | None = None
+    send_job_id: UUID | None = None
     contact_id: UUID | None = None
     campaign_id: UUID | None = None
     event_type: EmailEventType

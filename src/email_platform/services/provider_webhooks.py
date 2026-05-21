@@ -35,11 +35,17 @@ class ProviderWebhookService:
                 updated_send_records += 1
                 self.events.record_no_commit(
                     EventCreate(
+                        send_record_id=send_record.id,
+                        send_job_id=send_record.send_job_id,
                         contact_id=send_record.contact_id,
                         campaign_id=send_record.campaign_id,
                         event_type=event_type,
                         provider_message_id=provider_message_id,
-                        metadata_json=event.model_dump(),
+                        metadata_json={
+                            **event.model_dump(),
+                            'send_record_id': str(send_record.id),
+                            'send_job_id': str(send_record.send_job_id),
+                        },
                     )
                 )
 
