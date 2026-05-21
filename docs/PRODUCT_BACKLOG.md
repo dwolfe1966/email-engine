@@ -73,11 +73,13 @@ This backlog is organized around the target platform capabilities:
 - Add retry/backoff handling for transient delivery errors.
 - Add domain throttling rules and per-provider rate controls.
 - Add suppression checks before send.
+- Keep provider interfaces neutral so SendGrid, SMTP/Postfix, Mailgun, and future providers can be swapped without changing campaign, audience, template, tracking, or analytics domains.
 
 ## P7: Tracking And Provider Webhooks
 
 - Add SendGrid webhook endpoint with signature verification. **Verifier support shipped; production enforcement requires configuring the SendGrid public key.**
 - Add suppression updates for hard bounces, spam complaints, and unsubscribes. **Initial suppression handling shipped.**
+- Add provider-neutral webhook/event adapters so SendGrid-specific logic does not leak into the core event, suppression, or analytics models.
 - Add open pixel endpoint with signed tracking IDs.
 - Add click redirect endpoint with signed tracking IDs.
 - Add provider message ID correlation to send records.

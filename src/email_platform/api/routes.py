@@ -51,6 +51,8 @@ from email_platform.schemas.contracts import (
     SendResponse,
     SuppressionRead,
     TemplateCreate,
+    TemplatePreviewRead,
+    TemplatePreviewRequest,
     TemplateRead,
     TemplateUpdate,
     TestEmailSendRequest,
@@ -103,6 +105,11 @@ def list_templates_enveloped(
 @router.post('/templates', response_model=TemplateRead)
 def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
     return TemplateService(db).create(payload)
+
+
+@router.post('/templates/preview', response_model=TemplatePreviewRead)
+def preview_template(payload: TemplatePreviewRequest, db: DbSession) -> TemplatePreviewRead:
+    return TemplateService(db).preview(payload)
 
 
 @router.get('/templates/{template_id}', response_model=TemplateRead)

@@ -154,22 +154,36 @@ TEST_CONSOLE_HTML = r"""<!doctype html>
             </label>
           </div>
           <label>Template HTML
-            <textarea id="htmlBody"><p>Hello {{ first_name }},
-Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
+            <textarea id="htmlBody"><p>Hello {{ first_name }},</p>
+{% if plan == "trial" %}
+  <p>Your trial plan is active.</p>
+{% else %}
+  <p>Your plan is {{ plan }}.</p>
+{% endif %}
+<ul>
+{% for item in recommendations %}
+  <li>{{ loop.index }}. {{ item }}</li>
+{% endfor %}
+</ul>
+<p>Custom note: {{ note }}</p></textarea>
           </label>
           <label>Email data JSON
             <textarea id="variablesJson">{
   "first_name": "Smoke",
   "plan": "trial",
-  "note": "Sent from the API tester"
+  "note": "Sent from the API tester",
+  "recommendations": ["Map data", "Build audience", "Launch campaign"]
 }</textarea>
           </label>
           <div class="actions">
             <button class="secondary" data-action="health">Health</button>
             <button class="secondary" data-action="ready">Ready</button>
+            <button class="secondary" data-action="previewTemplate">Preview Template</button>
             <button class="secondary" data-action="createTemplate">Create Template</button>
             <button class="secondary" data-action="upsertContact">Upsert Contact</button>
             <button class="secondary" data-action="createCampaign">Create Campaign</button>
+            <button class="secondary" data-action="launchCampaign">Launch Campaign</button>
+            <button class="secondary" data-action="processDelivery">Process Delivery</button>
             <button class="secondary" data-action="recordEvent">Record Event</button>
             <button class="secondary" data-action="unsubscribeToken">Unsubscribe Token</button>
             <button class="secondary" data-action="sendEmail">Send Email</button>
@@ -188,6 +202,9 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
             <button class="secondary" data-action="listTemplates">Templates</button>
             <button class="secondary" data-action="listContacts">Contacts</button>
             <button class="secondary" data-action="listCampaigns">Campaigns</button>
+            <button class="secondary" data-action="listSendJobs">Send Jobs</button>
+            <button class="secondary" data-action="listSendRecords">Send Records</button>
+            <button class="secondary" data-action="listSuppressions">Suppressions</button>
             <button class="secondary" data-action="listEvents">Events</button>
             <button class="secondary" data-action="openDocs">Open /docs</button>
           </div>
@@ -200,8 +217,29 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
           <span>templateId</span><strong id="templateId">-</strong>
           <span>contactId</span><strong id="contactId">-</strong>
           <span>campaignId</span><strong id="campaignId">-</strong>
+          <span>sendJobId</span><strong id="sendJobId">-</strong>
           <span>eventId</span><strong id="eventId">-</strong>
           <span>token</span><strong id="unsubscribeToken">-</strong>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Data And Audience</h2></div>
+        <div class="body">
+          <label>Audience rule JSON
+            <textarea id="audienceRuleJson">{
+  "field": "source",
+  "comparator": "eq",
+  "value": "api_tester"
+}</textarea>
+          </label>
+          <div class="actions">
+            <button class="secondary" data-action="createDataSource">Create Data Source</button>
+            <button class="secondary" data-action="createMapping">Create Mapping</button>
+            <button class="secondary" data-action="previewAudience">Preview Audience</button>
+            <button class="secondary" data-action="createAudience">Create Audience</button>
+            <button class="secondary" data-action="simulateBounce">Simulate Bounce</button>
+          </div>
         </div>
       </section>
     </div>
@@ -220,7 +258,10 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
       templateId: "",
       contactId: "",
       campaignId: "",
+      dataSourceId: "",
       eventId: "",
+      mappingId: "",
+      sendJobId: "",
       unsubscribeToken: "",
     };
 
@@ -268,9 +309,29 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
       }
     }
 
+    function readAudienceRule() {
+      try {
+        return JSON.parse(document.getElementById("audienceRuleJson").value || "{}");
+      } catch (error) {
+        log("audience rule JSON", { message: error.message }, false);
+        throw error;
+      }
+    }
+
     const actions = {
       health: () => request("health", "/health"),
       ready: () => request("ready", "/ready"),
+      async previewTemplate() {
+        await request("preview template", "/api/v1/templates/preview", {
+          method: "POST",
+          body: JSON.stringify({
+            subject: "Hello {{ first_name }}",
+            html_body: document.getElementById("htmlBody").value,
+            text_body: "Hello {{ first_name }}. Your plan is {{ plan }}.",
+            variables: readVariables(),
+          }),
+        });
+      },
       async createTemplate() {
         const template = await request("create template", "/api/v1/templates", {
           method: "POST",
@@ -303,10 +364,30 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
           body: JSON.stringify({
             name: `API Tester ${Date.now()}`,
             template_id: state.templateId,
-            audience_query: { source: "api_tester" },
+            audience_query: readAudienceRule(),
           }),
         });
         setState("campaignId", campaign.id);
+      },
+      async launchCampaign() {
+        if (!state.campaignId) await actions.createCampaign();
+        const launch = await request(
+          "launch campaign",
+          `/api/v1/campaigns/${state.campaignId}/launch`,
+          {
+            method: "POST",
+            body: JSON.stringify({ variables: readVariables() }),
+          },
+        );
+        setState("sendJobId", launch.job_id);
+      },
+      async processDelivery() {
+        if (!state.sendJobId) await actions.launchCampaign();
+        await request(
+          "process delivery",
+          `/api/v1/delivery/process-queued?limit=5&send_job_id=${state.sendJobId}`,
+          { method: "POST" },
+        );
       },
       async recordEvent() {
         if (!state.contactId) await actions.upsertContact();
@@ -356,14 +437,73 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
           }),
         });
       },
+      async createDataSource() {
+        const source = await request("create data source", "/api/v1/data-sources", {
+          method: "POST",
+          body: JSON.stringify({
+            name: `api-tester-source-${Date.now()}`,
+            source_type: "manual",
+            config: { created_from: "tester" },
+          }),
+        });
+        state.dataSourceId = source.id;
+      },
+      async createMapping() {
+        if (!state.dataSourceId) await actions.createDataSource();
+        const mapping = await request("create mapping", "/api/v1/data-source-mappings", {
+          method: "POST",
+          body: JSON.stringify({
+            data_source_id: state.dataSourceId,
+            name: `api-tester-map-${Date.now()}`,
+            object_type: "contact",
+            mapping: { email: "email", plan: "attributes.plan" },
+            extraction_plan: { mode: "manual" },
+          }),
+        });
+        state.mappingId = mapping.id;
+      },
+      async previewAudience() {
+        await request("preview audience", "/api/v1/audiences/preview", {
+          method: "POST",
+          body: JSON.stringify({ rule_tree: readAudienceRule(), limit: 10 }),
+        });
+      },
+      async createAudience() {
+        await request("create audience", "/api/v1/audiences", {
+          method: "POST",
+          body: JSON.stringify({
+            name: `api-tester-audience-${Date.now()}`,
+            description: "Created from tester",
+            rule_tree: readAudienceRule(),
+          }),
+        });
+      },
+      async simulateBounce() {
+        await request("simulate bounce", "/api/v1/provider-webhooks/sendgrid", {
+          method: "POST",
+          body: JSON.stringify([{
+            email: document.getElementById("contactEmail").value,
+            event: "bounce",
+            sg_message_id: `tester-${Date.now()}.filter`,
+            reason: "Simulated from tester",
+            timestamp: Math.floor(Date.now() / 1000),
+          }]),
+        });
+      },
       listTemplates: () => request("list templates", "/api/v1/templates"),
       listContacts: () => request("list contacts", "/api/v1/audiences/contacts"),
       listCampaigns: () => request("list campaigns", "/api/v1/campaigns"),
+      listSendJobs: () => request("list send jobs", "/api/v1/campaign-send-jobs/list"),
+      listSendRecords: () => request("list send records", "/api/v1/email-send-records/list"),
+      listSuppressions: () => request("list suppressions", "/api/v1/suppressions"),
       listEvents: () => request("list events", "/api/v1/events"),
       async listAll() {
         await actions.listTemplates();
         await actions.listContacts();
         await actions.listCampaigns();
+        await actions.listSendJobs();
+        await actions.listSendRecords();
+        await actions.listSuppressions();
         await actions.listEvents();
       },
       openDocs() {
@@ -373,8 +513,10 @@ Your plan is {{ plan }}. Custom note: {{ note }}</p></textarea>
         await actions.health();
         await actions.ready();
         await actions.createTemplate();
+        await actions.previewTemplate();
         await actions.upsertContact();
         await actions.createCampaign();
+        await actions.launchCampaign();
         await actions.recordEvent();
         await actions.unsubscribeToken();
         await actions.sendEmail();

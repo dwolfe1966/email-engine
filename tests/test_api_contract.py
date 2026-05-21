@@ -10,6 +10,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
     expected_paths = {
         '/api/v1/templates',
         '/api/v1/templates/list',
+        '/api/v1/templates/preview',
         '/api/v1/templates/{template_id}',
         '/api/v1/campaigns',
         '/api/v1/campaigns/list',

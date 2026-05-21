@@ -6,7 +6,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import EmailTemplate
-from email_platform.schemas.contracts import TemplateCreate, TemplateUpdate
+from email_platform.schemas.contracts import (
+    TemplateCreate,
+    TemplatePreviewRead,
+    TemplatePreviewRequest,
+    TemplateUpdate,
+)
 
 
 class TemplateService:
@@ -60,3 +65,13 @@ class TemplateService:
         html = Template(template.html_body).render(**variables)
         text = Template(template.text_body).render(**variables) if template.text_body else None
         return subject, html, text
+
+    def preview(self, payload: TemplatePreviewRequest) -> TemplatePreviewRead:
+        variables = payload.variables
+        return TemplatePreviewRead(
+            subject=Template(payload.subject).render(**variables),
+            html_body=Template(payload.html_body).render(**variables),
+            text_body=Template(payload.text_body).render(**variables)
+            if payload.text_body
+            else None,
+        )

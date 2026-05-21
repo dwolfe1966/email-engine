@@ -19,6 +19,7 @@ Templates:
 - `GET /api/v1/templates?limit=100&offset=0`
 - `GET /api/v1/templates/list?limit=100&offset=0`
 - `POST /api/v1/templates`
+- `POST /api/v1/templates/preview`
 - `GET /api/v1/templates/{template_id}`
 - `PATCH /api/v1/templates/{template_id}`
 - `DELETE /api/v1/templates/{template_id}`
@@ -84,6 +85,8 @@ Sending and events:
 - Pagination is offset-based with `limit` capped at 500. Existing list endpoints still return arrays; `/list` variants return `{ "items": [], "limit": 100, "offset": 0, "total": 0 }`.
 - CORS is controlled by `CORS_ORIGINS`.
 - Authentication is not implemented yet. Put the deployed API behind a private network, gateway, or platform auth until API-key or session authentication is added.
+- Email delivery is provider-neutral at the platform boundary. SendGrid is the current production provider; SMTP/Postfix, Mailgun, or another provider should be added behind the provider interface rather than changing campaign, audience, template, event, or analytics contracts.
+- Templates currently use Jinja2 rendering. Supported language features include variables, filters, loops, conditionals, macro syntax, and Jinja expressions. Sandboxing, linting, required-variable extraction, and approval workflows are still backlog items.
 - `POST /api/v1/emails/send` sends to an existing contact using an existing template. The render context includes contact fields, contact `attributes`, flattened contact attributes, and request `variables`; request variables win on key conflicts.
 - `POST /api/v1/campaigns/{campaign_id}/launch` creates durable campaign send jobs and queued send records.
 - `POST /api/v1/delivery/process-queued` is an operator endpoint that processes queued send records through the configured provider. Use `campaign_id` or `send_job_id` to target a specific queued campaign/job. It is a bridge toward a true worker/scheduler process.

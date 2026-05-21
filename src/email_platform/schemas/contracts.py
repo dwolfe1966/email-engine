@@ -68,6 +68,19 @@ class TemplateUpdate(BaseModel):
     text_body: str | None = None
 
 
+class TemplatePreviewRequest(BaseModel):
+    subject: str
+    html_body: str
+    text_body: str | None = None
+    variables: JsonObject = Field(default_factory=dict)
+
+
+class TemplatePreviewRead(BaseModel):
+    subject: str
+    html_body: str
+    text_body: str | None = None
+
+
 class TemplateRead(TemplateCreate):
     id: UUID
 
