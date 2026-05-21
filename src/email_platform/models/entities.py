@@ -113,6 +113,32 @@ class EmailTemplate(Base):
     text_body: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    versions: Mapped[list['EmailTemplateVersion']] = relationship(
+        order_by='EmailTemplateVersion.version_number.desc()'
+    )
+
+
+class EmailTemplateVersion(Base):
+    __tablename__ = 'email_template_versions'
+    __table_args__ = (
+        UniqueConstraint('template_id', 'version_number', name='uq_template_versions_number'),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    template_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('email_templates.id'), index=True
+    )
+    version_number: Mapped[int] = mapped_column(Integer)
+    subject: Mapped[str] = mapped_column(String(300))
+    html_body: Mapped[str] = mapped_column(Text)
+    css_body: Mapped[str | None] = mapped_column(Text)
+    text_body: Mapped[str | None] = mapped_column(Text)
+    document_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    template: Mapped[EmailTemplate] = relationship()
+
 
 class DataSource(Base):
     __tablename__ = 'data_sources'

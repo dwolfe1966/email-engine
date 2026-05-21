@@ -19,6 +19,7 @@ from email_platform.schemas.contracts import (
     TemplateCreate,
     TemplatePreviewRequest,
     TemplateUpdate,
+    TemplateVersionCreate,
 )
 from email_platform.services.analytics import AnalyticsService
 from email_platform.services.audiences import AudienceService
@@ -56,8 +57,9 @@ def compat_create_template_version(
     template_id: UUID, payload: dict[str, object], db: DbSession
 ) -> dict[str, object]:
     service = TemplateService(db)
-    template = service.update(template_id, _template_update_payload(payload))
-    if not template:
+    version = service.create_version(template_id, _template_version_create_payload(payload))
+    template = service.get(template_id)
+    if not version or not template:
         raise HTTPException(status_code=404, detail='Template not found')
     return _template_detail(template)
 
@@ -296,18 +298,33 @@ def _template_update_payload(payload: dict[str, object]) -> TemplateUpdate:
     return TemplateUpdate.model_validate(values)
 
 
+def _template_version_create_payload(payload: dict[str, object]) -> TemplateVersionCreate:
+    version = _object_payload(payload.get('version', payload))
+    return TemplateVersionCreate(
+        subject=_optional_str(version.get('subject')),
+        html_body=_optional_str(version.get('html_body', version.get('html'))),
+        css_body=_optional_str(version.get('css_body', version.get('css'))),
+        text_body=_optional_str(version.get('text_body', version.get('text'))),
+        document_json=_object_payload(version.get('document_json', version.get('document'))),
+        set_current=bool(version.get('set_current', payload.get('set_current', True))),
+    )
+
+
 def _template_summary(template: object) -> dict[str, object]:
     data = jsonable_encoder(template)
+    versions = _template_versions_for_template(template)
     return {
         **data,
         'title': data.get('name'),
-        'current_version': _template_version(data),
+        'current_version': next(
+            (version for version in versions if version.get('is_current')), _template_version(data)
+        ),
     }
 
 
 def _template_detail(template: object) -> dict[str, object]:
     data = _template_summary(template)
-    data['versions'] = [_template_version(data)]
+    data['versions'] = _template_versions_for_template(template)
     return data
 
 
@@ -316,12 +333,24 @@ def _template_version(template_data: dict[str, object]) -> dict[str, object]:
         'id': template_data.get('id'),
         'template_id': template_data.get('id'),
         'version': 1,
+        'version_number': 1,
         'subject': template_data.get('subject'),
         'html_body': template_data.get('html_body'),
         'css_body': template_data.get('css_body'),
         'text_body': template_data.get('text_body'),
+        'document_json': {},
         'is_current': True,
     }
+
+
+def _template_versions_for_template(template: object) -> list[dict[str, object]]:
+    versions = getattr(template, 'versions', None)
+    if not versions:
+        return [_template_version(jsonable_encoder(template))]
+    encoded = [cast(dict[str, object], jsonable_encoder(version)) for version in versions]
+    for version in encoded:
+        version['version'] = version.get('version_number')
+    return encoded
 
 
 def _segment_summary(audience: object) -> dict[str, object]:

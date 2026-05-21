@@ -70,6 +70,29 @@ class TemplateUpdate(BaseModel):
     text_body: str | None = None
 
 
+class TemplateVersionCreate(BaseModel):
+    subject: str | None = None
+    html_body: str | None = None
+    css_body: str | None = None
+    text_body: str | None = None
+    document_json: JsonObject = Field(default_factory=dict)
+    set_current: bool = True
+
+
+class TemplateVersionRead(BaseModel):
+    id: UUID
+    template_id: UUID
+    version_number: int
+    subject: str
+    html_body: str
+    css_body: str | None = None
+    text_body: str | None = None
+    document_json: JsonObject
+    is_current: bool
+
+    model_config = {'from_attributes': True}
+
+
 class TemplatePreviewRequest(BaseModel):
     subject: str
     html_body: str

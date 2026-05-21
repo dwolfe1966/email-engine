@@ -17,6 +17,7 @@ from email_platform.models.entities import (
     DataSourceMapping,
     EmailEvent,
     EmailTemplate,
+    EmailTemplateVersion,
     Suppression,
 )
 from email_platform.schemas.contracts import (
@@ -61,6 +62,8 @@ from email_platform.schemas.contracts import (
     TemplateUpdate,
     TemplateValidationRead,
     TemplateValidationRequest,
+    TemplateVersionCreate,
+    TemplateVersionRead,
     TestEmailSendRequest,
     TrackingEventRead,
     TrackingLinksRead,
@@ -134,6 +137,24 @@ def list_templates_enveloped(
 @router.post('/templates', response_model=TemplateRead)
 def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
     return TemplateService(db).create(payload)
+
+
+@router.get('/templates/{template_id}/versions', response_model=list[TemplateVersionRead])
+def list_template_versions(template_id: UUID, db: DbSession) -> list[EmailTemplateVersion]:
+    service = TemplateService(db)
+    if not service.get(template_id):
+        raise HTTPException(status_code=404, detail='Template not found')
+    return service.list_versions(template_id)
+
+
+@router.post('/templates/{template_id}/versions', response_model=TemplateVersionRead)
+def create_template_version(
+    template_id: UUID, payload: TemplateVersionCreate, db: DbSession
+) -> object:
+    version = TemplateService(db).create_version(template_id, payload)
+    if not version:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return version
 
 
 @router.post('/templates/preview', response_model=TemplatePreviewRead)

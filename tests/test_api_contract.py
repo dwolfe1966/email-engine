@@ -13,6 +13,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates/preview',
         '/api/v1/templates/validate',
         '/api/v1/templates/{template_id}',
+        '/api/v1/templates/{template_id}/versions',
         '/api/v1/campaigns',
         '/api/v1/campaigns/list',
         '/api/v1/campaigns/{campaign_id}',
