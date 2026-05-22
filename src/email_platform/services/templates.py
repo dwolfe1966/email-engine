@@ -133,13 +133,19 @@ class TemplateService:
                 variables=payload.variables,
             )
         )
-        if not validation.ok:
+        if validation.errors or validation.missing_variables:
             return TemplatePreviewRead(
                 ok=False,
                 subject='',
                 html_body='',
                 text_body=None,
-                errors=validation.errors,
+                errors=[
+                    *validation.errors,
+                    *[
+                        f'Missing required variable: {variable}'
+                        for variable in validation.missing_variables
+                    ],
+                ],
                 undeclared_variables=validation.undeclared_variables,
             )
         variables = payload.variables
