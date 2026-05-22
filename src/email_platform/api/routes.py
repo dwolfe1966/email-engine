@@ -90,6 +90,7 @@ from email_platform.schemas.contracts import (
     SuppressionCreate,
     SuppressionRead,
     TemplateCreate,
+    TemplateLintRead,
     TemplatePreviewRead,
     TemplatePreviewRequest,
     TemplateRead,
@@ -196,6 +197,11 @@ def create_template_version(
 @router.post('/templates/preview', response_model=TemplatePreviewRead)
 def preview_template(payload: TemplatePreviewRequest, db: DbSession) -> TemplatePreviewRead:
     return TemplateService(db).preview(payload)
+
+
+@router.post('/templates/lint', response_model=TemplateLintRead)
+def lint_template(payload: TemplateValidationRequest, db: DbSession) -> TemplateLintRead:
+    return TemplateService(db).lint(payload)
 
 
 @router.post('/templates/validate', response_model=TemplateValidationRead)

@@ -9,6 +9,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
 
     expected_paths = {
         '/api/v1/templates',
+        '/api/v1/templates/lint',
         '/api/v1/templates/list',
         '/api/v1/templates/preview',
         '/api/v1/templates/validate',
@@ -122,6 +123,7 @@ def test_template_editor_page() -> None:
     response = client.get('/template-editor')
     assert response.status_code == 200
     assert 'Email Engine Template Editor' in response.text
+    assert 'Lint' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text

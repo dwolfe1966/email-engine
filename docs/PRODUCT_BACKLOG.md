@@ -61,6 +61,7 @@ This backlog is organized around the target platform capabilities:
 - Add reusable partials/components.
 - Add support for robust Jinja2 features with a sandboxed environment. **Initial sandboxed renderer shipped.**
 - Add template linting for unsubscribe links, tracking links, missing variables, and unsafe content.
+  **Initial lint endpoint shipped for unsubscribe, unsafe HTML, tracking placeholders, and email hygiene.**
 - Add approval workflow for production templates.
 
 ## P5: Journey Management

@@ -129,6 +129,8 @@ class CampaignService:
             undeclared_variables = template_validation.undeclared_variables
             missing_variables = template_validation.missing_variables
             errors.extend(template_validation.errors)
+            errors.extend(template_validation.lint_errors)
+            warnings.extend(template_validation.lint_warnings)
             if template_validation.missing_variables:
                 errors.append(
                     'Template is missing launch variables: '

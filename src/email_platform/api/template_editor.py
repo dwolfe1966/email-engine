@@ -263,6 +263,7 @@ li {
       <div class="head">
         <h2>Render</h2>
         <div class="actions">
+          <button class="secondary" id="lintTemplate">Lint</button>
           <button class="secondary" id="validateTemplate">Validate</button>
           <button id="previewTemplate">Preview</button>
         </div>
@@ -385,6 +386,14 @@ li {
       log(data);
     }
 
+    async function lintTemplate() {
+      const data = await request("/api/v1/templates/lint", {
+        method: "POST",
+        body: JSON.stringify({ ...payload(), variables: variables() }),
+      });
+      log(data);
+    }
+
     async function previewTemplate() {
       const data = await request("/api/v1/templates/preview", {
         method: "POST",
@@ -405,6 +414,7 @@ li {
     }
 
     document.getElementById("refreshTemplates").addEventListener("click", loadTemplates);
+    document.getElementById("lintTemplate").addEventListener("click", lintTemplate);
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);

@@ -130,6 +130,14 @@ class TemplateValidationRead(BaseModel):
     errors: list[str] = Field(default_factory=list)
     undeclared_variables: list[str] = Field(default_factory=list)
     missing_variables: list[str] = Field(default_factory=list)
+    lint_errors: list[str] = Field(default_factory=list)
+    lint_warnings: list[str] = Field(default_factory=list)
+
+
+class TemplateLintRead(BaseModel):
+    ok: bool
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class TemplateRead(TemplateCreate):

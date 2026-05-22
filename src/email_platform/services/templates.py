@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import re
 from collections.abc import Mapping
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from email_platform.models.entities import EmailTemplate, EmailTemplateVersion
 from email_platform.schemas.contracts import (
     TemplateCreate,
+    TemplateLintRead,
     TemplatePreviewRead,
     TemplatePreviewRequest,
     TemplateUpdate,
@@ -178,12 +180,29 @@ class TemplateService:
             for variable in undeclared_variables
             if variable not in payload.variables
         )
+        lint = self.lint(payload)
         return TemplateValidationRead(
-            ok=not errors and not missing_variables,
+            ok=not errors and not missing_variables and not lint.errors,
             errors=errors,
             undeclared_variables=sorted(undeclared_variables),
             missing_variables=missing_variables,
+            lint_errors=lint.errors,
+            lint_warnings=lint.warnings,
         )
+
+    def lint(self, payload: TemplateValidationRequest) -> TemplateLintRead:
+        errors: list[str] = []
+        warnings: list[str] = []
+        sources = self._sources(payload)
+        html = payload.html_body
+        combined = '\n'.join(sources.values()).lower()
+
+        self._lint_unsafe_html(html, errors)
+        self._lint_unsubscribe(combined, errors)
+        self._lint_tracking(html, warnings)
+        self._lint_email_hygiene(payload, html, warnings)
+
+        return TemplateLintRead(ok=not errors, errors=errors, warnings=warnings)
 
     def _render_source(self, source: str, variables: Mapping[str, object]) -> str:
         return template_environment.from_string(source).render(**variables)
@@ -239,3 +258,57 @@ class TemplateService:
         if payload.text_body:
             sources['text_body'] = payload.text_body
         return sources
+
+    def _lint_unsafe_html(self, html: str, errors: builtins.list[str]) -> None:
+        unsafe_tags = ('script', 'iframe', 'object', 'embed', 'form', 'input', 'button')
+        for tag in unsafe_tags:
+            if re.search(rf'<\s*{tag}(\s|>|/)', html, flags=re.IGNORECASE):
+                errors.append(f'Unsafe HTML tag is not allowed in email templates: <{tag}>.')
+        if re.search(r'\son[a-z]+\s*=', html, flags=re.IGNORECASE):
+            errors.append('Inline event handlers are not allowed in email templates.')
+        if re.search(r'(href|src)\s*=\s*["\']\s*javascript:', html, flags=re.IGNORECASE):
+            errors.append('javascript: URLs are not allowed in email templates.')
+
+    def _lint_unsubscribe(self, combined: str, errors: builtins.list[str]) -> None:
+        has_unsubscribe = any(
+            marker in combined
+            for marker in (
+                'unsubscribe',
+                'unsubscribe_url',
+                'unsubscribe_link',
+                '/unsubscribe/',
+                '{{ unsubscribe',
+            )
+        )
+        if not has_unsubscribe:
+            errors.append('Template must include an unsubscribe link or unsubscribe variable.')
+
+    def _lint_tracking(self, html: str, warnings: builtins.list[str]) -> None:
+        href_count = len(re.findall(r'<a\b[^>]*\bhref\s*=', html, flags=re.IGNORECASE))
+        if href_count and not re.search(
+            r'(tracking|click_url|tracking_click|/tracking/click)',
+            html,
+            flags=re.IGNORECASE,
+        ):
+            warnings.append(
+                'Template contains links, but no tracking click placeholder was detected.'
+            )
+        if not re.search(r'(tracking_open|open_pixel|/tracking/open)', html, flags=re.IGNORECASE):
+            warnings.append('No open-tracking placeholder was detected.')
+
+    def _lint_email_hygiene(
+        self,
+        payload: TemplateValidationRequest,
+        html: str,
+        warnings: builtins.list[str],
+    ) -> None:
+        if len(payload.subject) > 120:
+            warnings.append('Subject is longer than 120 characters.')
+        if not payload.text_body:
+            warnings.append('Plain-text body is missing.')
+        image_tags = re.findall(r'<img\b[^>]*>', html, flags=re.IGNORECASE)
+        missing_alt = [
+            tag for tag in image_tags if not re.search(r'\balt\s*=', tag, flags=re.IGNORECASE)
+        ]
+        if missing_alt:
+            warnings.append('One or more images are missing alt text.')
