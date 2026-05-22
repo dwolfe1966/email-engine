@@ -46,6 +46,7 @@ from email_platform.schemas.contracts import (
     CampaignRead,
     CampaignSendJobRead,
     CampaignUpdate,
+    CampaignValidationRead,
     ContactRead,
     ContactUpdate,
     ContactUpsert,
@@ -281,6 +282,28 @@ def delete_campaign(campaign_id: UUID, db: DbSession) -> dict[str, UUID]:
     return {'id': campaign_id}
 
 
+@router.post('/campaigns/{campaign_id}/validate', response_model=CampaignValidationRead)
+def validate_campaign(
+    campaign_id: UUID, payload: CampaignLaunchRequest, db: DbSession
+) -> CampaignValidationRead:
+    validation = CampaignService(db).validate(campaign_id, payload=payload)
+    if not validation:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return validation
+
+
+@router.post('/campaigns/{campaign_id}/approve', response_model=CampaignValidationRead)
+def approve_campaign(
+    campaign_id: UUID, payload: CampaignLaunchRequest, db: DbSession
+) -> CampaignValidationRead:
+    validation = CampaignService(db).approve(campaign_id, payload=payload)
+    if not validation:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    if not validation.ok:
+        raise HTTPException(status_code=400, detail=validation.errors or validation.warnings)
+    return validation
+
+
 @router.post('/campaigns/{campaign_id}/launch', response_model=CampaignLaunchRead)
 def launch_campaign(
     campaign_id: UUID, payload: CampaignLaunchRequest, db: DbSession
@@ -288,7 +311,7 @@ def launch_campaign(
     try:
         launch = CampaignService(db).launch(campaign_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not launch:
         raise HTTPException(status_code=404, detail='Campaign not found')
     return launch

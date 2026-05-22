@@ -18,7 +18,9 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/list',
         '/api/v1/campaigns/{campaign_id}',
         '/api/v1/campaigns/{campaign_id}/analytics',
+        '/api/v1/campaigns/{campaign_id}/approve',
         '/api/v1/campaigns/{campaign_id}/launch',
+        '/api/v1/campaigns/{campaign_id}/validate',
         '/api/v1/analytics/audiences',
         '/api/v1/analytics/campaigns',
         '/api/v1/analytics/domains',
@@ -159,6 +161,8 @@ def test_admin_pages() -> None:
     assert 'Load Contact Fields' in audiences.text
     assert 'Snapshot' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
+    assert 'Validate' in campaigns.text
+    assert 'Approve' in campaigns.text
     assert 'Email Engine Journey Manager' in journeys.text
     assert 'Save Journey' in journeys.text
     assert 'Enroll Contact' in journeys.text

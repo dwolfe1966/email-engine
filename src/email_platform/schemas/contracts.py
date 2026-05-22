@@ -176,6 +176,19 @@ class CampaignLaunchRead(BaseModel):
     dry_run: bool
 
 
+class CampaignValidationRead(BaseModel):
+    campaign_id: UUID
+    ok: bool
+    status: CampaignStatus
+    requested_count: int = 0
+    queued_count: int = 0
+    suppressed_count: int = 0
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    undeclared_variables: list[str] = Field(default_factory=list)
+    missing_variables: list[str] = Field(default_factory=list)
+
+
 class JourneyStepCreate(BaseModel):
     name: str
     step_type: JourneyStepType

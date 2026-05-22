@@ -1348,6 +1348,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <div class="actions">
           <button class="secondary" id="previewAudience">Preview Audience</button>
           <button class="secondary" id="previewTemplate">Preview Template</button>
+          <button class="secondary" id="validateCampaign">Validate</button>
+          <button class="secondary" id="approveCampaign">Approve</button>
           <button class="secondary" id="dryRun">Dry Run</button>
           <button id="launch">Queue Launch</button>
           <button class="secondary" id="analytics">Analytics</button>
@@ -1602,6 +1604,37 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       });
     }
 
+    async function validateCampaign() {
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
+        return;
+      }
+      await request(`/api/v1/campaigns/${selectedId}/validate`, {
+        method: "POST",
+        body: JSON.stringify({
+          audience_id: selectedAudienceId(),
+          variables: parseJson("variables", {}),
+          dry_run: false
+        })
+      });
+    }
+
+    async function approveCampaign() {
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
+        return;
+      }
+      await request(`/api/v1/campaigns/${selectedId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({
+          audience_id: selectedAudienceId(),
+          variables: parseJson("variables", {}),
+          dry_run: false
+        })
+      });
+      await loadCampaigns();
+    }
+
     async function loadAnalytics() {
       if (!selectedId) {
         writeResult("Select a campaign first.", false);
@@ -1644,6 +1677,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("dryRun").addEventListener("click", () => {
       launchCampaign(true).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("validateCampaign").addEventListener("click", () => {
+      validateCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("approveCampaign").addEventListener("click", () => {
+      approveCampaign().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("launch").addEventListener("click", () => {
       launchCampaign(false).catch((error) => writeResult(error.message, false));

@@ -1,3 +1,4 @@
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -19,9 +20,13 @@ from email_platform.schemas.contracts import (
     CampaignLaunchRead,
     CampaignLaunchRequest,
     CampaignUpdate,
+    CampaignValidationRead,
+    JsonObject,
+    TemplateValidationRequest,
 )
 from email_platform.services.audiences import AudienceService
 from email_platform.services.suppressions import SuppressionService
+from email_platform.services.templates import TemplateService
 
 
 class CampaignService:
@@ -65,20 +70,111 @@ class CampaignService:
         self.db.commit()
         return True
 
+    def validate(
+        self,
+        campaign_id: UUID,
+        payload: CampaignLaunchRequest | None = None,
+    ) -> CampaignValidationRead | None:
+        campaign = self.get(campaign_id)
+        if not campaign:
+            return None
+        payload = payload or CampaignLaunchRequest()
+        errors: list[str] = []
+        warnings: list[str] = []
+        requested_count = 0
+        queued_count = 0
+        suppressed_count = 0
+        undeclared_variables: list[str] = []
+        missing_variables: list[str] = []
+
+        template = TemplateService(self.db).get(campaign.template_id)
+        if not template:
+            errors.append('Campaign template not found.')
+        else:
+            template_validation = TemplateService(self.db).validate(
+                TemplateValidationRequest(
+                    subject=template.subject,
+                    html_body=template.html_body,
+                    css_body=template.css_body,
+                    text_body=template.text_body,
+                    variables=self._sample_variables(payload.variables),
+                )
+            )
+            undeclared_variables = template_validation.undeclared_variables
+            missing_variables = template_validation.missing_variables
+            errors.extend(template_validation.errors)
+            if template_validation.missing_variables:
+                errors.append(
+                    'Template is missing launch variables: '
+                    + ', '.join(template_validation.missing_variables)
+                )
+
+        try:
+            rule_tree = self._rule_tree(campaign, payload)
+            requested_count, contacts = AudienceService(self.db).preview(rule_tree, limit=500)
+            suppression_service = SuppressionService(self.db)
+            for contact in contacts:
+                if contact.is_unsubscribed or suppression_service.is_suppressed(contact.email):
+                    suppressed_count += 1
+                else:
+                    queued_count += 1
+        except ValueError as exc:
+            errors.append(str(exc))
+        if requested_count == 0 and not errors:
+            errors.append('Campaign audience currently matches no contacts.')
+        elif queued_count == 0 and not errors:
+            errors.append('Campaign has no deliverable contacts after suppression checks.')
+        if requested_count > 500:
+            warnings.append('Initial campaign fanout is capped at 500 contacts per launch.')
+
+        return CampaignValidationRead(
+            campaign_id=campaign.id,
+            ok=not errors and queued_count > 0,
+            status=campaign.status,
+            requested_count=requested_count,
+            queued_count=queued_count,
+            suppressed_count=suppressed_count,
+            errors=errors,
+            warnings=warnings,
+            undeclared_variables=undeclared_variables,
+            missing_variables=missing_variables,
+        )
+
+    def approve(
+        self,
+        campaign_id: UUID,
+        payload: CampaignLaunchRequest | None = None,
+    ) -> CampaignValidationRead | None:
+        validation = self.validate(campaign_id, payload=payload)
+        if not validation:
+            return None
+        if not validation.ok:
+            return validation
+        campaign = self.get(campaign_id)
+        if not campaign:
+            return None
+        campaign.status = CampaignStatus.scheduled
+        self.db.commit()
+        validation.status = campaign.status
+        return validation
+
     def launch(
         self, campaign_id: UUID, payload: CampaignLaunchRequest
     ) -> CampaignLaunchRead | None:
         campaign = self.get(campaign_id)
         if not campaign:
             return None
+        validation = self.validate(campaign_id, payload=payload)
+        if not validation:
+            return None
+        if not validation.ok:
+            raise ValueError('; '.join(validation.errors or validation.warnings))
+        if not payload.dry_run and campaign.status != CampaignStatus.scheduled:
+            raise ValueError('Campaign must be approved before queue launch.')
 
-        rule_tree = payload.rule_tree or campaign.audience_query
+        rule_tree = self._rule_tree(campaign, payload)
         audience_snapshot_id: UUID | None = None
         if payload.audience_id:
-            audience = AudienceService(self.db).get(payload.audience_id)
-            if not audience:
-                raise ValueError('Audience not found')
-            rule_tree = audience.rule_tree
             snapshot = AudienceService(self.db).create_snapshot(
                 payload.audience_id,
                 commit=False,
@@ -243,3 +339,22 @@ class CampaignService:
                 variables=variables,
             )
         )
+
+    def _rule_tree(self, campaign: Campaign, payload: CampaignLaunchRequest) -> dict[str, object]:
+        rule_tree = payload.rule_tree or campaign.audience_query
+        if payload.audience_id:
+            audience = AudienceService(self.db).get(payload.audience_id)
+            if not audience:
+                raise ValueError('Audience not found.')
+            rule_tree = audience.rule_tree
+        return cast(dict[str, object], rule_tree)
+
+    def _sample_variables(self, variables: JsonObject) -> JsonObject:
+        return {
+            'email': 'person@example.com',
+            'first_name': 'First',
+            'last_name': 'Last',
+            'source': 'sample',
+            'attributes': {},
+            **variables,
+        }
