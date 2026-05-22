@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timedelta
 from typing import Annotated, cast
@@ -5,6 +6,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,6 +33,7 @@ from email_platform.schemas.contracts import (
     TemplateCreate,
     TemplatePreviewRequest,
     TemplateUpdate,
+    TemplateValidationRequest,
     TemplateVersionCreate,
 )
 from email_platform.services.analytics import AnalyticsService
@@ -83,6 +86,55 @@ def compat_get_template(template_id: UUID, db: DbSession) -> dict[str, object]:
     if not template:
         raise HTTPException(status_code=404, detail='Template not found')
     return _template_detail(template)
+
+
+@router.post('/templates/{template_id}/ai-draft')
+def compat_template_ai_draft(
+    template_id: UUID, payload: dict[str, object], db: DbSession
+) -> dict[str, object]:
+    template = TemplateService(db).get(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail='Template not found')
+
+    current_html = str(payload.get('current_html', template.html_body))
+    current_subject = str(payload.get('current_subject', template.subject))
+    brief = str(payload.get('brief', '')).strip()
+    new_html = _draft_html(current_html, brief)
+    validation = TemplateService(db).validate(
+        TemplateValidationRequest(
+            subject=current_subject,
+            html_body=new_html,
+            css_body=template.css_body,
+            text_body=template.text_body,
+            variables={},
+        )
+    )
+    assistant_message = (
+        'I drafted a compatible email-engine revision. Review the generated HTML, '
+        'preview it, and apply it if it fits the campaign.'
+    )
+    return {
+        'commentary': (
+            f'Applied the brief: {brief}' if brief else 'Generated a conservative draft.'
+        ),
+        'new_html': new_html,
+        'new_subject': current_subject,
+        'new_preheader': payload.get('current_preheader'),
+        'validation': {
+            'passed': validation.ok,
+            'blocking_count': len(validation.errors) + len(validation.lint_errors),
+            'warning_count': len(validation.lint_warnings),
+            'failures': [
+                *_validation_failures(validation.errors, 'block'),
+                *_validation_failures(validation.lint_errors, 'block'),
+                *_validation_failures(validation.lint_warnings, 'warn'),
+            ],
+        },
+        'user_message': brief,
+        'assistant_message': assistant_message,
+        'provider': 'email-engine',
+        'model': 'compat-draft',
+    }
 
 
 @router.patch('/templates/{template_id}')
@@ -517,8 +569,21 @@ def compat_providers() -> dict[str, object]:
 
 
 @router.post('/chat')
-def compat_chat() -> dict[str, object]:
-    return {'message': 'Chat agent is not yet wired to email-engine.', 'events': []}
+def compat_chat(payload: dict[str, object]) -> StreamingResponse:
+    message = str(payload.get('message', '')).strip()
+    text = (
+        'Email Engine compatibility chat is online. '
+        'I can help inspect templates, audiences, sends, journeys, and reports exposed by '
+        'the email-engine API. Full agent tool execution is not wired yet.'
+    )
+    if message:
+        text = f'{text}\n\nYou asked: {message}'
+
+    def events() -> Iterable[str]:
+        yield _sse('text', {'text': text})
+        yield _sse('stop', {'reason': 'complete'})
+
+    return StreamingResponse(events(), media_type='text/event-stream')
 
 
 @router.get('/experiments')
@@ -945,6 +1010,45 @@ def _document_to_html(document: Mapping[str, object]) -> str:
         else:
             html_parts.append(f'<p>{text}</p>')
     return '\n'.join(html_parts)
+
+
+def _draft_html(current_html: str, brief: str) -> str:
+    note = brief or 'Review this message for clarity, relevance, and deliverability.'
+    return (
+        f'{current_html.rstrip()}\n\n'
+        '<div class="content-card">\n'
+        '  <p class="secondary-text">Draft note</p>\n'
+        f'  <p>{_escape_html(note)}</p>\n'
+        '</div>'
+    )
+
+
+def _validation_failures(messages: list[str], severity: str) -> list[dict[str, object]]:
+    return [
+        {
+            'code': 'email_engine_validation',
+            'severity': severity,
+            'location': 'template',
+            'message': message,
+            'matched_text': None,
+            'suggestion': None,
+        }
+        for message in messages
+    ]
+
+
+def _sse(event: str, data: Mapping[str, object]) -> str:
+    return f'event: {event}\ndata: {json.dumps(data)}\n\n'
+
+
+def _escape_html(value: str) -> str:
+    return (
+        value.replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&#39;')
+    )
 
 
 def _encoded_dict(value: object) -> dict[str, object]:

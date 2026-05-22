@@ -84,6 +84,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/unsubscribe/{token}',
         '/api/templates',
         '/api/templates/{template_id}',
+        '/api/templates/{template_id}/ai-draft',
         '/api/templates/{template_id}/versions',
         '/api/render',
         '/api/render-document',
