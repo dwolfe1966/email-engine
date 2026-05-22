@@ -19,6 +19,11 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}',
         '/api/v1/campaigns/{campaign_id}/analytics',
         '/api/v1/campaigns/{campaign_id}/launch',
+        '/api/v1/journeys',
+        '/api/v1/journeys/list',
+        '/api/v1/journeys/{journey_id}',
+        '/api/v1/journeys/{journey_id}/steps',
+        '/api/v1/journey-steps/{step_id}',
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
@@ -79,6 +84,7 @@ def test_api_tester_page() -> None:
     assert '/admin/audience-import' in response.text
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
+    assert '/admin/journeys' in response.text
     assert '/admin/delivery' in response.text
     assert '/admin/suppressions' in response.text
     assert '/admin/analytics' in response.text
@@ -96,6 +102,7 @@ def test_template_editor_page() -> None:
     assert '/admin/audience-import' in response.text
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
+    assert '/admin/journeys' in response.text
     assert '/admin/delivery' in response.text
     assert '/admin/suppressions' in response.text
     assert '/admin/analytics' in response.text
@@ -109,6 +116,7 @@ def test_admin_pages() -> None:
     import_page = client.get('/admin/audience-import')
     audiences = client.get('/admin/audiences')
     campaigns = client.get('/admin/campaigns')
+    journeys = client.get('/admin/journeys')
     delivery = client.get('/admin/delivery')
     suppressions = client.get('/admin/suppressions')
     analytics = client.get('/admin/analytics')
@@ -118,6 +126,7 @@ def test_admin_pages() -> None:
     assert import_page.status_code == 200
     assert audiences.status_code == 200
     assert campaigns.status_code == 200
+    assert journeys.status_code == 200
     assert delivery.status_code == 200
     assert suppressions.status_code == 200
     assert analytics.status_code == 200
@@ -128,6 +137,8 @@ def test_admin_pages() -> None:
     assert 'Email Engine Audience Builder' in audiences.text
     assert 'Load Contact Fields' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
+    assert 'Email Engine Journey Manager' in journeys.text
+    assert 'Save Journey' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
     assert 'Email Engine Suppressions' in suppressions.text
@@ -145,6 +156,7 @@ def test_admin_pages() -> None:
     assert '/admin/audience-import' in home.text
     assert '/admin/audiences' in home.text
     assert '/admin/campaigns' in home.text
+    assert '/admin/journeys' in home.text
     assert '/admin/delivery' in home.text
     assert '/admin/suppressions' in home.text
     assert '/admin/analytics' in home.text

@@ -10,6 +10,8 @@ from email_platform.models.entities import (
     DataSourceType,
     EmailEventType,
     EmailSendStatus,
+    JourneyStatus,
+    JourneyStepType,
     SendJobStatus,
     SuppressionReason,
 )
@@ -167,6 +169,52 @@ class CampaignLaunchRead(BaseModel):
     queued_count: int
     suppressed_count: int
     dry_run: bool
+
+
+class JourneyStepCreate(BaseModel):
+    name: str
+    step_type: JourneyStepType
+    position: int = 0
+    config: JsonObject = Field(default_factory=dict)
+
+
+class JourneyStepUpdate(BaseModel):
+    name: str | None = None
+    step_type: JourneyStepType | None = None
+    position: int | None = None
+    config: JsonObject | None = None
+
+
+class JourneyStepRead(JourneyStepCreate):
+    id: UUID
+    journey_id: UUID
+
+    model_config = {'from_attributes': True}
+
+
+class JourneyCreate(BaseModel):
+    name: str
+    description: str | None = None
+    entry_rule_tree: JsonObject = Field(default_factory=dict)
+    exit_rule_tree: JsonObject = Field(default_factory=dict)
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class JourneyUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: JourneyStatus | None = None
+    entry_rule_tree: JsonObject | None = None
+    exit_rule_tree: JsonObject | None = None
+    metadata_json: JsonObject | None = None
+
+
+class JourneyRead(JourneyCreate):
+    id: UUID
+    status: JourneyStatus
+    steps: list[JourneyStepRead] = Field(default_factory=list)
+
+    model_config = {'from_attributes': True}
 
 
 class CampaignSendJobRead(BaseModel):

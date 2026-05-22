@@ -18,6 +18,8 @@ from email_platform.models.entities import (
     EmailEvent,
     EmailTemplate,
     EmailTemplateVersion,
+    Journey,
+    JourneyStep,
     Suppression,
 )
 from email_platform.schemas.contracts import (
@@ -51,6 +53,12 @@ from email_platform.schemas.contracts import (
     EmailSendResponse,
     EventCreate,
     EventRead,
+    JourneyCreate,
+    JourneyRead,
+    JourneyStepCreate,
+    JourneyStepRead,
+    JourneyStepUpdate,
+    JourneyUpdate,
     JsonObject,
     ListResponse,
     ProviderWebhookIngestRead,
@@ -81,6 +89,7 @@ from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
 from email_platform.services.delivery import DeliveryService
 from email_platform.services.events import EventService
+from email_platform.services.journeys import JourneyService
 from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
@@ -275,6 +284,91 @@ def get_campaign_analytics(
     if not metrics:
         raise HTTPException(status_code=404, detail='Campaign or send job not found')
     return metrics
+
+
+@router.get('/journeys', response_model=list[JourneyRead])
+def list_journeys(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> list[Journey]:
+    return JourneyService(db).list_items(limit=limit, offset=offset)
+
+
+@router.get('/journeys/list', response_model=ListResponse[JourneyRead])
+def list_journeys_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = JourneyService(db)
+    return {
+        'items': service.list_items(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
+
+
+@router.post('/journeys', response_model=JourneyRead)
+def create_journey(payload: JourneyCreate, db: DbSession) -> Journey:
+    return JourneyService(db).create(payload)
+
+
+@router.get('/journeys/{journey_id}', response_model=JourneyRead)
+def get_journey(journey_id: UUID, db: DbSession) -> Journey:
+    journey = JourneyService(db).get(journey_id)
+    if not journey:
+        raise HTTPException(status_code=404, detail='Journey not found')
+    return journey
+
+
+@router.patch('/journeys/{journey_id}', response_model=JourneyRead)
+def update_journey(journey_id: UUID, payload: JourneyUpdate, db: DbSession) -> Journey:
+    journey = JourneyService(db).update(journey_id, payload)
+    if not journey:
+        raise HTTPException(status_code=404, detail='Journey not found')
+    return journey
+
+
+@router.delete('/journeys/{journey_id}', response_model=DeleteResponse)
+def delete_journey(journey_id: UUID, db: DbSession) -> DeleteResponse:
+    deleted = JourneyService(db).delete(journey_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail='Journey not found')
+    return DeleteResponse(id=journey_id)
+
+
+@router.post('/journeys/{journey_id}/steps', response_model=JourneyStepRead)
+def create_journey_step(
+    journey_id: UUID,
+    payload: JourneyStepCreate,
+    db: DbSession,
+) -> JourneyStep:
+    step = JourneyService(db).create_step(journey_id, payload)
+    if not step:
+        raise HTTPException(status_code=404, detail='Journey not found')
+    return step
+
+
+@router.patch('/journey-steps/{step_id}', response_model=JourneyStepRead)
+def update_journey_step(
+    step_id: UUID,
+    payload: JourneyStepUpdate,
+    db: DbSession,
+) -> JourneyStep:
+    step = JourneyService(db).update_step(step_id, payload)
+    if not step:
+        raise HTTPException(status_code=404, detail='Journey step not found')
+    return step
+
+
+@router.delete('/journey-steps/{step_id}', response_model=DeleteResponse)
+def delete_journey_step(step_id: UUID, db: DbSession) -> DeleteResponse:
+    deleted = JourneyService(db).delete_step(step_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail='Journey step not found')
+    return DeleteResponse(id=step_id)
 
 
 @router.get('/campaign-send-jobs/list', response_model=ListResponse[CampaignSendJobRead])

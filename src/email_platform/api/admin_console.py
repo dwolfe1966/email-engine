@@ -29,6 +29,11 @@ def admin_campaigns() -> str:
     return ADMIN_CAMPAIGNS_HTML
 
 
+@router.get('/admin/journeys', response_class=HTMLResponse, include_in_schema=False)
+def admin_journeys() -> str:
+    return ADMIN_JOURNEYS_HTML
+
+
 @router.get('/admin/delivery', response_class=HTMLResponse, include_in_schema=False)
 def admin_delivery() -> str:
     return ADMIN_DELIVERY_HTML
@@ -126,6 +131,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/audience-import">Audience Import</a>
       <a href="/admin/audiences">Audience Builder</a>
       <a href="/admin/campaigns">Campaign Manager</a>
+      <a href="/admin/journeys">Journey Manager</a>
       <a href="/admin/delivery">Delivery Manager</a>
       <a href="/admin/suppressions">Suppressions</a>
       <a href="/admin/analytics">Analytics</a>
@@ -153,6 +159,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/campaigns">
       <strong>Campaign Manager</strong>
       <span>Create campaigns, launch dry runs or queues, and inspect delivery state.</span>
+    </a>
+    <a href="/admin/journeys">
+      <strong>Journey Manager</strong>
+      <span>Create multi-step journeys with entry rules, exits, waits, and actions.</span>
     </a>
     <a href="/admin/delivery">
       <strong>Delivery Manager</strong>
@@ -342,6 +352,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -750,6 +761,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -1265,6 +1277,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -1631,6 +1644,455 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
 </html>"""
 
 
+ADMIN_JOURNEYS_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Journey Manager</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: 300px minmax(420px, .9fr) minmax(420px, 1fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      min-width: 0;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inline { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .items {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 190px);
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      text-align: left;
+      color: var(--text);
+    }
+    .item small { display: block; color: var(--muted); margin-top: 3px; }
+    pre {
+      margin: 0;
+      min-height: 300px;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1280px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .inline { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Journey Manager</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Journeys</h2><button id="refreshJourneys">Refresh</button></div>
+      <div class="body">
+        <button class="secondary" id="newJourney">New Journey</button>
+        <div class="items" id="journeys"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head">
+        <h2>Journey Editor</h2>
+        <div class="actions">
+          <button id="saveJourney">Save Journey</button>
+          <button class="danger" id="deleteJourney">Delete Journey</button>
+        </div>
+      </div>
+      <div class="body">
+        <label>Name
+          <input id="journeyName" />
+        </label>
+        <div class="inline">
+          <label>Status
+            <select id="journeyStatus">
+              <option value="draft">draft</option>
+              <option value="active">active</option>
+              <option value="paused">paused</option>
+              <option value="archived">archived</option>
+            </select>
+          </label>
+          <label>Description
+            <input id="journeyDescription" />
+          </label>
+        </div>
+        <label>Entry rule tree JSON
+          <textarea id="entryRuleTree"></textarea>
+        </label>
+        <label>Exit rule tree JSON
+          <textarea id="exitRuleTree"></textarea>
+        </label>
+        <label>Metadata JSON
+          <textarea id="journeyMetadata"></textarea>
+        </label>
+        <div class="head">
+          <h2>Steps</h2>
+          <button class="secondary" id="newStep">New Step</button>
+        </div>
+        <div class="actions">
+          <button id="saveStep">Save Step</button>
+          <button class="danger" id="deleteStep">Delete Step</button>
+        </div>
+        <div class="inline">
+          <label>Step name
+            <input id="stepName" />
+          </label>
+          <label>Step type
+            <select id="stepType">
+              <option value="send_email">send_email</option>
+              <option value="wait">wait</option>
+              <option value="branch">branch</option>
+              <option value="update_contact">update_contact</option>
+              <option value="webhook">webhook</option>
+            </select>
+          </label>
+        </div>
+        <label>Position
+          <input id="stepPosition" type="number" value="0" />
+        </label>
+        <label>Step config JSON
+          <textarea id="stepConfig"></textarea>
+        </label>
+        <div class="items" id="steps"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body"><pre id="result"></pre></div>
+    </section>
+  </main>
+  <script>
+    let selectedJourneyId = "";
+    let selectedStepId = "";
+    let selectedJourney = null;
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function parseJson(id, fallback) {
+      const raw = document.getElementById(id).value.trim();
+      return raw ? JSON.parse(raw) : fallback;
+    }
+
+    function resetJourney() {
+      selectedJourneyId = "";
+      selectedJourney = null;
+      document.getElementById("journeyName").value = `journey-${Date.now()}`;
+      document.getElementById("journeyStatus").value = "draft";
+      document.getElementById("journeyDescription").value = "";
+      document.getElementById("entryRuleTree").value = JSON.stringify(
+        { operator: "and", rules: [] },
+        null,
+        2
+      );
+      document.getElementById("exitRuleTree").value = "{}";
+      document.getElementById("journeyMetadata").value = "{}";
+      resetStep();
+      renderSteps([]);
+    }
+
+    function resetStep() {
+      selectedStepId = "";
+      document.getElementById("stepName").value = `step-${Date.now()}`;
+      document.getElementById("stepType").value = "send_email";
+      document.getElementById("stepPosition").value = "0";
+      document.getElementById("stepConfig").value = JSON.stringify(
+        { template_id: "", wait_seconds: 0, variables: {} },
+        null,
+        2
+      );
+    }
+
+    function selectJourney(item) {
+      selectedJourneyId = item.id;
+      selectedJourney = item;
+      selectedStepId = "";
+      document.getElementById("journeyName").value = item.name || "";
+      document.getElementById("journeyStatus").value = item.status || "draft";
+      document.getElementById("journeyDescription").value = item.description || "";
+      document.getElementById("entryRuleTree").value = JSON.stringify(
+        item.entry_rule_tree || {},
+        null,
+        2
+      );
+      document.getElementById("exitRuleTree").value = JSON.stringify(
+        item.exit_rule_tree || {},
+        null,
+        2
+      );
+      document.getElementById("journeyMetadata").value = JSON.stringify(
+        item.metadata_json || {},
+        null,
+        2
+      );
+      resetStep();
+      renderSteps(item.steps || []);
+      writeResult(item);
+    }
+
+    function selectStep(item) {
+      selectedStepId = item.id;
+      document.getElementById("stepName").value = item.name || "";
+      document.getElementById("stepType").value = item.step_type || "send_email";
+      document.getElementById("stepPosition").value = item.position || 0;
+      document.getElementById("stepConfig").value = JSON.stringify(item.config || {}, null, 2);
+      writeResult(item);
+    }
+
+    function renderSteps(steps) {
+      const container = document.getElementById("steps");
+      container.textContent = "";
+      steps
+        .slice()
+        .sort((left, right) => left.position - right.position)
+        .forEach((item) => {
+          const button = document.createElement("button");
+          button.className = "item";
+          button.type = "button";
+          button.textContent = `${item.position}. ${item.name}`;
+          const detail = document.createElement("small");
+          detail.textContent = `${item.step_type} - ${item.id}`;
+          button.appendChild(detail);
+          button.addEventListener("click", () => selectStep(item));
+          container.appendChild(button);
+        });
+    }
+
+    async function loadJourneys() {
+      const data = await request("/api/v1/journeys/list?limit=100&offset=0");
+      const container = document.getElementById("journeys");
+      container.textContent = "";
+      data.items.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.name;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.status} - ${item.steps.length} steps - ${item.id}`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectJourney(item));
+        container.appendChild(button);
+      });
+    }
+
+    async function refreshSelectedJourney() {
+      if (!selectedJourneyId) return;
+      const data = await request(`/api/v1/journeys/${selectedJourneyId}`);
+      selectJourney(data);
+      await loadJourneys();
+    }
+
+    async function saveJourney() {
+      const payload = {
+        name: document.getElementById("journeyName").value.trim(),
+        description: document.getElementById("journeyDescription").value.trim() || null,
+        entry_rule_tree: parseJson("entryRuleTree", {}),
+        exit_rule_tree: parseJson("exitRuleTree", {}),
+        metadata_json: parseJson("journeyMetadata", {})
+      };
+      if (selectedJourneyId) payload.status = document.getElementById("journeyStatus").value;
+      const path = selectedJourneyId
+        ? `/api/v1/journeys/${selectedJourneyId}`
+        : "/api/v1/journeys";
+      const method = selectedJourneyId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectJourney(saved);
+      await loadJourneys();
+    }
+
+    async function deleteJourney() {
+      if (!selectedJourneyId) {
+        writeResult("Select a journey first.", false);
+        return;
+      }
+      await request(`/api/v1/journeys/${selectedJourneyId}`, { method: "DELETE" });
+      resetJourney();
+      await loadJourneys();
+    }
+
+    async function saveStep() {
+      if (!selectedJourneyId) {
+        writeResult("Select or save a journey first.", false);
+        return;
+      }
+      const payload = {
+        name: document.getElementById("stepName").value.trim(),
+        step_type: document.getElementById("stepType").value,
+        position: Number(document.getElementById("stepPosition").value || 0),
+        config: parseJson("stepConfig", {})
+      };
+      const path = selectedStepId
+        ? `/api/v1/journey-steps/${selectedStepId}`
+        : `/api/v1/journeys/${selectedJourneyId}/steps`;
+      const method = selectedStepId ? "PATCH" : "POST";
+      const saved = await request(path, { method, body: JSON.stringify(payload) });
+      selectedStepId = saved.id;
+      await refreshSelectedJourney();
+    }
+
+    async function deleteStep() {
+      if (!selectedStepId) {
+        writeResult("Select a journey step first.", false);
+        return;
+      }
+      await request(`/api/v1/journey-steps/${selectedStepId}`, { method: "DELETE" });
+      resetStep();
+      await refreshSelectedJourney();
+    }
+
+    document.getElementById("refreshJourneys").addEventListener("click", () => {
+      loadJourneys().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("newJourney").addEventListener("click", resetJourney);
+    document.getElementById("saveJourney").addEventListener("click", () => {
+      saveJourney().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("deleteJourney").addEventListener("click", () => {
+      deleteJourney().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("newStep").addEventListener("click", resetStep);
+    document.getElementById("saveStep").addEventListener("click", () => {
+      saveStep().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("deleteStep").addEventListener("click", () => {
+      deleteStep().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    resetJourney();
+    loadJourneys().catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
 ADMIN_DELIVERY_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -1750,6 +2212,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -2005,6 +2468,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -2305,6 +2769,7 @@ ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -2658,6 +3123,7 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
@@ -3069,6 +3535,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       </button>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/journeys'">Journey Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
       <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>

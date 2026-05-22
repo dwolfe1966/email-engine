@@ -62,6 +62,21 @@ class AudienceStatus(StrEnum):
     archived = 'archived'
 
 
+class JourneyStatus(StrEnum):
+    draft = 'draft'
+    active = 'active'
+    paused = 'paused'
+    archived = 'archived'
+
+
+class JourneyStepType(StrEnum):
+    send_email = 'send_email'
+    wait = 'wait'
+    branch = 'branch'
+    update_contact = 'update_contact'
+    webhook = 'webhook'
+
+
 class SendJobStatus(StrEnum):
     queued = 'queued'
     processing = 'processing'
@@ -206,6 +221,47 @@ class Campaign(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     template: Mapped[EmailTemplate] = relationship()
+
+
+class Journey(Base):
+    __tablename__ = 'journeys'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[JourneyStatus] = mapped_column(Enum(JourneyStatus), default=JourneyStatus.draft)
+    entry_rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    exit_rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    steps: Mapped[list['JourneyStep']] = relationship(
+        back_populates='journey',
+        cascade='all, delete-orphan',
+        order_by='JourneyStep.position',
+    )
+
+
+class JourneyStep(Base):
+    __tablename__ = 'journey_steps'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    journey_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journeys.id'), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    step_type: Mapped[JourneyStepType] = mapped_column(Enum(JourneyStepType), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    config: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    journey: Mapped[Journey] = relationship(back_populates='steps')
 
 
 class CampaignSendJob(Base):
