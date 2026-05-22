@@ -122,6 +122,23 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     .toolbar select {
       width: auto;
     }
+    .css-builder {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #f9fafb;
+      display: grid;
+      gap: 10px;
+    }
+    .css-builder-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .css-builder input[type="color"] {
+      min-height: 36px;
+      padding: 4px;
+    }
     .template-list { display: grid; gap: 6px; max-height: calc(100vh - 160px); overflow: auto; }
     .template-item {
       border: 1px solid var(--line);
@@ -253,6 +270,51 @@ li {
   margin: 4px 0;
 }</textarea>
         </label>
+        <div class="css-builder">
+          <strong>CSS Builder</strong>
+          <div class="css-builder-grid">
+            <label>Preset
+              <select id="cssPreset">
+                <option value="newsletter">Newsletter</option>
+                <option value="announcement">Announcement</option>
+                <option value="transactional">Transactional</option>
+              </select>
+            </label>
+            <label>Font
+              <select id="cssFont">
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
+              </select>
+            </label>
+            <label>Brand color
+              <input id="cssBrandColor" type="color" value="#2563eb" />
+            </label>
+            <label>Accent color
+              <input id="cssAccentColor" type="color" value="#16a34a" />
+            </label>
+            <label>Max width
+              <select id="cssMaxWidth">
+                <option value="600">600px</option>
+                <option value="640">640px</option>
+                <option value="720">720px</option>
+              </select>
+            </label>
+            <label>Button radius
+              <select id="cssButtonRadius">
+                <option value="4">4px</option>
+                <option value="8">8px</option>
+                <option value="999">Pill</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="secondary" type="button" id="generateCss">Generate CSS</button>
+            <button class="secondary" type="button" id="appendCss">Append CSS</button>
+            <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
+          </div>
+        </div>
         <label>Text
           <textarea id="textBody">Hello {{ first_name }}. Your plan is {{ plan }}.</textarea>
         </label>
@@ -323,6 +385,80 @@ li {
       doc.body.focus();
       doc.execCommand(command, false, value);
       syncSourceFromVisual();
+    }
+
+    function emailCss() {
+      const preset = value("cssPreset");
+      const font = value("cssFont");
+      const brand = value("cssBrandColor");
+      const accent = value("cssAccentColor");
+      const maxWidth = value("cssMaxWidth");
+      const radius = value("cssButtonRadius");
+      const presetRules = {
+        newsletter: `
+.eyebrow { color: ${accent}; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.content-card { border: 1px solid #d8dee6; border-radius: 8px; padding: 20px; }
+.article-list li { margin: 8px 0; }`,
+        announcement: `
+.hero { background: ${brand}; color: #ffffff; padding: 28px 24px; text-align: center; }
+.hero h1 { color: #ffffff; margin: 0; }
+.callout { background: #eff6ff; border-left: 4px solid ${brand}; padding: 14px; }`,
+        transactional: `
+.summary { width: 100%; border-collapse: collapse; }
+.summary th, .summary td { border-bottom: 1px solid #d8dee6; padding: 10px; text-align: left; }
+.meta { color: #5b6673; font-size: 13px; }`,
+      };
+      return `body {
+  margin: 0;
+  background: #f6f7f9;
+  color: #17202a;
+  font-family: ${font};
+}
+.email-shell {
+  width: 100%;
+  background: #f6f7f9;
+  padding: 24px 0;
+}
+.email-container {
+  max-width: ${maxWidth}px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 24px;
+}
+h1, h2, h3 {
+  color: #17202a;
+  margin: 0 0 12px;
+}
+p {
+  margin: 0 0 14px;
+  line-height: 1.55;
+}
+a {
+  color: ${brand};
+}
+.button {
+  display: inline-block;
+  background: ${brand};
+  color: #ffffff;
+  text-decoration: none;
+  padding: 11px 16px;
+  border-radius: ${radius}px;
+  font-weight: 700;
+}
+.secondary-text {
+  color: #5b6673;
+  font-size: 13px;
+}
+${presetRules[preset] || ""}`;
+    }
+
+    function applyGeneratedCss(mode) {
+      const css = emailCss();
+      const field = document.getElementById("cssBody");
+      field.value = mode === "append" && field.value.trim()
+        ? `${field.value.trim()}\n\n${css}`
+        : css;
+      loadVisualFromSource();
     }
 
     function payload() {
@@ -422,6 +558,15 @@ li {
     document.getElementById("cssBody").addEventListener("blur", loadVisualFromSource);
     document.getElementById("syncFromSource").addEventListener("click", loadVisualFromSource);
     document.getElementById("syncToSource").addEventListener("click", syncSourceFromVisual);
+    document
+      .getElementById("generateCss")
+      .addEventListener("click", () => applyGeneratedCss("replace"));
+    document
+      .getElementById("appendCss")
+      .addEventListener("click", () => applyGeneratedCss("append"));
+    document.getElementById("insertButtonHtml").addEventListener("click", () => {
+      runCommand("insertHTML", '<p><a class="button" href="{{ cta_url }}">Call to Action</a></p>');
+    });
     document.getElementById("formatBlock").addEventListener("change", (event) => {
       runCommand("formatBlock", event.target.value);
     });

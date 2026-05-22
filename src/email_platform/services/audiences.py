@@ -1,10 +1,10 @@
 from collections.abc import Mapping
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from email_platform.models.entities import Audience, AudienceSnapshot, Contact
+from email_platform.models.entities import Audience, AudienceSnapshot, CampaignSendJob, Contact
 from email_platform.schemas.contracts import AudienceCreate, AudienceSnapshotCreate, AudienceUpdate
 
 
@@ -100,6 +100,17 @@ class AudienceService:
         audience = self.get(audience_id)
         if not audience:
             return False
+        snapshot_ids = list(
+            self.db.scalars(
+                select(AudienceSnapshot.id).where(AudienceSnapshot.audience_id == audience_id)
+            ).all()
+        )
+        if snapshot_ids:
+            self.db.execute(
+                update(CampaignSendJob)
+                .where(CampaignSendJob.audience_snapshot_id.in_(snapshot_ids))
+                .values(audience_snapshot_id=None)
+            )
         self.db.execute(delete(AudienceSnapshot).where(AudienceSnapshot.audience_id == audience_id))
         self.db.delete(audience)
         self.db.commit()

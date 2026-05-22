@@ -2,11 +2,19 @@ import hmac
 from hashlib import sha256
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
-from email_platform.models.entities import Contact, SuppressionReason
+from email_platform.models.entities import (
+    Contact,
+    EmailEvent,
+    EmailSendRecord,
+    JourneyEnrollment,
+    JourneyStepExecution,
+    Suppression,
+    SuppressionReason,
+)
 from email_platform.schemas.contracts import ContactUpdate, ContactUpsert
 from email_platform.services.suppressions import SuppressionService
 
@@ -88,6 +96,28 @@ class ContactService:
         contact = self.get(contact_id)
         if not contact:
             return False
+        send_record_ids = list(
+            self.db.scalars(
+                select(EmailSendRecord.id).where(EmailSendRecord.contact_id == contact_id)
+            ).all()
+        )
+        if send_record_ids:
+            self.db.execute(
+                delete(JourneyStepExecution).where(
+                    JourneyStepExecution.send_record_id.in_(send_record_ids)
+                )
+            )
+            self.db.execute(
+                delete(EmailEvent).where(EmailEvent.send_record_id.in_(send_record_ids))
+            )
+            self.db.execute(delete(EmailSendRecord).where(EmailSendRecord.id.in_(send_record_ids)))
+
+        self.db.execute(
+            delete(JourneyStepExecution).where(JourneyStepExecution.contact_id == contact_id)
+        )
+        self.db.execute(delete(JourneyEnrollment).where(JourneyEnrollment.contact_id == contact_id))
+        self.db.execute(delete(EmailEvent).where(EmailEvent.contact_id == contact_id))
+        self.db.execute(delete(Suppression).where(Suppression.contact_id == contact_id))
         self.db.delete(contact)
         self.db.commit()
         return True

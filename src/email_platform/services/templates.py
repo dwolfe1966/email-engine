@@ -8,10 +8,18 @@ from uuid import UUID
 from jinja2 import StrictUndefined, meta
 from jinja2.exceptions import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from email_platform.models.entities import EmailTemplate, EmailTemplateVersion
+from email_platform.models.entities import (
+    Campaign,
+    CampaignSendJob,
+    EmailEvent,
+    EmailSendRecord,
+    EmailTemplate,
+    EmailTemplateVersion,
+    JourneyStepExecution,
+)
 from email_platform.schemas.contracts import (
     TemplateCreate,
     TemplateLintRead,
@@ -111,6 +119,10 @@ class TemplateService:
         template = self.get(template_id)
         if not template:
             return False
+        self._delete_template_dependencies(template_id)
+        self.db.execute(
+            delete(EmailTemplateVersion).where(EmailTemplateVersion.template_id == template_id)
+        )
         self.db.delete(template)
         self.db.commit()
         return True
@@ -122,6 +134,50 @@ class TemplateService:
         html = self._render_html(template.html_body, template.css_body, variables)
         text = self._render_source(template.text_body, variables) if template.text_body else None
         return subject, html, text
+
+    def _delete_template_dependencies(self, template_id: UUID) -> None:
+        campaign_ids = list(
+            self.db.scalars(select(Campaign.id).where(Campaign.template_id == template_id)).all()
+        )
+        send_job_ids: list[UUID] = []
+        if campaign_ids:
+            send_job_ids = list(
+                self.db.scalars(
+                    select(CampaignSendJob.id).where(
+                        CampaignSendJob.campaign_id.in_(campaign_ids)
+                    )
+                ).all()
+            )
+
+        send_record_filters = [EmailSendRecord.template_id == template_id]
+        if campaign_ids:
+            send_record_filters.append(EmailSendRecord.campaign_id.in_(campaign_ids))
+        if send_job_ids:
+            send_record_filters.append(EmailSendRecord.send_job_id.in_(send_job_ids))
+        send_record_ids = list(
+            self.db.scalars(
+                select(EmailSendRecord.id).where(or_(*send_record_filters))
+            ).all()
+        )
+
+        if send_record_ids:
+            self.db.execute(
+                delete(JourneyStepExecution).where(
+                    JourneyStepExecution.send_record_id.in_(send_record_ids)
+                )
+            )
+            self.db.execute(
+                delete(EmailEvent).where(EmailEvent.send_record_id.in_(send_record_ids))
+            )
+            self.db.execute(delete(EmailSendRecord).where(EmailSendRecord.id.in_(send_record_ids)))
+
+        if send_job_ids:
+            self.db.execute(delete(EmailEvent).where(EmailEvent.send_job_id.in_(send_job_ids)))
+            self.db.execute(delete(CampaignSendJob).where(CampaignSendJob.id.in_(send_job_ids)))
+
+        if campaign_ids:
+            self.db.execute(delete(EmailEvent).where(EmailEvent.campaign_id.in_(campaign_ids)))
+            self.db.execute(delete(Campaign).where(Campaign.id.in_(campaign_ids)))
 
     def preview(self, payload: TemplatePreviewRequest) -> TemplatePreviewRead:
         validation = self.validate(

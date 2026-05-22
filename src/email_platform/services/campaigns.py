@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
@@ -92,6 +92,7 @@ class CampaignService:
         campaign = self.get(campaign_id)
         if not campaign:
             return False
+        self._delete_campaign_dependencies(campaign_id)
         self.db.delete(campaign)
         self.db.commit()
         return True
@@ -374,6 +375,38 @@ class CampaignService:
         self.db.delete(record)
         self.db.commit()
         return True
+
+    def _delete_campaign_dependencies(self, campaign_id: UUID) -> None:
+        send_job_ids = list(
+            self.db.scalars(
+                select(CampaignSendJob.id).where(CampaignSendJob.campaign_id == campaign_id)
+            ).all()
+        )
+        send_record_filters = [EmailSendRecord.campaign_id == campaign_id]
+        if send_job_ids:
+            send_record_filters.append(EmailSendRecord.send_job_id.in_(send_job_ids))
+        send_record_ids = list(
+            self.db.scalars(
+                select(EmailSendRecord.id).where(or_(*send_record_filters))
+            ).all()
+        )
+
+        if send_record_ids:
+            self.db.execute(
+                delete(JourneyStepExecution).where(
+                    JourneyStepExecution.send_record_id.in_(send_record_ids)
+                )
+            )
+            self.db.execute(
+                delete(EmailEvent).where(EmailEvent.send_record_id.in_(send_record_ids))
+            )
+            self.db.execute(delete(EmailSendRecord).where(EmailSendRecord.id.in_(send_record_ids)))
+
+        if send_job_ids:
+            self.db.execute(delete(EmailEvent).where(EmailEvent.send_job_id.in_(send_job_ids)))
+            self.db.execute(delete(CampaignSendJob).where(CampaignSendJob.id.in_(send_job_ids)))
+
+        self.db.execute(delete(EmailEvent).where(EmailEvent.campaign_id == campaign_id))
 
     def _add_send_record(
         self,
