@@ -16,6 +16,7 @@ from email_platform.models.entities import (
     DataSource,
     DataSourceMapping,
     EmailEvent,
+    EmailSendRecord,
     EmailTemplate,
     EmailTemplateVersion,
     Journey,
@@ -480,6 +481,39 @@ def list_email_send_records(
         'offset': offset,
         'total': service.count_send_records(campaign_id=campaign_id, send_job_id=send_job_id),
     }
+
+
+@router.post('/email-send-records/{send_record_id}/requeue', response_model=EmailSendRecordRead)
+def requeue_email_send_record(send_record_id: UUID, db: DbSession) -> EmailSendRecord:
+    try:
+        record = CampaignService(db).requeue_send_record(send_record_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not record:
+        raise HTTPException(status_code=404, detail='Send record not found')
+    return record
+
+
+@router.post('/email-send-records/{send_record_id}/skip', response_model=EmailSendRecordRead)
+def skip_email_send_record(send_record_id: UUID, db: DbSession) -> EmailSendRecord:
+    try:
+        record = CampaignService(db).skip_send_record(send_record_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not record:
+        raise HTTPException(status_code=404, detail='Send record not found')
+    return record
+
+
+@router.delete('/email-send-records/{send_record_id}', response_model=DeleteResponse)
+def delete_email_send_record(send_record_id: UUID, db: DbSession) -> DeleteResponse:
+    try:
+        deleted = CampaignService(db).delete_send_record(send_record_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail='Send record not found')
+    return DeleteResponse(id=send_record_id)
 
 
 @router.get('/email-send-records/{send_record_id}/tracking-links', response_model=TrackingLinksRead)

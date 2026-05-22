@@ -2313,6 +2313,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
           <button id="processQueued">Process Queued</button>
           <button class="secondary" id="loadJobs">Load Jobs</button>
           <button class="secondary" id="loadRecords">Load Records</button>
+          <button class="secondary" id="requeueRecord">Requeue Record</button>
+          <button class="secondary" id="skipRecord">Skip Record</button>
+          <button class="danger" id="deleteRecord">Delete Record</button>
           <button class="secondary" id="loadSuppressions">Suppressions</button>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
           <button class="secondary" id="clear">Clear</button>
@@ -2381,6 +2384,14 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       await request(`/api/v1/email-send-records/list?${scopedQuery()}`);
     }
 
+    async function recordAction(action, method = "POST") {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      await request(`/api/v1/email-send-records/${value("sendRecordId")}${action}`, { method });
+    }
+
     async function loadSuppressions() {
       await request(`/api/v1/suppressions?${limitQuery()}`);
     }
@@ -2401,6 +2412,15 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     });
     document.getElementById("loadRecords").addEventListener("click", () => {
       loadRecords().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("requeueRecord").addEventListener("click", () => {
+      recordAction("/requeue").catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("skipRecord").addEventListener("click", () => {
+      recordAction("/skip").catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("deleteRecord").addEventListener("click", () => {
+      recordAction("", "DELETE").catch((error) => writeResult(error.message, false));
     });
     document.getElementById("loadSuppressions").addEventListener("click", () => {
       loadSuppressions().catch((error) => writeResult(error.message, false));

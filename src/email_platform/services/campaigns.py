@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
@@ -8,8 +8,10 @@ from email_platform.models.entities import (
     CampaignSendJob,
     CampaignStatus,
     Contact,
+    EmailEvent,
     EmailSendRecord,
     EmailSendStatus,
+    JourneyStepExecution,
     SendJobStatus,
 )
 from email_platform.schemas.contracts import (
@@ -157,6 +159,53 @@ class CampaignService:
         if send_job_id:
             statement = statement.where(EmailSendRecord.send_job_id == send_job_id)
         return self.db.scalar(statement) or 0
+
+    def get_send_record(self, send_record_id: UUID) -> EmailSendRecord | None:
+        return self.db.get(EmailSendRecord, send_record_id)
+
+    def requeue_send_record(self, send_record_id: UUID) -> EmailSendRecord | None:
+        record = self.get_send_record(send_record_id)
+        if not record:
+            return None
+        if record.status == EmailSendStatus.sent:
+            raise ValueError('Sent records cannot be requeued')
+        record.status = EmailSendStatus.queued
+        record.error_message = None
+        record.next_attempt_at = None
+        record.provider = None
+        record.provider_message_id = None
+        self.db.commit()
+        self.db.refresh(record)
+        return record
+
+    def skip_send_record(self, send_record_id: UUID) -> EmailSendRecord | None:
+        record = self.get_send_record(send_record_id)
+        if not record:
+            return None
+        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
+            raise ValueError('Sent or sending records cannot be skipped')
+        record.status = EmailSendStatus.skipped
+        record.next_attempt_at = None
+        record.error_message = None
+        self.db.commit()
+        self.db.refresh(record)
+        return record
+
+    def delete_send_record(self, send_record_id: UUID) -> bool:
+        record = self.get_send_record(send_record_id)
+        if not record:
+            return False
+        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
+            raise ValueError('Sent or sending records cannot be deleted')
+        self.db.execute(
+            delete(JourneyStepExecution).where(
+                JourneyStepExecution.send_record_id == send_record_id
+            )
+        )
+        self.db.execute(delete(EmailEvent).where(EmailEvent.send_record_id == send_record_id))
+        self.db.delete(record)
+        self.db.commit()
+        return True
 
     def _add_send_record(
         self,

@@ -31,6 +31,9 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
+        '/api/v1/email-send-records/{send_record_id}',
+        '/api/v1/email-send-records/{send_record_id}/requeue',
+        '/api/v1/email-send-records/{send_record_id}/skip',
         '/api/v1/email-send-records/{send_record_id}/tracking-links',
         '/api/v1/tracking/click/{token}',
         '/api/v1/tracking/open/{token}',
@@ -149,6 +152,8 @@ def test_admin_pages() -> None:
     assert 'Process Due' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
+    assert 'Requeue Record' in delivery.text
+    assert 'Delete Record' in delivery.text
     assert 'Email Engine Suppressions' in suppressions.text
     assert 'Save Suppression' in suppressions.text
     assert 'Email Engine Analytics' in analytics.text
