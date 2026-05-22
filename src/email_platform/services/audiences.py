@@ -1,11 +1,11 @@
 from collections.abc import Mapping
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from email_platform.models.entities import Audience, Contact
-from email_platform.schemas.contracts import AudienceCreate, AudienceUpdate
+from email_platform.models.entities import Audience, AudienceSnapshot, Contact
+from email_platform.schemas.contracts import AudienceCreate, AudienceSnapshotCreate, AudienceUpdate
 
 
 class AudienceService:
@@ -45,10 +45,62 @@ class AudienceService:
         self.db.refresh(audience)
         return audience
 
+    def create_snapshot(
+        self,
+        audience_id: UUID,
+        payload: AudienceSnapshotCreate | None = None,
+        commit: bool = True,
+    ) -> AudienceSnapshot | None:
+        audience = self.get(audience_id)
+        if not audience:
+            return None
+        count, contacts = self.preview(audience.rule_tree, limit=500)
+        latest_version = self.db.scalar(
+            select(func.coalesce(func.max(AudienceSnapshot.version_number), 0)).where(
+                AudienceSnapshot.audience_id == audience_id
+            )
+        )
+        snapshot = AudienceSnapshot(
+            audience_id=audience.id,
+            version_number=(latest_version or 0) + 1,
+            name=audience.name,
+            description=audience.description,
+            rule_tree=audience.rule_tree,
+            estimated_count=count,
+            contact_ids=[str(contact.id) for contact in contacts],
+            metadata_json=(payload.metadata_json if payload else {}),
+        )
+        self.db.add(snapshot)
+        audience.estimated_count = count
+        if commit:
+            self.db.commit()
+            self.db.refresh(snapshot)
+        else:
+            self.db.flush()
+        return snapshot
+
+    def list_snapshots(
+        self,
+        audience_id: UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AudienceSnapshot]:
+        statement = select(AudienceSnapshot).order_by(AudienceSnapshot.created_at.desc())
+        if audience_id:
+            statement = statement.where(AudienceSnapshot.audience_id == audience_id)
+        return list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+
+    def count_snapshots(self, audience_id: UUID | None = None) -> int:
+        statement = select(func.count()).select_from(AudienceSnapshot)
+        if audience_id:
+            statement = statement.where(AudienceSnapshot.audience_id == audience_id)
+        return self.db.scalar(statement) or 0
+
     def delete(self, audience_id: UUID) -> bool:
         audience = self.get(audience_id)
         if not audience:
             return False
+        self.db.execute(delete(AudienceSnapshot).where(AudienceSnapshot.audience_id == audience_id))
         self.db.delete(audience)
         self.db.commit()
         return True

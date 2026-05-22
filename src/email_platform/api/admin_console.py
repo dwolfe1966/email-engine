@@ -788,6 +788,8 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
         <h2>Builder</h2>
         <div class="actions">
           <button class="secondary" id="preview">Preview</button>
+          <button class="secondary" id="snapshot">Snapshot</button>
+          <button class="secondary" id="snapshots">Snapshots</button>
           <button id="save">Save</button>
           <button class="danger" id="delete">Delete</button>
         </div>
@@ -1077,6 +1079,24 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       await loadAudiences();
     }
 
+    async function createSnapshot() {
+      if (!selectedId) {
+        writeResult("Select or save an audience first.", false);
+        return;
+      }
+      await request(`/api/v1/audiences/${selectedId}/snapshots`, {
+        method: "POST",
+        body: JSON.stringify({ metadata_json: { source: "admin_audience_builder" } })
+      });
+    }
+
+    async function loadSnapshots() {
+      const query = selectedId
+        ? `?audience_id=${selectedId}&limit=100&offset=0`
+        : "?limit=100&offset=0";
+      await request(`/api/v1/audience-snapshots/list${query}`);
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       loadAudiences().catch((error) => writeResult(error.message, false));
     });
@@ -1091,6 +1111,12 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     });
     document.getElementById("preview").addEventListener("click", () => {
       previewAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("snapshot").addEventListener("click", () => {
+      createSnapshot().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("snapshots").addEventListener("click", () => {
+      loadSnapshots().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("save").addEventListener("click", () => {
       saveAudience().catch((error) => writeResult(error.message, false));

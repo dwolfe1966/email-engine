@@ -73,15 +73,22 @@ class CampaignService:
             return None
 
         rule_tree = payload.rule_tree or campaign.audience_query
+        audience_snapshot_id: UUID | None = None
         if payload.audience_id:
             audience = AudienceService(self.db).get(payload.audience_id)
             if not audience:
                 raise ValueError('Audience not found')
             rule_tree = audience.rule_tree
+            snapshot = AudienceService(self.db).create_snapshot(
+                payload.audience_id,
+                commit=False,
+            )
+            audience_snapshot_id = snapshot.id if snapshot else None
 
         requested_count, contacts = AudienceService(self.db).preview(rule_tree, limit=500)
         job = CampaignSendJob(
             campaign_id=campaign.id,
+            audience_snapshot_id=audience_snapshot_id,
             status=SendJobStatus.completed if payload.dry_run else SendJobStatus.queued,
             audience_rule_tree=rule_tree,
             requested_count=requested_count,
@@ -115,6 +122,7 @@ class CampaignService:
         return CampaignLaunchRead(
             job_id=job.id,
             campaign_id=campaign.id,
+            audience_snapshot_id=audience_snapshot_id,
             status=job.status,
             requested_count=job.requested_count,
             queued_count=job.queued_count,

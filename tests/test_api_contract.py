@@ -55,7 +55,9 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/audiences/list',
         '/api/v1/audiences/import-csv',
         '/api/v1/audiences/import-csv/preview',
+        '/api/v1/audience-snapshots/list',
         '/api/v1/audiences/{audience_id}',
+        '/api/v1/audiences/{audience_id}/snapshots',
         '/api/v1/audiences/preview',
         '/api/v1/data-sources',
         '/api/v1/data-sources/list',
@@ -154,6 +156,7 @@ def test_admin_pages() -> None:
     assert 'Email Engine Audience Import' in import_page.text
     assert 'Email Engine Audience Builder' in audiences.text
     assert 'Load Contact Fields' in audiences.text
+    assert 'Snapshot' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Email Engine Journey Manager' in journeys.text
     assert 'Save Journey' in journeys.text

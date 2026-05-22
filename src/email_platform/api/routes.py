@@ -35,6 +35,8 @@ from email_platform.schemas.contracts import (
     AudiencePreviewRead,
     AudiencePreviewRequest,
     AudienceRead,
+    AudienceSnapshotCreate,
+    AudienceSnapshotRead,
     AudienceUpdate,
     CampaignAnalyticsRead,
     CampaignCreate,
@@ -1118,6 +1120,34 @@ def delete_audience(audience_id: UUID, db: DbSession) -> dict[str, UUID]:
     if not AudienceService(db).delete(audience_id):
         raise HTTPException(status_code=404, detail='Audience not found')
     return {'id': audience_id}
+
+
+@router.get('/audience-snapshots/list', response_model=ListResponse[AudienceSnapshotRead])
+def list_audience_snapshots(
+    db: DbSession,
+    audience_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = AudienceService(db)
+    return {
+        'items': service.list_snapshots(audience_id=audience_id, limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_snapshots(audience_id=audience_id),
+    }
+
+
+@router.post('/audiences/{audience_id}/snapshots', response_model=AudienceSnapshotRead)
+def create_audience_snapshot(
+    audience_id: UUID,
+    payload: AudienceSnapshotCreate,
+    db: DbSession,
+) -> object:
+    snapshot = AudienceService(db).create_snapshot(audience_id, payload)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail='Audience not found')
+    return snapshot
 
 
 @router.post('/audiences/preview', response_model=AudiencePreviewRead)

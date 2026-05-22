@@ -252,6 +252,28 @@ class Audience(Base):
     )
 
 
+class AudienceSnapshot(Base):
+    __tablename__ = 'audience_snapshots'
+    __table_args__ = (
+        UniqueConstraint('audience_id', 'version_number', name='uq_audience_snapshots_number'),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    audience_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('audiences.id'), index=True
+    )
+    version_number: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    estimated_count: Mapped[int] = mapped_column(Integer, default=0)
+    contact_ids: Mapped[list[object]] = mapped_column(JSONB, default=list)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    audience: Mapped[Audience] = relationship()
+
+
 class Campaign(Base):
     __tablename__ = 'campaigns'
 
@@ -385,6 +407,9 @@ class CampaignSendJob(Base):
     campaign_id: Mapped[PyUUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey('campaigns.id')
     )
+    audience_snapshot_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('audience_snapshots.id'), index=True
+    )
     status: Mapped[SendJobStatus] = mapped_column(Enum(SendJobStatus), default=SendJobStatus.queued)
     audience_rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
     requested_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -397,6 +422,7 @@ class CampaignSendJob(Base):
     )
 
     campaign: Mapped[Campaign | None] = relationship()
+    audience_snapshot: Mapped[AudienceSnapshot | None] = relationship()
 
 
 class EmailSendRecord(Base):

@@ -37,8 +37,10 @@ This backlog is organized around the target platform capabilities:
 - Add `audiences` with rule-tree definitions over contact fields, attributes, events, and imported data.
 - Add audience preview endpoints with estimated counts and sample contacts.
 - Add materialized audience membership snapshots for repeatable campaign sends.
+  **Initial audience snapshot model and endpoints shipped.**
 - Add exclusion logic for unsubscribed, suppressed, bounced, complained, and manually excluded contacts.
 - Add audience versioning so a campaign can reference the exact audience definition used at send time.
+  **Campaign launches with an audience now attach the generated audience snapshot to the send job.**
 
 ## P3: Campaign Management
 

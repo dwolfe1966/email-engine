@@ -168,6 +168,7 @@ class CampaignLaunchRequest(BaseModel):
 class CampaignLaunchRead(BaseModel):
     job_id: UUID
     campaign_id: UUID
+    audience_snapshot_id: UUID | None = None
     status: SendJobStatus
     requested_count: int
     queued_count: int
@@ -267,6 +268,7 @@ class JourneyProcessRead(BaseModel):
 class CampaignSendJobRead(BaseModel):
     id: UUID
     campaign_id: UUID | None = None
+    audience_snapshot_id: UUID | None = None
     status: SendJobStatus
     requested_count: int
     queued_count: int
@@ -490,6 +492,25 @@ class AudienceRead(AudienceCreate):
     id: UUID
     status: AudienceStatus
     estimated_count: int
+
+    model_config = {'from_attributes': True}
+
+
+class AudienceSnapshotCreate(BaseModel):
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class AudienceSnapshotRead(BaseModel):
+    id: UUID
+    audience_id: UUID
+    version_number: int
+    name: str
+    description: str | None = None
+    rule_tree: JsonObject
+    estimated_count: int
+    contact_ids: list[str]
+    metadata_json: JsonObject
+    created_at: datetime
 
     model_config = {'from_attributes': True}
 
