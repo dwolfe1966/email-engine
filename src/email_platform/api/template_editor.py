@@ -308,11 +308,22 @@ li {
                 <option value="999">Pill</option>
               </select>
             </label>
+            <label>Block
+              <select id="emailBlock">
+                <option value="shell">Email shell</option>
+                <option value="hero">Hero</option>
+                <option value="card">Card</option>
+                <option value="callout">Callout</option>
+                <option value="summary">Summary table</option>
+                <option value="footer">Footer</option>
+              </select>
+            </label>
           </div>
           <div class="actions">
             <button class="secondary" type="button" id="generateCss">Generate CSS</button>
             <button class="secondary" type="button" id="appendCss">Append CSS</button>
             <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
+            <button class="secondary" type="button" id="insertBlockHtml">Insert Block</button>
           </div>
         </div>
         <label>Text
@@ -461,6 +472,42 @@ ${presetRules[preset] || ""}`;
       loadVisualFromSource();
     }
 
+    function blockHtml() {
+      const block = value("emailBlock");
+      const blocks = {
+        shell: `<div class="email-shell">
+  <div class="email-container">
+    <p class="eyebrow">Update</p>
+    <h1>Hello {{ first_name }}</h1>
+    <p>Add your message here.</p>
+    <p><a class="button" href="{{ cta_url }}">Call to Action</a></p>
+  </div>
+</div>`,
+        hero: `<div class="hero">
+  <p class="eyebrow">Announcement</p>
+  <h1>Main headline</h1>
+  <p>Short supporting message for {{ first_name }}.</p>
+</div>`,
+        card: `<div class="content-card">
+  <h2>Section title</h2>
+  <p>Use this block for grouped content, recommendations, or a product update.</p>
+</div>`,
+        callout: `<div class="callout">
+  <strong>Important note</strong>
+  <p>Add a concise message or status update here.</p>
+</div>`,
+        summary: `<table class="summary" role="presentation">
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>{{ item_name }}</td><td>{{ item_status }}</td></tr>
+</table>`,
+        footer: `<p class="secondary-text">
+  You are receiving this email because you subscribed to updates.
+  <a href="{{ unsubscribe_url }}">Unsubscribe</a>
+</p>`,
+      };
+      return blocks[block] || "";
+    }
+
     function payload() {
       syncSourceFromVisual();
       return {
@@ -566,6 +613,9 @@ ${presetRules[preset] || ""}`;
       .addEventListener("click", () => applyGeneratedCss("append"));
     document.getElementById("insertButtonHtml").addEventListener("click", () => {
       runCommand("insertHTML", '<p><a class="button" href="{{ cta_url }}">Call to Action</a></p>');
+    });
+    document.getElementById("insertBlockHtml").addEventListener("click", () => {
+      runCommand("insertHTML", blockHtml());
     });
     document.getElementById("formatBlock").addEventListener("change", (event) => {
       runCommand("formatBlock", event.target.value);
