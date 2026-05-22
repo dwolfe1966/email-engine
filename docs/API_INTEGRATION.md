@@ -33,6 +33,7 @@ Campaigns:
 - `GET /api/v1/campaigns/{campaign_id}`
 - `PATCH /api/v1/campaigns/{campaign_id}`
 - `DELETE /api/v1/campaigns/{campaign_id}`
+- `POST /api/v1/campaigns/{campaign_id}/clone`
 - `POST /api/v1/campaigns/{campaign_id}/validate`
 - `POST /api/v1/campaigns/{campaign_id}/approve`
 - `POST /api/v1/campaigns/{campaign_id}/launch`
@@ -93,6 +94,7 @@ Sending and events:
 - `POST /api/v1/emails/send` sends to an existing contact using an existing template. The render context includes contact fields, contact `attributes`, flattened contact attributes, and request `variables`; request variables win on key conflicts.
 - `POST /api/v1/campaigns/{campaign_id}/validate` checks template variables, audience match count, suppression count, and queued count.
 - `POST /api/v1/campaigns/{campaign_id}/approve` moves a valid campaign to `scheduled`; non-dry-run launches require this gate.
+- `POST /api/v1/campaigns/{campaign_id}/clone` creates a draft copy of a campaign. Editing campaign content resets its status to `draft`; use approve rather than PATCH to enter `scheduled`.
 - `POST /api/v1/campaigns/{campaign_id}/launch` creates durable campaign send jobs and queued send records. Dry runs remain allowed before approval.
 - `POST /api/v1/delivery/process-queued` is an operator endpoint that processes queued send records through the configured provider. Use `campaign_id` or `send_job_id` to target a specific queued campaign/job. It is a bridge toward a true worker/scheduler process.
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.

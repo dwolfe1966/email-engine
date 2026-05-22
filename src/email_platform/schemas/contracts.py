@@ -151,6 +151,10 @@ class CampaignUpdate(BaseModel):
     status: CampaignStatus | None = None
 
 
+class CampaignCloneRequest(BaseModel):
+    name: str | None = None
+
+
 class CampaignRead(CampaignCreate):
     id: UUID
     status: CampaignStatus

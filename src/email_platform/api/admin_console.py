@@ -1324,6 +1324,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <h2>Editor</h2>
         <div class="actions">
           <button id="save">Save</button>
+          <button class="secondary" id="clone">Clone</button>
           <button class="danger" id="delete">Delete</button>
         </div>
       </div>
@@ -1588,6 +1589,20 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       await loadCampaigns();
     }
 
+    async function cloneCampaign() {
+      if (!selectedId) {
+        writeResult("Select a campaign first.", false);
+        return;
+      }
+      const name = `${document.getElementById("name").value.trim()} copy ${Date.now()}`;
+      const cloned = await request(`/api/v1/campaigns/${selectedId}/clone`, {
+        method: "POST",
+        body: JSON.stringify({ name })
+      });
+      selectCampaign(cloned);
+      await loadCampaigns();
+    }
+
     async function launchCampaign(dryRun) {
       if (!selectedId) {
         writeResult("Save or select a campaign first.", false);
@@ -1674,6 +1689,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("delete").addEventListener("click", () => {
       deleteCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clone").addEventListener("click", () => {
+      cloneCampaign().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("dryRun").addEventListener("click", () => {
       launchCampaign(true).catch((error) => writeResult(error.message, false));

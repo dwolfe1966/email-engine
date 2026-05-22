@@ -39,6 +39,7 @@ from email_platform.schemas.contracts import (
     AudienceSnapshotRead,
     AudienceUpdate,
     CampaignAnalyticsRead,
+    CampaignCloneRequest,
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
@@ -269,7 +270,20 @@ def get_campaign(campaign_id: UUID, db: DbSession) -> Campaign:
 def update_campaign(
     campaign_id: UUID, payload: CampaignUpdate, db: DbSession
 ) -> Campaign:
-    campaign = CampaignService(db).update(campaign_id, payload)
+    try:
+        campaign = CampaignService(db).update(campaign_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not campaign:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+    return campaign
+
+
+@router.post('/campaigns/{campaign_id}/clone', response_model=CampaignRead)
+def clone_campaign(
+    campaign_id: UUID, payload: CampaignCloneRequest, db: DbSession
+) -> Campaign:
+    campaign = CampaignService(db).clone(campaign_id, payload)
     if not campaign:
         raise HTTPException(status_code=404, detail='Campaign not found')
     return campaign

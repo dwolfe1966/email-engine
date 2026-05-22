@@ -50,6 +50,7 @@ This backlog is organized around the target platform capabilities:
   **Initial validation and approval gate shipped; real launches require approved/scheduled status.**
 - Add campaign send summary fields: queued, sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed.
 - Add campaign cloning and draft/version workflow.
+  **Initial campaign clone endpoint and draft-reset workflow shipped.**
 
 ## P4: Template Development
 

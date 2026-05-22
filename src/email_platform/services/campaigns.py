@@ -16,6 +16,7 @@ from email_platform.models.entities import (
     SendJobStatus,
 )
 from email_platform.schemas.contracts import (
+    CampaignCloneRequest,
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
@@ -56,11 +57,32 @@ class CampaignService:
         campaign = self.get(campaign_id)
         if not campaign:
             return None
+        updates = payload.model_dump(exclude_unset=True)
+        if updates.get('status') == CampaignStatus.scheduled:
+            raise ValueError('Use the approve endpoint to move a campaign to scheduled.')
+        content_fields = {'name', 'template_id', 'audience_query'} & updates.keys()
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(campaign, key, value)
+        if content_fields:
+            campaign.status = CampaignStatus.draft
         self.db.commit()
         self.db.refresh(campaign)
         return campaign
+
+    def clone(self, campaign_id: UUID, payload: CampaignCloneRequest) -> Campaign | None:
+        campaign = self.get(campaign_id)
+        if not campaign:
+            return None
+        clone = Campaign(
+            name=payload.name or f'{campaign.name} copy',
+            template_id=campaign.template_id,
+            audience_query=campaign.audience_query,
+            status=CampaignStatus.draft,
+        )
+        self.db.add(clone)
+        self.db.commit()
+        self.db.refresh(clone)
+        return clone
 
     def delete(self, campaign_id: UUID) -> bool:
         campaign = self.get(campaign_id)
