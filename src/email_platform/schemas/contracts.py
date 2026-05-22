@@ -404,6 +404,28 @@ class DataSourceRead(DataSourceCreate):
     model_config = {'from_attributes': True}
 
 
+class DataSourceValidationRead(BaseModel):
+    data_source_id: UUID
+    source_type: DataSourceType
+    ok: bool
+    checks: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
+class DataSourceSchemaFieldRead(BaseModel):
+    name: str
+    field_type: str = 'unknown'
+    sample_values: list[object] = Field(default_factory=list)
+
+
+class DataSourceSchemaRead(BaseModel):
+    data_source_id: UUID
+    source_type: DataSourceType
+    object_types: list[str] = Field(default_factory=list)
+    fields: list[DataSourceSchemaFieldRead] = Field(default_factory=list)
+    sample_rows: list[JsonObject] = Field(default_factory=list)
+
+
 class DataSourceMappingCreate(BaseModel):
     data_source_id: UUID
     name: str

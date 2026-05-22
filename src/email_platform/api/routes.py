@@ -54,7 +54,9 @@ from email_platform.schemas.contracts import (
     DataSourceMappingRead,
     DataSourceMappingUpdate,
     DataSourceRead,
+    DataSourceSchemaRead,
     DataSourceUpdate,
+    DataSourceValidationRead,
     DeleteResponse,
     DeliveryRunRead,
     DomainDeliverabilityRead,
@@ -890,6 +892,22 @@ def delete_data_source(data_source_id: UUID, db: DbSession) -> dict[str, UUID]:
     if not DataSourceService(db).delete(data_source_id):
         raise HTTPException(status_code=404, detail='Data source not found')
     return {'id': data_source_id}
+
+
+@router.post('/data-sources/{data_source_id}/validate', response_model=DataSourceValidationRead)
+def validate_data_source(data_source_id: UUID, db: DbSession) -> DataSourceValidationRead:
+    validation = DataSourceService(db).validate_connection(data_source_id)
+    if not validation:
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return validation
+
+
+@router.get('/data-sources/{data_source_id}/schema', response_model=DataSourceSchemaRead)
+def discover_data_source_schema(data_source_id: UUID, db: DbSession) -> DataSourceSchemaRead:
+    schema = DataSourceService(db).discover_schema(data_source_id)
+    if not schema:
+        raise HTTPException(status_code=404, detail='Data source not found')
+    return schema
 
 
 @router.get('/data-source-mappings', response_model=list[DataSourceMappingRead])

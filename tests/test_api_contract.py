@@ -61,6 +61,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/data-sources/list',
         '/api/v1/data-sources/{data_source_id}',
         '/api/v1/data-sources/{data_source_id}/ingest',
+        '/api/v1/data-sources/{data_source_id}/schema',
+        '/api/v1/data-sources/{data_source_id}/validate',
         '/api/v1/data-source-import-jobs/list',
         '/api/v1/data-source-mappings',
         '/api/v1/data-source-mappings/list',
@@ -176,6 +178,8 @@ def test_admin_pages() -> None:
     assert 'Event Timeline' in analytics.text
     assert 'Email Engine Data Sources' in data_sources.text
     assert 'Save Source' in data_sources.text
+    assert 'Validate Source' in data_sources.text
+    assert 'Discover Schema' in data_sources.text
     assert 'Ingest Rows' in data_sources.text
     assert 'Preview Audience' in campaigns.text
     assert 'Preview Template' in campaigns.text

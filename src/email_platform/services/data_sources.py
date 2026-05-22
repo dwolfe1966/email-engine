@@ -16,7 +16,11 @@ from email_platform.schemas.contracts import (
     DataSourceIngestRequest,
     DataSourceMappingCreate,
     DataSourceMappingUpdate,
+    DataSourceSchemaFieldRead,
+    DataSourceSchemaRead,
     DataSourceUpdate,
+    DataSourceValidationRead,
+    JsonObject,
 )
 
 
@@ -66,6 +70,71 @@ class DataSourceService:
         self.db.delete(data_source)
         self.db.commit()
         return True
+
+    def validate_connection(self, data_source_id: UUID) -> DataSourceValidationRead | None:
+        data_source = self.get(data_source_id)
+        if not data_source:
+            return None
+        checks: list[str] = []
+        errors: list[str] = []
+        config = data_source.config
+
+        if data_source.source_type.value in {'manual', 'csv'}:
+            checks.append('local_source_configuration_available')
+            if self._configured_fields(config) or self._sample_rows(config):
+                checks.append('schema_hints_available')
+            else:
+                errors.append('Add fields, headers, or sample_rows to config for schema discovery')
+        elif data_source.source_type.value == 'rest_api':
+            if config.get('base_url') or config.get('url'):
+                checks.append('rest_endpoint_configured')
+            else:
+                errors.append('REST API sources require config.base_url or config.url')
+            if data_source.secret_ref:
+                checks.append('secret_ref_present')
+        else:
+            if data_source.secret_ref:
+                checks.append('secret_ref_present')
+            else:
+                errors.append(f'{data_source.source_type.value} sources require secret_ref')
+            if config.get('database') or config.get('dataset') or config.get('schema'):
+                checks.append('namespace_configured')
+
+        return DataSourceValidationRead(
+            data_source_id=data_source.id,
+            source_type=data_source.source_type,
+            ok=not errors,
+            checks=checks,
+            errors=errors,
+        )
+
+    def discover_schema(self, data_source_id: UUID) -> DataSourceSchemaRead | None:
+        data_source = self.get(data_source_id)
+        if not data_source:
+            return None
+        mappings = self.list_mappings(data_source_id=data_source_id, limit=500, offset=0)
+        sample_rows = self._sample_rows(data_source.config)
+        field_names = set(self._configured_fields(data_source.config))
+        for row in sample_rows:
+            field_names.update(row.keys())
+        for mapping in mappings:
+            field_names.update(self._mapping_source_fields(mapping.mapping))
+
+        fields = [
+            DataSourceSchemaFieldRead(
+                name=name,
+                field_type=self._field_type(name, sample_rows),
+                sample_values=self._sample_values(name, sample_rows),
+            )
+            for name in sorted(field_names)
+        ]
+        return DataSourceSchemaRead(
+            data_source_id=data_source.id,
+            source_type=data_source.source_type,
+            object_types=sorted({mapping.object_type for mapping in mappings}),
+            fields=fields,
+            sample_rows=cast(list[JsonObject], sample_rows[:10]),
+        )
 
     def create_mapping(self, payload: DataSourceMappingCreate) -> DataSourceMapping:
         mapping = DataSourceMapping(**payload.model_dump())
@@ -283,3 +352,43 @@ class DataSourceService:
         if isinstance(source, str):
             return row.get(source)
         return source
+
+    def _configured_fields(self, config: dict[str, object]) -> list[str]:
+        fields = config.get('fields', config.get('headers', []))
+        if isinstance(fields, list):
+            return [str(field) for field in fields if str(field)]
+        return []
+
+    def _sample_rows(self, config: dict[str, object]) -> list[dict[str, object]]:
+        rows = config.get('sample_rows', [])
+        if not isinstance(rows, list):
+            return []
+        return [cast(dict[str, object], row) for row in rows if isinstance(row, dict)]
+
+    def _mapping_source_fields(self, mapping: dict[str, object]) -> set[str]:
+        fields: set[str] = set()
+        for key, value in mapping.items():
+            if key == 'attributes' and isinstance(value, dict):
+                fields.update(str(source) for source in value.values() if source)
+            elif isinstance(value, str) and value:
+                fields.add(value)
+        return fields
+
+    def _field_type(self, field: str, rows: list[dict[str, object]]) -> str:
+        for row in rows:
+            value = row.get(field)
+            if value is not None:
+                return type(value).__name__
+        return 'unknown'
+
+    def _sample_values(self, field: str, rows: list[dict[str, object]]) -> list[object]:
+        values: list[object] = []
+        for row in rows:
+            if field not in row:
+                continue
+            value = row[field]
+            if value not in values:
+                values.append(value)
+            if len(values) >= 5:
+                break
+        return values

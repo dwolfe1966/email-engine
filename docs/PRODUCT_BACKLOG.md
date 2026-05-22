@@ -25,7 +25,9 @@ This backlog is organized around the target platform capabilities:
 - Add `data_sources` for Postgres, MySQL, Snowflake, BigQuery, REST APIs, CSV/S3, and manual uploads.
 - Add `data_source_mappings` to map external fields into canonical contact/profile/event objects.
 - Add connection validation endpoints that do not expose credentials.
+  **Initial provider-neutral validation endpoint shipped.**
 - Add schema discovery endpoints for tables, columns, and sample rows.
+  **Initial schema discovery endpoint over config, samples, and mappings shipped.**
 - Add ingestion jobs with status, counts, errors, and retry metadata.
 - Add normalized profile/contact attribute merge rules.
 - Add read-only connector execution with allowlisted queries or parameterized extraction plans.
@@ -63,6 +65,7 @@ This backlog is organized around the target platform capabilities:
 - Add delay/wait steps and conditional branches.
 - Add suppression and exit rules.
 - Add journey run history and per-contact timeline.
+- Add journey DAG visualizer for the GUI admin. It should render each journey as a directed graph with node-level state, step type, conditions, wait settings, queued/sent/error counts, and branch/exit paths. Initial frontend research favors React Flow for interactive React node/edge UX, with Dagre for automatic directed layout; Cytoscape.js remains a candidate if deeper graph analysis becomes more important than workflow editing.
 
 ## P6: Delivery Management And Work Queues
 

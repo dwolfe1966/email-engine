@@ -3497,7 +3497,11 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
         </label>
         <div class="head">
           <h2>Mappings</h2>
-          <button class="secondary" id="refreshMappings">Refresh</button>
+          <div class="actions">
+            <button class="secondary" id="validateSource">Validate Source</button>
+            <button class="secondary" id="discoverSchema">Discover Schema</button>
+            <button class="secondary" id="refreshMappings">Refresh</button>
+          </div>
         </div>
         <div class="actions">
           <button class="secondary" id="newMapping">New Mapping</button>
@@ -3684,6 +3688,22 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       await loadMappings();
     }
 
+    async function validateSource() {
+      if (!selectedSourceId) {
+        writeResult("Select or save a data source first.", false);
+        return;
+      }
+      await request(`/api/v1/data-sources/${selectedSourceId}/validate`, { method: "POST" });
+    }
+
+    async function discoverSchema() {
+      if (!selectedSourceId) {
+        writeResult("Select or save a data source first.", false);
+        return;
+      }
+      await request(`/api/v1/data-sources/${selectedSourceId}/schema`);
+    }
+
     async function saveMapping() {
       if (!selectedSourceId) {
         writeResult("Select or save a data source first.", false);
@@ -3752,6 +3772,12 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
     });
     document.getElementById("deleteSource").addEventListener("click", () => {
       deleteSource().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("validateSource").addEventListener("click", () => {
+      validateSource().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("discoverSchema").addEventListener("click", () => {
+      discoverSchema().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("saveMapping").addEventListener("click", () => {
       saveMapping().catch((error) => writeResult(error.message, false));
