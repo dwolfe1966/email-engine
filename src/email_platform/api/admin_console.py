@@ -1937,7 +1937,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       document.getElementById("stepType").value = "send_email";
       document.getElementById("stepPosition").value = "0";
       document.getElementById("stepConfig").value = JSON.stringify(
-        { template_id: "", wait_seconds: 0, variables: {} },
+        { template_id: "", campaign_id: null, wait_seconds: 0, variables: {} },
         null,
         2
       );

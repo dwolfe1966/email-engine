@@ -319,10 +319,9 @@ class JourneyService:
     def _queue_email(self, enrollment: JourneyEnrollment, step: JourneyStep) -> UUID:
         campaign_id = self._uuid_config(step, 'campaign_id')
         template_id = self._uuid_config(step, 'template_id')
-        if not campaign_id or not template_id:
-            raise ValueError('send_email step requires campaign_id and template_id')
-        campaign = self.db.get(Campaign, campaign_id)
-        if not campaign:
+        if not template_id:
+            raise ValueError('send_email step requires template_id')
+        if not self.db.get(Campaign, campaign_id) and campaign_id is not None:
             raise ValueError('send_email step campaign not found')
         if SuppressionService(self.db).is_suppressed(enrollment.contact.email):
             status = EmailSendStatus.suppressed
@@ -332,7 +331,7 @@ class JourneyService:
             status = EmailSendStatus.queued
 
         job = CampaignSendJob(
-            campaign_id=campaign.id,
+            campaign_id=campaign_id,
             status=SendJobStatus.queued,
             audience_rule_tree={},
             requested_count=1,
@@ -343,12 +342,13 @@ class JourneyService:
                 'journey_id': str(enrollment.journey_id),
                 'enrollment_id': str(enrollment.id),
                 'step_id': str(step.id),
+                'campaign_id': str(campaign_id) if campaign_id else None,
             },
         )
         self.db.add(job)
         self.db.flush()
         send_record = EmailSendRecord(
-            campaign_id=campaign.id,
+            campaign_id=campaign_id,
             send_job_id=job.id,
             contact_id=enrollment.contact_id,
             template_id=template_id,

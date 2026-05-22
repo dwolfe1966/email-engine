@@ -265,7 +265,7 @@ class JourneyProcessRead(BaseModel):
 
 class CampaignSendJobRead(BaseModel):
     id: UUID
-    campaign_id: UUID
+    campaign_id: UUID | None = None
     status: SendJobStatus
     requested_count: int
     queued_count: int
@@ -277,7 +277,7 @@ class CampaignSendJobRead(BaseModel):
 
 class EmailSendRecordRead(BaseModel):
     id: UUID
-    campaign_id: UUID
+    campaign_id: UUID | None = None
     send_job_id: UUID
     contact_id: UUID
     template_id: UUID

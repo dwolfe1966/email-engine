@@ -349,7 +349,9 @@ class CampaignSendJob(Base):
     __tablename__ = 'campaign_send_jobs'
 
     id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    campaign_id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey('campaigns.id'))
+    campaign_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaigns.id')
+    )
     status: Mapped[SendJobStatus] = mapped_column(Enum(SendJobStatus), default=SendJobStatus.queued)
     audience_rule_tree: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
     requested_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -361,14 +363,16 @@ class CampaignSendJob(Base):
         DateTime, default=datetime.utcnow, onupdate=func.now()
     )
 
-    campaign: Mapped[Campaign] = relationship()
+    campaign: Mapped[Campaign | None] = relationship()
 
 
 class EmailSendRecord(Base):
     __tablename__ = 'email_send_records'
 
     id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
-    campaign_id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey('campaigns.id'))
+    campaign_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaigns.id')
+    )
     send_job_id: Mapped[PyUUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey('campaign_send_jobs.id')
     )
@@ -389,7 +393,7 @@ class EmailSendRecord(Base):
         DateTime, default=datetime.utcnow, onupdate=func.now()
     )
 
-    campaign: Mapped[Campaign] = relationship()
+    campaign: Mapped[Campaign | None] = relationship()
     contact: Mapped[Contact] = relationship()
     send_job: Mapped[CampaignSendJob] = relationship()
     template: Mapped[EmailTemplate] = relationship()
