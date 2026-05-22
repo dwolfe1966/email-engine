@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -32,10 +33,10 @@ class DeliveryService:
 
         for record in records:
             processed_ids.append(str(record.id))
+            record.attempt_count += 1
             template = self.template_service.get(record.template_id)
             if not template:
-                record.status = EmailSendStatus.failed
-                record.error_message = 'Template not found'
+                self._handle_failure(record, 'Template not found')
                 failed_count += 1
                 continue
 
@@ -54,6 +55,7 @@ class DeliveryService:
                 record.provider = result.provider
                 record.provider_message_id = result.provider_message_id
                 record.error_message = None
+                record.next_attempt_at = None
                 sent_count += 1
                 self.event_service.record_no_commit(
                     EventCreate(
@@ -73,8 +75,7 @@ class DeliveryService:
                     )
                 )
             except Exception as exc:  # noqa: BLE001
-                record.status = EmailSendStatus.failed
-                record.error_message = str(exc)
+                self._handle_failure(record, str(exc))
                 failed_count += 1
 
         self.db.commit()
@@ -94,6 +95,10 @@ class DeliveryService:
         statement = (
             select(EmailSendRecord)
             .where(EmailSendRecord.status == EmailSendStatus.queued)
+            .where(
+                (EmailSendRecord.next_attempt_at.is_(None))
+                | (EmailSendRecord.next_attempt_at <= datetime.utcnow())
+            )
             .order_by(EmailSendRecord.created_at.asc())
             .limit(limit)
         )
@@ -106,3 +111,15 @@ class DeliveryService:
             record.status = EmailSendStatus.sending
         self.db.flush()
         return records
+
+    def _handle_failure(self, record: EmailSendRecord, message: str) -> None:
+        record.error_message = message
+        if record.attempt_count >= record.max_attempts:
+            record.status = EmailSendStatus.failed
+            record.next_attempt_at = None
+            return
+        record.status = EmailSendStatus.queued
+        record.next_attempt_at = datetime.utcnow() + self._retry_delay(record.attempt_count)
+
+    def _retry_delay(self, attempt_count: int) -> timedelta:
+        return timedelta(minutes=min(60, 2 ** max(attempt_count - 1, 0)))

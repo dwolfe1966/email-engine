@@ -288,6 +288,9 @@ class EmailSendRecordRead(BaseModel):
     provider: str | None = None
     provider_message_id: str | None = None
     error_message: str | None = None
+    attempt_count: int = 0
+    max_attempts: int = 3
+    next_attempt_at: datetime | None = None
 
     model_config = {'from_attributes': True}
 

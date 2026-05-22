@@ -421,6 +421,9 @@ class EmailSendRecord(Base):
     provider: Mapped[str | None] = mapped_column(String(100))
     provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
     error_message: Mapped[str | None] = mapped_column(Text)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=func.now()
