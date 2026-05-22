@@ -2200,7 +2200,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     h1 { margin: 0; font-size: 20px; }
     main {
       display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(420px, 1fr);
+      grid-template-columns: minmax(520px, .9fr) minmax(420px, 1.1fr);
       gap: 14px;
       padding: 14px;
     }
@@ -2222,7 +2222,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     h2 { margin: 0; font-size: 14px; }
     .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
     label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-    input {
+    input, select {
       min-width: 0;
       width: 100%;
       border: 1px solid var(--line);
@@ -2245,7 +2245,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     .actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .inline {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
     pre {
