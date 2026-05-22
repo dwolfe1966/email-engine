@@ -16,6 +16,7 @@ from email_platform.models.entities import (
     DataSource,
     DataSourceMapping,
     EmailEvent,
+    EmailEventType,
     EmailSendRecord,
     EmailTemplate,
     EmailTemplateVersion,
@@ -26,6 +27,7 @@ from email_platform.models.entities import (
     Suppression,
 )
 from email_platform.schemas.contracts import (
+    AnalyticsOverviewRead,
     AudienceCreate,
     AudienceImportPreviewRead,
     AudienceImportRead,
@@ -293,6 +295,11 @@ def get_campaign_analytics(
     if not metrics:
         raise HTTPException(status_code=404, detail='Campaign or send job not found')
     return metrics
+
+
+@router.get('/analytics/overview', response_model=AnalyticsOverviewRead)
+def get_analytics_overview(db: DbSession, recent_event_limit: Limit = 25) -> AnalyticsOverviewRead:
+    return AnalyticsService(db).overview(recent_event_limit=recent_event_limit)
 
 
 @router.get('/journeys', response_model=list[JourneyRead])
@@ -1117,6 +1124,63 @@ def list_events(
     offset: Offset = 0,
 ) -> list[EmailEvent]:
     return EventService(db).list(limit=limit, offset=offset)
+
+
+@router.get('/events/list', response_model=ListResponse[EventRead])
+def list_events_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    contact_id: UUID | None = None,
+    event_type: EmailEventType | None = None,
+) -> dict[str, object]:
+    service = EventService(db)
+    return {
+        'items': service.list(
+            limit=limit,
+            offset=offset,
+            campaign_id=campaign_id,
+            send_job_id=send_job_id,
+            send_record_id=send_record_id,
+            contact_id=contact_id,
+            event_type=event_type,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(
+            campaign_id=campaign_id,
+            send_job_id=send_job_id,
+            send_record_id=send_record_id,
+            contact_id=contact_id,
+            event_type=event_type,
+        ),
+    }
+
+
+@router.get('/events/timeline', response_model=ListResponse[EventRead])
+def list_event_timeline(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    contact_id: UUID | None = None,
+    event_type: EmailEventType | None = None,
+) -> dict[str, object]:
+    return list_events_enveloped(
+        db=db,
+        limit=limit,
+        offset=offset,
+        campaign_id=campaign_id,
+        send_job_id=send_job_id,
+        send_record_id=send_record_id,
+        contact_id=contact_id,
+        event_type=event_type,
+    )
 
 
 @router.post('/events')

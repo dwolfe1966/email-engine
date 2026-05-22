@@ -19,6 +19,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}',
         '/api/v1/campaigns/{campaign_id}/analytics',
         '/api/v1/campaigns/{campaign_id}/launch',
+        '/api/v1/analytics/overview',
         '/api/v1/journeys',
         '/api/v1/journeys/list',
         '/api/v1/journeys/{journey_id}',
@@ -63,6 +64,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/emails/send',
         '/api/v1/tests/send-email',
         '/api/v1/events',
+        '/api/v1/events/list',
+        '/api/v1/events/timeline',
         '/api/v1/events/{event_id}',
         '/api/v1/unsubscribe/{token}',
         '/api/templates',
@@ -161,6 +164,8 @@ def test_admin_pages() -> None:
     assert 'Save Suppression' in suppressions.text
     assert 'Email Engine Analytics' in analytics.text
     assert 'Campaign Analytics' in analytics.text
+    assert 'Analytics Overview' in analytics.text
+    assert 'Event Timeline' in analytics.text
     assert 'Email Engine Data Sources' in data_sources.text
     assert 'Save Source' in data_sources.text
     assert 'Ingest Rows' in data_sources.text

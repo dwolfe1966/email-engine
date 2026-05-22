@@ -6,12 +6,18 @@ from sqlalchemy.orm import Session
 from email_platform.models.entities import (
     Campaign,
     CampaignSendJob,
+    Contact,
     EmailEvent,
     EmailEventType,
     EmailSendRecord,
     EmailSendStatus,
 )
-from email_platform.schemas.contracts import CampaignAnalyticsRead, MetricCount
+from email_platform.schemas.contracts import (
+    AnalyticsOverviewRead,
+    CampaignAnalyticsRead,
+    EventRead,
+    MetricCount,
+)
 
 
 class AnalyticsService:
@@ -68,6 +74,32 @@ class AnalyticsService:
             ],
         )
 
+    def overview(self, recent_event_limit: int = 25) -> AnalyticsOverviewRead:
+        status_counts = self._global_status_counts()
+        event_counts = self._global_event_counts()
+        recent_events = [
+            EventRead.model_validate(event)
+            for event in self.db.scalars(
+                select(EmailEvent).order_by(EmailEvent.occurred_at.desc()).limit(
+                    recent_event_limit
+                )
+            ).all()
+        ]
+        return AnalyticsOverviewRead(
+            campaign_count=self._row_count(Campaign),
+            contact_count=self._row_count(Contact),
+            send_job_count=self._row_count(CampaignSendJob),
+            send_record_count=self._row_count(EmailSendRecord),
+            event_count=self._row_count(EmailEvent),
+            status_counts=[
+                MetricCount(name=name, count=count) for name, count in sorted(status_counts.items())
+            ],
+            event_counts=[
+                MetricCount(name=name, count=count) for name, count in sorted(event_counts.items())
+            ],
+            recent_events=recent_events,
+        )
+
     def _requested_count(self, campaign_id: UUID, send_job_id: UUID | None) -> int:
         if send_job_id:
             job = self.db.get(CampaignSendJob, send_job_id)
@@ -107,6 +139,17 @@ class AnalyticsService:
         if send_job_id:
             statement = statement.where(EmailEvent.send_job_id == send_job_id)
         return {event_type.value: count for event_type, count in self.db.execute(statement).all()}
+
+    def _global_status_counts(self) -> dict[str, int]:
+        statement = select(EmailSendRecord.status, func.count()).group_by(EmailSendRecord.status)
+        return {status.value: count for status, count in self.db.execute(statement).all()}
+
+    def _global_event_counts(self) -> dict[str, int]:
+        statement = select(EmailEvent.event_type, func.count()).group_by(EmailEvent.event_type)
+        return {event_type.value: count for event_type, count in self.db.execute(statement).all()}
+
+    def _row_count(self, model: type[object]) -> int:
+        return self.db.scalar(select(func.count()).select_from(model)) or 0
 
     def _rate(self, numerator: int, denominator: int) -> float:
         if denominator <= 0:

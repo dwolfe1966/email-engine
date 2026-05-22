@@ -537,8 +537,20 @@ class EventCreate(BaseModel):
 
 class EventRead(EventCreate):
     id: UUID
+    occurred_at: datetime
 
     model_config = {'from_attributes': True}
+
+
+class AnalyticsOverviewRead(BaseModel):
+    campaign_count: int
+    contact_count: int
+    send_job_count: int
+    send_record_count: int
+    event_count: int
+    status_counts: list[MetricCount]
+    event_counts: list[MetricCount]
+    recent_events: list[EventRead]
 
 
 class UnsubscribeTokenRead(BaseModel):

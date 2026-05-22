@@ -84,11 +84,13 @@ This backlog is organized around the target platform capabilities:
 - Add click redirect endpoint with signed tracking IDs.
 - Add provider message ID correlation to send records.
 - Add event timeline endpoints for contacts, campaigns, and journeys.
+  **Initial filterable email event timeline endpoints shipped.**
 
 ## P8: Analytics
 
 - Add campaign rollups for sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed, and suppressed counts.
 - Add dashboard summary endpoint for the GUI.
+  **Initial v1 analytics overview endpoint shipped.**
 - Add audience performance reports.
 - Add journey performance reports by step and branch.
 - Add provider/domain deliverability reports.

@@ -2542,7 +2542,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     h1 { margin: 0; font-size: 20px; }
     main {
       display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(420px, 1fr);
+      grid-template-columns: minmax(520px, .9fr) minmax(420px, 1.1fr);
       gap: 14px;
       padding: 14px;
     }
@@ -2564,7 +2564,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     h2 { margin: 0; font-size: 14px; }
     .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
     label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-    input {
+    input, select {
       min-width: 0;
       width: 100%;
       border: 1px solid var(--line);
@@ -2587,7 +2587,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     .actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .inline {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
     pre {
@@ -2635,14 +2635,20 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     <section>
       <div class="head"><h2>Inputs</h2></div>
       <div class="body">
-        <label>Campaign ID
-          <input id="campaignId" />
+        <label>Campaign
+          <select id="campaignId">
+            <option value="">All campaigns</option>
+          </select>
         </label>
-        <label>Send job ID
-          <input id="sendJobId" />
+        <label>Send job
+          <select id="sendJobId">
+            <option value="">All send jobs</option>
+          </select>
         </label>
-        <label>Send record ID
-          <input id="sendRecordId" />
+        <label>Send record
+          <select id="sendRecordId">
+            <option value="">Select send record</option>
+          </select>
         </label>
         <div class="inline">
           <label>Limit
@@ -2654,8 +2660,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         </div>
         <div class="actions">
           <button id="campaignAnalytics">Campaign Analytics</button>
-          <button class="secondary" id="reportsOverview">Reports Overview</button>
-          <button class="secondary" id="events">Events</button>
+          <button class="secondary" id="analyticsOverview">Analytics Overview</button>
+          <button class="secondary" id="eventTimeline">Event Timeline</button>
+          <button class="secondary" id="events">Raw Events</button>
           <button class="secondary" id="jobs">Send Jobs</button>
           <button class="secondary" id="records">Send Records</button>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
@@ -2672,6 +2679,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
   </main>
   <script>
     const result = document.getElementById("result");
+    const campaigns = [];
+    const sendJobs = [];
+    const sendRecords = [];
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
@@ -2690,8 +2700,33 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       return data;
     }
 
+    async function fetchJson(path) {
+      const response = await fetch(path);
+      const data = await readResponse(response);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
     function value(id) {
       return document.getElementById(id).value.trim();
+    }
+
+    function option(label, value) {
+      const item = document.createElement("option");
+      item.textContent = label;
+      item.value = value;
+      return item;
+    }
+
+    function resetSelect(id, label) {
+      const select = document.getElementById(id);
+      select.innerHTML = "";
+      select.appendChild(option(label, ""));
+      return select;
+    }
+
+    function shortId(id) {
+      return id ? id.slice(0, 8) : "-";
     }
 
     function pageQuery() {
@@ -2699,6 +2734,41 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       params.set("limit", value("limit") || "100");
       params.set("offset", value("offset") || "0");
       return params;
+    }
+
+    async function loadCampaignOptions() {
+      const data = await fetchJson(`/api/v1/campaigns/list?${pageQuery().toString()}`);
+      campaigns.splice(0, campaigns.length, ...data.items);
+      const select = resetSelect("campaignId", "All campaigns");
+      for (const item of campaigns) {
+        select.appendChild(option(`${item.name} - ${item.status} - ${shortId(item.id)}`, item.id));
+      }
+    }
+
+    async function loadJobOptions() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      const data = await fetchJson(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
+      sendJobs.splice(0, sendJobs.length, ...data.items);
+      const select = resetSelect("sendJobId", "All send jobs");
+      for (const item of sendJobs) {
+        const campaign = item.campaign_id ? shortId(item.campaign_id) : "no campaign";
+        select.appendChild(option(`${item.status} - ${campaign} - ${shortId(item.id)}`, item.id));
+      }
+    }
+
+    async function loadRecordOptions() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      const data = await fetchJson(`/api/v1/email-send-records/list?${params.toString()}`);
+      sendRecords.splice(0, sendRecords.length, ...data.items);
+      const select = resetSelect("sendRecordId", "Select send record");
+      for (const item of sendRecords) {
+        select.appendChild(
+          option(`${item.status} - ${item.to_email} - ${shortId(item.id)}`, item.id)
+        );
+      }
     }
 
     async function campaignAnalytics() {
@@ -2712,8 +2782,18 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       await request(`/api/v1/campaigns/${value("campaignId")}/analytics${suffix}`);
     }
 
-    async function reportsOverview() {
-      await request("/api/reports/overview");
+    async function analyticsOverview() {
+      const params = new URLSearchParams();
+      params.set("recent_event_limit", value("limit") || "25");
+      await request(`/api/v1/analytics/overview?${params.toString()}`);
+    }
+
+    async function eventTimeline() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      if (value("sendRecordId")) params.set("send_record_id", value("sendRecordId"));
+      await request(`/api/v1/events/timeline?${params.toString()}`);
     }
 
     async function loadEvents() {
@@ -2744,8 +2824,11 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     document.getElementById("campaignAnalytics").addEventListener("click", () => {
       campaignAnalytics().catch((error) => writeResult(error.message, false));
     });
-    document.getElementById("reportsOverview").addEventListener("click", () => {
-      reportsOverview().catch((error) => writeResult(error.message, false));
+    document.getElementById("analyticsOverview").addEventListener("click", () => {
+      analyticsOverview().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("eventTimeline").addEventListener("click", () => {
+      eventTimeline().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("events").addEventListener("click", () => {
       loadEvents().catch((error) => writeResult(error.message, false));
@@ -2762,8 +2845,20 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";
     });
+    document.getElementById("campaignId").addEventListener("change", () => {
+      loadJobOptions()
+        .then(loadRecordOptions)
+        .catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("sendJobId").addEventListener("change", () => {
+      loadRecordOptions().catch((error) => writeResult(error.message, false));
+    });
 
-    reportsOverview().catch((error) => writeResult(error.message, false));
+    loadCampaignOptions()
+      .then(loadJobOptions)
+      .then(loadRecordOptions)
+      .then(analyticsOverview)
+      .catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""
