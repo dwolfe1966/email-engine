@@ -70,6 +70,7 @@ from email_platform.schemas.contracts import (
     JourneyCreate,
     JourneyEnrollmentCreate,
     JourneyEnrollmentRead,
+    JourneyGraphRead,
     JourneyPerformanceRead,
     JourneyProcessRead,
     JourneyRead,
@@ -404,6 +405,14 @@ def get_journey(journey_id: UUID, db: DbSession) -> Journey:
     if not journey:
         raise HTTPException(status_code=404, detail='Journey not found')
     return journey
+
+
+@router.get('/journeys/{journey_id}/graph', response_model=JourneyGraphRead)
+def get_journey_graph(journey_id: UUID, db: DbSession) -> JourneyGraphRead:
+    graph = JourneyService(db).graph(journey_id)
+    if not graph:
+        raise HTTPException(status_code=404, detail='Journey not found')
+    return graph
 
 
 @router.patch('/journeys/{journey_id}', response_model=JourneyRead)

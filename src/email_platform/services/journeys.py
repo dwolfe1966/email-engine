@@ -23,10 +23,15 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     JourneyCreate,
     JourneyEnrollmentCreate,
+    JourneyGraphEdgeRead,
+    JourneyGraphNodeCounts,
+    JourneyGraphNodeRead,
+    JourneyGraphRead,
     JourneyProcessRead,
     JourneyStepCreate,
     JourneyStepUpdate,
     JourneyUpdate,
+    JsonObject,
 )
 from email_platform.services.audiences import AudienceService
 from email_platform.services.suppressions import SuppressionService
@@ -220,6 +225,49 @@ class JourneyService:
         if journey_id:
             statement = statement.where(JourneyStepExecution.journey_id == journey_id)
         return self.db.scalar(statement) or 0
+
+    def graph(self, journey_id: UUID) -> JourneyGraphRead | None:
+        journey = self.get(journey_id)
+        if not journey:
+            return None
+
+        active_counts = self._active_step_counts(journey_id)
+        execution_counts = self._execution_step_counts(journey_id)
+        recent_errors = self._recent_step_errors(journey_id)
+        sorted_steps = sorted(journey.steps, key=lambda item: (item.position, item.created_at))
+        nodes: list[JourneyGraphNodeRead] = []
+
+        for index, step in enumerate(sorted_steps):
+            counts = JourneyGraphNodeCounts(
+                active_count=active_counts.get(step.id, 0),
+                completed_count=execution_counts.get(step.id, {}).get('completed', 0),
+                failed_count=execution_counts.get(step.id, {}).get('failed', 0),
+                skipped_count=execution_counts.get(step.id, {}).get('skipped', 0),
+                queued_send_count=execution_counts.get(step.id, {}).get('queued_send', 0),
+            )
+            nodes.append(
+                JourneyGraphNodeRead(
+                    id=str(step.id),
+                    step_id=step.id,
+                    label=step.name,
+                    step_type=step.step_type,
+                    position=step.position,
+                    state=self._node_state(counts),
+                    x=80 + (index % 3) * 300,
+                    y=80 + (index // 3) * 190,
+                    config=cast(JsonObject, step.config),
+                    counts=counts,
+                    recent_error=recent_errors.get(step.id),
+                )
+            )
+
+        return JourneyGraphRead(
+            journey_id=journey.id,
+            name=journey.name,
+            status=journey.status,
+            nodes=nodes,
+            edges=self._graph_edges(sorted_steps),
+        )
 
     def process_due(
         self,
@@ -459,3 +507,125 @@ class JourneyService:
         if isinstance(value, str) and value:
             return UUID(value)
         return None
+
+    def _active_step_counts(self, journey_id: UUID) -> dict[UUID, int]:
+        rows = self.db.execute(
+            select(JourneyEnrollment.current_step_id, func.count())
+            .where(JourneyEnrollment.journey_id == journey_id)
+            .where(JourneyEnrollment.status == JourneyEnrollmentStatus.active)
+            .where(JourneyEnrollment.current_step_id.is_not(None))
+            .group_by(JourneyEnrollment.current_step_id)
+        ).all()
+        return {cast(UUID, step_id): count for step_id, count in rows if step_id is not None}
+
+    def _execution_step_counts(self, journey_id: UUID) -> dict[UUID, dict[str, int]]:
+        rows = self.db.execute(
+            select(
+                JourneyStepExecution.step_id,
+                JourneyStepExecution.status,
+                JourneyStepExecution.metadata_json,
+            ).where(JourneyStepExecution.journey_id == journey_id)
+        ).all()
+        counts: dict[UUID, dict[str, int]] = {}
+        for step_id, status, metadata in rows:
+            step_counts = counts.setdefault(
+                step_id,
+                {'completed': 0, 'failed': 0, 'skipped': 0, 'queued_send': 0},
+            )
+            step_counts[status.value] = step_counts.get(status.value, 0) + 1
+            if isinstance(metadata, dict) and metadata.get('send_record_id'):
+                step_counts['queued_send'] += 1
+        return counts
+
+    def _recent_step_errors(self, journey_id: UUID) -> dict[UUID, str]:
+        rows = self.db.execute(
+            select(JourneyStepExecution.step_id, JourneyStepExecution.error_message)
+            .where(JourneyStepExecution.journey_id == journey_id)
+            .where(JourneyStepExecution.error_message.is_not(None))
+            .order_by(JourneyStepExecution.executed_at.desc())
+        ).all()
+        errors: dict[UUID, str] = {}
+        for step_id, message in rows:
+            if step_id not in errors and message:
+                errors[step_id] = message
+        return errors
+
+    def _graph_edges(self, steps: list[JourneyStep]) -> list[JourneyGraphEdgeRead]:
+        by_id = {str(step.id): step for step in steps}
+        edges: list[JourneyGraphEdgeRead] = []
+        for index, step in enumerate(steps):
+            configured_edges = self._configured_edges(step, by_id)
+            if configured_edges:
+                edges.extend(configured_edges)
+                continue
+            if index + 1 < len(steps):
+                target = steps[index + 1]
+                edges.append(
+                    JourneyGraphEdgeRead(
+                        id=f'{step.id}:{target.id}:sequence',
+                        source=str(step.id),
+                        target=str(target.id),
+                        label='next',
+                    )
+                )
+        return edges
+
+    def _configured_edges(
+        self,
+        step: JourneyStep,
+        by_id: dict[str, JourneyStep],
+    ) -> list[JourneyGraphEdgeRead]:
+        edges: list[JourneyGraphEdgeRead] = []
+        next_step_id = step.config.get('next_step_id')
+        if isinstance(next_step_id, str) and next_step_id in by_id:
+            edges.append(
+                JourneyGraphEdgeRead(
+                    id=f'{step.id}:{next_step_id}:configured',
+                    source=str(step.id),
+                    target=next_step_id,
+                    label='next',
+                    edge_type='configured',
+                )
+            )
+
+        branches = step.config.get('branches')
+        if isinstance(branches, list):
+            for branch_index, branch in enumerate(branches):
+                if not isinstance(branch, dict):
+                    continue
+                target = branch.get('next_step_id')
+                if not isinstance(target, str) or target not in by_id:
+                    continue
+                label = branch.get('label')
+                edges.append(
+                    JourneyGraphEdgeRead(
+                        id=f'{step.id}:{target}:branch:{branch_index}',
+                        source=str(step.id),
+                        target=target,
+                        label=label if isinstance(label, str) else f'branch {branch_index + 1}',
+                        condition=branch.get('condition'),
+                        edge_type='branch',
+                    )
+                )
+
+        default_next_step_id = step.config.get('default_next_step_id')
+        if isinstance(default_next_step_id, str) and default_next_step_id in by_id:
+            edges.append(
+                JourneyGraphEdgeRead(
+                    id=f'{step.id}:{default_next_step_id}:default',
+                    source=str(step.id),
+                    target=default_next_step_id,
+                    label='default',
+                    edge_type='default',
+                )
+            )
+        return edges
+
+    def _node_state(self, counts: JourneyGraphNodeCounts) -> str:
+        if counts.failed_count:
+            return 'failed'
+        if counts.active_count:
+            return 'active'
+        if counts.completed_count or counts.skipped_count or counts.queued_send_count:
+            return 'visited'
+        return 'idle'

@@ -68,6 +68,7 @@ This backlog is organized around the target platform capabilities:
 - Add suppression and exit rules.
 - Add journey run history and per-contact timeline.
 - Add journey DAG visualizer for the GUI admin. It should render each journey as a directed graph with node-level state, step type, conditions, wait settings, queued/sent/error counts, and branch/exit paths. Initial frontend research favors React Flow for interactive React node/edge UX, with Dagre for automatic directed layout; Cytoscape.js remains a candidate if deeper graph analysis becomes more important than workflow editing.
+  **Initial journey graph API and lightweight admin visualizer shipped.**
 
 ## P6: Delivery Management And Work Queues
 

@@ -222,6 +222,45 @@ class JourneyRead(JourneyCreate):
     model_config = {'from_attributes': True}
 
 
+class JourneyGraphNodeCounts(BaseModel):
+    active_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    skipped_count: int = 0
+    queued_send_count: int = 0
+
+
+class JourneyGraphNodeRead(BaseModel):
+    id: str
+    step_id: UUID
+    label: str
+    step_type: JourneyStepType
+    position: int
+    state: str
+    x: int
+    y: int
+    config: JsonObject
+    counts: JourneyGraphNodeCounts
+    recent_error: str | None = None
+
+
+class JourneyGraphEdgeRead(BaseModel):
+    id: str
+    source: str
+    target: str
+    label: str | None = None
+    condition: object | None = None
+    edge_type: str = 'sequence'
+
+
+class JourneyGraphRead(BaseModel):
+    journey_id: UUID
+    name: str
+    status: JourneyStatus
+    nodes: list[JourneyGraphNodeRead]
+    edges: list[JourneyGraphEdgeRead]
+
+
 class JourneyEnrollmentCreate(BaseModel):
     contact_id: UUID
     variables: JsonObject = Field(default_factory=dict)

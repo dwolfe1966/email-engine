@@ -1788,6 +1788,49 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       font-size: 12px;
       white-space: pre-wrap;
     }
+    .graph {
+      min-height: 360px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+    .graph-canvas {
+      position: relative;
+      min-width: 920px;
+      min-height: 520px;
+    }
+    .graph svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .graph-node {
+      position: absolute;
+      width: 220px;
+      min-height: 112px;
+      display: grid;
+      gap: 6px;
+      align-content: start;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--muted);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+    }
+    .graph-node.active { border-left-color: var(--blue); }
+    .graph-node.failed { border-left-color: var(--red); }
+    .graph-node.visited { border-left-color: #047857; }
+    .graph-title { font-weight: 750; }
+    .graph-meta {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.4;
+    }
     @media (max-width: 1280px) {
       header { align-items: flex-start; flex-direction: column; }
       main { grid-template-columns: 1fr; }
@@ -1860,7 +1903,10 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
         </label>
         <div class="head">
           <h2>Steps</h2>
-          <button class="secondary" id="newStep">New Step</button>
+          <div class="actions">
+            <button class="secondary" id="loadGraph">Graph</button>
+            <button class="secondary" id="newStep">New Step</button>
+          </div>
         </div>
         <div class="actions">
           <button id="saveStep">Save Step</button>
@@ -1905,8 +1951,15 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       </div>
     </section>
     <section>
-      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
-      <div class="body"><pre id="result"></pre></div>
+      <div class="head">
+        <h2>Journey Graph</h2>
+        <button class="secondary" id="refreshGraph">Refresh</button>
+      </div>
+      <div class="body">
+        <div class="graph" id="graph"></div>
+        <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+        <pre id="result"></pre>
+      </div>
     </section>
   </main>
   <script>
@@ -1955,6 +2008,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       document.getElementById("journeyMetadata").value = "{}";
       resetStep();
       renderSteps([]);
+      document.getElementById("graph").textContent = "";
     }
 
     function resetStep() {
@@ -1996,6 +2050,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       resetStep();
       renderSteps(item.steps || []);
       writeResult(item);
+      loadGraph().catch((error) => writeResult(error.message, false));
     }
 
     function selectStep(item) {
@@ -2024,6 +2079,100 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
           button.addEventListener("click", () => selectStep(item));
           container.appendChild(button);
         });
+    }
+
+    function renderGraph(graph) {
+      const container = document.getElementById("graph");
+      container.textContent = "";
+      if (!graph.nodes.length) {
+        container.textContent = "No steps to render.";
+        return;
+      }
+      const canvas = document.createElement("div");
+      canvas.className = "graph-canvas";
+      const maxX = Math.max(...graph.nodes.map((node) => node.x)) + 280;
+      const maxY = Math.max(...graph.nodes.map((node) => node.y)) + 180;
+      canvas.style.width = `${Math.max(maxX, 920)}px`;
+      canvas.style.height = `${Math.max(maxY, 520)}px`;
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${Math.max(maxX, 920)} ${Math.max(maxY, 520)}`);
+      const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      marker.setAttribute("id", "arrow");
+      marker.setAttribute("viewBox", "0 0 10 10");
+      marker.setAttribute("refX", "9");
+      marker.setAttribute("refY", "5");
+      marker.setAttribute("markerWidth", "6");
+      marker.setAttribute("markerHeight", "6");
+      marker.setAttribute("orient", "auto-start-reverse");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+      path.setAttribute("fill", "#64748b");
+      marker.appendChild(path);
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+
+      const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+      graph.edges.forEach((edge) => {
+        const source = byId.get(edge.source);
+        const target = byId.get(edge.target);
+        if (!source || !target) return;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", String(source.x + 220));
+        line.setAttribute("y1", String(source.y + 56));
+        line.setAttribute("x2", String(target.x));
+        line.setAttribute("y2", String(target.y + 56));
+        line.setAttribute("stroke", edge.edge_type === "branch" ? "#2563eb" : "#64748b");
+        line.setAttribute("stroke-width", "2");
+        line.setAttribute("marker-end", "url(#arrow)");
+        svg.appendChild(line);
+        if (edge.label) {
+          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          label.setAttribute("x", String((source.x + target.x + 220) / 2));
+          label.setAttribute("y", String((source.y + target.y) / 2 + 42));
+          label.setAttribute("fill", "#475569");
+          label.setAttribute("font-size", "12");
+          label.textContent = edge.label;
+          svg.appendChild(label);
+        }
+      });
+      canvas.appendChild(svg);
+
+      graph.nodes.forEach((node) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = `graph-node ${node.state}`;
+        card.style.left = `${node.x}px`;
+        card.style.top = `${node.y}px`;
+        const title = document.createElement("div");
+        title.className = "graph-title";
+        title.textContent = `${node.position}. ${node.label}`;
+        const meta = document.createElement("div");
+        meta.className = "graph-meta";
+        meta.textContent = [
+          node.step_type,
+          `state=${node.state}`,
+          `active=${node.counts.active_count}`,
+          `done=${node.counts.completed_count}`,
+          `failed=${node.counts.failed_count}`,
+          `queued=${node.counts.queued_send_count}`
+        ].join(" | ");
+        const error = document.createElement("div");
+        error.className = "graph-meta";
+        error.textContent = node.recent_error ? `error=${node.recent_error}` : node.step_id;
+        card.appendChild(title);
+        card.appendChild(meta);
+        card.appendChild(error);
+        card.addEventListener("click", () => {
+          const step = (selectedJourney?.steps || []).find((item) => item.id === node.step_id);
+          if (step) selectStep(step);
+          writeResult(node);
+        });
+        canvas.appendChild(card);
+      });
+
+      container.appendChild(canvas);
     }
 
     async function loadJourneys() {
@@ -2140,12 +2289,22 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       await request(`/api/v1/journey-step-executions/list?${params.toString()}`);
     }
 
+    async function loadGraph() {
+      if (!selectedJourneyId) {
+        writeResult("Select or save a journey first.", false);
+        return;
+      }
+      const graph = await request(`/api/v1/journeys/${selectedJourneyId}/graph`);
+      renderGraph(graph);
+    }
+
     async function processDue() {
       const params = new URLSearchParams({ limit: "25" });
       if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
       await request(`/api/v1/journeys/process?${params.toString()}`, { method: "POST" });
       await loadEnrollments();
       await refreshSelectedJourney();
+      await loadGraph();
     }
 
     document.getElementById("refreshJourneys").addEventListener("click", () => {
@@ -2159,6 +2318,12 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       deleteJourney().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("newStep").addEventListener("click", resetStep);
+    document.getElementById("loadGraph").addEventListener("click", () => {
+      loadGraph().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("refreshGraph").addEventListener("click", () => {
+      loadGraph().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("saveStep").addEventListener("click", () => {
       saveStep().catch((error) => writeResult(error.message, false));
     });
