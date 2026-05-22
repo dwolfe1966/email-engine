@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import cast
 from uuid import UUID
 
@@ -20,6 +21,7 @@ from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
+    CampaignProcessDueRead,
     CampaignUpdate,
     CampaignValidationRead,
     JsonObject,
@@ -61,10 +63,11 @@ class CampaignService:
         if updates.get('status') == CampaignStatus.scheduled:
             raise ValueError('Use the approve endpoint to move a campaign to scheduled.')
         content_fields = {'name', 'template_id', 'audience_query'} & updates.keys()
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        for key, value in updates.items():
             setattr(campaign, key, value)
         if content_fields:
             campaign.status = CampaignStatus.draft
+            campaign.scheduled_at = None
         self.db.commit()
         self.db.refresh(campaign)
         return campaign
@@ -77,6 +80,7 @@ class CampaignService:
             name=payload.name or f'{campaign.name} copy',
             template_id=campaign.template_id,
             audience_query=campaign.audience_query,
+            scheduled_at=None,
             status=CampaignStatus.draft,
         )
         self.db.add(clone)
@@ -176,9 +180,44 @@ class CampaignService:
         if not campaign:
             return None
         campaign.status = CampaignStatus.scheduled
+        campaign.scheduled_at = payload.scheduled_at if payload else datetime.utcnow()
         self.db.commit()
         validation.status = campaign.status
         return validation
+
+    def process_due(self, limit: int = 25) -> CampaignProcessDueRead:
+        now = datetime.utcnow()
+        campaigns = list(
+            self.db.scalars(
+                select(Campaign)
+                .where(Campaign.status == CampaignStatus.scheduled)
+                .where(Campaign.scheduled_at.is_not(None))
+                .where(Campaign.scheduled_at <= now)
+                .order_by(Campaign.scheduled_at.asc())
+                .limit(limit)
+            ).all()
+        )
+        job_ids: list[str] = []
+        errors: list[str] = []
+        failed_count = 0
+        for campaign in campaigns:
+            try:
+                launch = self.launch(campaign.id, CampaignLaunchRequest())
+                if launch:
+                    job_ids.append(str(launch.job_id))
+                else:
+                    failed_count += 1
+                    errors.append(f'{campaign.id}: campaign not found during due processing')
+            except ValueError as exc:
+                failed_count += 1
+                errors.append(f'{campaign.id}: {exc}')
+        return CampaignProcessDueRead(
+            claimed_count=len(campaigns),
+            launched_count=len(job_ids),
+            failed_count=failed_count,
+            job_ids=job_ids,
+            errors=errors,
+        )
 
     def launch(
         self, campaign_id: UUID, payload: CampaignLaunchRequest
@@ -234,6 +273,7 @@ class CampaignService:
         job.queued_count = queued_count
         job.suppressed_count = suppressed_count
         campaign.status = CampaignStatus.sending if queued_count > 0 else CampaignStatus.sent
+        campaign.scheduled_at = None
         self.db.commit()
         self.db.refresh(job)
         self.db.refresh(campaign)

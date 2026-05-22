@@ -30,6 +30,7 @@ Campaigns:
 - `GET /api/v1/campaigns?limit=100&offset=0`
 - `GET /api/v1/campaigns/list?limit=100&offset=0`
 - `POST /api/v1/campaigns`
+- `POST /api/v1/campaigns/process-due?limit=25`
 - `GET /api/v1/campaigns/{campaign_id}`
 - `PATCH /api/v1/campaigns/{campaign_id}`
 - `DELETE /api/v1/campaigns/{campaign_id}`
@@ -94,6 +95,7 @@ Sending and events:
 - `POST /api/v1/emails/send` sends to an existing contact using an existing template. The render context includes contact fields, contact `attributes`, flattened contact attributes, and request `variables`; request variables win on key conflicts.
 - `POST /api/v1/campaigns/{campaign_id}/validate` checks template variables, audience match count, suppression count, and queued count.
 - `POST /api/v1/campaigns/{campaign_id}/approve` moves a valid campaign to `scheduled`; non-dry-run launches require this gate.
+- Campaigns have optional `scheduled_at`; approve accepts `scheduled_at`, and `POST /api/v1/campaigns/process-due` queues approved campaigns whose scheduled time has arrived.
 - `POST /api/v1/campaigns/{campaign_id}/clone` creates a draft copy of a campaign. Editing campaign content resets its status to `draft`; use approve rather than PATCH to enter `scheduled`.
 - `POST /api/v1/campaigns/{campaign_id}/launch` creates durable campaign send jobs and queued send records. Dry runs remain allowed before approval.
 - `POST /api/v1/delivery/process-queued` is an operator endpoint that processes queued send records through the configured provider. Use `campaign_id` or `send_job_id` to target a specific queued campaign/job. It is a bridge toward a true worker/scheduler process.

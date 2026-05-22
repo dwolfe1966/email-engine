@@ -44,6 +44,7 @@ from email_platform.schemas.contracts import (
     CampaignLaunchRead,
     CampaignLaunchRequest,
     CampaignPerformanceRead,
+    CampaignProcessDueRead,
     CampaignRead,
     CampaignSendJobRead,
     CampaignUpdate,
@@ -256,6 +257,11 @@ def list_campaigns_enveloped(
 @router.post('/campaigns', response_model=CampaignRead)
 def create_campaign(payload: CampaignCreate, db: DbSession) -> Campaign:
     return CampaignService(db).create(payload)
+
+
+@router.post('/campaigns/process-due', response_model=CampaignProcessDueRead)
+def process_due_campaigns(db: DbSession, limit: Limit = 25) -> CampaignProcessDueRead:
+    return CampaignService(db).process_due(limit=limit)
 
 
 @router.get('/campaigns/{campaign_id}', response_model=CampaignRead)

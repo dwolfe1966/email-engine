@@ -1340,6 +1340,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
             <select id="audience"></select>
           </label>
         </div>
+        <label>Scheduled at
+          <input id="scheduledAt" type="datetime-local" />
+        </label>
         <label>Audience query JSON
           <textarea id="audienceQuery"></textarea>
         </label>
@@ -1351,6 +1354,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <button class="secondary" id="previewTemplate">Preview Template</button>
           <button class="secondary" id="validateCampaign">Validate</button>
           <button class="secondary" id="approveCampaign">Approve</button>
+          <button class="secondary" id="processDue">Process Due</button>
           <button class="secondary" id="dryRun">Dry Run</button>
           <button id="launch">Queue Launch</button>
           <button class="secondary" id="analytics">Analytics</button>
@@ -1481,6 +1485,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     function resetForm() {
       selectedId = "";
       document.getElementById("name").value = `campaign-${Date.now()}`;
+      document.getElementById("scheduledAt").value = "";
       document.getElementById("audienceQuery").value = "{}";
       document.getElementById("variables").value = "{}";
     }
@@ -1489,6 +1494,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       selectedId = item.id;
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
+      document.getElementById("scheduledAt").value = item.scheduled_at
+        ? item.scheduled_at.slice(0, 16)
+        : "";
       document.getElementById("audienceQuery").value = JSON.stringify(
         item.audience_query || {},
         null,
@@ -1507,7 +1515,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
-        detail.textContent = `${item.status} - ${item.id}`;
+        const schedule = item.scheduled_at ? ` - scheduled ${item.scheduled_at}` : "";
+        detail.textContent = `${item.status}${schedule} - ${item.id}`;
         button.appendChild(detail);
         button.addEventListener("click", () => selectCampaign(item));
         container.appendChild(button);
@@ -1567,10 +1576,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     }
 
     async function saveCampaign() {
+      const scheduledAt = document.getElementById("scheduledAt").value;
       const payload = {
         name: document.getElementById("name").value.trim(),
         template_id: selectedTemplateId(),
-        audience_query: parseJson("audienceQuery", {})
+        audience_query: parseJson("audienceQuery", {}),
+        scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null
       };
       const path = selectedId ? `/api/v1/campaigns/${selectedId}` : "/api/v1/campaigns";
       const method = selectedId ? "PATCH" : "POST";
@@ -1639,14 +1650,21 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         writeResult("Save or select a campaign first.", false);
         return;
       }
+      const scheduledAt = document.getElementById("scheduledAt").value;
       await request(`/api/v1/campaigns/${selectedId}/approve`, {
         method: "POST",
         body: JSON.stringify({
           audience_id: selectedAudienceId(),
           variables: parseJson("variables", {}),
+          scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
           dry_run: false
         })
       });
+      await loadCampaigns();
+    }
+
+    async function processDueCampaigns() {
+      await request("/api/v1/campaigns/process-due?limit=25", { method: "POST" });
       await loadCampaigns();
     }
 
@@ -1701,6 +1719,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("processDue").addEventListener("click", () => {
+      processDueCampaigns().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("launch").addEventListener("click", () => {
       launchCampaign(false).catch((error) => writeResult(error.message, false));

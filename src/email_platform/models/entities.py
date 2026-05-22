@@ -287,6 +287,7 @@ class Campaign(Base):
         PGUUID(as_uuid=True), ForeignKey('email_templates.id')
     )
     audience_query: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     template: Mapped[EmailTemplate] = relationship()

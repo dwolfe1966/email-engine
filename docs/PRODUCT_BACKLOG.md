@@ -46,6 +46,7 @@ This backlog is organized around the target platform capabilities:
 
 - Add campaign update/delete endpoints and status transitions.
 - Add campaign scheduling fields and launch endpoint.
+  **Initial `scheduled_at` field and due-campaign processor shipped.**
 - Add campaign approval gates and validation checks.
   **Initial validation and approval gate shipped; real launches require approved/scheduled status.**
 - Add campaign send summary fields: queued, sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed.

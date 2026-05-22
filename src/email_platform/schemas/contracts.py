@@ -142,6 +142,7 @@ class CampaignCreate(BaseModel):
     name: str
     template_id: UUID
     audience_query: JsonObject = Field(default_factory=dict)
+    scheduled_at: datetime | None = None
 
 
 class CampaignUpdate(BaseModel):
@@ -149,6 +150,7 @@ class CampaignUpdate(BaseModel):
     template_id: UUID | None = None
     audience_query: JsonObject | None = None
     status: CampaignStatus | None = None
+    scheduled_at: datetime | None = None
 
 
 class CampaignCloneRequest(BaseModel):
@@ -166,6 +168,7 @@ class CampaignLaunchRequest(BaseModel):
     audience_id: UUID | None = None
     rule_tree: JsonObject | None = None
     variables: JsonObject = Field(default_factory=dict)
+    scheduled_at: datetime | None = None
     dry_run: bool = False
 
 
@@ -191,6 +194,14 @@ class CampaignValidationRead(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     undeclared_variables: list[str] = Field(default_factory=list)
     missing_variables: list[str] = Field(default_factory=list)
+
+
+class CampaignProcessDueRead(BaseModel):
+    claimed_count: int
+    launched_count: int
+    failed_count: int
+    job_ids: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
 
 class JourneyStepCreate(BaseModel):
