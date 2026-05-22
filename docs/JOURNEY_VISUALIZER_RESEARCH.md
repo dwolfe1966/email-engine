@@ -26,14 +26,15 @@ Each node should expose:
 
 ## Edge Data
 
-Initial edges can be derived from ordered `journey_steps.position`. Branch/exit edges should be added once branch config becomes explicit enough to model multiple downstream paths.
+Initial edges can be derived from ordered `journey_steps.position`. Branch edges are now modeled from `branches`, `next_step_id`, and `default_next_step_id` in step config.
 
 ## API Support Needed
 
 - Existing: `GET /api/v1/journeys/list`
 - Existing: `GET /api/v1/analytics/journeys`
 - Future: explicit journey graph endpoint returning `{ nodes, edges }` for GUI rendering.
-- Future: branch-condition schema so DAG edges are not inferred from ad hoc config.
+- Existing: branch-condition edges can be returned by `GET /api/v1/journeys/{journey_id}/graph`.
+- Future: formal branch-condition schema so the GUI can validate branch configs before save.
 
 ## Sources
 

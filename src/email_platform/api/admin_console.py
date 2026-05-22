@@ -2017,7 +2017,21 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       document.getElementById("stepType").value = "send_email";
       document.getElementById("stepPosition").value = "0";
       document.getElementById("stepConfig").value = JSON.stringify(
-        { template_id: "", campaign_id: null, wait_seconds: 0, variables: {} },
+        {
+          template_id: "",
+          campaign_id: null,
+          wait_seconds: 0,
+          variables: {},
+          next_step_id: "",
+          branches: [
+            {
+              label: "matched",
+              condition: { field: "attributes.segment", comparator: "eq", value: "vip" },
+              next_step_id: ""
+            }
+          ],
+          default_next_step_id: ""
+        },
         null,
         2
       );
@@ -2127,13 +2141,15 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
         line.setAttribute("stroke-width", "2");
         line.setAttribute("marker-end", "url(#arrow)");
         svg.appendChild(line);
-        if (edge.label) {
+        if (edge.label || edge.condition) {
           const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
           label.setAttribute("x", String((source.x + target.x + 220) / 2));
           label.setAttribute("y", String((source.y + target.y) / 2 + 42));
           label.setAttribute("fill", "#475569");
           label.setAttribute("font-size", "12");
-          label.textContent = edge.label;
+          label.textContent = edge.condition
+            ? `${edge.label || edge.edge_type}: ${JSON.stringify(edge.condition)}`
+            : edge.label;
           svg.appendChild(label);
         }
       });

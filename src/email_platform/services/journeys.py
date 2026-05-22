@@ -350,7 +350,9 @@ class JourneyService:
         elif step.step_type == JourneyStepType.update_contact:
             self._update_contact(enrollment, step)
         elif step.step_type == JourneyStepType.branch:
-            metadata['branch'] = 'evaluated'
+            branch = self._matching_branch(enrollment, step)
+            if branch:
+                metadata['branch'] = branch
         elif step.step_type == JourneyStepType.webhook:
             metadata['webhook'] = 'recorded'
 
@@ -361,7 +363,7 @@ class JourneyService:
             send_record_id=send_record_id,
             metadata=metadata,
         )
-        self._advance(enrollment, step)
+        self._advance(enrollment, step, metadata=metadata)
         return queued_send_count
 
     def _queue_email(self, enrollment: JourneyEnrollment, step: JourneyStep) -> UUID:
@@ -419,8 +421,13 @@ class JourneyService:
         if isinstance(is_unsubscribed, bool):
             enrollment.contact.is_unsubscribed = is_unsubscribed
 
-    def _advance(self, enrollment: JourneyEnrollment, step: JourneyStep) -> None:
-        next_step = self._next_step(enrollment.journey, step)
+    def _advance(
+        self,
+        enrollment: JourneyEnrollment,
+        step: JourneyStep,
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        next_step = self._next_step(enrollment.journey, step, metadata=metadata)
         if not next_step:
             self._complete_enrollment(enrollment)
             return
@@ -462,9 +469,40 @@ class JourneyService:
     def _first_step(self, journey: Journey) -> JourneyStep | None:
         return min(journey.steps, key=lambda step: step.position, default=None)
 
-    def _next_step(self, journey: Journey, current_step: JourneyStep) -> JourneyStep | None:
+    def _next_step(
+        self,
+        journey: Journey,
+        current_step: JourneyStep,
+        metadata: dict[str, object] | None = None,
+    ) -> JourneyStep | None:
+        target_id = self._next_step_id_from_config(current_step, metadata=metadata)
+        if target_id:
+            configured_step = next(
+                (step for step in journey.steps if str(step.id) == target_id),
+                None,
+            )
+            if configured_step:
+                return configured_step
         later_steps = [step for step in journey.steps if step.position > current_step.position]
         return min(later_steps, key=lambda step: step.position, default=None)
+
+    def _next_step_id_from_config(
+        self,
+        step: JourneyStep,
+        metadata: dict[str, object] | None = None,
+    ) -> str | None:
+        branch = metadata.get('branch') if metadata else None
+        if isinstance(branch, dict):
+            target = branch.get('next_step_id')
+            if isinstance(target, str) and target:
+                return target
+        next_step_id = step.config.get('next_step_id')
+        if isinstance(next_step_id, str) and next_step_id:
+            return next_step_id
+        default_next_step_id = step.config.get('default_next_step_id')
+        if isinstance(default_next_step_id, str) and default_next_step_id:
+            return default_next_step_id
+        return None
 
     def _due_at_for_step(self, step: JourneyStep | None) -> datetime | None:
         if not step:
@@ -482,6 +520,47 @@ class JourneyService:
             enrollment.contact,
             enrollment.journey.exit_rule_tree,
         )
+
+    def _matching_branch(
+        self,
+        enrollment: JourneyEnrollment,
+        step: JourneyStep,
+    ) -> dict[str, object] | None:
+        branches = step.config.get('branches')
+        if not isinstance(branches, list):
+            return self._default_branch(step)
+
+        for index, branch in enumerate(branches):
+            if not isinstance(branch, dict):
+                continue
+            target = branch.get('next_step_id')
+            if not isinstance(target, str) or not target:
+                continue
+            condition = branch.get('condition')
+            if isinstance(condition, dict) and not AudienceService(self.db)._matches(  # noqa: SLF001
+                enrollment.contact,
+                condition,
+            ):
+                continue
+            return {
+                'index': index,
+                'label': branch.get('label'),
+                'next_step_id': target,
+                'condition': condition,
+                'matched': True,
+            }
+        return self._default_branch(step)
+
+    def _default_branch(self, step: JourneyStep) -> dict[str, object] | None:
+        target = step.config.get('default_next_step_id')
+        if not isinstance(target, str) or not target:
+            return None
+        return {
+            'label': 'default',
+            'next_step_id': target,
+            'matched': True,
+            'default': True,
+        }
 
     def _variables(
         self,

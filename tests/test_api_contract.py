@@ -164,6 +164,7 @@ def test_admin_pages() -> None:
     assert 'Enroll Contact' in journeys.text
     assert 'Process Due' in journeys.text
     assert 'Journey Graph' in journeys.text
+    assert 'default_next_step_id' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
     assert 'All campaigns' in delivery.text
