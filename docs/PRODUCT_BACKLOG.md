@@ -94,6 +94,7 @@ This backlog is organized around the target platform capabilities:
   **Initial v1 analytics overview endpoint shipped.**
 - Add audience performance reports.
 - Add journey performance reports by step and branch.
+  **Initial journey and step performance report endpoint shipped.**
 - Add provider/domain deliverability reports.
   **Initial domain deliverability report endpoint shipped.**
 - Add cohort reports by source, segment, and imported data attributes.

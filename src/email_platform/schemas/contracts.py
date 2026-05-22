@@ -592,6 +592,36 @@ class DomainDeliverabilityRead(BaseModel):
     bounce_rate: float
 
 
+class JourneyStepPerformanceRead(BaseModel):
+    step_id: UUID
+    name: str
+    step_type: JourneyStepType
+    position: int
+    execution_count: int
+    completed_count: int
+    failed_count: int
+    skipped_count: int
+    queued_send_count: int
+
+
+class JourneyPerformanceRead(BaseModel):
+    journey_id: UUID
+    name: str
+    status: JourneyStatus
+    enrollment_count: int
+    active_count: int
+    completed_count: int
+    exited_count: int
+    paused_count: int
+    failed_count: int
+    execution_count: int
+    step_completed_count: int
+    step_failed_count: int
+    step_skipped_count: int
+    queued_send_count: int
+    steps: list[JourneyStepPerformanceRead]
+
+
 class UnsubscribeTokenRead(BaseModel):
     contact_id: UUID
     token: str

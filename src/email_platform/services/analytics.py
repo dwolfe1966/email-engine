@@ -11,6 +11,12 @@ from email_platform.models.entities import (
     EmailEventType,
     EmailSendRecord,
     EmailSendStatus,
+    Journey,
+    JourneyEnrollment,
+    JourneyEnrollmentStatus,
+    JourneyStep,
+    JourneyStepExecution,
+    JourneyStepExecutionStatus,
 )
 from email_platform.schemas.contracts import (
     AnalyticsOverviewRead,
@@ -18,6 +24,8 @@ from email_platform.schemas.contracts import (
     CampaignPerformanceRead,
     DomainDeliverabilityRead,
     EventRead,
+    JourneyPerformanceRead,
+    JourneyStepPerformanceRead,
     MetricCount,
 )
 
@@ -191,6 +199,22 @@ class AnalyticsService:
         rows.sort(key=lambda row: row.send_record_count, reverse=True)
         return rows[offset : offset + limit], len(rows)
 
+    def journey_performance(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        journey_id: UUID | None = None,
+    ) -> tuple[list[JourneyPerformanceRead], int]:
+        statement = select(Journey).order_by(Journey.created_at.desc())
+        count_statement = select(func.count()).select_from(Journey)
+        if journey_id:
+            statement = statement.where(Journey.id == journey_id)
+            count_statement = count_statement.where(Journey.id == journey_id)
+        journeys = list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+        return [self._journey_row(journey) for journey in journeys], (
+            self.db.scalar(count_statement) or 0
+        )
+
     def _requested_count(self, campaign_id: UUID, send_job_id: UUID | None) -> int:
         if send_job_id:
             job = self.db.get(CampaignSendJob, send_job_id)
@@ -287,6 +311,81 @@ class AnalyticsService:
                 max(counts['sent_count'], counts['send_record_count']),
             ),
         )
+
+    def _journey_row(self, journey: Journey) -> JourneyPerformanceRead:
+        enrollment_counts = self._journey_enrollment_counts(journey.id)
+        execution_counts = self._journey_execution_counts(journey.id)
+        steps = list(
+            self.db.scalars(
+                select(JourneyStep)
+                .where(JourneyStep.journey_id == journey.id)
+                .order_by(JourneyStep.position.asc())
+            ).all()
+        )
+        step_rows = [self._journey_step_row(step) for step in steps]
+        queued_send_count = sum(step.queued_send_count for step in step_rows)
+        return JourneyPerformanceRead(
+            journey_id=journey.id,
+            name=journey.name,
+            status=journey.status,
+            enrollment_count=sum(enrollment_counts.values()),
+            active_count=enrollment_counts.get(JourneyEnrollmentStatus.active.value, 0),
+            completed_count=enrollment_counts.get(JourneyEnrollmentStatus.completed.value, 0),
+            exited_count=enrollment_counts.get(JourneyEnrollmentStatus.exited.value, 0),
+            paused_count=enrollment_counts.get(JourneyEnrollmentStatus.paused.value, 0),
+            failed_count=enrollment_counts.get(JourneyEnrollmentStatus.failed.value, 0),
+            execution_count=sum(execution_counts.values()),
+            step_completed_count=execution_counts.get(
+                JourneyStepExecutionStatus.completed.value, 0
+            ),
+            step_failed_count=execution_counts.get(JourneyStepExecutionStatus.failed.value, 0),
+            step_skipped_count=execution_counts.get(JourneyStepExecutionStatus.skipped.value, 0),
+            queued_send_count=queued_send_count,
+            steps=step_rows,
+        )
+
+    def _journey_step_row(self, step: JourneyStep) -> JourneyStepPerformanceRead:
+        execution_counts = self._journey_execution_counts(step.journey_id, step_id=step.id)
+        queued_send_count = (
+            self.db.scalar(
+                select(func.count())
+                .select_from(JourneyStepExecution)
+                .where(JourneyStepExecution.step_id == step.id)
+                .where(JourneyStepExecution.send_record_id.is_not(None))
+            )
+            or 0
+        )
+        return JourneyStepPerformanceRead(
+            step_id=step.id,
+            name=step.name,
+            step_type=step.step_type,
+            position=step.position,
+            execution_count=sum(execution_counts.values()),
+            completed_count=execution_counts.get(JourneyStepExecutionStatus.completed.value, 0),
+            failed_count=execution_counts.get(JourneyStepExecutionStatus.failed.value, 0),
+            skipped_count=execution_counts.get(JourneyStepExecutionStatus.skipped.value, 0),
+            queued_send_count=queued_send_count,
+        )
+
+    def _journey_enrollment_counts(self, journey_id: UUID) -> dict[str, int]:
+        statement = (
+            select(JourneyEnrollment.status, func.count())
+            .where(JourneyEnrollment.journey_id == journey_id)
+            .group_by(JourneyEnrollment.status)
+        )
+        return {status.value: count for status, count in self.db.execute(statement).all()}
+
+    def _journey_execution_counts(
+        self, journey_id: UUID, step_id: UUID | None = None
+    ) -> dict[str, int]:
+        statement = (
+            select(JourneyStepExecution.status, func.count())
+            .where(JourneyStepExecution.journey_id == journey_id)
+            .group_by(JourneyStepExecution.status)
+        )
+        if step_id:
+            statement = statement.where(JourneyStepExecution.step_id == step_id)
+        return {status.value: count for status, count in self.db.execute(statement).all()}
 
     def _rate(self, numerator: int, denominator: int) -> float:
         if denominator <= 0:

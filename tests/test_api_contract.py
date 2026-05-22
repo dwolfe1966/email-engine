@@ -21,6 +21,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}/launch',
         '/api/v1/analytics/campaigns',
         '/api/v1/analytics/domains',
+        '/api/v1/analytics/journeys',
         '/api/v1/analytics/overview',
         '/api/v1/journeys',
         '/api/v1/journeys/list',
@@ -169,6 +170,7 @@ def test_admin_pages() -> None:
     assert 'Analytics Overview' in analytics.text
     assert 'Campaign Performance' in analytics.text
     assert 'Domain Deliverability' in analytics.text
+    assert 'Journey Performance' in analytics.text
     assert 'Event Timeline' in analytics.text
     assert 'Email Engine Data Sources' in data_sources.text
     assert 'Save Source' in data_sources.text

@@ -65,6 +65,7 @@ from email_platform.schemas.contracts import (
     JourneyCreate,
     JourneyEnrollmentCreate,
     JourneyEnrollmentRead,
+    JourneyPerformanceRead,
     JourneyProcessRead,
     JourneyRead,
     JourneyStepCreate,
@@ -329,6 +330,21 @@ def list_domain_deliverability(
         campaign_id=campaign_id,
         send_job_id=send_job_id,
         provider=provider,
+    )
+    return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
+
+
+@router.get('/analytics/journeys', response_model=ListResponse[JourneyPerformanceRead])
+def list_journey_performance(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+    journey_id: UUID | None = None,
+) -> dict[str, object]:
+    items, total = AnalyticsService(db).journey_performance(
+        limit=limit,
+        offset=offset,
+        journey_id=journey_id,
     )
     return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
 
