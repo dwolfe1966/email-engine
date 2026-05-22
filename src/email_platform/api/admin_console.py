@@ -2294,16 +2294,22 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       <div class="head"><h2>Operations</h2></div>
       <div class="body">
         <div class="inline">
-          <label>Campaign ID
-            <input id="campaignId" />
+          <label>Campaign
+            <select id="campaignId">
+              <option value="">All campaigns</option>
+            </select>
           </label>
-          <label>Send job ID
-            <input id="sendJobId" />
+          <label>Send job
+            <select id="sendJobId">
+              <option value="">All send jobs</option>
+            </select>
           </label>
         </div>
         <div class="inline">
-          <label>Send record ID
-            <input id="sendRecordId" />
+          <label>Send record
+            <select id="sendRecordId">
+              <option value="">Select send record</option>
+            </select>
           </label>
           <label>Limit
             <input id="limit" type="number" min="1" max="500" value="25" />
@@ -2331,6 +2337,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
   </main>
   <script>
     const result = document.getElementById("result");
+    const campaigns = [];
+    const jobs = [];
+    const records = [];
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
@@ -2351,6 +2360,45 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
 
     function value(id) {
       return document.getElementById(id).value.trim();
+    }
+
+    function option(label, value) {
+      const node = document.createElement("option");
+      node.value = value || "";
+      node.textContent = label;
+      return node;
+    }
+
+    function resetSelect(id, placeholder) {
+      const select = document.getElementById(id);
+      select.textContent = "";
+      select.appendChild(option(placeholder, ""));
+      return select;
+    }
+
+    function renderCampaigns(items) {
+      campaigns.splice(0, campaigns.length, ...items);
+      const select = resetSelect("campaignId", "All campaigns");
+      items.forEach((item) => {
+        select.appendChild(option(`${item.name} - ${item.status} - ${item.id}`, item.id));
+      });
+    }
+
+    function renderJobs(items) {
+      jobs.splice(0, jobs.length, ...items);
+      const select = resetSelect("sendJobId", "All send jobs");
+      items.forEach((item) => {
+        const campaign = item.campaign_id ? item.campaign_id : "no campaign";
+        select.appendChild(option(`${item.status} - ${campaign} - ${item.id}`, item.id));
+      });
+    }
+
+    function renderRecords(items) {
+      records.splice(0, records.length, ...items);
+      const select = resetSelect("sendRecordId", "Select send record");
+      items.forEach((item) => {
+        select.appendChild(option(`${item.status} - ${item.to_email} - ${item.id}`, item.id));
+      });
     }
 
     function limitQuery() {
@@ -2374,14 +2422,21 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       });
     }
 
+    async function loadCampaigns() {
+      const data = await request(`/api/v1/campaigns/list?${limitQuery()}`);
+      renderCampaigns(data.items || []);
+    }
+
     async function loadJobs() {
       const params = new URLSearchParams(limitQuery());
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
-      await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
+      const data = await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
+      renderJobs(data.items || []);
     }
 
     async function loadRecords() {
-      await request(`/api/v1/email-send-records/list?${scopedQuery()}`);
+      const data = await request(`/api/v1/email-send-records/list?${scopedQuery()}`);
+      renderRecords(data.items || []);
     }
 
     async function recordAction(action, method = "POST") {
@@ -2406,6 +2461,14 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
 
     document.getElementById("processQueued").addEventListener("click", () => {
       processQueued().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("campaignId").addEventListener("change", () => {
+      loadJobs()
+        .then(loadRecords)
+        .catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("sendJobId").addEventListener("change", () => {
+      loadRecords().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("loadJobs").addEventListener("click", () => {
       loadJobs().catch((error) => writeResult(error.message, false));
@@ -2432,7 +2495,10 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       result.textContent = "";
     });
 
-    loadJobs().catch((error) => writeResult(error.message, false));
+    loadCampaigns()
+      .then(loadJobs)
+      .then(loadRecords)
+      .catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""

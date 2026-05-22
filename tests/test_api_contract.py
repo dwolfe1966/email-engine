@@ -152,6 +152,9 @@ def test_admin_pages() -> None:
     assert 'Process Due' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
+    assert 'All campaigns' in delivery.text
+    assert 'All send jobs' in delivery.text
+    assert 'Select send record' in delivery.text
     assert 'Requeue Record' in delivery.text
     assert 'Delete Record' in delivery.text
     assert 'Email Engine Suppressions' in suppressions.text
