@@ -44,6 +44,11 @@ def admin_data_sources() -> str:
     return ADMIN_DATA_SOURCES_HTML
 
 
+@router.get('/admin/suppressions', response_class=HTMLResponse, include_in_schema=False)
+def admin_suppressions() -> str:
+    return ADMIN_SUPPRESSIONS_HTML
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -122,6 +127,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/audiences">Audience Builder</a>
       <a href="/admin/campaigns">Campaign Manager</a>
       <a href="/admin/delivery">Delivery Manager</a>
+      <a href="/admin/suppressions">Suppressions</a>
       <a href="/admin/analytics">Analytics</a>
       <a href="/admin/data-sources">Data Sources</a>
       <a href="/docs">Docs</a>
@@ -151,6 +157,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     <a href="/admin/delivery">
       <strong>Delivery Manager</strong>
       <span>Process queued delivery and inspect jobs, records, suppressions, and tracking.</span>
+    </a>
+    <a href="/admin/suppressions">
+      <strong>Suppressions</strong>
+      <span>Review bounced, complained, unsubscribed, and manually suppressed contacts.</span>
     </a>
     <a href="/admin/analytics">
       <strong>Analytics</strong>
@@ -333,6 +343,7 @@ ADMIN_AUDIENCE_IMPORT_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -740,6 +751,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -1254,6 +1266,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -1738,6 +1751,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -1992,6 +2006,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -2130,6 +2145,372 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     });
 
     reportsOverview().catch((error) => writeResult(error.message, false));
+  </script>
+</body>
+</html>"""
+
+
+ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine Suppressions</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --red: #b42318;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    main {
+      display: grid;
+      grid-template-columns: 360px minmax(420px, 1fr) minmax(360px, .8fr);
+      gap: 14px;
+      padding: 14px;
+    }
+    section {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    h2 { margin: 0; font-size: 14px; }
+    .body { min-width: 0; padding: 12px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    input, select, textarea {
+      min-width: 0;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button {
+      border: 1px solid var(--blue);
+      background: var(--blue);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: var(--blue); }
+    button.danger { border-color: var(--red); color: var(--red); background: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .items {
+      display: grid;
+      gap: 6px;
+      max-height: calc(100vh - 260px);
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      text-align: left;
+      color: var(--text);
+    }
+    .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+    .stat strong { display: block; font-size: 18px; }
+    .stat span { color: var(--muted); font-size: 12px; }
+    pre {
+      margin: 0;
+      min-height: 300px;
+      max-height: calc(100vh - 220px);
+      overflow: auto;
+      background: #0f172a;
+      color: #e5edf8;
+      padding: 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1180px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .inline, .stats { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine Suppressions</h1>
+    <div class="actions">
+      <button class="secondary" onclick="location.href='/admin'">Admin</button>
+      <button class="secondary" onclick="location.href='/tester'">Tester</button>
+      <button class="secondary" onclick="location.href='/template-editor'">Template Editor</button>
+      <button class="secondary" onclick="location.href='/admin/entities'">Entity Workbench</button>
+      <button class="secondary" onclick="location.href='/admin/audience-import'">
+        Audience Import
+      </button>
+      <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
+      <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
+      <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
+      <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
+      <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
+      <button class="secondary" onclick="location.href='/docs'">Docs</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <div class="head"><h2>Suppression List</h2><button id="refresh">Refresh</button></div>
+      <div class="body">
+        <label>Search email or reason
+          <input id="search" placeholder="customer@example.com or spam_complaint" />
+        </label>
+        <div class="stats" id="stats"></div>
+        <div class="items" id="items"></div>
+      </div>
+    </section>
+    <section>
+      <div class="head">
+        <h2>Manual Suppression</h2>
+        <div class="actions">
+          <button id="save">Save Suppression</button>
+          <button class="danger" id="delete">Delete Selected</button>
+        </div>
+      </div>
+      <div class="body">
+        <label>Email
+          <input id="email" type="email" />
+        </label>
+        <div class="inline">
+          <label>Reason
+            <select id="reason">
+              <option value="manual">manual</option>
+              <option value="unsubscribe">unsubscribe</option>
+              <option value="hard_bounce">hard_bounce</option>
+              <option value="spam_complaint">spam_complaint</option>
+            </select>
+          </label>
+          <label>Source
+            <input id="source" value="manual_admin" />
+          </label>
+        </div>
+        <div class="inline">
+          <label>Provider message id
+            <input id="providerMessageId" />
+          </label>
+          <label>Contact id
+            <input id="contactId" />
+          </label>
+        </div>
+        <label>Metadata JSON
+          <textarea id="metadataJson"></textarea>
+        </label>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
+      <div class="body">
+        <pre id="result"></pre>
+      </div>
+    </section>
+  </main>
+  <script>
+    let selectedId = "";
+    let suppressions = [];
+    const result = document.getElementById("result");
+
+    function writeResult(data, ok = true) {
+      result.textContent = JSON.stringify({ ok, data }, null, 2);
+    }
+
+    async function readResponse(response) {
+      const text = await response.text();
+      try { return text ? JSON.parse(text) : null; } catch { return text; }
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options
+      });
+      const data = await readResponse(response);
+      writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    function parseMetadata() {
+      const raw = document.getElementById("metadataJson").value.trim();
+      return raw ? JSON.parse(raw) : {};
+    }
+
+    function resetForm() {
+      selectedId = "";
+      document.getElementById("email").value = "";
+      document.getElementById("reason").value = "manual";
+      document.getElementById("source").value = "manual_admin";
+      document.getElementById("providerMessageId").value = "";
+      document.getElementById("contactId").value = "";
+      document.getElementById("metadataJson").value = JSON.stringify({ source: "admin" }, null, 2);
+    }
+
+    function selectSuppression(item) {
+      selectedId = item.id;
+      document.getElementById("email").value = item.email || "";
+      document.getElementById("reason").value = item.reason || "manual";
+      document.getElementById("source").value = item.source || "manual_admin";
+      document.getElementById("providerMessageId").value = item.provider_message_id || "";
+      document.getElementById("contactId").value = item.contact_id || "";
+      document.getElementById("metadataJson").value = JSON.stringify(
+        item.metadata_json || {},
+        null,
+        2
+      );
+      writeResult(item);
+    }
+
+    function renderStats(items, total) {
+      const counts = items.reduce((acc, item) => {
+        acc[item.reason] = (acc[item.reason] || 0) + 1;
+        return acc;
+      }, {});
+      const stats = document.getElementById("stats");
+      stats.textContent = "";
+      [{ label: "Total", value: total }, ...Object.entries(counts).map(([label, value]) => ({
+        label,
+        value
+      }))].forEach((item) => {
+        const node = document.createElement("div");
+        node.className = "stat";
+        node.innerHTML = `<strong>${item.value}</strong><span>${item.label}</span>`;
+        stats.appendChild(node);
+      });
+    }
+
+    function renderItems() {
+      const query = document.getElementById("search").value.trim().toLowerCase();
+      const filtered = suppressions.filter((item) => {
+        const text = `${item.email} ${item.reason} ${item.source}`.toLowerCase();
+        return !query || text.includes(query);
+      });
+      const container = document.getElementById("items");
+      container.textContent = "";
+      filtered.forEach((item) => {
+        const button = document.createElement("button");
+        button.className = "item";
+        button.type = "button";
+        button.textContent = item.email;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.reason} - ${item.source} - ${item.id}`;
+        button.appendChild(detail);
+        button.addEventListener("click", () => selectSuppression(item));
+        container.appendChild(button);
+      });
+    }
+
+    async function loadSuppressions() {
+      const data = await request("/api/v1/suppressions/list?limit=500&offset=0");
+      suppressions = data.items;
+      renderStats(suppressions, data.total);
+      renderItems();
+    }
+
+    async function saveSuppression() {
+      const payload = {
+        email: document.getElementById("email").value.trim(),
+        reason: document.getElementById("reason").value,
+        source: document.getElementById("source").value.trim() || "manual_admin",
+        provider_message_id: document.getElementById("providerMessageId").value.trim() || null,
+        contact_id: document.getElementById("contactId").value.trim() || null,
+        metadata_json: parseMetadata()
+      };
+      await request("/api/v1/suppressions", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      await loadSuppressions();
+    }
+
+    async function deleteSuppression() {
+      if (!selectedId) {
+        writeResult("Select a suppression first.", false);
+        return;
+      }
+      await request(`/api/v1/suppressions/${selectedId}`, { method: "DELETE" });
+      resetForm();
+      await loadSuppressions();
+    }
+
+    document.getElementById("refresh").addEventListener("click", () => {
+      loadSuppressions().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("search").addEventListener("input", renderItems);
+    document.getElementById("save").addEventListener("click", () => {
+      saveSuppression().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("delete").addEventListener("click", () => {
+      deleteSuppression().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("clear").addEventListener("click", () => {
+      result.textContent = "";
+    });
+
+    resetForm();
+    loadSuppressions().catch((error) => writeResult(error.message, false));
   </script>
 </body>
 </html>"""
@@ -2278,6 +2659,7 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>
@@ -2688,6 +3070,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       <button class="secondary" onclick="location.href='/admin/audiences'">Audience Builder</button>
       <button class="secondary" onclick="location.href='/admin/campaigns'">Campaign Manager</button>
       <button class="secondary" onclick="location.href='/admin/delivery'">Delivery Manager</button>
+      <button class="secondary" onclick="location.href='/admin/suppressions'">Suppressions</button>
       <button class="secondary" onclick="location.href='/admin/analytics'">Analytics</button>
       <button class="secondary" onclick="location.href='/admin/data-sources'">Data Sources</button>
       <button class="secondary" onclick="location.href='/docs'">Docs</button>

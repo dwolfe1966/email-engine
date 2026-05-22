@@ -1,5 +1,5 @@
 import json
-from typing import Annotated
+from typing import Annotated, cast
 from urllib.parse import quote, urlparse
 from uuid import UUID
 
@@ -56,6 +56,7 @@ from email_platform.schemas.contracts import (
     ProviderWebhookIngestRead,
     SendGridWebhookEvent,
     SendResponse,
+    SuppressionCreate,
     SuppressionRead,
     TemplateCreate,
     TemplatePreviewRead,
@@ -467,6 +468,41 @@ def list_suppressions(
     offset: Offset = 0,
 ) -> list[Suppression]:
     return SuppressionService(db).list_items(limit=limit, offset=offset)
+
+
+@router.get('/suppressions/list', response_model=ListResponse[SuppressionRead])
+def list_suppressions_enveloped(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = SuppressionService(db)
+    return {
+        'items': service.list_items(limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(),
+    }
+
+
+@router.post('/suppressions', response_model=SuppressionRead)
+def create_suppression(payload: SuppressionCreate, db: DbSession) -> Suppression:
+    return SuppressionService(db).create_manual(
+        email=str(payload.email),
+        reason=payload.reason,
+        source=payload.source,
+        provider_message_id=payload.provider_message_id,
+        metadata_json=cast(dict[str, object], payload.metadata_json),
+        contact_id=payload.contact_id,
+    )
+
+
+@router.delete('/suppressions/{suppression_id}', response_model=DeleteResponse)
+def delete_suppression(suppression_id: UUID, db: DbSession) -> DeleteResponse:
+    deleted = SuppressionService(db).delete(suppression_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail='Suppression not found')
+    return DeleteResponse(id=suppression_id)
 
 
 @router.get('/audiences/contacts', response_model=list[ContactRead])

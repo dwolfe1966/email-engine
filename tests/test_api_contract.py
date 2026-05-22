@@ -27,6 +27,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/tracking/open/{token}',
         '/api/v1/provider-webhooks/sendgrid',
         '/api/v1/suppressions',
+        '/api/v1/suppressions/list',
+        '/api/v1/suppressions/{suppression_id}',
         '/api/v1/audiences/contacts',
         '/api/v1/audiences/contacts/list',
         '/api/v1/audiences/contacts/meta',
@@ -78,6 +80,7 @@ def test_api_tester_page() -> None:
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
+    assert '/admin/suppressions' in response.text
     assert '/admin/analytics' in response.text
     assert '/admin/data-sources' in response.text
     assert '/docs' in response.text
@@ -94,6 +97,7 @@ def test_template_editor_page() -> None:
     assert '/admin/audiences' in response.text
     assert '/admin/campaigns' in response.text
     assert '/admin/delivery' in response.text
+    assert '/admin/suppressions' in response.text
     assert '/admin/analytics' in response.text
     assert '/admin/data-sources' in response.text
 
@@ -106,6 +110,7 @@ def test_admin_pages() -> None:
     audiences = client.get('/admin/audiences')
     campaigns = client.get('/admin/campaigns')
     delivery = client.get('/admin/delivery')
+    suppressions = client.get('/admin/suppressions')
     analytics = client.get('/admin/analytics')
     data_sources = client.get('/admin/data-sources')
     assert home.status_code == 200
@@ -114,6 +119,7 @@ def test_admin_pages() -> None:
     assert audiences.status_code == 200
     assert campaigns.status_code == 200
     assert delivery.status_code == 200
+    assert suppressions.status_code == 200
     assert analytics.status_code == 200
     assert data_sources.status_code == 200
     assert 'Email Engine Admin' in home.text
@@ -124,6 +130,8 @@ def test_admin_pages() -> None:
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
+    assert 'Email Engine Suppressions' in suppressions.text
+    assert 'Save Suppression' in suppressions.text
     assert 'Email Engine Analytics' in analytics.text
     assert 'Campaign Analytics' in analytics.text
     assert 'Email Engine Data Sources' in data_sources.text
@@ -138,6 +146,7 @@ def test_admin_pages() -> None:
     assert '/admin/audiences' in home.text
     assert '/admin/campaigns' in home.text
     assert '/admin/delivery' in home.text
+    assert '/admin/suppressions' in home.text
     assert '/admin/analytics' in home.text
     assert '/admin/data-sources' in home.text
     assert '/docs' in home.text

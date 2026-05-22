@@ -257,6 +257,15 @@ class SuppressionRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class SuppressionCreate(BaseModel):
+    email: EmailStr
+    reason: SuppressionReason = SuppressionReason.manual
+    source: str = 'manual_admin'
+    provider_message_id: str | None = None
+    metadata_json: JsonObject = Field(default_factory=dict)
+    contact_id: UUID | None = None
+
+
 class SendGridWebhookEvent(BaseModel):
     email: EmailStr
     event: str

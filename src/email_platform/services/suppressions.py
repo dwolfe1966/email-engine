@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import Contact, Suppression, SuppressionReason
@@ -51,6 +51,27 @@ class SuppressionService:
             contact.is_unsubscribed = True
         return suppression
 
+    def create_manual(
+        self,
+        email: str,
+        reason: SuppressionReason,
+        source: str,
+        provider_message_id: str | None = None,
+        metadata_json: dict[str, object] | None = None,
+        contact_id: UUID | None = None,
+    ) -> Suppression:
+        suppression = self.create_or_update(
+            email=email,
+            reason=reason,
+            source=source,
+            provider_message_id=provider_message_id,
+            metadata_json=metadata_json,
+            contact_id=contact_id,
+        )
+        self.db.commit()
+        self.db.refresh(suppression)
+        return suppression
+
     def list_items(self, limit: int = 100, offset: int = 0) -> list[Suppression]:
         statement = (
             select(Suppression)
@@ -59,3 +80,14 @@ class SuppressionService:
             .offset(offset)
         )
         return list(self.db.scalars(statement).all())
+
+    def count(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Suppression)) or 0
+
+    def delete(self, suppression_id: UUID) -> bool:
+        suppression = self.db.get(Suppression, suppression_id)
+        if not suppression:
+            return False
+        self.db.delete(suppression)
+        self.db.commit()
+        return True
