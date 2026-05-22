@@ -39,6 +39,7 @@ from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
+    CampaignPerformanceRead,
     CampaignRead,
     CampaignSendJobRead,
     CampaignUpdate,
@@ -55,6 +56,7 @@ from email_platform.schemas.contracts import (
     DataSourceUpdate,
     DeleteResponse,
     DeliveryRunRead,
+    DomainDeliverabilityRead,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -300,6 +302,35 @@ def get_campaign_analytics(
 @router.get('/analytics/overview', response_model=AnalyticsOverviewRead)
 def get_analytics_overview(db: DbSession, recent_event_limit: Limit = 25) -> AnalyticsOverviewRead:
     return AnalyticsService(db).overview(recent_event_limit=recent_event_limit)
+
+
+@router.get('/analytics/campaigns', response_model=ListResponse[CampaignPerformanceRead])
+def list_campaign_performance(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    items, total = AnalyticsService(db).campaign_performance(limit=limit, offset=offset)
+    return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
+
+
+@router.get('/analytics/domains', response_model=ListResponse[DomainDeliverabilityRead])
+def list_domain_deliverability(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    provider: str | None = None,
+) -> dict[str, object]:
+    items, total = AnalyticsService(db).domain_deliverability(
+        limit=limit,
+        offset=offset,
+        campaign_id=campaign_id,
+        send_job_id=send_job_id,
+        provider=provider,
+    )
+    return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
 
 
 @router.get('/journeys', response_model=list[JourneyRead])

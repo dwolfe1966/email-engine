@@ -89,11 +89,13 @@ This backlog is organized around the target platform capabilities:
 ## P8: Analytics
 
 - Add campaign rollups for sent, delivered, opened, clicked, bounced, complained, unsubscribed, failed, and suppressed counts.
+  **Initial campaign performance report endpoint shipped.**
 - Add dashboard summary endpoint for the GUI.
   **Initial v1 analytics overview endpoint shipped.**
 - Add audience performance reports.
 - Add journey performance reports by step and branch.
 - Add provider/domain deliverability reports.
+  **Initial domain deliverability report endpoint shipped.**
 - Add cohort reports by source, segment, and imported data attributes.
 
 ## P9: Scale, Operations, And Compliance

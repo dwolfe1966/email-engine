@@ -2650,6 +2650,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             <option value="">Select send record</option>
           </select>
         </label>
+        <label>Provider
+          <input id="provider" placeholder="sendgrid" />
+        </label>
         <div class="inline">
           <label>Limit
             <input id="limit" type="number" min="1" max="500" value="100" />
@@ -2661,6 +2664,8 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         <div class="actions">
           <button id="campaignAnalytics">Campaign Analytics</button>
           <button class="secondary" id="analyticsOverview">Analytics Overview</button>
+          <button class="secondary" id="campaignPerformance">Campaign Performance</button>
+          <button class="secondary" id="domainDeliverability">Domain Deliverability</button>
           <button class="secondary" id="eventTimeline">Event Timeline</button>
           <button class="secondary" id="events">Raw Events</button>
           <button class="secondary" id="jobs">Send Jobs</button>
@@ -2788,6 +2793,18 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       await request(`/api/v1/analytics/overview?${params.toString()}`);
     }
 
+    async function campaignPerformance() {
+      await request(`/api/v1/analytics/campaigns?${pageQuery().toString()}`);
+    }
+
+    async function domainDeliverability() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      if (value("provider")) params.set("provider", value("provider"));
+      await request(`/api/v1/analytics/domains?${params.toString()}`);
+    }
+
     async function eventTimeline() {
       const params = pageQuery();
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
@@ -2826,6 +2843,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     });
     document.getElementById("analyticsOverview").addEventListener("click", () => {
       analyticsOverview().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("campaignPerformance").addEventListener("click", () => {
+      campaignPerformance().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("domainDeliverability").addEventListener("click", () => {
+      domainDeliverability().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("eventTimeline").addEventListener("click", () => {
       eventTimeline().catch((error) => writeResult(error.message, false));

@@ -553,6 +553,45 @@ class AnalyticsOverviewRead(BaseModel):
     recent_events: list[EventRead]
 
 
+class CampaignPerformanceRead(BaseModel):
+    campaign_id: UUID
+    name: str
+    status: CampaignStatus
+    requested_count: int
+    queued_count: int
+    sent_count: int
+    failed_count: int
+    suppressed_count: int
+    delivered_count: int
+    opened_count: int
+    clicked_count: int
+    bounced_count: int
+    complained_count: int
+    unsubscribed_count: int
+    open_rate: float
+    click_rate: float
+    bounce_rate: float
+
+
+class DomainDeliverabilityRead(BaseModel):
+    domain: str
+    provider: str | None = None
+    send_record_count: int
+    queued_count: int
+    sent_count: int
+    failed_count: int
+    suppressed_count: int
+    delivered_count: int
+    opened_count: int
+    clicked_count: int
+    bounced_count: int
+    complained_count: int
+    unsubscribed_count: int
+    open_rate: float
+    click_rate: float
+    bounce_rate: float
+
+
 class UnsubscribeTokenRead(BaseModel):
     contact_id: UUID
     token: str

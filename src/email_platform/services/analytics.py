@@ -15,6 +15,8 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     AnalyticsOverviewRead,
     CampaignAnalyticsRead,
+    CampaignPerformanceRead,
+    DomainDeliverabilityRead,
     EventRead,
     MetricCount,
 )
@@ -100,6 +102,95 @@ class AnalyticsService:
             recent_events=recent_events,
         )
 
+    def campaign_performance(
+        self, limit: int = 100, offset: int = 0
+    ) -> tuple[list[CampaignPerformanceRead], int]:
+        campaigns = list(
+            self.db.scalars(
+                select(Campaign)
+                .order_by(Campaign.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            ).all()
+        )
+        rows = []
+        for campaign in campaigns:
+            metrics = self.campaign_metrics(campaign.id)
+            if not metrics:
+                continue
+            rows.append(
+                CampaignPerformanceRead(
+                    campaign_id=campaign.id,
+                    name=campaign.name,
+                    status=campaign.status,
+                    requested_count=metrics.requested_count,
+                    queued_count=metrics.queued_count,
+                    sent_count=metrics.sent_count,
+                    failed_count=metrics.failed_count,
+                    suppressed_count=metrics.suppressed_count,
+                    delivered_count=metrics.delivered_count,
+                    opened_count=metrics.opened_count,
+                    clicked_count=metrics.clicked_count,
+                    bounced_count=metrics.bounced_count,
+                    complained_count=metrics.complained_count,
+                    unsubscribed_count=metrics.unsubscribed_count,
+                    open_rate=metrics.open_rate,
+                    click_rate=metrics.click_rate,
+                    bounce_rate=metrics.bounce_rate,
+                )
+            )
+        return rows, self._row_count(Campaign)
+
+    def domain_deliverability(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        campaign_id: UUID | None = None,
+        send_job_id: UUID | None = None,
+        provider: str | None = None,
+    ) -> tuple[list[DomainDeliverabilityRead], int]:
+        statement = select(EmailSendRecord)
+        if campaign_id:
+            statement = statement.where(EmailSendRecord.campaign_id == campaign_id)
+        if send_job_id:
+            statement = statement.where(EmailSendRecord.send_job_id == send_job_id)
+        if provider:
+            statement = statement.where(EmailSendRecord.provider == provider)
+        records = list(self.db.scalars(statement).all())
+
+        buckets: dict[tuple[str, str | None], dict[str, int]] = {}
+        record_bucket_keys: dict[UUID, tuple[str, str | None]] = {}
+        for record in records:
+            domain = self._email_domain(record.to_email)
+            key = (domain, record.provider)
+            bucket = buckets.setdefault(key, self._empty_domain_bucket())
+            record_bucket_keys[record.id] = key
+            bucket['send_record_count'] += 1
+            bucket[f'{record.status.value}_count'] = bucket.get(
+                f'{record.status.value}_count', 0
+            ) + 1
+
+        if record_bucket_keys:
+            event_statement = select(EmailEvent).where(
+                EmailEvent.send_record_id.in_(record_bucket_keys.keys())
+            )
+            for event in self.db.scalars(event_statement).all():
+                if not event.send_record_id:
+                    continue
+                event_key = record_bucket_keys.get(event.send_record_id)
+                if not event_key:
+                    continue
+                buckets[event_key][f'{event.event_type.value}_count'] = buckets[event_key].get(
+                    f'{event.event_type.value}_count', 0
+                ) + 1
+
+        rows = [
+            self._domain_row(domain=domain, provider=provider_name, counts=counts)
+            for (domain, provider_name), counts in buckets.items()
+        ]
+        rows.sort(key=lambda row: row.send_record_count, reverse=True)
+        return rows[offset : offset + limit], len(rows)
+
     def _requested_count(self, campaign_id: UUID, send_job_id: UUID | None) -> int:
         if send_job_id:
             job = self.db.get(CampaignSendJob, send_job_id)
@@ -150,6 +241,52 @@ class AnalyticsService:
 
     def _row_count(self, model: type[object]) -> int:
         return self.db.scalar(select(func.count()).select_from(model)) or 0
+
+    def _email_domain(self, email: str) -> str:
+        if '@' not in email:
+            return 'unknown'
+        return email.rsplit('@', 1)[1].lower()
+
+    def _empty_domain_bucket(self) -> dict[str, int]:
+        return {
+            'send_record_count': 0,
+            'queued_count': 0,
+            'sent_count': 0,
+            'failed_count': 0,
+            'suppressed_count': 0,
+            'delivered_count': 0,
+            'opened_count': 0,
+            'clicked_count': 0,
+            'bounced_count': 0,
+            'complained_count': 0,
+            'unsubscribed_count': 0,
+        }
+
+    def _domain_row(
+        self, domain: str, provider: str | None, counts: dict[str, int]
+    ) -> DomainDeliverabilityRead:
+        rate_base = max(counts['sent_count'], counts['delivered_count'])
+        return DomainDeliverabilityRead(
+            domain=domain,
+            provider=provider,
+            send_record_count=counts['send_record_count'],
+            queued_count=counts['queued_count'],
+            sent_count=counts['sent_count'],
+            failed_count=counts['failed_count'],
+            suppressed_count=counts['suppressed_count'],
+            delivered_count=counts['delivered_count'],
+            opened_count=counts['opened_count'],
+            clicked_count=counts['clicked_count'],
+            bounced_count=counts['bounced_count'],
+            complained_count=counts['complained_count'],
+            unsubscribed_count=counts['unsubscribed_count'],
+            open_rate=self._rate(counts['opened_count'], rate_base),
+            click_rate=self._rate(counts['clicked_count'], rate_base),
+            bounce_rate=self._rate(
+                counts['bounced_count'],
+                max(counts['sent_count'], counts['send_record_count']),
+            ),
+        )
 
     def _rate(self, numerator: int, denominator: int) -> float:
         if denominator <= 0:
