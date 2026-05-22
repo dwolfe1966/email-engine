@@ -31,6 +31,7 @@ from email_platform.schemas.contracts import (
     AudienceCreate,
     AudienceImportPreviewRead,
     AudienceImportRead,
+    AudiencePerformanceRead,
     AudiencePreviewRead,
     AudiencePreviewRequest,
     AudienceRead,
@@ -312,6 +313,21 @@ def list_campaign_performance(
     offset: Offset = 0,
 ) -> dict[str, object]:
     items, total = AnalyticsService(db).campaign_performance(limit=limit, offset=offset)
+    return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
+
+
+@router.get('/analytics/audiences', response_model=ListResponse[AudiencePerformanceRead])
+def list_audience_performance(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+    audience_id: UUID | None = None,
+) -> dict[str, object]:
+    items, total = AnalyticsService(db).audience_performance(
+        limit=limit,
+        offset=offset,
+        audience_id=audience_id,
+    )
     return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
 
 

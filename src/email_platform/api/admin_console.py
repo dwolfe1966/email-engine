@@ -2655,6 +2655,11 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             <option value="">All journeys</option>
           </select>
         </label>
+        <label>Audience
+          <select id="audienceId">
+            <option value="">All audiences</option>
+          </select>
+        </label>
         <label>Provider
           <input id="provider" placeholder="sendgrid" />
         </label>
@@ -2669,6 +2674,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         <div class="actions">
           <button id="campaignAnalytics">Campaign Analytics</button>
           <button class="secondary" id="analyticsOverview">Analytics Overview</button>
+          <button class="secondary" id="audiencePerformance">Audience Performance</button>
           <button class="secondary" id="campaignPerformance">Campaign Performance</button>
           <button class="secondary" id="domainDeliverability">Domain Deliverability</button>
           <button class="secondary" id="journeyPerformance">Journey Performance</button>
@@ -2690,6 +2696,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
   </main>
   <script>
     const result = document.getElementById("result");
+    const audiences = [];
     const campaigns = [];
     const journeys = [];
     const sendJobs = [];
@@ -2757,6 +2764,15 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       }
     }
 
+    async function loadAudienceOptions() {
+      const data = await fetchJson(`/api/v1/audiences/list?${pageQuery().toString()}`);
+      audiences.splice(0, audiences.length, ...data.items);
+      const select = resetSelect("audienceId", "All audiences");
+      for (const item of audiences) {
+        select.appendChild(option(`${item.name} - ${item.status} - ${shortId(item.id)}`, item.id));
+      }
+    }
+
     async function loadJourneyOptions() {
       const data = await fetchJson(`/api/v1/journeys/list?${pageQuery().toString()}`);
       journeys.splice(0, journeys.length, ...data.items);
@@ -2813,6 +2829,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       await request(`/api/v1/analytics/campaigns?${pageQuery().toString()}`);
     }
 
+    async function audiencePerformance() {
+      const params = pageQuery();
+      if (value("audienceId")) params.set("audience_id", value("audienceId"));
+      await request(`/api/v1/analytics/audiences?${params.toString()}`);
+    }
+
     async function domainDeliverability() {
       const params = pageQuery();
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
@@ -2866,6 +2888,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     document.getElementById("analyticsOverview").addEventListener("click", () => {
       analyticsOverview().catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("audiencePerformance").addEventListener("click", () => {
+      audiencePerformance().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("campaignPerformance").addEventListener("click", () => {
       campaignPerformance().catch((error) => writeResult(error.message, false));
     });
@@ -2903,6 +2928,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     });
 
     loadCampaignOptions()
+      .then(loadAudienceOptions)
       .then(loadJourneyOptions)
       .then(loadJobOptions)
       .then(loadRecordOptions)

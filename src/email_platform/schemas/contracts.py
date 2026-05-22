@@ -573,6 +573,28 @@ class CampaignPerformanceRead(BaseModel):
     bounce_rate: float
 
 
+class AudiencePerformanceRead(BaseModel):
+    audience_id: UUID
+    name: str
+    status: AudienceStatus
+    estimated_count: int
+    send_job_count: int
+    requested_count: int
+    queued_count: int
+    sent_count: int
+    failed_count: int
+    suppressed_count: int
+    delivered_count: int
+    opened_count: int
+    clicked_count: int
+    bounced_count: int
+    complained_count: int
+    unsubscribed_count: int
+    open_rate: float
+    click_rate: float
+    bounce_rate: float
+
+
 class DomainDeliverabilityRead(BaseModel):
     domain: str
     provider: str | None = None

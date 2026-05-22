@@ -5,8 +5,8 @@
 - Platform: Vercel
 - Project: `email-engine-api`
 - Production alias: `https://email-engine.app`
-- Latest verified deployment: `https://email-engine-87lrgucxt-dwolfe1966s-projects.vercel.app`
-- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/gui5FDyDuDR8cJrwhhqjaiVPwn9X`
+- Latest verified deployment: `https://email-engine-r5goa1r39-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/5HdTJXkxCcYt36LSf93mMEU3svfQ`
 
 ## Database
 

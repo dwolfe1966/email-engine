@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
+    Audience,
     Campaign,
     CampaignSendJob,
     Contact,
@@ -20,6 +21,7 @@ from email_platform.models.entities import (
 )
 from email_platform.schemas.contracts import (
     AnalyticsOverviewRead,
+    AudiencePerformanceRead,
     CampaignAnalyticsRead,
     CampaignPerformanceRead,
     DomainDeliverabilityRead,
@@ -148,6 +150,22 @@ class AnalyticsService:
                 )
             )
         return rows, self._row_count(Campaign)
+
+    def audience_performance(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        audience_id: UUID | None = None,
+    ) -> tuple[list[AudiencePerformanceRead], int]:
+        statement = select(Audience).order_by(Audience.created_at.desc())
+        count_statement = select(func.count()).select_from(Audience)
+        if audience_id:
+            statement = statement.where(Audience.id == audience_id)
+            count_statement = count_statement.where(Audience.id == audience_id)
+        audiences = list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+        return [self._audience_row(audience) for audience in audiences], (
+            self.db.scalar(count_statement) or 0
+        )
 
     def domain_deliverability(
         self,
@@ -311,6 +329,64 @@ class AnalyticsService:
                 max(counts['sent_count'], counts['send_record_count']),
             ),
         )
+
+    def _audience_row(self, audience: Audience) -> AudiencePerformanceRead:
+        jobs = self._audience_send_jobs(audience)
+        job_ids = [job.id for job in jobs]
+        status_counts = self._send_record_status_counts(send_job_ids=job_ids)
+        event_counts = self._send_record_event_counts(send_job_ids=job_ids)
+        requested_count = sum(job.requested_count for job in jobs)
+        sent_count = status_counts.get(EmailSendStatus.sent.value, 0)
+        delivered_count = event_counts.get(EmailEventType.delivered.value, 0)
+        rate_base = max(sent_count, delivered_count)
+        return AudiencePerformanceRead(
+            audience_id=audience.id,
+            name=audience.name,
+            status=audience.status,
+            estimated_count=audience.estimated_count,
+            send_job_count=len(jobs),
+            requested_count=requested_count,
+            queued_count=status_counts.get(EmailSendStatus.queued.value, 0),
+            sent_count=sent_count,
+            failed_count=status_counts.get(EmailSendStatus.failed.value, 0),
+            suppressed_count=status_counts.get(EmailSendStatus.suppressed.value, 0),
+            delivered_count=delivered_count,
+            opened_count=event_counts.get(EmailEventType.opened.value, 0),
+            clicked_count=event_counts.get(EmailEventType.clicked.value, 0),
+            bounced_count=event_counts.get(EmailEventType.bounced.value, 0),
+            complained_count=event_counts.get(EmailEventType.complained.value, 0),
+            unsubscribed_count=event_counts.get(EmailEventType.unsubscribed.value, 0),
+            open_rate=self._rate(event_counts.get(EmailEventType.opened.value, 0), rate_base),
+            click_rate=self._rate(event_counts.get(EmailEventType.clicked.value, 0), rate_base),
+            bounce_rate=self._rate(
+                event_counts.get(EmailEventType.bounced.value, 0),
+                max(sent_count, requested_count),
+            ),
+        )
+
+    def _audience_send_jobs(self, audience: Audience) -> list[CampaignSendJob]:
+        jobs = list(self.db.scalars(select(CampaignSendJob)).all())
+        return [job for job in jobs if job.audience_rule_tree == audience.rule_tree]
+
+    def _send_record_status_counts(self, send_job_ids: list[UUID]) -> dict[str, int]:
+        if not send_job_ids:
+            return {}
+        statement = (
+            select(EmailSendRecord.status, func.count())
+            .where(EmailSendRecord.send_job_id.in_(send_job_ids))
+            .group_by(EmailSendRecord.status)
+        )
+        return {status.value: count for status, count in self.db.execute(statement).all()}
+
+    def _send_record_event_counts(self, send_job_ids: list[UUID]) -> dict[str, int]:
+        if not send_job_ids:
+            return {}
+        statement = (
+            select(EmailEvent.event_type, func.count())
+            .where(EmailEvent.send_job_id.in_(send_job_ids))
+            .group_by(EmailEvent.event_type)
+        )
+        return {event_type.value: count for event_type, count in self.db.execute(statement).all()}
 
     def _journey_row(self, journey: Journey) -> JourneyPerformanceRead:
         enrollment_counts = self._journey_enrollment_counts(journey.id)
