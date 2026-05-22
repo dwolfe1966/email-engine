@@ -56,6 +56,12 @@ class DataSourceStatus(StrEnum):
     paused = 'paused'
 
 
+class DataSourceImportStatus(StrEnum):
+    completed = 'completed'
+    failed = 'failed'
+    dry_run = 'dry_run'
+
+
 class AudienceStatus(StrEnum):
     draft = 'draft'
     active = 'active'
@@ -200,6 +206,33 @@ class DataSourceMapping(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     data_source: Mapped[DataSource] = relationship()
+
+
+class DataSourceImportJob(Base):
+    __tablename__ = 'data_source_import_jobs'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    data_source_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('data_sources.id'), index=True
+    )
+    mapping_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('data_source_mappings.id'), index=True
+    )
+    status: Mapped[DataSourceImportStatus] = mapped_column(
+        Enum(DataSourceImportStatus), default=DataSourceImportStatus.completed, index=True
+    )
+    object_type: Mapped[str] = mapped_column(String(100), index=True)
+    received_count: Mapped[int] = mapped_column(Integer, default=0)
+    imported_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_count: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[list[object]] = mapped_column(JSONB, default=list)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    data_source: Mapped[DataSource] = relationship()
+    mapping: Mapped[DataSourceMapping] = relationship()
 
 
 class Audience(Base):

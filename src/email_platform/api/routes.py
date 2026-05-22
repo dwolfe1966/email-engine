@@ -43,6 +43,8 @@ from email_platform.schemas.contracts import (
     ContactUpdate,
     ContactUpsert,
     DataSourceCreate,
+    DataSourceImportJobRead,
+    DataSourceIngestRequest,
     DataSourceMappingCreate,
     DataSourceMappingRead,
     DataSourceMappingUpdate,
@@ -844,6 +846,41 @@ def delete_data_source_mapping(mapping_id: UUID, db: DbSession) -> dict[str, UUI
     if not DataSourceService(db).delete_mapping(mapping_id):
         raise HTTPException(status_code=404, detail='Data source mapping not found')
     return {'id': mapping_id}
+
+
+@router.post('/data-sources/{data_source_id}/ingest', response_model=DataSourceImportJobRead)
+def ingest_data_source_rows(
+    data_source_id: UUID,
+    payload: DataSourceIngestRequest,
+    db: DbSession,
+) -> object:
+    job = DataSourceService(db).ingest_rows(data_source_id, payload)
+    if not job:
+        raise HTTPException(status_code=404, detail='Data source or mapping not found')
+    return job
+
+
+@router.get(
+    '/data-source-import-jobs/list',
+    response_model=ListResponse[DataSourceImportJobRead],
+)
+def list_data_source_import_jobs(
+    db: DbSession,
+    data_source_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = DataSourceService(db)
+    return {
+        'items': service.list_import_jobs(
+            data_source_id=data_source_id,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_import_jobs(data_source_id=data_source_id),
+    }
 
 
 @router.get('/audiences', response_model=list[AudienceRead])

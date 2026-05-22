@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 from email_platform.models.entities import (
     AudienceStatus,
     CampaignStatus,
+    DataSourceImportStatus,
     DataSourceStatus,
     DataSourceType,
     EmailEventType,
@@ -418,6 +419,31 @@ class DataSourceMappingUpdate(BaseModel):
 
 class DataSourceMappingRead(DataSourceMappingCreate):
     id: UUID
+
+    model_config = {'from_attributes': True}
+
+
+class DataSourceIngestRequest(BaseModel):
+    mapping_id: UUID
+    rows: list[JsonObject]
+    dry_run: bool = False
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class DataSourceImportJobRead(BaseModel):
+    id: UUID
+    data_source_id: UUID
+    mapping_id: UUID
+    status: DataSourceImportStatus
+    object_type: str
+    received_count: int
+    imported_count: int
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    errors: list[object]
+    metadata_json: JsonObject
+    created_at: datetime
 
     model_config = {'from_attributes': True}
 

@@ -3261,6 +3261,17 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
           <textarea id="extractionPlan"></textarea>
         </label>
         <div class="items" id="mappings"></div>
+        <div class="head">
+          <h2>Ingestion</h2>
+          <button class="secondary" id="loadImportJobs">Import Jobs</button>
+        </div>
+        <div class="actions">
+          <button id="ingestRows">Ingest Rows</button>
+          <button class="secondary" id="dryRunRows">Dry Run</button>
+        </div>
+        <label>Rows JSON
+          <textarea id="ingestRowsJson"></textarea>
+        </label>
       </div>
     </section>
     <section>
@@ -3320,6 +3331,11 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
         2
       );
       document.getElementById("extractionPlan").value = "{}";
+      document.getElementById("ingestRowsJson").value = JSON.stringify(
+        [{ email: "person@example.com", first_name: "Person", segment: "demo" }],
+        null,
+        2
+      );
     }
 
     function selectSource(item) {
@@ -3443,6 +3459,30 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       await loadMappings();
     }
 
+    async function ingestRows(dryRun) {
+      if (!selectedSourceId || !selectedMappingId) {
+        writeResult("Select a data source and mapping first.", false);
+        return;
+      }
+      const payload = {
+        mapping_id: selectedMappingId,
+        rows: parseJson("ingestRowsJson", []),
+        dry_run: dryRun,
+        metadata_json: { source: "admin_data_sources" }
+      };
+      await request(`/api/v1/data-sources/${selectedSourceId}/ingest`, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+    }
+
+    async function loadImportJobs() {
+      const query = selectedSourceId
+        ? `?data_source_id=${selectedSourceId}&limit=100&offset=0`
+        : "?limit=100&offset=0";
+      await request(`/api/v1/data-source-import-jobs/list${query}`);
+    }
+
     document.getElementById("refreshSources").addEventListener("click", () => {
       loadSources().catch((error) => writeResult(error.message, false));
     });
@@ -3462,6 +3502,15 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
     });
     document.getElementById("deleteMapping").addEventListener("click", () => {
       deleteMapping().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("ingestRows").addEventListener("click", () => {
+      ingestRows(false).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("dryRunRows").addEventListener("click", () => {
+      ingestRows(true).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadImportJobs").addEventListener("click", () => {
+      loadImportJobs().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";
