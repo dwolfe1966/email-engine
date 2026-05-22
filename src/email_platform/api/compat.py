@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from email_platform.db.session import get_db
@@ -77,7 +77,11 @@ def compat_create_template_version(
     template = service.get(template_id)
     if not version or not template:
         raise HTTPException(status_code=404, detail='Template not found')
-    return _template_detail(template)
+    return {
+        'version_id': str(version.id),
+        'version_number': version.version_number,
+        'template': _template_detail(template),
+    }
 
 
 @router.get('/templates/{template_id}')
@@ -157,7 +161,7 @@ def compat_delete_template(template_id: UUID, db: DbSession) -> dict[str, object
 @router.post('/render')
 def compat_render(payload: dict[str, object], db: DbSession) -> dict[str, object]:
     template_id = payload.get('template_id')
-    variables = _object_payload(payload.get('variables'))
+    variables = _object_payload(payload.get('variables', payload.get('slots')))
     if template_id:
         template = TemplateService(db).get(UUID(str(template_id)))
         if not template:
@@ -201,21 +205,45 @@ def compat_list_contacts(
     limit: Limit = 100,
     offset: Offset = 0,
     email: str | None = None,
+    q: str | None = None,
     source: str | None = None,
+    state: str | None = None,
+    self_search: bool | None = None,
+    regulated: bool | None = None,
+    intent_criminal: bool | None = None,
+    consent_marketing: bool | None = None,
+    engagement: str | None = None,
 ) -> dict[str, object]:
     statement = select(Contact).order_by(Contact.created_at.desc())
     count_statement = select(func.count()).select_from(Contact)
-    if email:
-        statement = statement.where(Contact.email.ilike(f'%{email}%'))
-        count_statement = count_statement.where(Contact.email.ilike(f'%{email}%'))
+    search = q or email
+    if search:
+        search_filter = or_(
+            Contact.email.ilike(f'%{search}%'),
+            Contact.first_name.ilike(f'%{search}%'),
+            Contact.last_name.ilike(f'%{search}%'),
+        )
+        statement = statement.where(search_filter)
+        count_statement = count_statement.where(search_filter)
     if source:
         statement = statement.where(Contact.source == source)
         count_statement = count_statement.where(Contact.source == source)
-    contacts = list(db.scalars(statement.limit(limit).offset(offset)).all())
-    total = db.scalar(count_statement) or 0
-    return _list_response(
-        [_encoded_dict(contact) for contact in contacts], limit, offset, total
-    )
+    all_contacts = list(db.scalars(statement).all())
+    filtered = [
+        contact
+        for contact in all_contacts
+        if _contact_matches_filters(
+            contact,
+            state=state,
+            self_search=self_search,
+            regulated=regulated,
+            intent_criminal=intent_criminal,
+            consent_marketing=consent_marketing,
+            engagement=engagement,
+        )
+    ]
+    page = filtered[offset : offset + limit]
+    return _list_response([_contact_row(contact) for contact in page], limit, offset, len(filtered))
 
 
 @router.get('/contacts/_meta')
@@ -226,15 +254,15 @@ def compat_contacts_meta(db: DbSession) -> dict[str, object]:
         .group_by(Contact.source)
         .order_by(Contact.source)
     ).all()
+    contacts = list(db.scalars(select(Contact)).all())
     return {
         'total': ContactService(db).count(),
-        'marketable': db.scalar(
-            select(func.count()).select_from(Contact).where(Contact.is_unsubscribed.is_(False))
-        )
-        or 0,
-        'regulated': 0,
-        'self_search': 0,
-        'intent_criminal': 0,
+        'marketable': sum(1 for contact in contacts if not contact.is_unsubscribed),
+        'regulated': sum(1 for contact in contacts if _attribute_bool(contact, 'regulated')),
+        'self_search': sum(1 for contact in contacts if _attribute_bool(contact, 'is_self_search')),
+        'intent_criminal': sum(
+            1 for contact in contacts if _attribute_bool(contact, 'intent_criminal')
+        ),
         'sources': [{'source': source, 'count': count} for source, count in sources],
         'fields': ['email', 'first_name', 'last_name', 'source', 'is_unsubscribed', 'attributes'],
     }
@@ -724,10 +752,12 @@ def _template_update_payload(payload: dict[str, object]) -> TemplateUpdate:
         ('title', 'name'),
         ('subject', 'subject'),
         ('html_body', 'html_body'),
+        ('html_compiled', 'html_body'),
         ('html', 'html_body'),
         ('css_body', 'css_body'),
         ('css', 'css_body'),
         ('text_body', 'text_body'),
+        ('plain_text', 'text_body'),
         ('text', 'text_body'),
     ]:
         if source_key in version:
@@ -739,9 +769,13 @@ def _template_version_create_payload(payload: dict[str, object]) -> TemplateVers
     version = _object_payload(payload.get('version', payload))
     return TemplateVersionCreate(
         subject=_optional_str(version.get('subject')),
-        html_body=_optional_str(version.get('html_body', version.get('html'))),
+        html_body=_optional_str(
+            version.get('html_body', version.get('html_compiled', version.get('html')))
+        ),
         css_body=_optional_str(version.get('css_body', version.get('css'))),
-        text_body=_optional_str(version.get('text_body', version.get('text'))),
+        text_body=_optional_str(
+            version.get('text_body', version.get('plain_text', version.get('text')))
+        ),
         document_json=_object_payload(version.get('document_json', version.get('document'))),
         set_current=bool(version.get('set_current', payload.get('set_current', True))),
     )
@@ -924,6 +958,45 @@ def _contact_row(contact: Contact) -> dict[str, object]:
         'engagement': attributes.get('engagement'),
         'acquired_at': attributes.get('acquired_at'),
     }
+
+
+def _contact_matches_filters(
+    contact: Contact,
+    *,
+    state: str | None,
+    self_search: bool | None,
+    regulated: bool | None,
+    intent_criminal: bool | None,
+    consent_marketing: bool | None,
+    engagement: str | None,
+) -> bool:
+    attributes = contact.attributes or {}
+    contact_state = str(attributes.get('searched_state', attributes.get('state', ''))).upper()
+    if state and contact_state != state.upper():
+        return False
+    if self_search is not None and _attribute_bool(contact, 'is_self_search') != self_search:
+        return False
+    if regulated is not None and _attribute_bool(contact, 'regulated') != regulated:
+        return False
+    if (
+        intent_criminal is not None
+        and _attribute_bool(contact, 'intent_criminal') != intent_criminal
+    ):
+        return False
+    if consent_marketing is not None and (not contact.is_unsubscribed) != consent_marketing:
+        return False
+    if engagement and str(attributes.get('engagement', '')) != engagement:
+        return False
+    return True
+
+
+def _attribute_bool(contact: Contact, key: str) -> bool:
+    value = (contact.attributes or {}).get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in {'1', 'true', 'yes', 'y'}
+    return bool(value)
 
 
 def _template_id_from_payload(payload: Mapping[str, object], db: Session) -> UUID:
