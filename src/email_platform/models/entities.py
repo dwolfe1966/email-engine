@@ -77,6 +77,20 @@ class JourneyStepType(StrEnum):
     webhook = 'webhook'
 
 
+class JourneyEnrollmentStatus(StrEnum):
+    active = 'active'
+    completed = 'completed'
+    exited = 'exited'
+    paused = 'paused'
+    failed = 'failed'
+
+
+class JourneyStepExecutionStatus(StrEnum):
+    completed = 'completed'
+    failed = 'failed'
+    skipped = 'skipped'
+
+
 class SendJobStatus(StrEnum):
     queued = 'queued'
     processing = 'processing'
@@ -262,6 +276,73 @@ class JourneyStep(Base):
     )
 
     journey: Mapped[Journey] = relationship(back_populates='steps')
+
+
+class JourneyEnrollment(Base):
+    __tablename__ = 'journey_enrollments'
+    __table_args__ = (
+        UniqueConstraint('journey_id', 'contact_id', name='uq_journey_enrollment_contact'),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    journey_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journeys.id'), index=True
+    )
+    contact_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('contacts.id'), index=True
+    )
+    current_step_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journey_steps.id'), index=True
+    )
+    status: Mapped[JourneyEnrollmentStatus] = mapped_column(
+        Enum(JourneyEnrollmentStatus), default=JourneyEnrollmentStatus.active, index=True
+    )
+    variables: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    entered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    exited_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    contact: Mapped[Contact] = relationship()
+    current_step: Mapped[JourneyStep | None] = relationship(foreign_keys=[current_step_id])
+    journey: Mapped[Journey] = relationship()
+
+
+class JourneyStepExecution(Base):
+    __tablename__ = 'journey_step_executions'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    enrollment_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journey_enrollments.id'), index=True
+    )
+    journey_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journeys.id'), index=True
+    )
+    step_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('journey_steps.id'), index=True
+    )
+    contact_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('contacts.id'), index=True
+    )
+    status: Mapped[JourneyStepExecutionStatus] = mapped_column(
+        Enum(JourneyStepExecutionStatus), default=JourneyStepExecutionStatus.completed, index=True
+    )
+    send_record_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('email_send_records.id')
+    )
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    executed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    contact: Mapped[Contact] = relationship()
+    enrollment: Mapped[JourneyEnrollment] = relationship()
+    journey: Mapped[Journey] = relationship()
+    send_record: Mapped['EmailSendRecord | None'] = relationship()
+    step: Mapped[JourneyStep] = relationship()
 
 
 class CampaignSendJob(Base):

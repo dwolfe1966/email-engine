@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Generic, TypeVar
 from uuid import UUID
 
@@ -10,7 +11,9 @@ from email_platform.models.entities import (
     DataSourceType,
     EmailEventType,
     EmailSendStatus,
+    JourneyEnrollmentStatus,
     JourneyStatus,
+    JourneyStepExecutionStatus,
     JourneyStepType,
     SendJobStatus,
     SuppressionReason,
@@ -215,6 +218,49 @@ class JourneyRead(JourneyCreate):
     steps: list[JourneyStepRead] = Field(default_factory=list)
 
     model_config = {'from_attributes': True}
+
+
+class JourneyEnrollmentCreate(BaseModel):
+    contact_id: UUID
+    variables: JsonObject = Field(default_factory=dict)
+
+
+class JourneyEnrollmentRead(BaseModel):
+    id: UUID
+    journey_id: UUID
+    contact_id: UUID
+    current_step_id: UUID | None = None
+    status: JourneyEnrollmentStatus
+    variables: JsonObject
+    due_at: datetime | None = None
+    entered_at: datetime
+    exited_at: datetime | None = None
+    last_error: str | None = None
+
+    model_config = {'from_attributes': True}
+
+
+class JourneyStepExecutionRead(BaseModel):
+    id: UUID
+    enrollment_id: UUID
+    journey_id: UUID
+    step_id: UUID
+    contact_id: UUID
+    status: JourneyStepExecutionStatus
+    send_record_id: UUID | None = None
+    metadata_json: JsonObject
+    error_message: str | None = None
+    executed_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
+class JourneyProcessRead(BaseModel):
+    claimed_count: int
+    completed_count: int
+    failed_count: int
+    queued_send_count: int
+    enrollment_ids: list[str]
 
 
 class CampaignSendJobRead(BaseModel):

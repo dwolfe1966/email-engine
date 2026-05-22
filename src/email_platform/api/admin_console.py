@@ -1861,6 +1861,21 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
           <textarea id="stepConfig"></textarea>
         </label>
         <div class="items" id="steps"></div>
+        <div class="head">
+          <h2>Execution</h2>
+          <button class="secondary" id="loadEnrollments">Load Enrollments</button>
+        </div>
+        <div class="actions">
+          <button id="enrollContact">Enroll Contact</button>
+          <button id="processDue">Process Due</button>
+          <button class="secondary" id="loadExecutions">Step History</button>
+        </div>
+        <label>Contact id
+          <input id="contactId" />
+        </label>
+        <label>Enrollment variables JSON
+          <textarea id="enrollmentVariables"></textarea>
+        </label>
       </div>
     </section>
     <section>
@@ -1926,6 +1941,8 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
         null,
         2
       );
+      document.getElementById("contactId").value = "";
+      document.getElementById("enrollmentVariables").value = "{}";
     }
 
     function selectJourney(item) {
@@ -2065,6 +2082,46 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       await refreshSelectedJourney();
     }
 
+    async function enrollContact() {
+      if (!selectedJourneyId) {
+        writeResult("Select or save a journey first.", false);
+        return;
+      }
+      const contactId = document.getElementById("contactId").value.trim();
+      if (!contactId) {
+        writeResult("Enter a contact id.", false);
+        return;
+      }
+      await request(`/api/v1/journeys/${selectedJourneyId}/enrollments`, {
+        method: "POST",
+        body: JSON.stringify({
+          contact_id: contactId,
+          variables: parseJson("enrollmentVariables", {})
+        })
+      });
+      await loadEnrollments();
+    }
+
+    async function loadEnrollments() {
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
+      if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
+      await request(`/api/v1/journey-enrollments/list?${params.toString()}`);
+    }
+
+    async function loadExecutions() {
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
+      if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
+      await request(`/api/v1/journey-step-executions/list?${params.toString()}`);
+    }
+
+    async function processDue() {
+      const params = new URLSearchParams({ limit: "25" });
+      if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
+      await request(`/api/v1/journeys/process?${params.toString()}`, { method: "POST" });
+      await loadEnrollments();
+      await refreshSelectedJourney();
+    }
+
     document.getElementById("refreshJourneys").addEventListener("click", () => {
       loadJourneys().catch((error) => writeResult(error.message, false));
     });
@@ -2081,6 +2138,18 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
     });
     document.getElementById("deleteStep").addEventListener("click", () => {
       deleteStep().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("enrollContact").addEventListener("click", () => {
+      enrollContact().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadEnrollments").addEventListener("click", () => {
+      loadEnrollments().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadExecutions").addEventListener("click", () => {
+      loadExecutions().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("processDue").addEventListener("click", () => {
+      processDue().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";

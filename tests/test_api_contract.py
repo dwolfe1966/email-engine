@@ -22,7 +22,11 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/journeys',
         '/api/v1/journeys/list',
         '/api/v1/journeys/{journey_id}',
+        '/api/v1/journeys/{journey_id}/enrollments',
         '/api/v1/journeys/{journey_id}/steps',
+        '/api/v1/journeys/process',
+        '/api/v1/journey-enrollments/list',
+        '/api/v1/journey-step-executions/list',
         '/api/v1/journey-steps/{step_id}',
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/delivery/process-queued',
@@ -139,6 +143,8 @@ def test_admin_pages() -> None:
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Email Engine Journey Manager' in journeys.text
     assert 'Save Journey' in journeys.text
+    assert 'Enroll Contact' in journeys.text
+    assert 'Process Due' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
     assert 'Email Engine Suppressions' in suppressions.text

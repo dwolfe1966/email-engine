@@ -19,6 +19,8 @@ from email_platform.models.entities import (
     EmailTemplate,
     EmailTemplateVersion,
     Journey,
+    JourneyEnrollment,
+    JourneyEnrollmentStatus,
     JourneyStep,
     Suppression,
 )
@@ -54,8 +56,12 @@ from email_platform.schemas.contracts import (
     EventCreate,
     EventRead,
     JourneyCreate,
+    JourneyEnrollmentCreate,
+    JourneyEnrollmentRead,
+    JourneyProcessRead,
     JourneyRead,
     JourneyStepCreate,
+    JourneyStepExecutionRead,
     JourneyStepRead,
     JourneyStepUpdate,
     JourneyUpdate,
@@ -369,6 +375,74 @@ def delete_journey_step(step_id: UUID, db: DbSession) -> DeleteResponse:
     if not deleted:
         raise HTTPException(status_code=404, detail='Journey step not found')
     return DeleteResponse(id=step_id)
+
+
+@router.post('/journeys/{journey_id}/enrollments', response_model=JourneyEnrollmentRead)
+def enroll_contact_in_journey(
+    journey_id: UUID,
+    payload: JourneyEnrollmentCreate,
+    db: DbSession,
+) -> JourneyEnrollment:
+    enrollment = JourneyService(db).enroll(journey_id, payload)
+    if not enrollment:
+        raise HTTPException(status_code=404, detail='Journey or contact not found')
+    return enrollment
+
+
+@router.get('/journey-enrollments/list', response_model=ListResponse[JourneyEnrollmentRead])
+def list_journey_enrollments(
+    db: DbSession,
+    journey_id: UUID | None = None,
+    status: JourneyEnrollmentStatus | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = JourneyService(db)
+    return {
+        'items': service.list_enrollments(
+            journey_id=journey_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_enrollments(journey_id=journey_id, status=status),
+    }
+
+
+@router.get(
+    '/journey-step-executions/list',
+    response_model=ListResponse[JourneyStepExecutionRead],
+)
+def list_journey_step_executions(
+    db: DbSession,
+    enrollment_id: UUID | None = None,
+    journey_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = JourneyService(db)
+    return {
+        'items': service.list_executions(
+            enrollment_id=enrollment_id,
+            journey_id=journey_id,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_executions(enrollment_id=enrollment_id, journey_id=journey_id),
+    }
+
+
+@router.post('/journeys/process', response_model=JourneyProcessRead)
+def process_due_journeys(
+    db: DbSession,
+    limit: Limit = 25,
+    journey_id: UUID | None = None,
+) -> JourneyProcessRead:
+    return JourneyService(db).process_due(limit=limit, journey_id=journey_id)
 
 
 @router.get('/campaign-send-jobs/list', response_model=ListResponse[CampaignSendJobRead])
