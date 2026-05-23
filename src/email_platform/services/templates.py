@@ -42,6 +42,114 @@ NATIVE_TEMPLATE_VARIABLES: dict[str, object] = {
     'tracking_click_base': 'https://email-engine.app/api/v1/tracking/click/test-token',
 }
 
+SAMPLE_TEMPLATES: tuple[TemplateCreate, ...] = (
+    TemplateCreate(
+        name='Sample - Plan Branching',
+        subject='{{ first_name }}, your {{ plan }} plan update',
+        html_body="""<div class="email-shell">
+  <div class="email-container">
+    <p class="eyebrow">Account update</p>
+    <h1>Hello {{ first_name }}</h1>
+    {% if plan == "trial" %}
+      <p>Your trial plan is active. You have {{ days_remaining }} days left to explore the platform.</p>
+      <p><a class="button" href="{{ upgrade_url }}">Upgrade now</a></p>
+    {% else %}
+      <p>Your {{ plan }} plan is active. Your next renewal is {{ renewal_date }}.</p>
+      <p><a class="button" href="{{ account_url }}">Review account</a></p>
+    {% endif %}
+    {{ tracking_open }}
+    <p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>
+  </div>
+</div>""",
+        css_body=""".email-shell { background: #f6f7f9; padding: 24px 0; }
+.email-container { max-width: 620px; margin: 0 auto; background: #ffffff; padding: 24px; }
+.eyebrow { color: #2563eb; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #2563eb; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Hello {{ first_name }}.
+{% if plan == "trial" %}Your trial has {{ days_remaining }} days left: {{ upgrade_url }}{% else %}Your {{ plan }} plan renews on {{ renewal_date }}: {{ account_url }}{% endif %}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample - Recommendation Loop',
+        subject='{{ first_name }}, {{ recommendation_count }} recommendations for you',
+        html_body="""<h1>Recommended next steps</h1>
+<p>Hello {{ first_name }}, here are the highest-impact actions for {{ company }}.</p>
+<ol class="article-list">
+{% for item in recommendations %}
+  <li><strong>{{ loop.index }}. {{ item }}</strong></li>
+{% else %}
+  <li>No recommendations are available yet.</li>
+{% endfor %}
+</ol>
+<p><a class="button" href="{{ tracking_click }}">View recommendations</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".article-list li { margin: 8px 0; line-height: 1.45; }
+.button { color: #ffffff; background: #16a34a; padding: 10px 14px; text-decoration: none; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Recommended next steps for {{ first_name }}:
+{% for item in recommendations %}{{ loop.index }}. {{ item }}
+{% else %}No recommendations are available yet.
+{% endfor %}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample - Order Summary Table',
+        subject='Receipt for {{ order_number }}',
+        html_body="""<h1>Thanks, {{ first_name }}</h1>
+<p>Your order {{ order_number }} is {{ order_status }}.</p>
+<table class="summary" role="presentation">
+  <tr><th>Item</th><th>Qty</th><th>Total</th></tr>
+  {% for item in order_items %}
+    <tr><td>{{ item.name }}</td><td>{{ item.quantity }}</td><td>{{ item.total }}</td></tr>
+  {% endfor %}
+</table>
+{% if discount_code %}
+  <p class="callout">Discount {{ discount_code }} was applied.</p>
+{% endif %}
+<p><a href="{{ tracking_click }}">Track your order</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".summary { width: 100%; border-collapse: collapse; }
+.summary th, .summary td { border-bottom: 1px solid #d8dee6; padding: 10px; text-align: left; }
+.callout { background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Order {{ order_number }} is {{ order_status }}.
+{% for item in order_items %}- {{ item.quantity }} x {{ item.name }}: {{ item.total }}
+{% endfor %}
+Track: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample - Segment Personalization',
+        subject='{% if is_vip %}VIP: {% endif %}{{ event_name }} starts {{ event_date }}',
+        html_body="""{% set greeting = "VIP invitation" if is_vip else "Invitation" %}
+<p class="eyebrow">{{ greeting }}</p>
+<h1>{{ event_name }}</h1>
+<p>Hello {{ first_name }}, this event starts {{ event_date }}.</p>
+{% if city %}
+  <p>We selected the {{ city }} agenda for you.</p>
+{% endif %}
+<ul>
+{% for benefit in benefits %}
+  <li>{{ benefit }}</li>
+{% endfor %}
+</ul>
+<p><a class="button" href="{{ registration_url }}">Register</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #7c3aed; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #111827; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""{{ event_name }} starts {{ event_date }}.
+{% for benefit in benefits %}- {{ benefit }}
+{% endfor %}
+Register: {{ registration_url }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+)
+
 
 class TemplateService:
     def __init__(self, db: Session) -> None:
@@ -63,6 +171,31 @@ class TemplateService:
         self.db.commit()
         self.db.refresh(template)
         return template
+
+    def ensure_sample_templates(self) -> list[EmailTemplate]:
+        templates: list[EmailTemplate] = []
+        for payload in SAMPLE_TEMPLATES:
+            template = self.db.scalar(
+                select(EmailTemplate).where(EmailTemplate.name == payload.name)
+            )
+            if not template:
+                template = EmailTemplate(**payload.model_dump())
+                self.db.add(template)
+                self.db.flush()
+                self._add_version(
+                    template,
+                    TemplateVersionCreate(
+                        subject=template.subject,
+                        html_body=template.html_body,
+                        css_body=template.css_body,
+                        text_body=template.text_body,
+                    ),
+                )
+            templates.append(template)
+        self.db.commit()
+        for template in templates:
+            self.db.refresh(template)
+        return templates
 
     def list(self, limit: int = 100, offset: int = 0) -> list[EmailTemplate]:
         statement = (
@@ -436,10 +569,23 @@ class TemplateService:
             return 'Morgan'
         if lowered in {'email', 'email_address'}:
             return 'alex@example.com'
+        if lowered == 'order_items':
+            return [
+                {'name': 'Starter plan', 'quantity': 1, 'total': '$49.00'},
+                {'name': 'Implementation session', 'quantity': 2, 'total': '$300.00'},
+            ]
+        if lowered == 'benefits':
+            return ['Priority access', 'Expert office hours', 'Implementation checklist']
         if 'recommendation' in lowered or lowered.endswith('items') or lowered.endswith('list'):
             return ['First recommendation', 'Second recommendation', 'Third recommendation']
+        if lowered == 'discount_code':
+            return 'WELCOME10'
+        if lowered == 'is_vip':
+            return True
         if lowered in {'plan', 'tier'}:
             return 'trial'
+        if lowered == 'days_remaining':
+            return 7
         if lowered.startswith('is_') or lowered.startswith('has_'):
             return True
         if 'count' in lowered or 'total' in lowered or lowered.endswith('_number'):

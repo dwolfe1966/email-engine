@@ -12,6 +12,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
         '/api/v1/templates/preview',
+        '/api/v1/templates/samples',
         '/api/v1/templates/validate',
         '/api/v1/templates/variables',
         '/api/v1/templates/{template_id}',
@@ -151,6 +152,7 @@ def test_template_editor_page() -> None:
     assert 'Inspect Variables' in response.text
     assert 'Detected Variables' in response.text
     assert 'Use Sample JSON' in response.text
+    assert 'Seed Samples' in response.text
     assert 'CSS Builder' in response.text
     assert 'Insert Block' in response.text
     assert 'Entity Workbench' in response.text
@@ -174,6 +176,7 @@ def test_template_variables_endpoint_extracts_samples_and_native_variables() -> 
             'html_body': (
                 '<p>{{ first_name }} is on {{ plan }}.</p>'
                 '{% for item in recommendations %}<p>{{ loop.index }} {{ item }}</p>{% endfor %}'
+                '{% for item in order_items %}<p>{{ item.name }} {{ item.total }}</p>{% endfor %}'
                 '<a href="{{ tracking_click }}">Read more</a>'
                 '{{ tracking_open }}'
                 '<a href="{{ unsubscribe_url }}">Unsubscribe</a>'
@@ -190,6 +193,7 @@ def test_template_variables_endpoint_extracts_samples_and_native_variables() -> 
     assert {item['name'] for item in data['variables']} == {
         'first_name',
         'plan',
+        'order_items',
         'recommendations',
     }
     assert {item['name'] for item in data['native_variables']} == {
@@ -200,6 +204,7 @@ def test_template_variables_endpoint_extracts_samples_and_native_variables() -> 
     assert data['sample_variables']['first_name'] == 'Alex'
     assert data['sample_variables']['plan'] == 'trial'
     assert isinstance(data['sample_variables']['recommendations'], list)
+    assert isinstance(data['sample_variables']['order_items'][0], dict)
     assert data['sample_variables']['unsubscribe_url'].startswith('https://')
 
 

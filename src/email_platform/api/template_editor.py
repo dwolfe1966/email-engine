@@ -241,7 +241,10 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     <section>
       <div class="head">
         <h2>Templates</h2>
-        <button class="secondary" id="refreshTemplates">Refresh</button>
+        <div class="actions">
+          <button class="secondary" id="seedSamples">Seed Samples</button>
+          <button class="secondary" id="refreshTemplates">Refresh</button>
+        </div>
       </div>
       <div class="body">
         <div class="template-list" id="templateList"></div>
@@ -407,7 +410,13 @@ li {
   </main>
 
   <script>
-    const state = { templateId: "", visualReady: false, sampleVariables: null };
+    const state = {
+      templateId: "",
+      visualReady: false,
+      sampleVariables: null,
+      variableTimer: null,
+      inspectingVariables: false,
+    };
 
     function value(id) { return document.getElementById(id).value; }
 
@@ -415,8 +424,13 @@ li {
       document.getElementById("result").textContent = JSON.stringify(data, null, 2);
     }
 
-    function variables() {
-      return JSON.parse(value("variablesJson") || "{}");
+    function variables(fallbackToEmpty = false) {
+      try {
+        return JSON.parse(value("variablesJson") || "{}");
+      } catch (error) {
+        if (fallbackToEmpty) return {};
+        throw error;
+      }
     }
 
     function renderVariables(data) {
@@ -443,6 +457,15 @@ li {
         row.append(copy, kind);
         list.appendChild(row);
       });
+    }
+
+    function scheduleVariableRefresh() {
+      window.clearTimeout(state.variableTimer);
+      state.variableTimer = window.setTimeout(() => {
+        inspectVariables({ silent: true }).catch((error) => {
+          renderVariables({ errors: [error.message], variables: [], native_variables: [] });
+        });
+      }, 650);
     }
 
     function visualDocument() {
@@ -636,6 +659,7 @@ ${presetRules[preset] || ""}`;
       document.getElementById("textBody").value = template.text_body || "";
       loadVisualFromSource();
       log({ selected: template.id });
+      scheduleVariableRefresh();
     }
 
     async function validateTemplate() {
@@ -646,13 +670,19 @@ ${presetRules[preset] || ""}`;
       log(data);
     }
 
-    async function inspectVariables() {
-      const data = await request("/api/v1/templates/variables", {
-        method: "POST",
-        body: JSON.stringify({ ...payload(), variables: variables() }),
-      });
-      renderVariables(data);
-      log(data);
+    async function inspectVariables(options = {}) {
+      if (state.inspectingVariables) return;
+      state.inspectingVariables = true;
+      try {
+        const data = await request("/api/v1/templates/variables", {
+          method: "POST",
+          body: JSON.stringify({ ...payload(), variables: variables(true) }),
+        });
+        renderVariables(data);
+        if (!options.silent) log(data);
+      } finally {
+        state.inspectingVariables = false;
+      }
     }
 
     async function lintTemplate() {
@@ -680,9 +710,17 @@ ${presetRules[preset] || ""}`;
       state.templateId = saved.id;
       log(saved);
       await loadTemplates();
+      scheduleVariableRefresh();
+    }
+
+    async function seedSamples() {
+      const templates = await request("/api/v1/templates/samples", { method: "POST" });
+      log({ seeded_templates: templates.map((template) => template.name) });
+      await loadTemplates();
     }
 
     document.getElementById("refreshTemplates").addEventListener("click", loadTemplates);
+    document.getElementById("seedSamples").addEventListener("click", seedSamples);
     document.getElementById("inspectVariables").addEventListener("click", inspectVariables);
     document.getElementById("applySampleVariables").addEventListener("click", () => {
       if (!state.sampleVariables) return;
@@ -697,8 +735,17 @@ ${presetRules[preset] || ""}`;
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
-    document.getElementById("htmlBody").addEventListener("blur", loadVisualFromSource);
-    document.getElementById("cssBody").addEventListener("blur", loadVisualFromSource);
+    ["subject", "htmlBody", "cssBody", "textBody"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", scheduleVariableRefresh);
+    });
+    document.getElementById("htmlBody").addEventListener("blur", () => {
+      loadVisualFromSource();
+      scheduleVariableRefresh();
+    });
+    document.getElementById("cssBody").addEventListener("blur", () => {
+      loadVisualFromSource();
+      scheduleVariableRefresh();
+    });
     document.getElementById("syncFromSource").addEventListener("click", loadVisualFromSource);
     document.getElementById("syncToSource").addEventListener("click", syncSourceFromVisual);
     document
@@ -731,8 +778,14 @@ ${presetRules[preset] || ""}`;
       const doc = visualDocument();
       if (!doc) return;
       doc.designMode = "on";
-      doc.body.addEventListener("input", syncSourceFromVisual);
-      doc.body.addEventListener("blur", syncSourceFromVisual);
+      doc.body.addEventListener("input", () => {
+        syncSourceFromVisual();
+        scheduleVariableRefresh();
+      });
+      doc.body.addEventListener("blur", () => {
+        syncSourceFromVisual();
+        scheduleVariableRefresh();
+      });
       state.visualReady = true;
     });
     document.getElementById("newTemplate").addEventListener("click", () => {
@@ -740,9 +793,11 @@ ${presetRules[preset] || ""}`;
       document.getElementById("templateName").value = `template-${Date.now()}`;
       loadVisualFromSource();
       log({ mode: "new" });
+      scheduleVariableRefresh();
     });
     document.getElementById("templateName").value = `template-${Date.now()}`;
     loadVisualFromSource();
+    scheduleVariableRefresh();
     loadTemplates().catch((error) => log({ error: error.message }));
   </script>
 </body>
