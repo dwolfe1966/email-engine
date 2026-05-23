@@ -1038,9 +1038,13 @@ def _template_id_from_payload(payload: Mapping[str, object], db: Session) -> UUI
         return UUID(str(template_id))
     version_id = payload.get('template_version_id')
     if version_id:
-        version = db.get(EmailTemplateVersion, UUID(str(version_id)))
+        parsed_version_id = UUID(str(version_id))
+        version = db.get(EmailTemplateVersion, parsed_version_id)
         if version:
             return version.template_id
+        template = db.get(EmailTemplate, parsed_version_id)
+        if template:
+            return template.id
     raise HTTPException(status_code=422, detail='template_id or template_version_id is required')
 
 
