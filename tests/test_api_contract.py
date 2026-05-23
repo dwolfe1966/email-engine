@@ -147,6 +147,9 @@ def test_template_editor_page() -> None:
     assert response.status_code == 200
     assert 'Email Engine Template Editor' in response.text
     assert 'Lint' in response.text
+    assert 'Inspect Variables' in response.text
+    assert 'Detected Variables' in response.text
+    assert 'Use Sample JSON' in response.text
     assert 'CSS Builder' in response.text
     assert 'Insert Block' in response.text
     assert 'Entity Workbench' in response.text

@@ -170,6 +170,45 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       border-radius: 6px;
       background: white;
     }
+    .variable-panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f9fafb;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .variable-list {
+      display: grid;
+      gap: 6px;
+    }
+    .variable-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 7px 8px;
+    }
+    .variable-row strong,
+    .variable-row small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .variable-row small { color: var(--muted); margin-top: 2px; }
+    .variable-kind {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fff;
+    }
     #visualEditor { min-height: 360px; }
     .error { color: var(--red); }
     @media (max-width: 1100px) {
@@ -336,6 +375,7 @@ li {
       <div class="head">
         <h2>Render</h2>
         <div class="actions">
+          <button class="secondary" id="inspectVariables">Inspect Variables</button>
           <button class="secondary" id="lintTemplate">Lint</button>
           <button class="secondary" id="validateTemplate">Validate</button>
           <button id="previewTemplate">Preview</button>
@@ -349,6 +389,17 @@ li {
   "recommendations": ["Map data", "Build audience", "Launch campaign"]
 }</textarea>
         </label>
+        <div class="variable-panel">
+          <div class="actions">
+            <strong>Detected Variables</strong>
+            <button class="secondary" type="button" id="applySampleVariables">
+              Use Sample JSON
+            </button>
+          </div>
+          <div class="variable-list" id="variableList">
+            <span class="muted">Run Inspect Variables to detect user and native fields.</span>
+          </div>
+        </div>
         <pre id="result"></pre>
         <iframe id="htmlPreview" sandbox=""></iframe>
       </div>
@@ -356,7 +407,7 @@ li {
   </main>
 
   <script>
-    const state = { templateId: "", visualReady: false };
+    const state = { templateId: "", visualReady: false, sampleVariables: null };
 
     function value(id) { return document.getElementById(id).value; }
 
@@ -366,6 +417,32 @@ li {
 
     function variables() {
       return JSON.parse(value("variablesJson") || "{}");
+    }
+
+    function renderVariables(data) {
+      state.sampleVariables = data.sample_variables || null;
+      const list = document.getElementById("variableList");
+      list.textContent = "";
+      const rows = [...(data.variables || []), ...(data.native_variables || [])];
+      if (!rows.length) {
+        list.textContent = data.errors?.length ? "Unable to inspect template." : "No variables detected.";
+        return;
+      }
+      rows.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "variable-row";
+        const copy = document.createElement("div");
+        const name = document.createElement("strong");
+        const sources = document.createElement("small");
+        const kind = document.createElement("span");
+        name.textContent = item.name;
+        sources.textContent = `sources: ${(item.sources || []).join(", ") || "unknown"}`;
+        kind.className = "variable-kind";
+        kind.textContent = item.native ? "native" : "user";
+        copy.append(name, sources);
+        row.append(copy, kind);
+        list.appendChild(row);
+      });
     }
 
     function visualDocument() {
@@ -569,6 +646,15 @@ ${presetRules[preset] || ""}`;
       log(data);
     }
 
+    async function inspectVariables() {
+      const data = await request("/api/v1/templates/variables", {
+        method: "POST",
+        body: JSON.stringify({ ...payload(), variables: variables() }),
+      });
+      renderVariables(data);
+      log(data);
+    }
+
     async function lintTemplate() {
       const data = await request("/api/v1/templates/lint", {
         method: "POST",
@@ -597,6 +683,16 @@ ${presetRules[preset] || ""}`;
     }
 
     document.getElementById("refreshTemplates").addEventListener("click", loadTemplates);
+    document.getElementById("inspectVariables").addEventListener("click", inspectVariables);
+    document.getElementById("applySampleVariables").addEventListener("click", () => {
+      if (!state.sampleVariables) return;
+      document.getElementById("variablesJson").value = JSON.stringify(
+        state.sampleVariables,
+        null,
+        2,
+      );
+      log({ applied_sample_variables: Object.keys(state.sampleVariables) });
+    });
     document.getElementById("lintTemplate").addEventListener("click", lintTemplate);
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
