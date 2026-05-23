@@ -5,8 +5,16 @@
 - Platform: Vercel
 - Project: `email-engine-api`
 - Production alias: `https://email-engine.app`
-- Latest verified deployment: `https://email-engine-2uhjzq9pb-dwolfe1966s-projects.vercel.app`
-- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/EQAEedhyuik1ccfc1T2eafFMdXB6`
+- Latest verified deployment: `https://email-engine-qums08yr2-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/AicgKGevTGVThwsGTxDHD1zNPFwW`
+
+## SentientMail GUI
+
+- Platform: Vercel
+- Project: `ui`
+- Production alias: `https://ui-eight-rho.vercel.app`
+- Latest verified deployment: `https://ui-kq84lxxcz-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/ui/8jaQ1bUGjriQD6mpEqruW2Up28Pq`
 
 ## Database
 
@@ -48,6 +56,23 @@ The smoke test verified:
 - `POST /api/v1/audiences/contacts/{contact_id}/unsubscribe-token`
 - `POST /api/v1/emails/send`
 - `POST /api/v1/tests/send-email`
+
+SentientMail GUI smoke test:
+
+- `POST /api/render` through `https://ui-eight-rho.vercel.app`
+- `POST /api/contacts` through the GUI proxy
+- `POST /api/templates` through the GUI proxy
+- `POST /api/segments` through the GUI proxy
+- `POST /api/sends` through the GUI proxy
+- `POST /api/sends/{send_id}/launch` with `dry_run: true`
+
+Live GUI test-mode campaign verification:
+
+- Recipient: `dwolfe66@gmail.com`
+- Send ID: `d909e6d7-3707-41a6-9f38-7c51df8ac27f`
+- Requested count: `1`
+- Queued count: `1`
+- Delivery result: `sent_count=1`, `failed_count=0`
 
 ## Next Deployment Tasks
 

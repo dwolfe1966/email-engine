@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from email_platform.core.settings import get_settings
 from email_platform.db.session import get_db
 from email_platform.models.entities import (
     Audience,
@@ -40,6 +41,7 @@ from email_platform.services.analytics import AnalyticsService
 from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
+from email_platform.services.delivery import DeliveryService
 from email_platform.services.journeys import JourneyService
 from email_platform.services.templates import TemplateService
 
@@ -502,18 +504,27 @@ def compat_launch_send(
     )
     if not launch:
         raise HTTPException(status_code=404, detail='Send not found')
+    delivery = None
+    if bool(payload.get('process_delivery', payload.get('test_mode', False))):
+        delivery = DeliveryService(db, get_settings()).process_queued(
+            limit=_int_payload(payload.get('delivery_limit'), 1),
+            campaign_id=send_id,
+        )
     campaign = CampaignService(db).get(send_id)
+    delivered = delivery.sent_count if delivery else 0
+    bounced = delivery.failed_count if delivery else 0
     return {
         'send': _send_detail(db, campaign) if campaign else {'id': str(send_id)},
         'summary': {
             'recipient_count': launch.requested_count,
-            'delivered': 0,
+            'delivered': delivered,
             'opened': 0,
             'clicked': 0,
             'converted': 0,
-            'bounced': 0,
+            'bounced': bounced,
             'unsubscribed': 0,
         },
+        'delivery': _encoded_dict(delivery) if delivery else None,
         **_encoded_dict(launch),
     }
 
