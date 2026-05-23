@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_use_tls: bool = True
     unsubscribe_secret: str = 'change-me'
+    public_base_url: str = 'https://email-engine.app'
 
     @field_validator('database_url', 'database_migration_url', mode='before')
     @classmethod

@@ -486,6 +486,30 @@ def compat_schedule_send(
 def compat_launch_send(
     send_id: UUID, payload: dict[str, object], db: DbSession
 ) -> dict[str, object]:
+    test_recipient_email = str(payload.get('test_recipient_email') or '').strip()
+    launch_rule_tree = (
+        _object_payload(payload.get('rule_tree', payload.get('segment_rules')))
+        if payload.get('rule_tree') or payload.get('segment_rules')
+        else None
+    )
+    if test_recipient_email:
+        test_source = f'sentientmail-test-{send_id}'
+        ContactService(db).upsert(
+            ContactUpsert(
+                email=test_recipient_email,
+                first_name=str(payload.get('test_recipient_first_name') or 'Test'),
+                source=test_source,
+                attributes={
+                    'test_mode': True,
+                    'campaign_id': str(send_id),
+                    'source': 'sentientmail_gui',
+                },
+            )
+        )
+        launch_rule_tree = {
+            'rules': [{'field': 'source', 'op': 'eq', 'value': test_source}],
+            'operator': 'and',
+        }
     campaign = CampaignService(db).get(send_id)
     if campaign and campaign.status == CampaignStatus.draft:
         campaign.status = CampaignStatus.scheduled
@@ -495,9 +519,7 @@ def compat_launch_send(
         send_id,
         CampaignLaunchRequest(
             audience_id=UUID(str(payload['audience_id'])) if payload.get('audience_id') else None,
-            rule_tree=_object_payload(payload.get('rule_tree', payload.get('segment_rules')))
-            if payload.get('rule_tree') or payload.get('segment_rules')
-            else None,
+            rule_tree=launch_rule_tree,
             variables=_object_payload(payload.get('variables')),
             dry_run=bool(payload.get('dry_run', False)),
         ),

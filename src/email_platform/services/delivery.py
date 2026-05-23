@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from urllib.parse import quote
 from uuid import UUID
 
 from sqlalchemy import select
@@ -8,8 +9,10 @@ from email_platform.core.settings import Settings
 from email_platform.models.entities import EmailEventType, EmailSendRecord, EmailSendStatus
 from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import DeliveryRunRead, EventCreate
+from email_platform.services.contacts import ContactService
 from email_platform.services.events import EventService
 from email_platform.services.templates import TemplateService
+from email_platform.services.tracking import TrackingService
 
 
 class DeliveryService:
@@ -41,7 +44,8 @@ class DeliveryService:
                 continue
 
             try:
-                subject, html, text = self.template_service.render(template, record.variables)
+                variables = self._delivery_variables(record)
+                subject, html, text = self.template_service.render(template, variables)
                 result = self.provider.send(
                     EmailMessage(
                         to_email=record.to_email,
@@ -85,6 +89,27 @@ class DeliveryService:
             failed_count=failed_count,
             processed_record_ids=processed_ids,
         )
+
+    def _delivery_variables(self, record: EmailSendRecord) -> dict[str, object]:
+        base_url = self.settings.public_base_url.rstrip('/')
+        token = TrackingService(self.db, self.settings.unsubscribe_secret).create_token(record.id)
+        click_target = f'{base_url}/'
+        variables = {
+            **record.variables,
+            'tracking_open': f'{base_url}/api/v1/tracking/open/{token}',
+            'tracking_click': (
+                f'{base_url}/api/v1/tracking/click/{token}'
+                f'?url={quote(click_target, safe="")}'
+            ),
+            'tracking_click_base': f'{base_url}/api/v1/tracking/click/{token}',
+        }
+        if record.contact_id:
+            unsubscribe_token = ContactService(self.db).build_unsubscribe_token(
+                record.contact_id,
+                self.settings,
+            )
+            variables['unsubscribe_url'] = f'{base_url}/api/v1/unsubscribe/{unsubscribe_token}'
+        return variables
 
     def _claim_records(
         self,

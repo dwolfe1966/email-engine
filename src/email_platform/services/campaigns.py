@@ -453,5 +453,9 @@ class CampaignService:
             'last_name': 'Last',
             'source': 'sample',
             'attributes': {},
+            'tracking_open': 'https://example.com/open.gif',
+            'tracking_click': 'https://example.com/click',
+            'tracking_click_base': 'https://example.com/click',
+            'unsubscribe_url': 'https://example.com/unsubscribe',
             **variables,
         }

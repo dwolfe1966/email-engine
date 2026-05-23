@@ -5,16 +5,16 @@
 - Platform: Vercel
 - Project: `email-engine-api`
 - Production alias: `https://email-engine.app`
-- Latest verified deployment: `https://email-engine-qums08yr2-dwolfe1966s-projects.vercel.app`
-- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/AicgKGevTGVThwsGTxDHD1zNPFwW`
+- Latest verified deployment: `https://email-engine-bri8icizk-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/email-engine-api/HAKJZy8Rj7cfmJwfe6mKBraBQBiK`
 
 ## SentientMail GUI
 
 - Platform: Vercel
 - Project: `ui`
 - Production alias: `https://ui-eight-rho.vercel.app`
-- Latest verified deployment: `https://ui-kq84lxxcz-dwolfe1966s-projects.vercel.app`
-- Inspect URL: `https://vercel.com/dwolfe1966s-projects/ui/8jaQ1bUGjriQD6mpEqruW2Up28Pq`
+- Latest verified deployment: `https://ui-qwih5czt6-dwolfe1966s-projects.vercel.app`
+- Inspect URL: `https://vercel.com/dwolfe1966s-projects/ui/At4FRENDb8T4FTVBR8qTcHG4Qbj8`
 
 ## Database
 
@@ -69,10 +69,12 @@ SentientMail GUI smoke test:
 Live GUI test-mode campaign verification:
 
 - Recipient: `dwolfe66@gmail.com`
-- Send ID: `d909e6d7-3707-41a6-9f38-7c51df8ac27f`
+- Send ID: `5223ee74-9545-4d49-a725-8f669acc4144`
+- Send record ID: `3b8077bd-6a81-477c-a1c5-ce18dd80cb39`
 - Requested count: `1`
 - Queued count: `1`
 - Delivery result: `sent_count=1`, `failed_count=0`
+- Tracking result: open and click events recorded through generated tracking URLs.
 
 ## Next Deployment Tasks
 
