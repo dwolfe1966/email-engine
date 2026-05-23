@@ -13,6 +13,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates/list',
         '/api/v1/templates/preview',
         '/api/v1/templates/validate',
+        '/api/v1/templates/variables',
         '/api/v1/templates/{template_id}',
         '/api/v1/templates/{template_id}/versions',
         '/api/v1/campaigns',
@@ -158,6 +159,44 @@ def test_template_editor_page() -> None:
     assert '/admin/suppressions' in response.text
     assert '/admin/analytics' in response.text
     assert '/admin/data-sources' in response.text
+
+
+def test_template_variables_endpoint_extracts_samples_and_native_variables() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/templates/variables',
+        json={
+            'subject': 'Hello {{ first_name }}',
+            'html_body': (
+                '<p>{{ first_name }} is on {{ plan }}.</p>'
+                '{% for item in recommendations %}<p>{{ loop.index }} {{ item }}</p>{% endfor %}'
+                '<a href="{{ tracking_click }}">Read more</a>'
+                '{{ tracking_open }}'
+                '<a href="{{ unsubscribe_url }}">Unsubscribe</a>'
+            ),
+            'css_body': '.plan-{{ plan }} { color: blue; }',
+            'text_body': 'Hi {{ first_name }}',
+            'variables': {},
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    assert {item['name'] for item in data['variables']} == {
+        'first_name',
+        'plan',
+        'recommendations',
+    }
+    assert {item['name'] for item in data['native_variables']} == {
+        'tracking_click',
+        'tracking_open',
+        'unsubscribe_url',
+    }
+    assert data['sample_variables']['first_name'] == 'Alex'
+    assert data['sample_variables']['plan'] == 'trial'
+    assert isinstance(data['sample_variables']['recommendations'], list)
+    assert data['sample_variables']['unsubscribe_url'].startswith('https://')
 
 
 def test_admin_pages() -> None:

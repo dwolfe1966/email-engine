@@ -28,10 +28,19 @@ from email_platform.schemas.contracts import (
     TemplateUpdate,
     TemplateValidationRead,
     TemplateValidationRequest,
+    TemplateVariableRead,
+    TemplateVariablesRead,
     TemplateVersionCreate,
 )
 
 template_environment = SandboxedEnvironment(autoescape=False, undefined=StrictUndefined)
+
+NATIVE_TEMPLATE_VARIABLES: dict[str, object] = {
+    'unsubscribe_url': 'https://email-engine.app/api/v1/unsubscribe/test-token',
+    'tracking_open': '<img src="https://email-engine.app/api/v1/tracking/open/test-token" alt="" width="1" height="1" />',
+    'tracking_click': 'https://email-engine.app/api/v1/tracking/click/test-token?url=https%3A%2F%2Fexample.com',
+    'tracking_click_base': 'https://email-engine.app/api/v1/tracking/click/test-token',
+}
 
 
 class TemplateService:
@@ -252,6 +261,50 @@ class TemplateService:
             lint_warnings=lint.warnings,
         )
 
+    def variables(self, payload: TemplateValidationRequest) -> TemplateVariablesRead:
+        errors: list[str] = []
+        sources_by_variable: dict[str, list[str]] = {}
+        for label, source in self._sources(payload).items():
+            try:
+                parsed = template_environment.parse(source)
+                for variable in sorted(meta.find_undeclared_variables(parsed)):
+                    sources_by_variable.setdefault(variable, []).append(label)
+            except TemplateError as exc:
+                errors.append(f'{label}: {exc}')
+
+        detected = sorted(sources_by_variable)
+        native_names = sorted(name for name in detected if name in NATIVE_TEMPLATE_VARIABLES)
+        user_names = sorted(name for name in detected if name not in NATIVE_TEMPLATE_VARIABLES)
+        sample_variables: JsonObject = {
+            name: self._sample_value(name) for name in user_names
+        }
+        sample_variables.update(NATIVE_TEMPLATE_VARIABLES)
+
+        return TemplateVariablesRead(
+            ok=not errors,
+            variables=[
+                TemplateVariableRead(
+                    name=name,
+                    native=False,
+                    sources=sources_by_variable[name],
+                    sample_value=sample_variables[name],
+                )
+                for name in user_names
+            ],
+            native_variables=[
+                TemplateVariableRead(
+                    name=name,
+                    native=True,
+                    required=False,
+                    sources=sources_by_variable[name],
+                    sample_value=NATIVE_TEMPLATE_VARIABLES[name],
+                )
+                for name in native_names
+            ],
+            sample_variables=sample_variables,
+            errors=errors,
+        )
+
     def lint(self, payload: TemplateValidationRequest) -> TemplateLintRead:
         errors: list[str] = []
         warnings: list[str] = []
@@ -374,3 +427,23 @@ class TemplateService:
         ]
         if missing_alt:
             warnings.append('One or more images are missing alt text.')
+
+    def _sample_value(self, name: str) -> object:
+        lowered = name.lower()
+        if lowered in {'first_name', 'firstname', 'given_name'}:
+            return 'Alex'
+        if lowered in {'last_name', 'lastname', 'surname'}:
+            return 'Morgan'
+        if lowered in {'email', 'email_address'}:
+            return 'alex@example.com'
+        if 'recommendation' in lowered or lowered.endswith('items') or lowered.endswith('list'):
+            return ['First recommendation', 'Second recommendation', 'Third recommendation']
+        if lowered in {'plan', 'tier'}:
+            return 'trial'
+        if lowered.startswith('is_') or lowered.startswith('has_'):
+            return True
+        if 'count' in lowered or 'total' in lowered or lowered.endswith('_number'):
+            return 3
+        if 'url' in lowered or 'link' in lowered:
+            return 'https://example.com'
+        return f'sample {name.replace("_", " ")}'

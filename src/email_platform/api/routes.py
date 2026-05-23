@@ -97,6 +97,7 @@ from email_platform.schemas.contracts import (
     TemplateUpdate,
     TemplateValidationRead,
     TemplateValidationRequest,
+    TemplateVariablesRead,
     TemplateVersionCreate,
     TemplateVersionRead,
     TestEmailSendRequest,
@@ -209,6 +210,13 @@ def validate_template(
     payload: TemplateValidationRequest, db: DbSession
 ) -> TemplateValidationRead:
     return TemplateService(db).validate(payload)
+
+
+@router.post('/templates/variables', response_model=TemplateVariablesRead)
+def inspect_template_variables(
+    payload: TemplateValidationRequest, db: DbSession
+) -> TemplateVariablesRead:
+    return TemplateService(db).variables(payload)
 
 
 @router.get('/templates/{template_id}', response_model=TemplateRead)

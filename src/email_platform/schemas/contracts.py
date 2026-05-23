@@ -134,6 +134,22 @@ class TemplateValidationRead(BaseModel):
     lint_warnings: list[str] = Field(default_factory=list)
 
 
+class TemplateVariableRead(BaseModel):
+    name: str
+    required: bool = True
+    native: bool = False
+    sources: list[str] = Field(default_factory=list)
+    sample_value: object = None
+
+
+class TemplateVariablesRead(BaseModel):
+    ok: bool
+    variables: list[TemplateVariableRead] = Field(default_factory=list)
+    native_variables: list[TemplateVariableRead] = Field(default_factory=list)
+    sample_variables: JsonObject = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+
+
 class TemplateLintRead(BaseModel):
     ok: bool
     errors: list[str] = Field(default_factory=list)
