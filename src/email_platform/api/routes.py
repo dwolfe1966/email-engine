@@ -225,6 +225,26 @@ def inspect_template_variables(
     return TemplateService(db).variables(payload)
 
 
+@router.get('/templates/{template_id}/variables', response_model=TemplateVariablesRead)
+def inspect_stored_template_variables(
+    template_id: UUID, db: DbSession
+) -> TemplateVariablesRead:
+    variables = TemplateService(db).variables_for_template(template_id)
+    if not variables:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return variables
+
+
+@router.get('/templates/{template_id}/preview-sample', response_model=TemplatePreviewRead)
+def preview_stored_template_sample(
+    template_id: UUID, db: DbSession
+) -> TemplatePreviewRead:
+    preview = TemplateService(db).preview_sample(template_id)
+    if not preview:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return preview
+
+
 @router.get('/templates/{template_id}', response_model=TemplateRead)
 def get_template(template_id: UUID, db: DbSession) -> EmailTemplate:
     template = TemplateService(db).get(template_id)

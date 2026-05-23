@@ -212,6 +212,37 @@ class TemplateService:
     def get(self, template_id: UUID) -> EmailTemplate | None:
         return self.db.get(EmailTemplate, template_id)
 
+    def variables_for_template(self, template_id: UUID) -> TemplateVariablesRead | None:
+        template = self.get(template_id)
+        if not template:
+            return None
+        return self.variables(
+            TemplateValidationRequest(
+                subject=template.subject,
+                html_body=template.html_body,
+                css_body=template.css_body,
+                text_body=template.text_body,
+                variables={},
+            )
+        )
+
+    def preview_sample(self, template_id: UUID) -> TemplatePreviewRead | None:
+        template = self.get(template_id)
+        if not template:
+            return None
+        variables = self.variables_for_template(template_id)
+        if not variables:
+            return None
+        return self.preview(
+            TemplatePreviewRequest(
+                subject=template.subject,
+                html_body=template.html_body,
+                css_body=template.css_body,
+                text_body=template.text_body,
+                variables=variables.sample_variables,
+            )
+        )
+
     def update(self, template_id: UUID, payload: TemplateUpdate) -> EmailTemplate | None:
         template = self.get(template_id)
         if not template:
