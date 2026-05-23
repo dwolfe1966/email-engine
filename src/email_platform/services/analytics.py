@@ -1,3 +1,4 @@
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -23,6 +24,8 @@ from email_platform.schemas.contracts import (
     AnalyticsOverviewRead,
     AudiencePerformanceRead,
     CampaignAnalyticsRead,
+    CampaignTimelinePointRead,
+    CampaignTimelineRead,
     CampaignPerformanceRead,
     DomainDeliverabilityRead,
     EventRead,
@@ -84,6 +87,67 @@ class AnalyticsService:
             event_counts=[
                 MetricCount(name=name, count=count) for name, count in sorted(event_counts.items())
             ],
+        )
+
+    def campaign_timeline(
+        self, campaign_id: UUID, days: int = 30, send_job_id: UUID | None = None
+    ) -> CampaignTimelineRead | None:
+        if not self.db.get(Campaign, campaign_id):
+            return None
+        if send_job_id:
+            send_job = self.db.get(CampaignSendJob, send_job_id)
+            if not send_job or send_job.campaign_id != campaign_id:
+                return None
+
+        today = datetime.utcnow().date()
+        start_date = today - timedelta(days=days - 1)
+        start_at = datetime.combine(start_date, time.min)
+        buckets = {
+            start_date + timedelta(days=offset): self._empty_timeline_bucket()
+            for offset in range(days)
+        }
+
+        job_statement = select(CampaignSendJob).where(
+            CampaignSendJob.campaign_id == campaign_id,
+            CampaignSendJob.created_at >= start_at,
+        )
+        if send_job_id:
+            job_statement = job_statement.where(CampaignSendJob.id == send_job_id)
+        for job in self.db.scalars(job_statement).all():
+            bucket = buckets.setdefault(job.created_at.date(), self._empty_timeline_bucket())
+            bucket['requested_count'] += job.requested_count
+            bucket['suppressed_count'] += job.suppressed_count
+
+        record_statement = select(EmailSendRecord).where(
+            EmailSendRecord.campaign_id == campaign_id,
+            EmailSendRecord.created_at >= start_at,
+        )
+        if send_job_id:
+            record_statement = record_statement.where(EmailSendRecord.send_job_id == send_job_id)
+        for record in self.db.scalars(record_statement).all():
+            bucket = buckets.setdefault(record.created_at.date(), self._empty_timeline_bucket())
+            bucket[f'{record.status.value}_count'] = bucket.get(
+                f'{record.status.value}_count', 0
+            ) + 1
+
+        event_statement = select(EmailEvent).where(
+            EmailEvent.campaign_id == campaign_id,
+            EmailEvent.occurred_at >= start_at,
+        )
+        if send_job_id:
+            event_statement = event_statement.where(EmailEvent.send_job_id == send_job_id)
+        for event in self.db.scalars(event_statement).all():
+            bucket = buckets.setdefault(event.occurred_at.date(), self._empty_timeline_bucket())
+            bucket[f'{event.event_type.value}_count'] = bucket.get(
+                f'{event.event_type.value}_count', 0
+            ) + 1
+
+        points = [self._timeline_point(day, buckets[day]) for day in sorted(buckets)]
+        return CampaignTimelineRead(
+            campaign_id=campaign_id,
+            send_job_id=send_job_id,
+            days=days,
+            points=points,
         )
 
     def overview(self, recent_event_limit: int = 25) -> AnalyticsOverviewRead:
@@ -303,6 +367,45 @@ class AnalyticsService:
             'complained_count': 0,
             'unsubscribed_count': 0,
         }
+
+    def _empty_timeline_bucket(self) -> dict[str, int]:
+        return {
+            'requested_count': 0,
+            'queued_count': 0,
+            'sent_count': 0,
+            'failed_count': 0,
+            'suppressed_count': 0,
+            'delivered_count': 0,
+            'opened_count': 0,
+            'clicked_count': 0,
+            'bounced_count': 0,
+            'complained_count': 0,
+            'unsubscribed_count': 0,
+        }
+
+    def _timeline_point(
+        self, day: date, counts: dict[str, int]
+    ) -> CampaignTimelinePointRead:
+        rate_base = max(counts['sent_count'], counts['delivered_count'])
+        return CampaignTimelinePointRead(
+            date=day,
+            requested_count=counts['requested_count'],
+            queued_count=counts['queued_count'],
+            sent_count=counts['sent_count'],
+            failed_count=counts['failed_count'],
+            suppressed_count=counts['suppressed_count'],
+            delivered_count=counts['delivered_count'],
+            opened_count=counts['opened_count'],
+            clicked_count=counts['clicked_count'],
+            bounced_count=counts['bounced_count'],
+            complained_count=counts['complained_count'],
+            unsubscribed_count=counts['unsubscribed_count'],
+            open_rate=self._rate(counts['opened_count'], rate_base),
+            click_rate=self._rate(counts['clicked_count'], rate_base),
+            bounce_rate=self._rate(
+                counts['bounced_count'], max(counts['sent_count'], counts['requested_count'])
+            ),
+        )
 
     def _domain_row(
         self, domain: str, provider: str | None, counts: dict[str, int]

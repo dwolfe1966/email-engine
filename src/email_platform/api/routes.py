@@ -47,6 +47,7 @@ from email_platform.schemas.contracts import (
     CampaignProcessDueRead,
     CampaignRead,
     CampaignSendJobRead,
+    CampaignTimelineRead,
     CampaignUpdate,
     CampaignValidationRead,
     ContactRead,
@@ -361,6 +362,23 @@ def get_campaign_analytics(
     if not metrics:
         raise HTTPException(status_code=404, detail='Campaign or send job not found')
     return metrics
+
+
+@router.get('/campaigns/{campaign_id}/analytics/timeline', response_model=CampaignTimelineRead)
+def get_campaign_analytics_timeline(
+    campaign_id: UUID,
+    db: DbSession,
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    send_job_id: UUID | None = None,
+) -> CampaignTimelineRead:
+    timeline = AnalyticsService(db).campaign_timeline(
+        campaign_id=campaign_id,
+        days=days,
+        send_job_id=send_job_id,
+    )
+    if not timeline:
+        raise HTTPException(status_code=404, detail='Campaign or send job not found')
+    return timeline
 
 
 @router.get('/analytics/overview', response_model=AnalyticsOverviewRead)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, TypeVar
 from uuid import UUID
 
@@ -419,6 +419,31 @@ class CampaignAnalyticsRead(BaseModel):
     bounce_rate: float
     status_counts: list[MetricCount]
     event_counts: list[MetricCount]
+
+
+class CampaignTimelinePointRead(BaseModel):
+    date: date
+    requested_count: int = 0
+    queued_count: int = 0
+    sent_count: int = 0
+    failed_count: int = 0
+    suppressed_count: int = 0
+    delivered_count: int = 0
+    opened_count: int = 0
+    clicked_count: int = 0
+    bounced_count: int = 0
+    complained_count: int = 0
+    unsubscribed_count: int = 0
+    open_rate: float = 0
+    click_rate: float = 0
+    bounce_rate: float = 0
+
+
+class CampaignTimelineRead(BaseModel):
+    campaign_id: UUID
+    send_job_id: UUID | None = None
+    days: int
+    points: list[CampaignTimelinePointRead]
 
 
 class TrackingLinksRead(BaseModel):

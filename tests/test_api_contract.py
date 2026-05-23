@@ -21,6 +21,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/process-due',
         '/api/v1/campaigns/{campaign_id}',
         '/api/v1/campaigns/{campaign_id}/analytics',
+        '/api/v1/campaigns/{campaign_id}/analytics/timeline',
         '/api/v1/campaigns/{campaign_id}/approve',
         '/api/v1/campaigns/{campaign_id}/clone',
         '/api/v1/campaigns/{campaign_id}/launch',
