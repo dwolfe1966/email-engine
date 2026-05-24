@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings, get_settings
