@@ -184,7 +184,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     }
     .variable-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: 8px;
       align-items: center;
       border: 1px solid var(--line);
@@ -209,6 +209,14 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       font-weight: 700;
       background: #fff;
     }
+    .insert-target {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .insert-target select { width: auto; }
     #visualEditor { min-height: 360px; }
     .error { color: var(--red); }
     @media (max-width: 1100px) {
@@ -395,6 +403,13 @@ li {
         <div class="variable-panel">
           <div class="actions">
             <strong>Detected Variables</strong>
+            <label class="insert-target">Insert into
+              <select id="insertTarget">
+                <option value="htmlBody">HTML</option>
+                <option value="subject">Subject</option>
+                <option value="textBody">Text</option>
+              </select>
+            </label>
             <button class="secondary" type="button" id="applySampleVariables">
               Use Sample JSON
             </button>
@@ -440,6 +455,21 @@ li {
       return { ...(state.sampleVariables || {}), ...variables(fallbackToEmpty) };
     }
 
+    function insertIntoTarget(snippet) {
+      const target = document.getElementById(value("insertTarget"));
+      if (!target) return;
+      target.focus();
+      if (typeof target.setRangeText === "function") {
+        const start = target.selectionStart ?? target.value.length;
+        const end = target.selectionEnd ?? target.value.length;
+        target.setRangeText(snippet, start, end, "end");
+      } else {
+        target.value = `${target.value}${snippet}`;
+      }
+      if (target.id === "htmlBody") loadVisualFromSource();
+      scheduleVariableRefresh();
+    }
+
     function renderVariables(data) {
       state.sampleVariables = data.sample_variables || null;
       const list = document.getElementById("variableList");
@@ -456,12 +486,17 @@ li {
         const name = document.createElement("strong");
         const sources = document.createElement("small");
         const kind = document.createElement("span");
+        const insert = document.createElement("button");
         name.textContent = item.name;
         sources.textContent = `sources: ${(item.sources || []).join(", ") || "unknown"}`;
         kind.className = "variable-kind";
         kind.textContent = item.native ? "native" : "user";
+        insert.className = "secondary";
+        insert.type = "button";
+        insert.textContent = "Insert";
+        insert.addEventListener("click", () => insertIntoTarget(`{{ ${item.name} }}`));
         copy.append(name, sources);
-        row.append(copy, kind);
+        row.append(copy, kind, insert);
         list.appendChild(row);
       });
     }
