@@ -232,14 +232,30 @@ def update_template_document(
 def render_template_document(
     payload: TemplateDocumentRenderRequest, db: DbSession
 ) -> TemplatePreviewRead:
-    return TemplateService(db).preview(
-        TemplatePreviewRequest(
-            subject=payload.subject,
-            html_body=document_to_html(payload.document_json),
-            css_body=payload.css_body,
-            text_body=payload.text_body,
-            variables=payload.variables,
-        )
+    return TemplateService(db).preview(_document_preview_request(payload))
+
+
+@router.post('/templates/document/variables', response_model=TemplateVariablesRead)
+def inspect_template_document_variables(
+    payload: TemplateDocumentRenderRequest, db: DbSession
+) -> TemplateVariablesRead:
+    return TemplateService(db).variables(_document_preview_request(payload))
+
+
+@router.post('/templates/document/validate', response_model=TemplateValidationRead)
+def validate_template_document(
+    payload: TemplateDocumentRenderRequest, db: DbSession
+) -> TemplateValidationRead:
+    return TemplateService(db).validate(_document_preview_request(payload))
+
+
+def _document_preview_request(payload: TemplateDocumentRenderRequest) -> TemplatePreviewRequest:
+    return TemplatePreviewRequest(
+        subject=payload.subject,
+        html_body=document_to_html(payload.document_json),
+        css_body=payload.css_body,
+        text_body=payload.text_body,
+        variables=payload.variables,
     )
 
 

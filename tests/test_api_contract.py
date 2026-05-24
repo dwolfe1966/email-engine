@@ -13,6 +13,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
         '/api/v1/templates/document/render',
+        '/api/v1/templates/document/validate',
+        '/api/v1/templates/document/variables',
         '/api/v1/templates/preview',
         '/api/v1/templates/samples',
         '/api/v1/templates/validate',
@@ -293,6 +295,32 @@ def test_v1_render_document_renders_design_blocks() -> None:
     assert '<h2 style="text-align:left;">Hello Alex</h2>' in data['html_body']
     assert 'href="https://example.com/dashboard"' in data['html_body']
     assert 'border-radius:10px' in data['html_body']
+
+
+def test_v1_document_variables_and_validate_use_design_blocks() -> None:
+    client = TestClient(app)
+    payload = {
+        'subject': 'Hello {{ first_name }}',
+        'document_json': {
+            'blocks': [
+                {'type': 'paragraph', 'text': 'Plan {{ plan }} for {{ first_name }}'},
+                {'type': 'button', 'text': 'Open', 'href': '{{ cta_url }}'},
+            ]
+        },
+        'variables': {'first_name': 'Alex'},
+    }
+
+    variables_response = client.post('/api/v1/templates/document/variables', json=payload)
+    assert variables_response.status_code == 200
+    variable_names = {item['name'] for item in variables_response.json()['variables']}
+    assert {'first_name', 'plan', 'cta_url'}.issubset(variable_names)
+
+    validate_response = client.post('/api/v1/templates/document/validate', json=payload)
+    assert validate_response.status_code == 200
+    validation = validate_response.json()
+    assert validation['ok'] is False
+    assert 'plan' in validation['missing_variables']
+    assert 'cta_url' in validation['missing_variables']
 
 
 def test_template_payload_accepts_document_json() -> None:
