@@ -122,6 +122,47 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     .toolbar select {
       width: auto;
     }
+    .editor-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .editor-tabs button {
+      background: white;
+      color: var(--blue);
+    }
+    .editor-tabs button.active {
+      background: var(--blue);
+      color: white;
+    }
+    .editor-panel { display: none; gap: 10px; }
+    .editor-panel.active { display: grid; }
+    .wysiwyg-shell {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .wysiwyg-toolbar {
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+    }
+    .wysiwyg-blocks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .wysiwyg-blocks button {
+      background: white;
+      color: var(--blue);
+      font-size: 12px;
+      padding: 6px 8px;
+    }
     .css-builder {
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -274,29 +315,13 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
         <label>Subject
           <input id="subject" value="Hello {{ first_name }}" />
         </label>
-        <label>Visual Designer
-          <div class="toolbar">
-            <select id="formatBlock">
-              <option value="p">Paragraph</option>
-              <option value="h1">Heading 1</option>
-              <option value="h2">Heading 2</option>
-              <option value="h3">Heading 3</option>
-              <option value="blockquote">Quote</option>
-            </select>
-            <button class="secondary" type="button" data-command="bold">B</button>
-            <button class="secondary" type="button" data-command="italic">I</button>
-            <button class="secondary" type="button" data-command="underline">U</button>
-            <button class="secondary" type="button" data-command="insertUnorderedList">List</button>
-            <button class="secondary" type="button" data-command="insertOrderedList">1-2</button>
-            <button class="secondary" type="button" id="insertLink">Link</button>
-            <button class="secondary" type="button" id="insertVariable">Variable</button>
-            <button class="secondary" type="button" id="syncFromSource">Source -> Visual</button>
-            <button class="secondary" type="button" id="syncToSource">Visual -> Source</button>
-          </div>
-          <iframe id="visualEditor"></iframe>
-        </label>
-        <label>HTML
-          <textarea id="htmlBody"><p>Hello {{ first_name }},</p>
+        <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
+          <button class="secondary active" type="button" data-editor-tab="source">Source</button>
+          <button class="secondary" type="button" data-editor-tab="visual">WYSIWYG</button>
+        </div>
+        <div class="editor-panel active" id="sourcePanel">
+          <label>HTML
+            <textarea id="htmlBody"><p>Hello {{ first_name }},</p>
 {% if plan == "trial" %}
   <p>Your trial plan is active.</p>
 {% else %}
@@ -307,9 +332,9 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
   <li>{{ loop.index }}. {{ item }}</li>
 {% endfor %}
 </ul></textarea>
-        </label>
-        <label>CSS
-          <textarea id="cssBody">body {
+          </label>
+          <label>CSS
+            <textarea id="cssBody">body {
   font-family: Arial, sans-serif;
   color: #17202a;
 }
@@ -319,61 +344,93 @@ p {
 li {
   margin: 4px 0;
 }</textarea>
-        </label>
-        <div class="css-builder">
-          <strong>CSS Builder</strong>
-          <div class="css-builder-grid">
-            <label>Preset
-              <select id="cssPreset">
-                <option value="newsletter">Newsletter</option>
-                <option value="announcement">Announcement</option>
-                <option value="transactional">Transactional</option>
-              </select>
-            </label>
-            <label>Font
-              <select id="cssFont">
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="Helvetica, Arial, sans-serif">Helvetica</option>
-                <option value="Georgia, serif">Georgia</option>
-                <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
-              </select>
-            </label>
-            <label>Brand color
-              <input id="cssBrandColor" type="color" value="#2563eb" />
-            </label>
-            <label>Accent color
-              <input id="cssAccentColor" type="color" value="#16a34a" />
-            </label>
-            <label>Max width
-              <select id="cssMaxWidth">
-                <option value="600">600px</option>
-                <option value="640">640px</option>
-                <option value="720">720px</option>
-              </select>
-            </label>
-            <label>Button radius
-              <select id="cssButtonRadius">
-                <option value="4">4px</option>
-                <option value="8">8px</option>
-                <option value="999">Pill</option>
-              </select>
-            </label>
-            <label>Block
-              <select id="emailBlock">
-                <option value="shell">Email shell</option>
-                <option value="hero">Hero</option>
-                <option value="card">Card</option>
-                <option value="callout">Callout</option>
-                <option value="summary">Summary table</option>
-                <option value="footer">Footer</option>
-              </select>
-            </label>
+          </label>
+          <div class="css-builder">
+            <strong>CSS Builder</strong>
+            <div class="css-builder-grid">
+              <label>Preset
+                <select id="cssPreset">
+                  <option value="newsletter">Newsletter</option>
+                  <option value="announcement">Announcement</option>
+                  <option value="transactional">Transactional</option>
+                </select>
+              </label>
+              <label>Font
+                <select id="cssFont">
+                  <option value="Arial, sans-serif">Arial</option>
+                  <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                  <option value="Georgia, serif">Georgia</option>
+                  <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
+                </select>
+              </label>
+              <label>Brand color
+                <input id="cssBrandColor" type="color" value="#2563eb" />
+              </label>
+              <label>Accent color
+                <input id="cssAccentColor" type="color" value="#16a34a" />
+              </label>
+              <label>Max width
+                <select id="cssMaxWidth">
+                  <option value="600">600px</option>
+                  <option value="640">640px</option>
+                  <option value="720">720px</option>
+                </select>
+              </label>
+              <label>Button radius
+                <select id="cssButtonRadius">
+                  <option value="4">4px</option>
+                  <option value="8">8px</option>
+                  <option value="999">Pill</option>
+                </select>
+              </label>
+              <label>Block
+                <select id="emailBlock">
+                  <option value="shell">Email shell</option>
+                  <option value="hero">Hero</option>
+                  <option value="card">Card</option>
+                  <option value="callout">Callout</option>
+                  <option value="summary">Summary table</option>
+                  <option value="footer">Footer</option>
+                </select>
+              </label>
+            </div>
+            <div class="actions">
+              <button class="secondary" type="button" id="generateCss">Generate CSS</button>
+              <button class="secondary" type="button" id="appendCss">Append CSS</button>
+              <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
+              <button class="secondary" type="button" id="insertBlockHtml">Insert Block</button>
+            </div>
           </div>
-          <div class="actions">
-            <button class="secondary" type="button" id="generateCss">Generate CSS</button>
-            <button class="secondary" type="button" id="appendCss">Append CSS</button>
-            <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
-            <button class="secondary" type="button" id="insertBlockHtml">Insert Block</button>
+        </div>
+        <div class="editor-panel" id="visualPanel">
+          <div class="wysiwyg-shell">
+            <div class="toolbar wysiwyg-toolbar">
+              <select id="formatBlock">
+                <option value="p">Paragraph</option>
+                <option value="h1">Heading 1</option>
+                <option value="h2">Heading 2</option>
+                <option value="h3">Heading 3</option>
+                <option value="blockquote">Quote</option>
+              </select>
+              <button class="secondary" type="button" data-command="bold">B</button>
+              <button class="secondary" type="button" data-command="italic">I</button>
+              <button class="secondary" type="button" data-command="underline">U</button>
+              <button class="secondary" type="button" data-command="insertUnorderedList">List</button>
+              <button class="secondary" type="button" data-command="insertOrderedList">1-2</button>
+              <button class="secondary" type="button" id="insertLink">Link</button>
+              <button class="secondary" type="button" id="insertVariable">Variable</button>
+              <button class="secondary" type="button" id="syncFromSource">Source -> Visual</button>
+              <button class="secondary" type="button" id="syncToSource">Visual -> Source</button>
+            </div>
+            <div class="wysiwyg-blocks">
+              <button type="button" data-block="shell">Email shell</button>
+              <button type="button" data-block="hero">Hero</button>
+              <button type="button" data-block="card">Card</button>
+              <button type="button" data-block="callout">Callout</button>
+              <button type="button" data-block="summary">Summary</button>
+              <button type="button" data-block="footer">Footer</button>
+            </div>
+            <iframe id="visualEditor"></iframe>
           </div>
         </div>
         <label>Text
@@ -431,6 +488,7 @@ li {
       sampleVariables: null,
       variableTimer: null,
       inspectingVariables: false,
+      editorTab: "source",
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -532,12 +590,30 @@ li {
       document.getElementById("htmlBody").value = doc.body.innerHTML.trim();
     }
 
+    function setEditorTab(tab) {
+      if (state.editorTab === "visual" && tab !== "visual") {
+        syncSourceFromVisual();
+      }
+      state.editorTab = tab;
+      document.querySelectorAll("[data-editor-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.editorTab === tab);
+      });
+      document.getElementById("sourcePanel").classList.toggle("active", tab === "source");
+      document.getElementById("visualPanel").classList.toggle("active", tab === "visual");
+      if (tab === "visual") loadVisualFromSource();
+    }
+
     function runCommand(command, value = null) {
       const doc = visualDocument();
       if (!doc) return;
       doc.body.focus();
       doc.execCommand(command, false, value);
       syncSourceFromVisual();
+    }
+
+    async function refreshVariablesAndPreview({ applySample = false, silent = false } = {}) {
+      await inspectVariables({ silent: true, applySample });
+      await previewTemplate({ silent });
     }
 
     function emailCss() {
@@ -651,7 +727,7 @@ ${presetRules[preset] || ""}`;
     }
 
     function payload() {
-      syncSourceFromVisual();
+      if (state.editorTab === "visual") syncSourceFromVisual();
       return {
         name: value("templateName"),
         subject: value("subject"),
@@ -694,6 +770,7 @@ ${presetRules[preset] || ""}`;
 
     function selectTemplate(template) {
       state.templateId = template.id;
+      state.sampleVariables = null;
       document.getElementById("templateName").value = template.name;
       document.getElementById("subject").value = template.subject;
       document.getElementById("htmlBody").value = template.html_body;
@@ -701,7 +778,9 @@ ${presetRules[preset] || ""}`;
       document.getElementById("textBody").value = template.text_body || "";
       loadVisualFromSource();
       log({ selected: template.id });
-      scheduleVariableRefresh();
+      refreshVariablesAndPreview({ applySample: true, silent: true })
+        .then(() => log({ selected: template.id, preview: "updated" }))
+        .catch((error) => log({ selected: template.id, error: error.message }));
     }
 
     async function validateTemplate() {
@@ -722,6 +801,13 @@ ${presetRules[preset] || ""}`;
           body: JSON.stringify({ ...payload(), variables: variables(true) }),
         });
         renderVariables(data);
+        if (options.applySample) {
+          document.getElementById("variablesJson").value = JSON.stringify(
+            data.sample_variables || {},
+            null,
+            2,
+          );
+        }
         if (!options.silent) log(data);
       } finally {
         state.inspectingVariables = false;
@@ -736,13 +822,13 @@ ${presetRules[preset] || ""}`;
       log(data);
     }
 
-    async function previewTemplate() {
+    async function previewTemplate(options = {}) {
       const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/preview", {
         method: "POST",
         body: JSON.stringify({ ...payload(), variables: renderVariables }),
       });
-      log(data);
+      if (!options.silent) log(data);
       document.getElementById("htmlPreview").srcdoc = data.ok ? data.html_body : "";
     }
 
@@ -779,6 +865,9 @@ ${presetRules[preset] || ""}`;
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
+    document.querySelectorAll("[data-editor-tab]").forEach((button) => {
+      button.addEventListener("click", () => setEditorTab(button.dataset.editorTab));
+    });
     ["subject", "htmlBody", "cssBody", "textBody"].forEach((id) => {
       document.getElementById(id).addEventListener("input", scheduleVariableRefresh);
     });
@@ -803,6 +892,12 @@ ${presetRules[preset] || ""}`;
     });
     document.getElementById("insertBlockHtml").addEventListener("click", () => {
       runCommand("insertHTML", blockHtml());
+    });
+    document.querySelectorAll("[data-block]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.getElementById("emailBlock").value = button.dataset.block;
+        runCommand("insertHTML", blockHtml());
+      });
     });
     document.getElementById("formatBlock").addEventListener("change", (event) => {
       runCommand("formatBlock", event.target.value);
