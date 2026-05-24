@@ -1418,6 +1418,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
               <button class="secondary" id="viewTimeline" type="button">Timeline</button>
               <button class="secondary" id="recordTestOpen" type="button">Record Open</button>
               <button class="secondary" id="recordTestClick" type="button">Record Click</button>
+              <button class="secondary" id="refreshTestSend" type="button">Refresh</button>
             </div>
           </div>
           <label>Click target URL
@@ -1938,6 +1939,15 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       return data;
     }
 
+    async function refreshLastTestSend() {
+      if (!lastTestSend?.send_record_id) {
+        writeResult("Run a test send first.", false);
+        return;
+      }
+      await refreshLastTestAnalytics();
+      await refreshLastTestEvents();
+    }
+
     async function recordTestOpen() {
       if (!lastTestSend?.send_record_id) {
         writeResult("Run a test send first.", false);
@@ -2016,6 +2026,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("recordTestClick").addEventListener("click", () => {
       recordTestClick().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("refreshTestSend").addEventListener("click", () => {
+      refreshLastTestSend().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
