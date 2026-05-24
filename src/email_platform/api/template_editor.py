@@ -632,6 +632,7 @@ li {
         <h2>Render</h2>
         <div class="actions">
           <button class="secondary" id="inspectVariables">Inspect Variables</button>
+          <button class="secondary" id="refreshSampleVariables">Refresh Samples</button>
           <button class="secondary" id="lintTemplate">Lint</button>
           <button class="secondary" id="validateTemplate">Validate</button>
           <button id="previewTemplate">Preview</button>
@@ -677,6 +678,7 @@ li {
       sampleVariables: null,
       variableTimer: null,
       inspectingVariables: false,
+      refreshingSamples: false,
       editorTab: "source",
       designDoc: { blocks: [] },
       aiDraft: null,
@@ -1009,6 +1011,25 @@ li {
     async function refreshVariablesAndPreview({ applySample = false, silent = false } = {}) {
       await inspectVariables({ silent: true, applySample });
       await previewTemplate({ silent });
+    }
+
+    async function refreshSampleVariables() {
+      if (state.refreshingSamples) return;
+      const button = document.getElementById("refreshSampleVariables");
+      state.refreshingSamples = true;
+      button.disabled = true;
+      button.textContent = "Refreshing...";
+      try {
+        await refreshVariablesAndPreview({ applySample: true, silent: true });
+        log({
+          refreshed_sample_variables: Object.keys(state.sampleVariables || {}),
+          preview: "updated",
+        });
+      } finally {
+        state.refreshingSamples = false;
+        button.disabled = false;
+        button.textContent = "Refresh Samples";
+      }
     }
 
     function emailCss() {
@@ -1787,6 +1808,9 @@ ${presetRules[preset] || ""}`;
     document.getElementById("refreshTemplates").addEventListener("click", loadTemplates);
     document.getElementById("seedSamples").addEventListener("click", seedSamples);
     document.getElementById("inspectVariables").addEventListener("click", inspectVariables);
+    document.getElementById("refreshSampleVariables").addEventListener("click", () => {
+      refreshSampleVariables().catch((error) => log({ error: error.message }));
+    });
     document.getElementById("aiDraft").addEventListener("click", () => {
       draftTemplateWithAi().catch((error) => log({ error: error.message }));
     });
