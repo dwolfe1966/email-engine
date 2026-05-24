@@ -390,9 +390,10 @@ def compat_list_sends(
     offset: Offset = 0,
     status: str | None = None,
     search: str | None = None,
+    sort: str = 'created_desc',
 ) -> dict[str, object]:
     status_filter = _campaign_status_from_send_status(status)
-    statement = select(Campaign).order_by(Campaign.created_at.desc())
+    statement = select(Campaign).order_by(*_campaign_sort_order(sort))
     count_statement = select(func.count()).select_from(Campaign)
     if status_filter:
         statement = statement.where(Campaign.status == status_filter)
@@ -414,6 +415,22 @@ def compat_list_sends(
     campaigns = list(db.scalars(statement.limit(limit).offset(offset)).all())
     total = db.scalar(count_statement) or 0
     return _list_response(_send_list_details(db, campaigns), limit, offset, total)
+
+
+def _campaign_sort_order(sort: str) -> tuple[object, ...]:
+    match sort:
+        case 'created_asc':
+            return (Campaign.created_at.asc(), Campaign.id.asc())
+        case 'name_asc':
+            return (Campaign.name.asc(), Campaign.created_at.desc(), Campaign.id.desc())
+        case 'name_desc':
+            return (Campaign.name.desc(), Campaign.created_at.desc(), Campaign.id.desc())
+        case 'scheduled_asc':
+            return (Campaign.scheduled_at.asc().nulls_last(), Campaign.created_at.desc())
+        case 'scheduled_desc':
+            return (Campaign.scheduled_at.desc().nulls_last(), Campaign.created_at.desc())
+        case _:
+            return (Campaign.created_at.desc(), Campaign.id.desc())
 
 
 @router.get('/sends/{send_id}')
