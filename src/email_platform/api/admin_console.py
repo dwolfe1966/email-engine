@@ -1307,6 +1307,40 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       background: #fff;
     }
     .test-send-events:empty { display: none; }
+    .readiness-panel {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+    .readiness-panel[hidden] { display: none; }
+    .readiness-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+    .readiness-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      background: #fff;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .readiness-card strong { font-size: 13px; }
+    .readiness-card span { color: var(--muted); font-size: 12px; }
+    .readiness-card.ok { border-color: #16a34a; }
+    .readiness-card.warn { border-color: #d97706; }
+    .readiness-card.fail { border-color: var(--red); }
+    .readiness-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1408,6 +1442,14 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <label>Test recipient email
           <input id="testEmail" type="email" placeholder="you@example.com" />
         </label>
+        <div class="readiness-panel" id="readinessPanel" hidden>
+          <div class="head">
+            <h2>Workflow Readiness</h2>
+            <span id="readinessSummary"></span>
+          </div>
+          <div class="readiness-grid" id="readinessGrid"></div>
+          <ul class="readiness-list" id="readinessIssues"></ul>
+        </div>
         <div class="test-send-panel" id="testSendPanel" hidden>
           <div class="head">
             <h2>Last Test Send</h2>
@@ -1650,6 +1692,67 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       `;
     }
 
+    function renderReadiness(data) {
+      const panel = document.getElementById("readinessPanel");
+      const summary = document.getElementById("readinessSummary");
+      const grid = document.getElementById("readinessGrid");
+      const issues = document.getElementById("readinessIssues");
+      const validation = data.validation || {};
+      const audience = data.audience_preview || {};
+      const analytics = data.analytics || {};
+      const cards = [
+        {
+          label: "Template",
+          state: data.template ? "ok" : "fail",
+          detail: data.template ? data.template.name : "Missing template"
+        },
+        {
+          label: "Variables",
+          state: validation.missing_variables?.length ? "fail" : "ok",
+          detail: validation.missing_variables?.length
+            ? validation.missing_variables.join(", ")
+            : `${data.template_variables?.variables?.length || 0} user variables`
+        },
+        {
+          label: "Audience",
+          state: audience.estimated_count > 0 ? "ok" : "fail",
+          detail: `${audience.estimated_count || 0} matched contacts`
+        },
+        {
+          label: "Validation",
+          state: validation.ok ? "ok" : "fail",
+          detail: validation.ok ? "Ready" : `${validation.errors?.length || 0} errors`
+        },
+        {
+          label: "Latest Send",
+          state: data.latest_send_record ? "ok" : "warn",
+          detail: data.latest_send_record
+            ? `${data.latest_send_record.status} to ${data.latest_send_record.to_email}`
+            : "No send record yet"
+        },
+        {
+          label: "Metrics",
+          state: analytics.sent_count ? "ok" : "warn",
+          detail: `${analytics.sent_count || 0} sent, ${analytics.opened_count || 0} opened, ${analytics.clicked_count || 0} clicked`
+        }
+      ];
+      panel.hidden = false;
+      summary.textContent = validation.ok ? "Ready for test send" : "Needs attention";
+      grid.innerHTML = cards.map((card) => `
+        <div class="readiness-card ${card.state}">
+          <strong>${escapeHtml(card.label)}</strong>
+          <span>${escapeHtml(card.detail)}</span>
+        </div>
+      `).join("");
+      const issueItems = [
+        ...(validation.errors || []),
+        ...(validation.warnings || []).map((warning) => `Warning: ${warning}`)
+      ];
+      issues.innerHTML = issueItems
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("");
+    }
+
     function resetForm() {
       selectedId = "";
       lastTestSend = null;
@@ -1657,6 +1760,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("scheduledAt").value = "";
       document.getElementById("audienceQuery").value = "{}";
       document.getElementById("variables").value = "{}";
+      document.getElementById("readinessPanel").hidden = true;
       document.getElementById("testSendPanel").hidden = true;
       renderTestSendMetrics(null);
       renderTestSendEvents(null);
@@ -1672,6 +1776,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     function selectCampaign(item) {
       selectedId = item.id;
       clearLastTestSend();
+      document.getElementById("readinessPanel").hidden = true;
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
       document.getElementById("scheduledAt").value = item.scheduled_at
@@ -1833,6 +1938,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       }
       const data = await request(`/api/v1/campaigns/${selectedId}/workflow-status`);
       writeResult(data);
+      renderReadiness(data);
       renderContacts(data.audience_preview?.sample_contacts || []);
       if (data.analytics) renderTestSendMetrics(data.analytics);
       if (data.latest_send_record) {
