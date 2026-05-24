@@ -248,6 +248,7 @@ def test_admin_pages() -> None:
     assert 'Validate' in campaigns.text
     assert 'Workflow Status' in campaigns.text
     assert 'Workflow Readiness' in campaigns.text
+    assert 'workflowSteps' in campaigns.text
     assert 'Test Preview' in campaigns.text
     assert 'Test Send' in campaigns.text
     assert 'Approve' in campaigns.text

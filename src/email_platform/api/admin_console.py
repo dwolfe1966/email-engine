@@ -1341,6 +1341,27 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 12px;
     }
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fff;
+    }
+    .workflow-step {
+      border-left: 4px solid var(--line);
+      padding: 6px 8px;
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .workflow-step strong { font-size: 12px; }
+    .workflow-step span { color: var(--muted); font-size: 11px; }
+    .workflow-step.ok { border-color: #16a34a; }
+    .workflow-step.current { border-color: var(--blue); background: #eff6ff; }
+    .workflow-step.fail { border-color: var(--red); background: #fff7f7; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1442,6 +1463,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <label>Test recipient email
           <input id="testEmail" type="email" placeholder="you@example.com" />
         </label>
+        <div class="workflow-steps" id="workflowSteps"></div>
         <div class="readiness-panel" id="readinessPanel" hidden>
           <div class="head">
             <h2>Workflow Readiness</h2>
@@ -1753,6 +1775,47 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         .join("");
     }
 
+    function renderWorkflowSteps(data = null) {
+      const container = document.getElementById("workflowSteps");
+      const validation = data?.validation || {};
+      const audience = data?.audience_preview || {};
+      const analytics = data?.analytics || {};
+      const latestSend = data?.latest_send_record;
+      const steps = [
+        {
+          label: "1. Audience",
+          state: audience.estimated_count > 0 ? "ok" : data ? "fail" : "current",
+          detail: data ? `${audience.estimated_count || 0} contacts matched` : "Select or create audience"
+        },
+        {
+          label: "2. Template",
+          state: data?.template ? "ok" : data ? "fail" : "",
+          detail: data?.template ? data.template.name : "Select template"
+        },
+        {
+          label: "3. Validate",
+          state: validation.ok ? "ok" : data ? "fail" : "",
+          detail: data ? (validation.ok ? "Ready" : "Review errors") : "Run Workflow Status"
+        },
+        {
+          label: "4. Test Send",
+          state: latestSend ? "ok" : validation.ok ? "current" : "",
+          detail: latestSend ? latestSend.status : "Send to test recipient"
+        },
+        {
+          label: "5. Metrics",
+          state: analytics.opened_count || analytics.clicked_count ? "ok" : latestSend ? "current" : "",
+          detail: `${analytics.sent_count || 0} sent / ${analytics.opened_count || 0} opened / ${analytics.clicked_count || 0} clicked`
+        }
+      ];
+      container.innerHTML = steps.map((step) => `
+        <div class="workflow-step ${step.state}">
+          <strong>${escapeHtml(step.label)}</strong>
+          <span>${escapeHtml(step.detail)}</span>
+        </div>
+      `).join("");
+    }
+
     function resetForm() {
       selectedId = "";
       lastTestSend = null;
@@ -1762,6 +1825,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("variables").value = "{}";
       document.getElementById("readinessPanel").hidden = true;
       document.getElementById("testSendPanel").hidden = true;
+      renderWorkflowSteps();
       renderTestSendMetrics(null);
       renderTestSendEvents(null);
     }
@@ -1777,6 +1841,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       selectedId = item.id;
       clearLastTestSend();
       document.getElementById("readinessPanel").hidden = true;
+      renderWorkflowSteps();
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
       document.getElementById("scheduledAt").value = item.scheduled_at
@@ -1938,6 +2003,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       }
       const data = await request(`/api/v1/campaigns/${selectedId}/workflow-status`);
       writeResult(data);
+      renderWorkflowSteps(data);
       renderReadiness(data);
       renderContacts(data.audience_preview?.sample_contacts || []);
       if (data.analytics) renderTestSendMetrics(data.analytics);
