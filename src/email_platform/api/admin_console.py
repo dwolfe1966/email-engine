@@ -1251,6 +1251,36 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       border: 1px solid var(--line);
       border-radius: 6px;
     }
+    .test-send-panel {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+    .test-send-panel[hidden] { display: none; }
+    .test-send-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    .test-send-field {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .test-send-field span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+    .test-send-field code {
+      overflow-wrap: anywhere;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1352,6 +1382,16 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <label>Test recipient email
           <input id="testEmail" type="email" placeholder="you@example.com" />
         </label>
+        <div class="test-send-panel" id="testSendPanel" hidden>
+          <div class="head">
+            <h2>Last Test Send</h2>
+            <div class="actions">
+              <button class="secondary" id="viewDelivery" type="button">Delivery</button>
+              <button class="secondary" id="viewAnalytics" type="button">Analytics</button>
+            </div>
+          </div>
+          <div class="test-send-grid" id="testSendDetails"></div>
+        </div>
         <div class="actions">
           <button class="secondary" id="previewAudience">Preview Audience</button>
           <button class="secondary" id="previewTemplate">Preview Template</button>
@@ -1384,6 +1424,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
   </main>
   <script>
     let selectedId = "";
+    let lastTestSend = null;
     let templateItems = [];
     let audienceItems = [];
     const result = document.getElementById("result");
@@ -1492,12 +1533,41 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       doc.close();
     }
 
+    function renderTestSendDetails(data) {
+      lastTestSend = data;
+      const panel = document.getElementById("testSendPanel");
+      const container = document.getElementById("testSendDetails");
+      panel.hidden = false;
+      const fields = [
+        ["Recipient", data.to_email],
+        ["Campaign ID", data.campaign_id],
+        ["Send Job ID", data.send_job_id],
+        ["Send Record ID", data.send_record_id],
+        ["Contact ID", data.contact_id],
+        ["Provider Message ID", data.provider_message_id || "(none)"],
+        ["Open Tracking", data.tracking_open_url],
+        ["Click Tracking Base", data.tracking_click_base],
+        ["Unsubscribe URL", data.unsubscribe_url]
+      ];
+      container.innerHTML = fields
+        .filter(([, value]) => value)
+        .map(([label, value]) => `
+          <div class="test-send-field">
+            <span>${escapeHtml(label)}</span>
+            <code>${escapeHtml(value)}</code>
+          </div>
+        `)
+        .join("");
+    }
+
     function resetForm() {
       selectedId = "";
+      lastTestSend = null;
       document.getElementById("name").value = `campaign-${Date.now()}`;
       document.getElementById("scheduledAt").value = "";
       document.getElementById("audienceQuery").value = "{}";
       document.getElementById("variables").value = "{}";
+      document.getElementById("testSendPanel").hidden = true;
     }
 
     function selectCampaign(item) {
@@ -1666,13 +1736,15 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         writeResult("Enter a test recipient email first.", false);
         return;
       }
-      await request(`/api/v1/campaigns/${selectedId}/test-send`, {
+      const data = await request(`/api/v1/campaigns/${selectedId}/test-send`, {
         method: "POST",
         body: JSON.stringify({
           to_email: toEmail,
           variables: parseJson("variables", {})
         })
       });
+      renderTestSendDetails(data);
+      renderTemplatePreview(data);
     }
 
     async function testPreviewCampaign() {
@@ -1730,6 +1802,21 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       await request(`/api/v1/email-send-records/list${query}`);
     }
 
+    function openDeliveryForLastTest() {
+      const params = new URLSearchParams();
+      if (lastTestSend?.campaign_id) params.set("campaign_id", lastTestSend.campaign_id);
+      if (lastTestSend?.send_job_id) params.set("send_job_id", lastTestSend.send_job_id);
+      if (lastTestSend?.send_record_id) params.set("send_record_id", lastTestSend.send_record_id);
+      location.href = `/admin/delivery${params.toString() ? `?${params.toString()}` : ""}`;
+    }
+
+    function openAnalyticsForLastTest() {
+      const params = new URLSearchParams();
+      if (lastTestSend?.campaign_id) params.set("campaign_id", lastTestSend.campaign_id);
+      if (lastTestSend?.send_job_id) params.set("send_job_id", lastTestSend.send_job_id);
+      location.href = `/admin/analytics${params.toString() ? `?${params.toString()}` : ""}`;
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       loadCampaigns().catch((error) => writeResult(error.message, false));
     });
@@ -1767,6 +1854,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     document.getElementById("testSend").addEventListener("click", () => {
       testSendCampaign().catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("viewDelivery").addEventListener("click", openDeliveryForLastTest);
+    document.getElementById("viewAnalytics").addEventListener("click", openAnalyticsForLastTest);
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
     });
@@ -2675,6 +2764,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     const campaigns = [];
     const jobs = [];
     const records = [];
+    const initialParams = new URLSearchParams(location.search);
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
@@ -2717,6 +2807,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       items.forEach((item) => {
         select.appendChild(option(`${item.name} - ${item.status} - ${item.id}`, item.id));
       });
+      if (initialParams.get("campaign_id")) {
+        select.value = initialParams.get("campaign_id");
+      }
     }
 
     function renderJobs(items) {
@@ -2726,6 +2819,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
         const campaign = item.campaign_id ? item.campaign_id : "no campaign";
         select.appendChild(option(`${item.status} - ${campaign} - ${item.id}`, item.id));
       });
+      if (initialParams.get("send_job_id")) {
+        select.value = initialParams.get("send_job_id");
+      }
     }
 
     function renderRecords(items) {
@@ -2734,6 +2830,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       items.forEach((item) => {
         select.appendChild(option(`${item.status} - ${item.to_email} - ${item.id}`, item.id));
       });
+      if (initialParams.get("send_record_id")) {
+        select.value = initialParams.get("send_record_id");
+      }
     }
 
     function limitQuery() {
@@ -2833,6 +2932,12 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     loadCampaigns()
       .then(loadJobs)
       .then(loadRecords)
+      .then(() => {
+        if (value("sendRecordId")) {
+          return trackingLinks();
+        }
+        return null;
+      })
       .catch((error) => writeResult(error.message, false));
   </script>
 </body>
@@ -3036,6 +3141,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     const journeys = [];
     const sendJobs = [];
     const sendRecords = [];
+    const initialParams = new URLSearchParams(location.search);
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
@@ -3097,6 +3203,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       for (const item of campaigns) {
         select.appendChild(option(`${item.name} - ${item.status} - ${shortId(item.id)}`, item.id));
       }
+      if (initialParams.get("campaign_id")) {
+        select.value = initialParams.get("campaign_id");
+      }
     }
 
     async function loadAudienceOptions() {
@@ -3127,6 +3236,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         const campaign = item.campaign_id ? shortId(item.campaign_id) : "no campaign";
         select.appendChild(option(`${item.status} - ${campaign} - ${shortId(item.id)}`, item.id));
       }
+      if (initialParams.get("send_job_id")) {
+        select.value = initialParams.get("send_job_id");
+      }
     }
 
     async function loadRecordOptions() {
@@ -3140,6 +3252,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         select.appendChild(
           option(`${item.status} - ${item.to_email} - ${shortId(item.id)}`, item.id)
         );
+      }
+      if (initialParams.get("send_record_id")) {
+        select.value = initialParams.get("send_record_id");
       }
     }
 
@@ -3267,7 +3382,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       .then(loadJourneyOptions)
       .then(loadJobOptions)
       .then(loadRecordOptions)
-      .then(analyticsOverview)
+      .then(() => (value("campaignId") ? campaignAnalytics() : analyticsOverview()))
       .catch((error) => writeResult(error.message, false));
   </script>
 </body>
