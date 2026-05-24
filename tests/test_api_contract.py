@@ -11,6 +11,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
 
     expected_paths = {
         '/api/v1/ai/templates/draft',
+        '/api/v1/ai/templates/edit',
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
@@ -179,6 +180,30 @@ def test_ai_template_draft_contract() -> None:
     assert '{% for item in recommendations %}' in data['html_body']
 
 
+def test_ai_template_edit_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/templates/edit',
+        json={
+            'instruction': 'Make the CTA more urgent',
+            'current_subject': 'Hello {{ first_name }}',
+            'current_html': '<p>Hello {{ first_name }}</p><p><a href="{{ tracking_click }}">Review details</a></p>',
+            'current_css': '.button { color: #ffffff; }',
+            'current_text': 'Hello {{ first_name }}',
+            'required_variables': ['first_name'],
+            'sample_variables': {'first_name': 'Taylor'},
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['validation']['ok'] is True
+    assert data['sample_variables']['first_name'] == 'Taylor'
+    assert 'tracking_open' in data['template_variables']['sample_variables']
+    assert 'Requested update' in data['html_body']
+
+
 def test_template_editor_page() -> None:
     client = TestClient(app)
     response = client.get('/template-editor')
@@ -188,6 +213,7 @@ def test_template_editor_page() -> None:
     assert 'Inspect Variables' in response.text
     assert 'Detected Variables' in response.text
     assert 'Use Sample JSON' in response.text
+    assert 'Modify Current' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
     assert 'CSS Builder' in response.text

@@ -445,6 +445,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
           </label>
           <div class="actions">
             <button type="button" id="aiDraft">Generate Draft</button>
+            <button class="secondary" type="button" id="aiEdit">Modify Current</button>
             <button class="secondary" type="button" id="aiPreviewDraft" disabled>Preview Draft</button>
             <button class="secondary" type="button" id="aiApplyDraft" disabled>Apply Draft</button>
             <button class="secondary" type="button" id="aiUseSampleVariables" disabled>Use Sample JSON</button>
@@ -809,6 +810,36 @@ li {
       });
       renderAiDraft(data);
       log({ ai_draft: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+    }
+
+    async function editTemplateWithAi() {
+      const instruction = value("aiBrief").trim();
+      if (!instruction) {
+        log({ error: "AI edit instruction is required." });
+        return;
+      }
+      await inspectVariables({ silent: true }).catch(() => {});
+      const data = await request("/api/v1/ai/templates/edit", {
+        method: "POST",
+        body: JSON.stringify({
+          instruction,
+          current_subject: value("subject"),
+          current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
+          current_css: value("cssBody") || null,
+          current_text: value("textBody") || null,
+          brand: {
+            name: value("templateName") || "Email Engine",
+            primary_color: value("cssBrandColor") || "#2563eb",
+            tone: "clear, useful, and production ready",
+          },
+          required_variables: detectedVariableNames(),
+          sample_variables: variables(true),
+        }),
+      });
+      renderAiDraft(data);
+      applyAiSampleVariables();
+      await previewAiDraft();
+      log({ ai_edit: data.subject, provider: data.provider, model: data.model, validation: data.validation });
     }
 
     async function previewAiDraft() {
@@ -1631,6 +1662,9 @@ ${presetRules[preset] || ""}`;
     document.getElementById("inspectVariables").addEventListener("click", inspectVariables);
     document.getElementById("aiDraft").addEventListener("click", () => {
       draftTemplateWithAi().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiEdit").addEventListener("click", () => {
+      editTemplateWithAi().catch((error) => log({ error: error.message }));
     });
     document.getElementById("aiPreviewDraft").addEventListener("click", () => {
       previewAiDraft().catch((error) => log({ error: error.message }));

@@ -34,6 +34,7 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     AITemplateDraftRead,
     AITemplateDraftRequest,
+    AITemplateEditRequest,
     AnalyticsOverviewRead,
     AudienceCreate,
     AudienceImportPreviewRead,
@@ -227,6 +228,40 @@ def _deterministic_template_draft(payload: AITemplateDraftRequest) -> dict[str, 
     }
 
 
+def _deterministic_template_edit(payload: AITemplateEditRequest) -> dict[str, object]:
+    instruction = payload.instruction.strip() or 'Update this email template.'
+    subject = payload.current_subject.strip() or 'Updated email'
+    css_body = payload.current_css or ''
+    html_body = payload.current_html.strip() or '<p>Hello {{ first_name }},</p>'
+    text_body = payload.current_text or ''
+    edit_note = (
+        '<div class="ai-edit-note">'
+        f'<p><strong>Requested update:</strong> {escape(instruction)}</p>'
+        '</div>'
+    )
+    if '</body>' in html_body.lower():
+        body_close = html_body.lower().rfind('</body>')
+        html_body = f'{html_body[:body_close]}{edit_note}{html_body[body_close:]}'
+    else:
+        html_body = f'{html_body}\n{edit_note}'
+    if '{{ tracking_open }}' not in html_body:
+        html_body += '{{ tracking_open }}'
+    if '{{ unsubscribe_url }}' not in html_body:
+        html_body += '<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>'
+    if '{{ unsubscribe_url }}' not in text_body:
+        text_body = f'{text_body}\n\nUnsubscribe: {{{{ unsubscribe_url }}}}'.strip()
+    return {
+        'subject': subject,
+        'html_body': html_body,
+        'css_body': css_body,
+        'text_body': text_body,
+        'notes': [
+            'Edited by deterministic mode; review copy before saving.',
+            'Preserved the existing template body and appended the requested change.',
+        ],
+    }
+
+
 def _normalized_required_variables(values: list[str]) -> set[str]:
     normalized = {value.strip() for value in values if value.strip()}
     if not normalized:
@@ -265,6 +300,32 @@ def _template_draft_payload(payload: AITemplateDraftRequest, settings: Settings)
     if provider != 'deterministic':
         raise HTTPException(status_code=400, detail=f'Unsupported AI template provider: {provider}')
     return _deterministic_template_draft(payload)
+
+
+def _template_edit_payload(payload: AITemplateEditRequest, settings: Settings) -> dict[str, object]:
+    provider = _ai_template_provider(settings)
+    if provider == 'openai':
+        if not settings.openai_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail='OPENAI_API_KEY is required when AI_TEMPLATE_PROVIDER=openai',
+            )
+        try:
+            return _openai_template_edit(payload, settings)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            if settings.ai_template_provider.strip().lower() == 'auto':
+                edit = _deterministic_template_edit(payload)
+                edit['notes'] = [
+                    *cast(list[str], edit['notes']),
+                    f'OpenAI edit failed; used deterministic fallback: {exc}',
+                ]
+                return edit
+            raise HTTPException(status_code=502, detail=f'OpenAI template edit failed: {exc}') from exc
+    if provider != 'deterministic':
+        raise HTTPException(status_code=400, detail=f'Unsupported AI template provider: {provider}')
+    return _deterministic_template_edit(payload)
 
 
 def _openai_template_draft(
@@ -347,6 +408,94 @@ def _openai_template_draft(
     }
 
 
+def _openai_template_edit(
+    payload: AITemplateEditRequest,
+    settings: Settings,
+) -> dict[str, object]:
+    schema = {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'subject': {'type': 'string'},
+            'html_body': {'type': 'string'},
+            'css_body': {'type': 'string'},
+            'text_body': {'type': 'string'},
+            'notes': {'type': 'array', 'items': {'type': 'string'}},
+        },
+        'required': ['subject', 'html_body', 'css_body', 'text_body', 'notes'],
+    }
+    variables = sorted(_normalized_required_variables(payload.required_variables))
+    prompt = {
+        'instruction': payload.instruction,
+        'current_template': {
+            'subject': payload.current_subject,
+            'html_body': payload.current_html,
+            'css_body': payload.current_css or '',
+            'text_body': payload.current_text or '',
+        },
+        'brand': payload.brand,
+        'required_variables': variables,
+        'sample_variables': payload.sample_variables,
+        'audience_summary': payload.audience_summary,
+        'requirements': [
+            'Return the fully revised email template as JSON only.',
+            'Modify the existing template according to the instruction; preserve structure, styling, and unchanged copy unless the instruction requires a change.',
+            'Keep Jinja syntax valid, including loops and conditionals already present in the template.',
+            'Preserve every required variable at least once in subject, HTML, or text.',
+            'Include {{ tracking_open }}, {{ tracking_click }}, and {{ unsubscribe_url }}.',
+            'Use {{ tracking_open }} as a standalone tracking pixel placeholder, not as an href.',
+            'Use {{ tracking_click }} only as an href value for one primary call-to-action link.',
+            'Keep HTML email friendly: simple tables/divs, inline-safe CSS classes, no script.',
+        ],
+    }
+    with httpx.Client(timeout=45) as client:
+        response = client.post(
+            'https://api.openai.com/v1/responses',
+            headers={
+                'Authorization': f'Bearer {settings.openai_api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': settings.openai_model,
+                'input': [
+                    {
+                        'role': 'system',
+                        'content': (
+                            'You are an expert lifecycle email template editor. '
+                            'Make targeted, safe edits to existing Jinja-compatible email templates.'
+                        ),
+                    },
+                    {'role': 'user', 'content': json.dumps(prompt)},
+                ],
+                'text': {
+                    'format': {
+                        'type': 'json_schema',
+                        'name': 'email_template_edit',
+                        'strict': True,
+                        'schema': schema,
+                    }
+                },
+            },
+        )
+    if response.status_code >= 400:
+        raise RuntimeError(f'{response.status_code} {response.text[:500]}')
+    raw = response.json()
+    text = raw.get('output_text') or _responses_output_text(raw)
+    if not text:
+        raise RuntimeError('OpenAI response did not include output_text')
+    edit = json.loads(text)
+    notes = edit.get('notes') if isinstance(edit.get('notes'), list) else []
+    return {
+        'subject': str(edit.get('subject') or payload.current_subject or 'Updated email'),
+        'html_body': _normalize_ai_html_body(str(edit.get('html_body') or payload.current_html)),
+        'css_body': str(edit.get('css_body') if edit.get('css_body') is not None else payload.current_css or ''),
+        'text_body': _normalize_ai_text_body(str(edit.get('text_body') or payload.current_text or '')),
+        'notes': [str(note) for note in notes],
+        'provider': 'openai',
+        'model': settings.openai_model,
+    }
+
+
 def _responses_output_text(response: Mapping[str, object]) -> str | None:
     output = response.get('output')
     if not isinstance(output, list):
@@ -417,6 +566,46 @@ def draft_template_with_ai(
         template_variables=variables,
         provider=cast(str, draft.get('provider', 'email-engine')),
         model=cast(str, draft.get('model', 'deterministic-template-draft-v1')),
+    )
+
+
+@router.post('/ai/templates/edit', response_model=AITemplateDraftRead)
+def edit_template_with_ai(
+    payload: AITemplateEditRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> AITemplateDraftRead:
+    draft = _template_edit_payload(payload, settings)
+    template_request = TemplateValidationRequest(
+        subject=draft['subject'],
+        html_body=draft['html_body'],
+        css_body=cast(str | None, draft.get('css_body')),
+        text_body=cast(str | None, draft.get('text_body')),
+        variables=payload.sample_variables,
+    )
+    template_service = TemplateService(db)
+    variables = template_service.variables(template_request)
+    render_variables = {**variables.sample_variables, **payload.sample_variables}
+    validation = template_service.validate(
+        TemplateValidationRequest(
+            subject=template_request.subject,
+            html_body=template_request.html_body,
+            css_body=template_request.css_body,
+            text_body=template_request.text_body,
+            variables=render_variables,
+        )
+    )
+    return AITemplateDraftRead(
+        subject=cast(str, draft['subject']),
+        html_body=cast(str, draft['html_body']),
+        css_body=cast(str | None, draft.get('css_body')),
+        text_body=cast(str | None, draft.get('text_body')),
+        sample_variables=render_variables,
+        notes=cast(list[str], draft['notes']),
+        validation=validation,
+        template_variables=variables,
+        provider=cast(str, draft.get('provider', 'email-engine')),
+        model=cast(str, draft.get('model', 'deterministic-template-edit-v1')),
     )
 
 

@@ -191,6 +191,18 @@ class AITemplateDraftRequest(BaseModel):
     audience_summary: str | None = None
 
 
+class AITemplateEditRequest(BaseModel):
+    instruction: str
+    current_subject: str
+    current_html: str
+    current_css: str | None = None
+    current_text: str | None = None
+    brand: JsonObject = Field(default_factory=dict)
+    required_variables: list[str] = Field(default_factory=list)
+    sample_variables: JsonObject = Field(default_factory=dict)
+    audience_summary: str | None = None
+
+
 class AITemplateDraftRead(BaseModel):
     subject: str
     html_body: str
