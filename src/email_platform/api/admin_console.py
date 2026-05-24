@@ -1281,6 +1281,24 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       font-family: var(--mono);
       font-size: 12px;
     }
+    .test-send-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+      gap: 8px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+    }
+    .metric strong { display: block; font-size: 18px; }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1397,6 +1415,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <label>Click target URL
             <input id="testClickTargetUrl" placeholder="https://email-engine.app/" />
           </label>
+          <div class="test-send-metrics" id="testSendMetrics"></div>
           <div class="test-send-grid" id="testSendDetails"></div>
         </div>
         <div class="actions">
@@ -1567,6 +1586,27 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         .join("");
     }
 
+    function renderTestSendMetrics(data) {
+      const container = document.getElementById("testSendMetrics");
+      if (!data) {
+        container.textContent = "";
+        return;
+      }
+      const fields = [
+        ["Sent", data.sent_count],
+        ["Opened", data.opened_count],
+        ["Clicked", data.clicked_count],
+        ["Open rate", `${Math.round((data.open_rate || 0) * 100)}%`],
+        ["Click rate", `${Math.round((data.click_rate || 0) * 100)}%`]
+      ];
+      container.innerHTML = fields.map(([label, value]) => `
+        <div class="metric">
+          <strong>${escapeHtml(value)}</strong>
+          <span>${escapeHtml(label)}</span>
+        </div>
+      `).join("");
+    }
+
     function resetForm() {
       selectedId = "";
       lastTestSend = null;
@@ -1575,6 +1615,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("audienceQuery").value = "{}";
       document.getElementById("variables").value = "{}";
       document.getElementById("testSendPanel").hidden = true;
+      renderTestSendMetrics(null);
     }
 
     function selectCampaign(item) {
@@ -1752,6 +1793,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       });
       renderTestSendDetails(data);
       renderTemplatePreview(data);
+      await refreshLastTestAnalytics();
     }
 
     async function testPreviewCampaign() {
@@ -1833,6 +1875,16 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       location.href = `/admin/analytics?${params.toString()}`;
     }
 
+    async function refreshLastTestAnalytics() {
+      if (!lastTestSend?.campaign_id) return null;
+      const params = new URLSearchParams();
+      if (lastTestSend.send_job_id) params.set("send_job_id", lastTestSend.send_job_id);
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      const data = await request(`/api/v1/campaigns/${lastTestSend.campaign_id}/analytics${suffix}`);
+      renderTestSendMetrics(data);
+      return data;
+    }
+
     async function recordTestOpen() {
       if (!lastTestSend?.send_record_id) {
         writeResult("Run a test send first.", false);
@@ -1841,6 +1893,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       await request(`/api/v1/tests/email-send-records/${lastTestSend.send_record_id}/open`, {
         method: "POST"
       });
+      await refreshLastTestAnalytics();
     }
 
     async function recordTestClick() {
@@ -1855,6 +1908,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       await request(`/api/v1/tests/email-send-records/${lastTestSend.send_record_id}/click${suffix}`, {
         method: "POST"
       });
+      await refreshLastTestAnalytics();
     }
 
     document.getElementById("refresh").addEventListener("click", () => {
