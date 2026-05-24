@@ -694,12 +694,25 @@ def list_campaign_performance(
 @router.get('/analytics/campaign-summaries', response_model=ListResponse[CampaignListSummaryRead])
 def list_campaign_summaries(
     db: DbSession,
+    campaign_id: Annotated[list[UUID] | None, Query()] = None,
     limit: Limit = 100,
     offset: Offset = 0,
 ) -> dict[str, object]:
     analytics = AnalyticsService(db)
-    items, total = analytics.campaign_performance(limit=limit, offset=offset)
     campaign_service = CampaignService(db)
+    if campaign_id:
+        page_ids = campaign_id[offset : offset + limit]
+        items = [
+            item
+            for item in (
+                _campaign_performance_for_id(db, analytics, selected_id)
+                for selected_id in page_ids
+            )
+            if item
+        ]
+        total = len(campaign_id)
+    else:
+        items, total = analytics.campaign_performance(limit=limit, offset=offset)
     summaries = []
     for item in items:
         latest_send_job = next(
@@ -720,6 +733,38 @@ def list_campaign_summaries(
             )
         )
     return {'items': summaries, 'limit': limit, 'offset': offset, 'total': total}
+
+
+def _campaign_performance_for_id(
+    db: Session,
+    analytics: AnalyticsService,
+    campaign_id: UUID,
+) -> CampaignPerformanceRead | None:
+    campaign = db.get(Campaign, campaign_id)
+    if not campaign:
+        return None
+    metrics = analytics.campaign_metrics(campaign_id)
+    if not metrics:
+        return None
+    return CampaignPerformanceRead(
+        campaign_id=campaign.id,
+        name=campaign.name,
+        status=campaign.status,
+        requested_count=metrics.requested_count,
+        queued_count=metrics.queued_count,
+        sent_count=metrics.sent_count,
+        failed_count=metrics.failed_count,
+        suppressed_count=metrics.suppressed_count,
+        delivered_count=metrics.delivered_count,
+        opened_count=metrics.opened_count,
+        clicked_count=metrics.clicked_count,
+        bounced_count=metrics.bounced_count,
+        complained_count=metrics.complained_count,
+        unsubscribed_count=metrics.unsubscribed_count,
+        open_rate=metrics.open_rate,
+        click_rate=metrics.click_rate,
+        bounce_rate=metrics.bounce_rate,
+    )
 
 
 @router.get('/analytics/audiences', response_model=ListResponse[AudiencePerformanceRead])
