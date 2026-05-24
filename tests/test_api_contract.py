@@ -10,6 +10,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
     paths = client.get('/openapi.json').json()['paths']
 
     expected_paths = {
+        '/api/v1/ai/templates/draft',
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
@@ -154,6 +155,26 @@ def test_api_tester_page() -> None:
     assert '/admin/analytics' in response.text
     assert '/admin/data-sources' in response.text
     assert '/docs' in response.text
+
+
+def test_ai_template_draft_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/templates/draft',
+        json={
+            'brief': 'Trial activation email',
+            'brand': {'name': 'SentientMail', 'primary_color': '#2563eb'},
+            'required_variables': ['first_name', 'plan', 'recommendations'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['validation']['ok'] is True
+    assert 'tracking_open' in data['template_variables']['sample_variables']
+    assert 'recommendations' in data['template_variables']['sample_variables']
+    assert '{% for item in recommendations %}' in data['html_body']
 
 
 def test_template_editor_page() -> None:

@@ -184,6 +184,26 @@ class TemplateRead(TemplateCreate):
     model_config = {'from_attributes': True}
 
 
+class AITemplateDraftRequest(BaseModel):
+    brief: str
+    brand: JsonObject = Field(default_factory=dict)
+    required_variables: list[str] = Field(default_factory=list)
+    audience_summary: str | None = None
+
+
+class AITemplateDraftRead(BaseModel):
+    subject: str
+    html_body: str
+    css_body: str | None = None
+    text_body: str | None = None
+    sample_variables: JsonObject = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    validation: TemplateValidationRead
+    template_variables: TemplateVariablesRead
+    provider: str = 'email-engine'
+    model: str = 'deterministic-template-draft-v1'
+
+
 class CampaignCreate(BaseModel):
     name: str
     template_id: UUID
