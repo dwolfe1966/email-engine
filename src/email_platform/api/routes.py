@@ -49,6 +49,7 @@ from email_platform.schemas.contracts import (
     CampaignPerformanceRead,
     CampaignProcessDueRead,
     CampaignRead,
+    CampaignSendJobProgressRead,
     CampaignSendJobRead,
     CampaignTestPreviewRead,
     CampaignTestPreviewRequest,
@@ -911,6 +912,48 @@ def list_campaign_send_jobs(
         'offset': offset,
         'total': service.count_send_jobs(campaign_id=campaign_id),
     }
+
+
+@router.get(
+    '/campaign-send-jobs/{send_job_id}/progress',
+    response_model=CampaignSendJobProgressRead,
+)
+def get_campaign_send_job_progress(send_job_id: UUID, db: DbSession) -> CampaignSendJobProgressRead:
+    send_job = db.get(CampaignSendJob, send_job_id)
+    if not send_job:
+        raise HTTPException(status_code=404, detail='Send job not found')
+    rows = db.execute(
+        select(EmailSendRecord.status, func.count())
+        .where(EmailSendRecord.send_job_id == send_job_id)
+        .group_by(EmailSendRecord.status)
+    ).all()
+    counts = {status.value: int(count) for status, count in rows}
+    queued_count = counts.get('queued', 0)
+    sending_count = counts.get('sending', 0)
+    sent_count = counts.get('sent', 0)
+    failed_count = counts.get('failed', 0)
+    suppressed_count = counts.get('suppressed', 0)
+    skipped_count = counts.get('skipped', 0)
+    processed_count = sent_count + failed_count + suppressed_count + skipped_count
+    active_count = queued_count + sending_count
+    denominator = max(send_job.requested_count, processed_count + active_count, 1)
+    remaining_count = max(denominator - processed_count, 0)
+    return CampaignSendJobProgressRead(
+        send_job_id=send_job.id,
+        campaign_id=send_job.campaign_id,
+        status=send_job.status,
+        requested_count=send_job.requested_count,
+        queued_count=queued_count,
+        sending_count=sending_count,
+        sent_count=sent_count,
+        failed_count=failed_count,
+        suppressed_count=suppressed_count,
+        skipped_count=skipped_count,
+        processed_count=processed_count,
+        remaining_count=remaining_count,
+        active_count=active_count,
+        percent_complete=round(processed_count / denominator, 4),
+    )
 
 
 @router.get('/email-send-records/list', response_model=ListResponse[EmailSendRecordRead])

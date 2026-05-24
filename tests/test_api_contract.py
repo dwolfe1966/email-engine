@@ -55,6 +55,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/journey-step-executions/list',
         '/api/v1/journey-steps/{step_id}',
         '/api/v1/campaign-send-jobs/list',
+        '/api/v1/campaign-send-jobs/{send_job_id}/progress',
         '/api/v1/delivery/process-queued',
         '/api/v1/email-send-records/list',
         '/api/v1/email-send-records/{send_record_id}',

@@ -420,6 +420,23 @@ class CampaignSendJobRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class CampaignSendJobProgressRead(BaseModel):
+    send_job_id: UUID
+    campaign_id: UUID | None = None
+    status: SendJobStatus
+    requested_count: int
+    queued_count: int
+    sending_count: int
+    sent_count: int
+    failed_count: int
+    suppressed_count: int
+    skipped_count: int
+    processed_count: int
+    remaining_count: int
+    active_count: int
+    percent_complete: float
+
+
 class EmailSendRecordRead(BaseModel):
     id: UUID
     campaign_id: UUID | None = None
