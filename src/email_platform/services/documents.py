@@ -18,6 +18,16 @@ def document_to_html(document: Mapping[str, object]) -> str:
 
 def document_block_to_html(block: Mapping[str, object]) -> str:
     block_type = str(block.get('type', 'paragraph'))
+    if block_type == 'spokeo_logo':
+        return (
+            '<p style="text-align:center;">'
+            '<a href="https://www.spokeo.com">'
+            '<img '
+            'src="https://image.mail4.spokeo.com/lib/fe3f15707564057c7d1475/m/1/3439b1f0-c8a5-43f6-8c07-d53e218d7070.png" '
+            'alt="Spokeo Logo" width="150" '
+            'style="display:inline-block;border:0;height:auto;max-width:150px;" />'
+            '</a></p>'
+        )
     if block_type in {'html', 'raw'}:
         return str(block.get('code', block.get('html', block.get('content', ''))))
     if block_type == 'heading' or block_type in {'h1', 'h2', 'h3'}:

@@ -34,6 +34,7 @@ from email_platform.schemas.contracts import (
     TemplateVariablesRead,
     TemplateVersionCreate,
 )
+from email_platform.services.documents import document_to_html
 
 template_environment = SandboxedEnvironment(autoescape=False, undefined=StrictUndefined)
 
@@ -159,6 +160,8 @@ class TemplateService:
 
     def create(self, payload: TemplateCreate) -> EmailTemplate:
         template_data = payload.model_dump(exclude={'document_json'})
+        if self._has_document_blocks(payload.document_json):
+            template_data['html_body'] = document_to_html(payload.document_json)
         template = EmailTemplate(**template_data)
         self.db.add(template)
         self.db.flush()
@@ -548,19 +551,27 @@ class TemplateService:
         if payload.set_current:
             for current in self.list_versions(template.id):
                 current.is_current = False
+        document_json = payload.document_json
+        html_body = payload.html_body or template.html_body
+        if self._has_document_blocks(document_json):
+            html_body = document_to_html(document_json)
         next_number = self._next_version_number(template.id)
         version = EmailTemplateVersion(
             template_id=template.id,
             version_number=next_number,
             subject=payload.subject or template.subject,
-            html_body=payload.html_body or template.html_body,
+            html_body=html_body,
             css_body=payload.css_body if payload.css_body is not None else template.css_body,
             text_body=payload.text_body if payload.text_body is not None else template.text_body,
-            document_json=payload.document_json,
+            document_json=document_json,
             is_current=payload.set_current,
         )
         self.db.add(version)
         return version
+
+    def _has_document_blocks(self, document_json: Mapping[str, object]) -> bool:
+        blocks = document_json.get('blocks')
+        return isinstance(blocks, list) and bool(blocks)
 
     def _next_version_number(self, template_id: UUID) -> int:
         current = self.db.scalar(

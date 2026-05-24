@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from email_platform.api.compat import _template_create_payload
 from email_platform.main import app
+from email_platform.services.documents import document_to_html
 
 
 def test_openapi_exposes_gui_integration_paths() -> None:
@@ -336,6 +337,21 @@ def test_v1_document_render_handles_table_loop_sample_variables() -> None:
     assert data['ok'] is True
     assert 'Starter plan' in data['html_body']
     assert '$49.00' in data['html_body']
+
+
+def test_document_renderer_supports_sentientmail_logo_block() -> None:
+    html = document_to_html(
+        {
+            'blocks': [
+                {'type': 'spokeo_logo'},
+                {'type': 'heading', 'text': 'Welcome {{ first_name }}'},
+            ]
+        }
+    )
+
+    assert 'Spokeo Logo' in html
+    assert 'www.spokeo.com' in html
+    assert 'Welcome {{ first_name }}' in html
 
 
 def test_v1_document_variables_and_validate_use_design_blocks() -> None:
