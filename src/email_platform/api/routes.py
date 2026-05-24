@@ -205,7 +205,7 @@ def _deterministic_template_draft(payload: AITemplateDraftRequest) -> dict[str, 
         '.email-shell { font-family: Arial, sans-serif; color: #17212b; line-height: 1.5; } '
         f'.eyebrow {{ color: {primary_color}; font-weight: 700; text-transform: uppercase; }} '
         f'.button {{ display: inline-block; background: {primary_color}; color: #ffffff; '
-        'padding: 12px 18px; border-radius: 6px; text-decoration: none; }} '
+        'padding: 12px 18px; border-radius: 6px; text-decoration: none; } '
         '.footer { color: #687787; font-size: 12px; } '
         '.recommendations { padding-left: 20px; }'
     )
