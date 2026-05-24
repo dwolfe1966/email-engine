@@ -173,6 +173,9 @@ def test_template_editor_page() -> None:
     assert 'Blocks -> Source' in response.text
     assert 'designDocumentTemplateSource' in response.text
     assert 'previewDesignDocument' in response.text
+    assert '/api/v1/templates/document/render' in response.text
+    assert '/api/v1/templates/document/variables' in response.text
+    assert '/api/v1/templates/document/validate' in response.text
     assert 'data-design-add="spacer"' in response.text
     assert 'data-design-add="trust_signal"' in response.text
     assert 'unwrapDesignContainers' in response.text

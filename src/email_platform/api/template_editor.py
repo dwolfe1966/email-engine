@@ -1212,9 +1212,9 @@ ${presetRules[preset] || ""}`;
     }
 
     async function previewDesignDocument({ silent = false } = {}) {
-      const data = await request("/api/render-document", {
+      const data = await request("/api/v1/templates/document/render", {
         method: "POST",
-        body: JSON.stringify({ document: state.designDoc, variables: await renderVariablesContext(true) }),
+        body: JSON.stringify(await documentRequestPayload(true)),
       });
       document.getElementById("htmlPreview").srcdoc = data.html_body || data.html || "";
       if (!silent) log({ design_blocks_rendered: state.designDoc.blocks.length });
@@ -1239,6 +1239,16 @@ ${presetRules[preset] || ""}`;
         body.html_body = designDocumentTemplateSource();
       }
       return body;
+    }
+
+    async function documentRequestPayload(fallbackToEmpty = false) {
+      return {
+        subject: value("subject"),
+        document_json: state.designDoc,
+        css_body: value("cssBody") || null,
+        text_body: value("textBody") || null,
+        variables: await renderVariablesContext(fallbackToEmpty),
+      };
     }
 
     async function request(path, options = {}) {
@@ -1310,7 +1320,12 @@ ${presetRules[preset] || ""}`;
 
     async function validateTemplate() {
       if (state.editorTab === "blocks") {
-        await renderDesignDocumentToSource({ silent: true });
+        const data = await request("/api/v1/templates/document/validate", {
+          method: "POST",
+          body: JSON.stringify(await documentRequestPayload()),
+        });
+        log(data);
+        return;
       }
       const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/validate", {
@@ -1324,10 +1339,13 @@ ${presetRules[preset] || ""}`;
       if (state.inspectingVariables) return;
       state.inspectingVariables = true;
       try {
-        const data = await request("/api/v1/templates/variables", {
-          method: "POST",
-          body: JSON.stringify({ ...variablePayload(), variables: variables(true) }),
-        });
+        const path = state.editorTab === "blocks"
+          ? "/api/v1/templates/document/variables"
+          : "/api/v1/templates/variables";
+        const body = state.editorTab === "blocks"
+          ? await documentRequestPayload(true)
+          : { ...variablePayload(), variables: variables(true) };
+        const data = await request(path, { method: "POST", body: JSON.stringify(body) });
         renderVariables(data);
         if (options.applySample) {
           document.getElementById("variablesJson").value = JSON.stringify(
