@@ -175,6 +175,57 @@ def test_template_editor_page() -> None:
     assert '/admin/data-sources' in response.text
 
 
+def test_render_document_renders_design_blocks() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/render-document',
+        json={
+            'document': {
+                'blocks': [
+                    {'type': 'heading', 'level': 2, 'align': 'center', 'text': 'Hello {{ first_name }}'},
+                    {'type': 'paragraph', 'text': 'Your plan is {{ plan }}.'},
+                    {
+                        'type': 'button',
+                        'text': 'Open dashboard',
+                        'href': '{{ cta_url }}',
+                        'bg': '#111827',
+                        'color': '#ffffff',
+                    },
+                    {
+                        'type': 'image',
+                        'src': 'https://example.com/hero.png',
+                        'alt': 'Hero',
+                        'width': 320,
+                    },
+                    {'type': 'divider', 'color': '#cccccc'},
+                    {'type': 'spacer', 'height': 18},
+                    {'type': 'html', 'code': '<ul><li>{{ item }}</li></ul>'},
+                ]
+            },
+            'variables': {
+                'first_name': 'Alex',
+                'plan': 'trial',
+                'cta_url': 'https://example.com/dashboard',
+                'item': 'Saved raw HTML',
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    html = data['html_body']
+    assert '<h2 style="text-align:center;">Hello Alex</h2>' in html
+    assert 'Your plan is trial.' in html
+    assert 'class="button"' in html
+    assert 'href="https://example.com/dashboard"' in html
+    assert 'src="https://example.com/hero.png"' in html
+    assert 'alt="Hero"' in html
+    assert 'border-top:1px solid #cccccc' in html
+    assert 'height:18px' in html
+    assert '<li>Saved raw HTML</li>' in html
+
+
 def test_template_variables_endpoint_extracts_samples_and_native_variables() -> None:
     client = TestClient(app)
     response = client.post(

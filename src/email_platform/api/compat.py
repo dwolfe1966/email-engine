@@ -1107,19 +1107,80 @@ def _document_to_html(document: Mapping[str, object]) -> str:
     blocks = document.get('blocks')
     if not isinstance(blocks, list):
         return str(document.get('html', ''))
-    html_parts: list[str] = []
+    html_parts: list[str] = ['<div class="email-document">']
     for block in blocks:
         if not isinstance(block, dict):
             continue
-        block_type = str(block.get('type', 'paragraph'))
-        text = str(block.get('text', block.get('content', '')))
-        if block_type in {'heading', 'h1'}:
-            html_parts.append(f'<h1>{text}</h1>')
-        elif block_type in {'html', 'raw'}:
-            html_parts.append(text)
-        else:
-            html_parts.append(f'<p>{text}</p>')
+        html_parts.append(_document_block_to_html(block))
+    html_parts.append('</div>')
     return '\n'.join(html_parts)
+
+
+def _document_block_to_html(block: Mapping[str, object]) -> str:
+    block_type = str(block.get('type', 'paragraph'))
+    if block_type in {'html', 'raw'}:
+        return str(block.get('code', block.get('html', block.get('content', ''))))
+    if block_type == 'heading' or block_type in {'h1', 'h2', 'h3'}:
+        level = _bounded_int(block.get('level'), default=1, minimum=1, maximum=3)
+        if block_type in {'h1', 'h2', 'h3'}:
+            level = int(block_type[1])
+        align = _one_of(block.get('align'), {'left', 'center', 'right'}, 'left')
+        text = _escape_html(str(block.get('text', block.get('content', ''))))
+        return f'<h{level} style="text-align:{align};">{text}</h{level}>'
+    if block_type == 'paragraph':
+        text = _escape_html(str(block.get('text', block.get('content', ''))))
+        return f'<p>{text.replace(chr(10), "<br>")}</p>'
+    if block_type == 'image':
+        src = _escape_html(str(block.get('src', '')))
+        alt = _escape_html(str(block.get('alt', '')))
+        width = _bounded_int(block.get('width'), default=600, minimum=50, maximum=600)
+        img = (
+            f'<img src="{src}" alt="{alt}" width="{width}" '
+            f'style="display:block;border:0;width:100%;max-width:{width}px;height:auto;" />'
+        )
+        href = _optional_str(block.get('href'))
+        if href:
+            return f'<a href="{_escape_html(href)}">{img}</a>'
+        return img
+    if block_type == 'button':
+        text = _escape_html(str(block.get('text', 'Call to Action')))
+        href = _escape_html(str(block.get('href', '{{ cta_url }}')))
+        bg = _escape_html(str(block.get('bg', '#2563eb')))
+        color = _escape_html(str(block.get('color', '#ffffff')))
+        return (
+            f'<p><a class="button" href="{href}" '
+            f'style="display:inline-block;background:{bg};color:{color};'
+            'padding:11px 16px;text-decoration:none;border-radius:6px;font-weight:700;">'
+            f'{text}</a></p>'
+        )
+    if block_type == 'divider':
+        color = _escape_html(str(block.get('color', '#d8dee6')))
+        return f'<hr style="border:0;border-top:1px solid {color};" />'
+    if block_type == 'spacer':
+        height = _bounded_int(block.get('height'), default=24, minimum=4, maximum=200)
+        return f'<div style="height:{height}px;line-height:{height}px;font-size:0;">&nbsp;</div>'
+    if block_type == 'trust_signal':
+        text = _escape_html(str(block.get('text', '')))
+        return f'<p class="secondary-text" style="text-align:center;">{text}</p>'
+    if block_type == 'fcra_disclosure':
+        return (
+            '<p class="secondary-text" style="font-size:11px;line-height:14px;">'
+            'Required disclosure content.</p>'
+        )
+    return f'<!-- unknown block type: {_escape_html(block_type)} -->'
+
+
+def _bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(str(value))
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(parsed, maximum))
+
+
+def _one_of(value: object, allowed: set[str], default: str) -> str:
+    parsed = str(value or '')
+    return parsed if parsed in allowed else default
 
 
 def _draft_html(current_html: str, brief: str) -> str:
