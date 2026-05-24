@@ -338,9 +338,9 @@ def _openai_template_draft(
     notes = draft.get('notes') if isinstance(draft.get('notes'), list) else []
     return {
         'subject': str(draft.get('subject') or payload.brief[:60] or 'Email campaign'),
-        'html_body': str(draft.get('html_body') or ''),
+        'html_body': _normalize_ai_html_body(str(draft.get('html_body') or '')),
         'css_body': str(draft.get('css_body') or ''),
-        'text_body': str(draft.get('text_body') or ''),
+        'text_body': _normalize_ai_text_body(str(draft.get('text_body') or '')),
         'notes': [str(note) for note in notes],
         'provider': 'openai',
         'model': settings.openai_model,
@@ -362,6 +362,23 @@ def _responses_output_text(response: Mapping[str, object]) -> str | None:
             if isinstance(chunk, Mapping) and isinstance(chunk.get('text'), str):
                 parts.append(chunk['text'])
     return ''.join(parts) or None
+
+
+def _normalize_ai_html_body(html_body: str) -> str:
+    normalized = html_body.replace('src="{{ tracking_open }}"', '')
+    normalized = normalized.replace("src='{{ tracking_open }}'", '')
+    if '{{ tracking_open }}' not in normalized:
+        normalized += '{{ tracking_open }}'
+    if '{{ unsubscribe_url }}' not in normalized:
+        normalized += '<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>'
+    return normalized
+
+
+def _normalize_ai_text_body(text_body: str) -> str:
+    normalized = text_body
+    if '{{ unsubscribe_url }}' not in normalized:
+        normalized += '\n\nUnsubscribe: {{ unsubscribe_url }}'
+    return normalized
 
 
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
