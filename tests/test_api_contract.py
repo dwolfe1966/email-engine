@@ -166,6 +166,8 @@ def test_template_editor_page() -> None:
     assert 'Design Blocks' in response.text
     assert 'Source -> Blocks' in response.text
     assert 'Blocks -> Source' in response.text
+    assert 'designDocumentTemplateSource' in response.text
+    assert 'previewDesignDocument' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text

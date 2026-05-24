@@ -842,6 +842,32 @@ ${presetRules[preset] || ""}`;
         head.className = "design-block-head";
         const title = document.createElement("strong");
         title.textContent = block.type;
+        const controls = document.createElement("div");
+        controls.className = "actions";
+        const moveUp = document.createElement("button");
+        moveUp.className = "secondary";
+        moveUp.type = "button";
+        moveUp.textContent = "Up";
+        moveUp.disabled = index === 0;
+        moveUp.addEventListener("click", () => {
+          const previous = state.designDoc.blocks[index - 1];
+          state.designDoc.blocks[index - 1] = block;
+          state.designDoc.blocks[index] = previous;
+          renderDesignBlocks();
+          scheduleVariableRefresh();
+        });
+        const moveDown = document.createElement("button");
+        moveDown.className = "secondary";
+        moveDown.type = "button";
+        moveDown.textContent = "Down";
+        moveDown.disabled = index === state.designDoc.blocks.length - 1;
+        moveDown.addEventListener("click", () => {
+          const next = state.designDoc.blocks[index + 1];
+          state.designDoc.blocks[index + 1] = block;
+          state.designDoc.blocks[index] = next;
+          renderDesignBlocks();
+          scheduleVariableRefresh();
+        });
         const remove = document.createElement("button");
         remove.className = "secondary";
         remove.type = "button";
@@ -849,8 +875,10 @@ ${presetRules[preset] || ""}`;
         remove.addEventListener("click", () => {
           state.designDoc.blocks.splice(index, 1);
           renderDesignBlocks();
+          scheduleVariableRefresh();
         });
-        head.append(title, remove);
+        controls.append(moveUp, moveDown, remove);
+        head.append(title, controls);
         row.appendChild(head);
         row.appendChild(blockEditor(block, index));
         list.appendChild(row);
@@ -871,6 +899,7 @@ ${presetRules[preset] || ""}`;
             ? input.value.split("\n").map((item) => item.trim()).filter(Boolean)
             : input.value;
           state.designDoc.blocks[index] = block;
+          scheduleVariableRefresh();
         });
         wrapper.appendChild(input);
         return wrapper;
@@ -887,7 +916,11 @@ ${presetRules[preset] || ""}`;
         const select = document.createElement("select");
         select.innerHTML = '<option value="false">Bulleted</option><option value="true">Numbered</option>';
         select.value = block.ordered ? "true" : "false";
-        select.addEventListener("change", () => { block.ordered = select.value === "true"; });
+        select.addEventListener("change", () => {
+          block.ordered = select.value === "true";
+          state.designDoc.blocks[index] = block;
+          scheduleVariableRefresh();
+        });
         ordered.appendChild(select);
         container.append(ordered, field("Items", "items", "textarea"));
       } else if (block.type === "image") {
@@ -906,9 +939,20 @@ ${presetRules[preset] || ""}`;
     }
 
     function htmlToDesignBlocks(html) {
+      if (/{[%#][\s\S]*?[%#]}/.test(html || "")) {
+        return [{ id: "b_0", type: "html", code: html || "" }];
+      }
       const parsed = new DOMParser().parseFromString(html || "", "text/html");
       const blocks = [];
-      Array.from(parsed.body.children).forEach((node) => {
+      let children = Array.from(parsed.body.children);
+      if (children.length === 1 && children[0].tagName.toLowerCase() === "div") {
+        const onlyChild = children[0];
+        const className = onlyChild.getAttribute("class") || "";
+        if (/\b(email-document|email-shell|email-container)\b/.test(className)) {
+          children = Array.from(onlyChild.children);
+        }
+      }
+      children.forEach((node) => {
         const tag = node.tagName.toLowerCase();
         if (/^h[1-3]$/.test(tag)) {
           blocks.push({ id: `b_${blocks.length}`, type: "heading", level: Number(tag.slice(1)), align: "left", text: node.textContent.trim() });
@@ -935,14 +979,36 @@ ${presetRules[preset] || ""}`;
       return blocks.length ? blocks : [newBlock("html")];
     }
 
+    function designDocumentTemplateSource() {
+      return state.designDoc.blocks.map((block) => {
+        if (block.type === "heading") return `<h${block.level || 1}>${block.text || ""}</h${block.level || 1}>`;
+        if (block.type === "paragraph") return `<p>${block.text || ""}</p>`;
+        if (block.type === "button") return `<p><a class="button" href="${block.href || ""}">${block.text || ""}</a></p>`;
+        if (block.type === "list") {
+          const tag = block.ordered ? "ol" : "ul";
+          const items = (block.items || []).map((item) => `<li>${item}</li>`).join("");
+          return `<${tag}>${items}</${tag}>`;
+        }
+        if (block.type === "image") return `<img src="${block.src || ""}" alt="${block.alt || ""}" width="${block.width || 600}" />`;
+        if (block.type === "divider") return "<hr />";
+        return block.code || "";
+      }).join("\n");
+    }
+
     async function renderDesignDocumentToSource({ silent = false } = {}) {
+      const source = designDocumentTemplateSource();
+      document.getElementById("htmlBody").value = source;
+      loadVisualFromSource();
+      if (!silent) log({ design_blocks_synced: state.designDoc.blocks.length });
+      return source;
+    }
+
+    async function previewDesignDocument({ silent = false } = {}) {
       const data = await request("/api/render-document", {
         method: "POST",
         body: JSON.stringify({ document: state.designDoc, variables: await renderVariablesContext(true) }),
       });
-      document.getElementById("htmlBody").value = data.html_body || data.html || "";
-      document.getElementById("htmlPreview").srcdoc = document.getElementById("htmlBody").value;
-      loadVisualFromSource();
+      document.getElementById("htmlPreview").srcdoc = data.html_body || data.html || "";
       if (!silent) log({ design_blocks_rendered: state.designDoc.blocks.length });
       return data;
     }
@@ -956,6 +1022,14 @@ ${presetRules[preset] || ""}`;
         css_body: value("cssBody") || null,
         text_body: value("textBody") || null,
       };
+    }
+
+    function variablePayload() {
+      const body = payload();
+      if (state.editorTab === "blocks") {
+        body.html_body = designDocumentTemplateSource();
+      }
+      return body;
     }
 
     async function request(path, options = {}) {
@@ -1015,6 +1089,9 @@ ${presetRules[preset] || ""}`;
     }
 
     async function validateTemplate() {
+      if (state.editorTab === "blocks") {
+        await renderDesignDocumentToSource({ silent: true });
+      }
       const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/validate", {
         method: "POST",
@@ -1029,7 +1106,7 @@ ${presetRules[preset] || ""}`;
       try {
         const data = await request("/api/v1/templates/variables", {
           method: "POST",
-          body: JSON.stringify({ ...payload(), variables: variables(true) }),
+          body: JSON.stringify({ ...variablePayload(), variables: variables(true) }),
         });
         renderVariables(data);
         if (options.applySample) {
@@ -1046,6 +1123,9 @@ ${presetRules[preset] || ""}`;
     }
 
     async function lintTemplate() {
+      if (state.editorTab === "blocks") {
+        await renderDesignDocumentToSource({ silent: true });
+      }
       const data = await request("/api/v1/templates/lint", {
         method: "POST",
         body: JSON.stringify({ ...payload(), variables: variables() }),
@@ -1055,7 +1135,7 @@ ${presetRules[preset] || ""}`;
 
     async function previewTemplate(options = {}) {
       if (state.editorTab === "blocks") {
-        const data = await renderDesignDocumentToSource({ silent: options.silent });
+        const data = await previewDesignDocument({ silent: options.silent });
         if (!options.silent) log(data);
         return;
       }
@@ -1108,9 +1188,13 @@ ${presetRules[preset] || ""}`;
       button.addEventListener("click", () => {
         state.designDoc.blocks.push(newBlock(button.dataset.designAdd));
         renderDesignBlocks();
+        scheduleVariableRefresh();
       });
     });
-    document.getElementById("sourceToBlocks").addEventListener("click", sourceToDesignBlocks);
+    document.getElementById("sourceToBlocks").addEventListener("click", () => {
+      sourceToDesignBlocks();
+      scheduleVariableRefresh();
+    });
     document.getElementById("blocksToSource").addEventListener("click", () => {
       renderDesignDocumentToSource().catch((error) => log({ error: error.message }));
     });
