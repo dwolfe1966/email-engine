@@ -19,6 +19,7 @@ from email_platform.models.entities import (
     Contact,
     EmailEvent,
     EmailSendRecord,
+    EmailTemplate,
     EmailTemplateVersion,
     Journey,
 )
@@ -405,17 +406,12 @@ def compat_get_send(send_id: UUID, db: DbSession) -> dict[str, object]:
 @router.post('/sends')
 def compat_create_send(payload: dict[str, object], db: DbSession) -> dict[str, object]:
     template_id = _template_id_from_payload(payload, db)
-    audience_id = payload.get('audience_id', payload.get('segment_id'))
-    audience_query: JsonObject = {}
-    if audience_id:
-        audience = AudienceService(db).get(UUID(str(audience_id)))
-        audience_query = cast(JsonObject, audience.rule_tree) if audience else {}
     scheduled_at = _datetime_payload(payload.get('scheduled_for', payload.get('scheduled_at')))
     campaign = CampaignService(db).create(
         CampaignCreate(
             name=str(payload.get('name', payload.get('title', 'Untitled send'))),
             template_id=template_id,
-            audience_query=_object_payload(payload.get('audience_query')) or audience_query,
+            audience_query=_audience_query_from_payload(payload, db),
             scheduled_at=scheduled_at,
         )
     )
@@ -431,10 +427,13 @@ def compat_update_send(
         updates['name'] = str(payload.get('name', payload.get('title')))
     if payload.get('template_id') or payload.get('template_version_id'):
         updates['template_id'] = _template_id_from_payload(payload, db)
-    if payload.get('audience_query') or payload.get('segment_rules'):
-        updates['audience_query'] = _object_payload(
-            payload.get('audience_query', payload.get('segment_rules'))
-        )
+    if (
+        payload.get('audience_query')
+        or payload.get('segment_rules')
+        or payload.get('audience_id')
+        or payload.get('segment_id')
+    ):
+        updates['audience_query'] = _audience_query_from_payload(payload, db)
     if 'scheduled_for' in payload or 'scheduled_at' in payload:
         updates['scheduled_at'] = _datetime_payload(
             payload.get('scheduled_for', payload.get('scheduled_at'))
@@ -511,20 +510,22 @@ def compat_launch_send(
             'rules': [{'field': 'source', 'op': 'eq', 'value': test_source}],
             'operator': 'and',
         }
-    campaign = CampaignService(db).get(send_id)
-    if campaign and campaign.status == CampaignStatus.draft:
-        campaign.status = CampaignStatus.scheduled
-        campaign.scheduled_at = datetime.utcnow()
-        db.flush()
-    launch = CampaignService(db).launch(
-        send_id,
-        CampaignLaunchRequest(
-            audience_id=UUID(str(payload['audience_id'])) if payload.get('audience_id') else None,
-            rule_tree=launch_rule_tree,
-            variables=_object_payload(payload.get('variables')),
-            dry_run=bool(payload.get('dry_run', False)),
-        ),
+    launch_payload = CampaignLaunchRequest(
+        audience_id=UUID(str(payload['audience_id'])) if payload.get('audience_id') else None,
+        rule_tree=launch_rule_tree,
+        variables=_object_payload(payload.get('variables')),
+        dry_run=bool(payload.get('dry_run', False)),
     )
+    campaign_service = CampaignService(db)
+    campaign = campaign_service.get(send_id)
+    if campaign and campaign.status != CampaignStatus.scheduled and not launch_payload.dry_run:
+        approval = campaign_service.approve(send_id, payload=launch_payload)
+        if approval and not approval.ok:
+            raise HTTPException(status_code=400, detail=approval.errors or approval.warnings)
+    try:
+        launch = campaign_service.launch(send_id, launch_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not launch:
         raise HTTPException(status_code=404, detail='Send not found')
     delivery = None
@@ -1050,6 +1051,19 @@ def _template_id_from_payload(payload: Mapping[str, object], db: Session) -> UUI
         if template:
             return template.id
     raise HTTPException(status_code=422, detail='template_id or template_version_id is required')
+
+
+def _audience_query_from_payload(payload: Mapping[str, object], db: Session) -> JsonObject:
+    explicit_query = _object_payload(payload.get('audience_query', payload.get('segment_rules')))
+    if explicit_query:
+        return explicit_query
+    audience_id = payload.get('audience_id', payload.get('segment_id'))
+    if not audience_id:
+        return {}
+    audience = AudienceService(db).get(UUID(str(audience_id)))
+    if not audience:
+        raise HTTPException(status_code=404, detail='Audience not found')
+    return cast(JsonObject, audience.rule_tree)
 
 
 def _datetime_payload(value: object) -> datetime | None:
