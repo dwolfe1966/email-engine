@@ -356,6 +356,30 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       display: grid;
       gap: 8px;
     }
+    .test-send-panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f9fafb;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .test-send-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .send-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .send-detail-grid label textarea,
+    .send-detail-grid label input {
+      font-family: var(--mono);
+      font-size: 12px;
+    }
     .variable-list {
       display: grid;
       gap: 6px;
@@ -665,6 +689,29 @@ li {
             <span class="muted">Run Inspect Variables to detect user and native fields.</span>
           </div>
         </div>
+        <div class="test-send-panel">
+          <strong>Test Send</strong>
+          <div class="test-send-row">
+            <label>Recipient email
+              <input id="testSendEmail" type="email" placeholder="test@example.com" />
+            </label>
+            <button type="button" id="testSendTemplate">Test Send</button>
+          </div>
+          <div class="send-detail-grid" id="testSendDetails" hidden>
+            <label>Rendered subject
+              <input id="testSendSubject" readonly />
+            </label>
+            <label>Provider message ID
+              <input id="testSendMessageId" readonly />
+            </label>
+            <label>Rendered variables
+              <textarea id="testSendVariables" readonly></textarea>
+            </label>
+            <label>Rendered HTML
+              <textarea id="testSendHtml" readonly></textarea>
+            </label>
+          </div>
+        </div>
         <pre id="result"></pre>
         <iframe id="htmlPreview" sandbox=""></iframe>
       </div>
@@ -682,6 +729,7 @@ li {
       editorTab: "source",
       designDoc: { blocks: [] },
       aiDraft: null,
+      sendingTest: false,
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -1797,6 +1845,53 @@ ${presetRules[preset] || ""}`;
       log(saved);
       await loadTemplates();
       scheduleVariableRefresh();
+      return saved;
+    }
+
+    function renderTestSendDetails(data) {
+      document.getElementById("testSendDetails").hidden = false;
+      document.getElementById("testSendSubject").value = data.subject || "";
+      document.getElementById("testSendMessageId").value = data.provider_message_id || "";
+      document.getElementById("testSendVariables").value = JSON.stringify(data.variables || {}, null, 2);
+      document.getElementById("testSendHtml").value = data.html_body || "";
+      if (data.html_body) document.getElementById("htmlPreview").srcdoc = data.html_body;
+    }
+
+    async function testSendTemplate() {
+      if (state.sendingTest) return;
+      const email = value("testSendEmail").trim();
+      if (!email) {
+        log({ error: "Recipient email is required." });
+        return;
+      }
+      const button = document.getElementById("testSendTemplate");
+      state.sendingTest = true;
+      button.disabled = true;
+      button.textContent = "Sending...";
+      try {
+        const saved = await saveTemplate();
+        const renderVariables = await renderVariablesContext(true);
+        const data = await request("/api/v1/tests/send-email", {
+          method: "POST",
+          body: JSON.stringify({
+            template_id: saved.id,
+            to_email: email,
+            variables: renderVariables,
+          }),
+        });
+        renderTestSendDetails(data);
+        log({
+          test_email_sent: email,
+          provider: data.provider,
+          provider_message_id: data.provider_message_id,
+          subject: data.subject,
+          status_code: data.status_code,
+        });
+      } finally {
+        state.sendingTest = false;
+        button.disabled = false;
+        button.textContent = "Test Send";
+      }
     }
 
     async function seedSamples() {
@@ -1837,6 +1932,9 @@ ${presetRules[preset] || ""}`;
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
+    document.getElementById("testSendTemplate").addEventListener("click", () => {
+      testSendTemplate().catch((error) => log({ error: error.message }));
+    });
     document.querySelectorAll("[data-design-add]").forEach((button) => {
       button.addEventListener("click", () => {
         state.designDoc.blocks.push(newBlock(button.dataset.designAdd));
