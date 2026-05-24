@@ -175,6 +175,11 @@ def test_template_editor_page() -> None:
     assert 'parsePadding' in response.text
     assert 'Inline HTML' in response.text
     assert 'Padding X' in response.text
+    assert 'Duplicate' in response.text
+    assert 'Block Document JSON' in response.text
+    assert 'Export JSON' in response.text
+    assert 'Import JSON' in response.text
+    assert 'applyDesignDocJson' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text

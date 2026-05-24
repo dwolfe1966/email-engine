@@ -217,6 +217,17 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
+    .design-doc-json {
+      border-top: 1px solid var(--line);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      background: #f9fafb;
+    }
+    #designDocJson {
+      min-height: 130px;
+      max-height: 260px;
+    }
     .css-builder {
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -504,8 +515,15 @@ li {
             <div class="design-actions">
               <button class="secondary" type="button" id="sourceToBlocks">Source -> Blocks</button>
               <button class="secondary" type="button" id="blocksToSource">Blocks -> Source</button>
+              <button class="secondary" type="button" id="exportBlocks">Export JSON</button>
+              <button class="secondary" type="button" id="importBlocks">Import JSON</button>
             </div>
             <div class="design-block-list" id="designBlockList"></div>
+            <div class="design-doc-json">
+              <label>Block Document JSON
+                <textarea id="designDocJson" spellcheck="false"></textarea>
+              </label>
+            </div>
           </div>
         </div>
         <label>Text
@@ -849,6 +867,7 @@ ${presetRules[preset] || ""}`;
         empty.className = "secondary-text";
         empty.textContent = "No blocks yet. Add a block or convert from Source.";
         list.appendChild(empty);
+        syncDesignDocJson();
         return;
       }
       state.designDoc.blocks.forEach((block, index) => {
@@ -884,6 +903,15 @@ ${presetRules[preset] || ""}`;
           renderDesignBlocks();
           scheduleVariableRefresh();
         });
+        const duplicate = document.createElement("button");
+        duplicate.className = "secondary";
+        duplicate.type = "button";
+        duplicate.textContent = "Duplicate";
+        duplicate.addEventListener("click", () => {
+          state.designDoc.blocks.splice(index + 1, 0, cloneBlock(block));
+          renderDesignBlocks();
+          scheduleVariableRefresh();
+        });
         const remove = document.createElement("button");
         remove.className = "secondary";
         remove.type = "button";
@@ -893,12 +921,19 @@ ${presetRules[preset] || ""}`;
           renderDesignBlocks();
           scheduleVariableRefresh();
         });
-        controls.append(moveUp, moveDown, remove);
+        controls.append(moveUp, moveDown, duplicate, remove);
         head.append(title, controls);
         row.appendChild(head);
         row.appendChild(blockEditor(block, index));
         list.appendChild(row);
       });
+      syncDesignDocJson();
+    }
+
+    function cloneBlock(block) {
+      const next = JSON.parse(JSON.stringify(block));
+      next.id = `b_${Math.random().toString(36).slice(2, 10)}`;
+      return next;
     }
 
     function blockEditor(block, index) {
@@ -915,6 +950,7 @@ ${presetRules[preset] || ""}`;
             ? input.value.split("\n").map((item) => item.trim()).filter(Boolean)
             : input.value;
           state.designDoc.blocks[index] = block;
+          syncDesignDocJson();
           scheduleVariableRefresh();
         });
         wrapper.appendChild(input);
@@ -923,10 +959,27 @@ ${presetRules[preset] || ""}`;
       if (block.type === "heading") {
         container.append(field("Text", "text"), field("Level", "level", "number"), field("Align", "align"));
       } else if (block.type === "paragraph") {
+        const mode = document.createElement("button");
+        mode.className = "secondary";
+        mode.type = "button";
+        mode.textContent = block.html != null ? "Use Text Mode" : "Use Inline HTML";
+        mode.addEventListener("click", () => {
+          if (block.html != null) {
+            block.text = stripHtml(block.html);
+            delete block.html;
+          } else {
+            block.html = block.text || "";
+            delete block.text;
+          }
+          state.designDoc.blocks[index] = block;
+          renderDesignBlocks();
+          scheduleVariableRefresh();
+        });
         container.append(
           field(block.html != null ? "Inline HTML" : "Text", block.html != null ? "html" : "text", "textarea"),
           field("Align", "align"),
           field("Color", "color", "color"),
+          mode,
         );
       } else if (block.type === "button") {
         container.append(
@@ -947,6 +1000,7 @@ ${presetRules[preset] || ""}`;
         select.addEventListener("change", () => {
           block.ordered = select.value === "true";
           state.designDoc.blocks[index] = block;
+          syncDesignDocJson();
           scheduleVariableRefresh();
         });
         ordered.appendChild(select);
@@ -968,6 +1022,33 @@ ${presetRules[preset] || ""}`;
     function sourceToDesignBlocks() {
       state.designDoc = { blocks: htmlToDesignBlocks(value("htmlBody")) };
       renderDesignBlocks();
+    }
+
+    function syncDesignDocJson() {
+      const field = document.getElementById("designDocJson");
+      if (!field) return;
+      field.value = JSON.stringify(state.designDoc, null, 2);
+    }
+
+    function applyDesignDocJson() {
+      const parsed = JSON.parse(value("designDocJson") || "{}");
+      if (!Array.isArray(parsed.blocks)) {
+        throw new Error("Block document JSON must contain a blocks array");
+      }
+      state.designDoc = {
+        ...parsed,
+        blocks: parsed.blocks.map((block) => ({
+          ...block,
+          id: block.id || `b_${Math.random().toString(36).slice(2, 10)}`,
+        })),
+      };
+      renderDesignBlocks();
+      scheduleVariableRefresh();
+    }
+
+    function stripHtml(html) {
+      const parsed = new DOMParser().parseFromString(html || "", "text/html");
+      return parsed.body.textContent || "";
     }
 
     function htmlToDesignBlocks(html) {
@@ -1325,6 +1406,18 @@ ${presetRules[preset] || ""}`;
     document.getElementById("blocksToSource").addEventListener("click", () => {
       renderDesignDocumentToSource().catch((error) => log({ error: error.message }));
     });
+    document.getElementById("exportBlocks").addEventListener("click", () => {
+      syncDesignDocJson();
+      log({ exported_blocks: state.designDoc.blocks.length });
+    });
+    document.getElementById("importBlocks").addEventListener("click", () => {
+      try {
+        applyDesignDocJson();
+        log({ imported_blocks: state.designDoc.blocks.length });
+      } catch (error) {
+        log({ error: error.message });
+      }
+    });
     document.querySelectorAll("[data-editor-tab]").forEach((button) => {
       button.addEventListener("click", () => setEditorTab(button.dataset.editorTab));
     });
@@ -1397,6 +1490,7 @@ ${presetRules[preset] || ""}`;
       scheduleVariableRefresh();
     });
     document.getElementById("templateName").value = `template-${Date.now()}`;
+    syncDesignDocJson();
     loadVisualFromSource();
     scheduleVariableRefresh();
     loadTemplates().catch((error) => log({ error: error.message }));
