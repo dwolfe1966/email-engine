@@ -208,6 +208,8 @@ class AITemplateDraftRead(BaseModel):
     html_body: str
     css_body: str | None = None
     text_body: str | None = None
+    changed_fields: list[str] = Field(default_factory=list)
+    change_summary: list[str] = Field(default_factory=list)
     sample_variables: JsonObject = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
     validation: TemplateValidationRead

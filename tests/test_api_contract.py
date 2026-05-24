@@ -202,6 +202,8 @@ def test_ai_template_edit_contract() -> None:
     assert data['sample_variables']['first_name'] == 'Taylor'
     assert 'tracking_open' in data['template_variables']['sample_variables']
     assert 'Requested update' in data['html_body']
+    assert 'html_body' in data['changed_fields']
+    assert 'HTML body changed.' in data['change_summary']
 
 
 def test_template_editor_page() -> None:

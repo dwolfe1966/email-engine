@@ -530,6 +530,32 @@ def _normalize_ai_text_body(text_body: str) -> str:
     return normalized
 
 
+def _ai_edit_change_metadata(
+    payload: AITemplateEditRequest,
+    draft: Mapping[str, object],
+) -> tuple[list[str], list[str]]:
+    current = {
+        'subject': payload.current_subject or '',
+        'html_body': payload.current_html or '',
+        'css_body': payload.current_css or '',
+        'text_body': payload.current_text or '',
+    }
+    changed_fields = [
+        field for field, old_value in current.items()
+        if str(draft.get(field) or '') != old_value
+    ]
+    labels = {
+        'subject': 'Subject line changed.',
+        'html_body': 'HTML body changed.',
+        'css_body': 'CSS changed.',
+        'text_body': 'Plain-text body changed.',
+    }
+    summary = [labels[field] for field in changed_fields]
+    if not summary:
+        summary = ['No material field changes were detected.']
+    return changed_fields, summary
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -576,6 +602,7 @@ def edit_template_with_ai(
     settings: SettingsDep,
 ) -> AITemplateDraftRead:
     draft = _template_edit_payload(payload, settings)
+    changed_fields, change_summary = _ai_edit_change_metadata(payload, draft)
     template_request = TemplateValidationRequest(
         subject=draft['subject'],
         html_body=draft['html_body'],
@@ -600,6 +627,8 @@ def edit_template_with_ai(
         html_body=cast(str, draft['html_body']),
         css_body=cast(str | None, draft.get('css_body')),
         text_body=cast(str | None, draft.get('text_body')),
+        changed_fields=changed_fields,
+        change_summary=change_summary,
         sample_variables=render_variables,
         notes=cast(list[str], draft['notes']),
         validation=validation,

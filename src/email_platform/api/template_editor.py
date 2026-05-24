@@ -299,6 +299,15 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     .ai-variable-chip.native {
       color: var(--muted);
     }
+    .ai-change-summary {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .ai-change-summary li + li {
+      margin-top: 3px;
+    }
     .ai-sample-json {
       min-height: 72px;
       max-height: 170px;
@@ -462,6 +471,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
             <div class="ai-meta-tile"><span>Variables</span><strong>-</strong></div>
           </div>
           <div class="ai-variable-list" id="aiDraftVariables"></div>
+          <ul class="ai-change-summary" id="aiChangeSummary"></ul>
           <pre class="ai-sample-json" id="aiSampleJson">Generate a draft to see sample variables.</pre>
         </div>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
@@ -776,6 +786,13 @@ li {
         empty.textContent = "No variables detected in draft.";
         list.appendChild(empty);
       }
+      const summary = document.getElementById("aiChangeSummary");
+      summary.textContent = "";
+      (data?.change_summary || []).forEach((item) => {
+        const row = document.createElement("li");
+        row.textContent = item;
+        summary.appendChild(row);
+      });
       document.getElementById("aiSampleJson").textContent = JSON.stringify(
         data?.sample_variables || {},
         null,
