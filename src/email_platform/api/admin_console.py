@@ -1349,10 +1349,14 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         <label>Launch variables JSON
           <textarea id="variables"></textarea>
         </label>
+        <label>Test recipient email
+          <input id="testEmail" type="email" placeholder="you@example.com" />
+        </label>
         <div class="actions">
           <button class="secondary" id="previewAudience">Preview Audience</button>
           <button class="secondary" id="previewTemplate">Preview Template</button>
           <button class="secondary" id="validateCampaign">Validate</button>
+          <button class="secondary" id="testSend">Test Send</button>
           <button class="secondary" id="approveCampaign">Approve</button>
           <button class="secondary" id="processDue">Process Due</button>
           <button class="secondary" id="dryRun">Dry Run</button>
@@ -1435,6 +1439,11 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     function selectedTemplate() {
       const templateId = selectedTemplateId();
       return templateItems.find((item) => item.id === templateId) || null;
+    }
+
+    async function sampleVariablesForTemplate(templateId) {
+      const data = await request(`/api/v1/templates/${templateId}/variables`);
+      return data.sample_variables || {};
     }
 
     function renderContacts(contacts) {
@@ -1562,6 +1571,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         writeResult("Select a template first.", false);
         return;
       }
+      const sampleVariables = await sampleVariablesForTemplate(template.id);
       const data = await request("/api/v1/templates/preview", {
         method: "POST",
         body: JSON.stringify({
@@ -1569,7 +1579,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           html_body: template.html_body,
           css_body: template.css_body,
           text_body: template.text_body,
-          variables: parseJson("variables", {})
+          variables: { ...sampleVariables, ...parseJson("variables", {}) }
         })
       });
       renderTemplatePreview(data);
@@ -1645,6 +1655,25 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       });
     }
 
+    async function testSendCampaign() {
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
+        return;
+      }
+      const toEmail = document.getElementById("testEmail").value.trim();
+      if (!toEmail) {
+        writeResult("Enter a test recipient email first.", false);
+        return;
+      }
+      await request(`/api/v1/campaigns/${selectedId}/test-send`, {
+        method: "POST",
+        body: JSON.stringify({
+          to_email: toEmail,
+          variables: parseJson("variables", {})
+        })
+      });
+    }
+
     async function approveCampaign() {
       if (!selectedId) {
         writeResult("Save or select a campaign first.", false);
@@ -1716,6 +1745,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("validateCampaign").addEventListener("click", () => {
       validateCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("testSend").addEventListener("click", () => {
+      testSendCampaign().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
