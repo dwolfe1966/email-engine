@@ -96,6 +96,8 @@ from email_platform.schemas.contracts import (
     SuppressionCreate,
     SuppressionRead,
     TemplateCreate,
+    TemplateDocumentRead,
+    TemplateDocumentUpdate,
     TemplateLintRead,
     TemplatePreviewRead,
     TemplatePreviewRequest,
@@ -204,6 +206,24 @@ def create_template_version(
     if not version:
         raise HTTPException(status_code=404, detail='Template not found')
     return version
+
+
+@router.get('/templates/{template_id}/document', response_model=TemplateDocumentRead)
+def get_template_document(template_id: UUID, db: DbSession) -> TemplateDocumentRead:
+    document = TemplateService(db).current_document(template_id)
+    if not document:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return document
+
+
+@router.put('/templates/{template_id}/document', response_model=TemplateDocumentRead)
+def update_template_document(
+    template_id: UUID, payload: TemplateDocumentUpdate, db: DbSession
+) -> TemplateDocumentRead:
+    document = TemplateService(db).update_document(template_id, payload)
+    if not document:
+        raise HTTPException(status_code=404, detail='Template not found')
+    return document
 
 
 @router.post('/templates/preview', response_model=TemplatePreviewRead)

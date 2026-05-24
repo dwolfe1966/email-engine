@@ -1299,9 +1299,8 @@ ${presetRules[preset] || ""}`;
 
     async function designDocForTemplate(template) {
       try {
-        const versions = await request(`/api/v1/templates/${template.id}/versions`);
-        const current = versions.find((version) => version.is_current) || versions[0];
-        if (current?.document_json?.blocks?.length) return current.document_json;
+        const data = await request(`/api/v1/templates/${template.id}/document`);
+        if (data.document_json?.blocks?.length) return data.document_json;
       } catch (error) {
         log({ selected: template.id, document_json_error: error.message });
       }

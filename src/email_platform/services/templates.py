@@ -22,6 +22,8 @@ from email_platform.models.entities import (
 )
 from email_platform.schemas.contracts import (
     TemplateCreate,
+    TemplateDocumentRead,
+    TemplateDocumentUpdate,
     TemplateLintRead,
     TemplatePreviewRead,
     TemplatePreviewRequest,
@@ -277,6 +279,53 @@ class TemplateService:
             .order_by(EmailTemplateVersion.version_number.desc())
         )
         return builtins.list(self.db.scalars(statement).all())
+
+    def current_document(self, template_id: UUID) -> TemplateDocumentRead | None:
+        template = self.get(template_id)
+        if not template:
+            return None
+        version = self.db.scalar(
+            select(EmailTemplateVersion)
+            .where(
+                EmailTemplateVersion.template_id == template_id,
+                EmailTemplateVersion.is_current.is_(True),
+            )
+            .order_by(EmailTemplateVersion.version_number.desc())
+        )
+        if not version:
+            return TemplateDocumentRead(template_id=template_id, document_json={})
+        return TemplateDocumentRead(
+            template_id=template_id,
+            version_id=version.id,
+            version_number=version.version_number,
+            document_json=version.document_json or {},
+        )
+
+    def update_document(
+        self, template_id: UUID, payload: TemplateDocumentUpdate
+    ) -> TemplateDocumentRead | None:
+        template = self.get(template_id)
+        if not template:
+            return None
+        version = self._add_version(
+            template,
+            TemplateVersionCreate(
+                subject=template.subject,
+                html_body=template.html_body,
+                css_body=template.css_body,
+                text_body=template.text_body,
+                document_json=payload.document_json,
+                set_current=payload.set_current,
+            ),
+        )
+        self.db.commit()
+        self.db.refresh(version)
+        return TemplateDocumentRead(
+            template_id=template_id,
+            version_id=version.id,
+            version_number=version.version_number,
+            document_json=version.document_json or {},
+        )
 
     def create_version(
         self, template_id: UUID, payload: TemplateVersionCreate

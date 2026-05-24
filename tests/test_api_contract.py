@@ -17,6 +17,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates/validate',
         '/api/v1/templates/variables',
         '/api/v1/templates/{template_id}',
+        '/api/v1/templates/{template_id}/document',
         '/api/v1/templates/{template_id}/preview-sample',
         '/api/v1/templates/{template_id}/variables',
         '/api/v1/templates/{template_id}/versions',
@@ -182,6 +183,7 @@ def test_template_editor_page() -> None:
     assert 'Import JSON' in response.text
     assert 'applyDesignDocJson' in response.text
     assert 'designDocForTemplate' in response.text
+    assert '/api/v1/templates/${template.id}/document' in response.text
     assert 'document_json' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text

@@ -101,6 +101,18 @@ class TemplateVersionRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class TemplateDocumentRead(BaseModel):
+    template_id: UUID
+    version_id: UUID | None = None
+    version_number: int | None = None
+    document_json: JsonObject = Field(default_factory=dict)
+
+
+class TemplateDocumentUpdate(BaseModel):
+    document_json: JsonObject = Field(default_factory=dict)
+    set_current: bool = True
+
+
 class TemplatePreviewRequest(BaseModel):
     subject: str
     html_body: str
