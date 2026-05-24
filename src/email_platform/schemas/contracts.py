@@ -113,6 +113,14 @@ class TemplateDocumentUpdate(BaseModel):
     set_current: bool = True
 
 
+class TemplateDocumentRenderRequest(BaseModel):
+    document_json: JsonObject = Field(default_factory=dict)
+    subject: str = ''
+    css_body: str | None = None
+    text_body: str | None = None
+    variables: JsonObject = Field(default_factory=dict)
+
+
 class TemplatePreviewRequest(BaseModel):
     subject: str
     html_body: str

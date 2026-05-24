@@ -12,6 +12,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
+        '/api/v1/templates/document/render',
         '/api/v1/templates/preview',
         '/api/v1/templates/samples',
         '/api/v1/templates/validate',
@@ -260,6 +261,38 @@ def test_render_document_renders_design_blocks() -> None:
     assert 'border-top:1px solid #cccccc' in html
     assert 'height:18px' in html
     assert '<li>Saved raw HTML</li>' in html
+
+
+def test_v1_render_document_renders_design_blocks() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/templates/document/render',
+        json={
+            'subject': 'Hello {{ first_name }}',
+            'document_json': {
+                'blocks': [
+                    {'type': 'heading', 'level': 2, 'text': 'Hello {{ first_name }}'},
+                    {
+                        'type': 'button',
+                        'text': 'Open',
+                        'href': '{{ cta_url }}',
+                        'radius': 10,
+                    },
+                ]
+            },
+            'variables': {
+                'first_name': 'Alex',
+                'cta_url': 'https://example.com/dashboard',
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['subject'] == 'Hello Alex'
+    assert '<h2 style="text-align:left;">Hello Alex</h2>' in data['html_body']
+    assert 'href="https://example.com/dashboard"' in data['html_body']
+    assert 'border-radius:10px' in data['html_body']
 
 
 def test_template_payload_accepts_document_json() -> None:

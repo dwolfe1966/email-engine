@@ -97,6 +97,7 @@ from email_platform.schemas.contracts import (
     SuppressionRead,
     TemplateCreate,
     TemplateDocumentRead,
+    TemplateDocumentRenderRequest,
     TemplateDocumentUpdate,
     TemplateLintRead,
     TemplatePreviewRead,
@@ -121,6 +122,7 @@ from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
 from email_platform.services.delivery import DeliveryService
+from email_platform.services.documents import document_to_html
 from email_platform.services.events import EventService
 from email_platform.services.journeys import JourneyService
 from email_platform.services.provider_webhooks import ProviderWebhookService
@@ -224,6 +226,21 @@ def update_template_document(
     if not document:
         raise HTTPException(status_code=404, detail='Template not found')
     return document
+
+
+@router.post('/templates/document/render', response_model=TemplatePreviewRead)
+def render_template_document(
+    payload: TemplateDocumentRenderRequest, db: DbSession
+) -> TemplatePreviewRead:
+    return TemplateService(db).preview(
+        TemplatePreviewRequest(
+            subject=payload.subject,
+            html_body=document_to_html(payload.document_json),
+            css_body=payload.css_body,
+            text_body=payload.text_body,
+            variables=payload.variables,
+        )
+    )
 
 
 @router.post('/templates/preview', response_model=TemplatePreviewRead)

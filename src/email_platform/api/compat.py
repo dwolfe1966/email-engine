@@ -42,6 +42,7 @@ from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
 from email_platform.services.delivery import DeliveryService
+from email_platform.services.documents import document_to_html
 from email_platform.services.journeys import JourneyService
 from email_platform.services.templates import TemplateService
 
@@ -190,7 +191,7 @@ def compat_render(payload: dict[str, object], db: DbSession) -> dict[str, object
 @router.post('/render-document')
 def compat_render_document(payload: dict[str, object], db: DbSession) -> dict[str, object]:
     document = _object_payload(payload.get('document_json', payload.get('document')))
-    html_body = _document_to_html(document)
+    html_body = document_to_html(document)
     request = TemplatePreviewRequest(
         subject=str(payload.get('subject', '')),
         html_body=html_body,
