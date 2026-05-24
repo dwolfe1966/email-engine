@@ -15,6 +15,7 @@ from email_platform.db.session import get_db
 from email_platform.models.entities import (
     Audience,
     Campaign,
+    CampaignSendJob,
     CampaignStatus,
     Contact,
     EmailEvent,
@@ -387,12 +388,17 @@ def compat_list_sends(
     db: DbSession,
     limit: Limit = 100,
     offset: Offset = 0,
+    status: str | None = None,
 ) -> dict[str, object]:
-    service = CampaignService(db)
-    campaigns = service.list_items(limit=limit, offset=offset)
-    return _list_response(
-        [_send_detail(db, campaign) for campaign in campaigns], limit, offset, service.count()
-    )
+    status_filter = _campaign_status_from_send_status(status)
+    statement = select(Campaign).order_by(Campaign.created_at.desc())
+    count_statement = select(func.count()).select_from(Campaign)
+    if status_filter:
+        statement = statement.where(Campaign.status == status_filter)
+        count_statement = count_statement.where(Campaign.status == status_filter)
+    campaigns = list(db.scalars(statement.limit(limit).offset(offset)).all())
+    total = db.scalar(count_statement) or 0
+    return _list_response(_send_list_details(db, campaigns), limit, offset, total)
 
 
 @router.get('/sends/{send_id}')
@@ -888,6 +894,107 @@ def _segment_summary(audience: object) -> dict[str, object]:
     }
 
 
+def _campaign_status_from_send_status(status: str | None) -> CampaignStatus | None:
+    if not status or status == 'all':
+        return None
+    if status == 'cancelled':
+        return CampaignStatus.paused
+    if status in {'partial', 'failed'}:
+        return None
+    try:
+        return CampaignStatus(status)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f'Unsupported send status: {status}') from exc
+
+
+def _json_key(value: Mapping[str, object]) -> str:
+    return json.dumps(value, sort_keys=True, separators=(',', ':'))
+
+
+def _send_list_details(db: Session, campaigns: list[Campaign]) -> list[dict[str, object]]:
+    if not campaigns:
+        return []
+    campaign_ids = [campaign.id for campaign in campaigns]
+    template_ids = [campaign.template_id for campaign in campaigns if campaign.template_id]
+    templates = {
+        template.id: template
+        for template in db.scalars(
+            select(EmailTemplate).where(EmailTemplate.id.in_(template_ids))
+        ).all()
+    }
+    versions = {
+        version.template_id: version
+        for version in db.scalars(
+            select(EmailTemplateVersion)
+            .where(EmailTemplateVersion.template_id.in_(template_ids))
+            .where(EmailTemplateVersion.is_current.is_(True))
+        ).all()
+    }
+    audiences_by_rule = {
+        _json_key(cast(JsonObject, audience.rule_tree)): audience
+        for audience in db.scalars(select(Audience)).all()
+    }
+    requested_counts = {
+        campaign_id: int(count or 0)
+        for campaign_id, count in db.execute(
+            select(CampaignSendJob.campaign_id, func.sum(CampaignSendJob.requested_count))
+            .where(CampaignSendJob.campaign_id.in_(campaign_ids))
+            .group_by(CampaignSendJob.campaign_id)
+        ).all()
+    }
+    status_counts: dict[UUID, dict[str, int]] = {}
+    for campaign_id, status, count in db.execute(
+        select(EmailSendRecord.campaign_id, EmailSendRecord.status, func.count())
+        .where(EmailSendRecord.campaign_id.in_(campaign_ids))
+        .group_by(EmailSendRecord.campaign_id, EmailSendRecord.status)
+    ).all():
+        if campaign_id:
+            status_counts.setdefault(campaign_id, {})[str(status.value)] = int(count)
+    event_counts: dict[UUID, dict[str, int]] = {}
+    for campaign_id, event_type, count in db.execute(
+        select(EmailEvent.campaign_id, EmailEvent.event_type, func.count())
+        .where(EmailEvent.campaign_id.in_(campaign_ids))
+        .group_by(EmailEvent.campaign_id, EmailEvent.event_type)
+    ).all():
+        if campaign_id:
+            event_counts.setdefault(campaign_id, {})[str(event_type.value)] = int(count)
+
+    rows: list[dict[str, object]] = []
+    for campaign in campaigns:
+        template = templates.get(campaign.template_id)
+        version = versions.get(campaign.template_id)
+        audience = audiences_by_rule.get(_json_key(cast(JsonObject, campaign.audience_query)))
+        statuses = status_counts.get(campaign.id, {})
+        events = event_counts.get(campaign.id, {})
+        sent_count = statuses.get('sent', 0)
+        delivered_count = events.get('delivered', 0)
+        opened_count = events.get('opened', 0)
+        clicked_count = events.get('clicked', 0)
+        bounced_count = events.get('bounced', 0)
+        unsubscribed_count = events.get('unsubscribed', 0)
+        rows.append(
+            _send_payload(
+                campaign=campaign,
+                template=template,
+                version_id=str(version.id) if version else str(campaign.template_id),
+                version_number=version.version_number if version else None,
+                audience=audience,
+                metric_data={
+                    'requested_count': requested_counts.get(campaign.id, 0),
+                    'delivered_count': delivered_count,
+                    'opened_count': opened_count,
+                    'clicked_count': clicked_count,
+                    'bounced_count': bounced_count,
+                    'unsubscribed_count': unsubscribed_count,
+                    'open_rate': _rate(opened_count, max(sent_count, delivered_count)),
+                    'click_rate': _rate(clicked_count, max(sent_count, delivered_count)),
+                    'bounce_rate': _rate(bounced_count, max(sent_count, requested_counts.get(campaign.id, 0))),
+                },
+            )
+        )
+    return rows
+
+
 def _send_detail(db: Session, campaign: Campaign) -> dict[str, object]:
     metrics = AnalyticsService(db).campaign_metrics(campaign.id)
     template = TemplateService(db).get(campaign.template_id)
@@ -895,6 +1002,25 @@ def _send_detail(db: Session, campaign: Campaign) -> dict[str, object]:
     current_version = next((version for version in versions if version.get('is_current')), None)
     audience = _audience_for_rule_tree(db, campaign.audience_query)
     metric_data = jsonable_encoder(metrics) if metrics else {}
+    return _send_payload(
+        campaign=campaign,
+        template=template,
+        version_id=current_version.get('id') if current_version else str(campaign.template_id),
+        version_number=current_version.get('version_number') if current_version else None,
+        audience=audience,
+        metric_data=metric_data,
+    )
+
+
+def _send_payload(
+    *,
+    campaign: Campaign,
+    template: EmailTemplate | None,
+    version_id: object,
+    version_number: object,
+    audience: Audience | None,
+    metric_data: Mapping[str, object],
+) -> dict[str, object]:
     return {
         **jsonable_encoder(campaign),
         'send_id': str(campaign.id),
@@ -902,12 +1028,8 @@ def _send_detail(db: Session, campaign: Campaign) -> dict[str, object]:
         'title': campaign.name,
         'template_id': str(campaign.template_id) if campaign.template_id else None,
         'template_name': template.name if template else None,
-        'template_version_id': (
-            current_version.get('id') if current_version else str(campaign.template_id)
-        ),
-        'template_version_number': (
-            current_version.get('version_number') if current_version else None
-        ),
+        'template_version_id': version_id,
+        'template_version_number': version_number,
         'subject': template.subject if template else None,
         'segment_id': str(audience.id) if audience else None,
         'segment_name': audience.name if audience else None,
