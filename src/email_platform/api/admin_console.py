@@ -3137,6 +3137,19 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         <label>Provider
           <input id="provider" placeholder="sendgrid" />
         </label>
+        <label>Event type
+          <select id="eventType">
+            <option value="">All event types</option>
+            <option value="queued">queued</option>
+            <option value="sent">sent</option>
+            <option value="delivered">delivered</option>
+            <option value="opened">opened</option>
+            <option value="clicked">clicked</option>
+            <option value="bounced">bounced</option>
+            <option value="complained">complained</option>
+            <option value="unsubscribed">unsubscribed</option>
+          </select>
+        </label>
         <div class="inline">
           <label>Limit
             <input id="limit" type="number" min="1" max="500" value="100" />
@@ -3227,6 +3240,15 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       const params = new URLSearchParams();
       params.set("limit", value("limit") || "100");
       params.set("offset", value("offset") || "0");
+      return params;
+    }
+
+    function eventQuery() {
+      const params = pageQuery();
+      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      if (value("sendRecordId")) params.set("send_record_id", value("sendRecordId"));
+      if (value("eventType")) params.set("event_type", value("eventType"));
       return params;
     }
 
@@ -3334,15 +3356,11 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     }
 
     async function eventTimeline() {
-      const params = pageQuery();
-      if (value("campaignId")) params.set("campaign_id", value("campaignId"));
-      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
-      if (value("sendRecordId")) params.set("send_record_id", value("sendRecordId"));
-      await request(`/api/v1/events/timeline?${params.toString()}`);
+      await request(`/api/v1/events/timeline?${eventQuery().toString()}`);
     }
 
     async function loadEvents() {
-      await request(`/api/v1/events?${pageQuery().toString()}`);
+      await request(`/api/v1/events/list?${eventQuery().toString()}`);
     }
 
     async function loadJobs() {
