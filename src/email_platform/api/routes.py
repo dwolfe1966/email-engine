@@ -13,6 +13,7 @@ from email_platform.db.session import get_db
 from email_platform.models.entities import (
     Audience,
     Campaign,
+    CampaignSendJob,
     Contact,
     DataSource,
     DataSourceMapping,
