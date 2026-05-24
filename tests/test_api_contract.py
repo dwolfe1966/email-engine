@@ -28,6 +28,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}/approve',
         '/api/v1/campaigns/{campaign_id}/clone',
         '/api/v1/campaigns/{campaign_id}/launch',
+        '/api/v1/campaigns/{campaign_id}/test-send',
         '/api/v1/campaigns/{campaign_id}/validate',
         '/api/v1/analytics/audiences',
         '/api/v1/analytics/campaigns',

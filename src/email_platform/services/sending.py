@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
-from email_platform.models.entities import EmailEventType
+from email_platform.models.entities import Campaign, EmailEventType
 from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import EventCreate
 from email_platform.services.contacts import ContactService
@@ -43,6 +43,54 @@ class SendingService:
             'provider': result.provider,
             'provider_message_id': result.provider_message_id,
             'status_code': result.status_code,
+        }
+
+    def send_campaign_test(
+        self, campaign_id: UUID, to_email: str, variables: Mapping[str, object]
+    ) -> dict[str, str | int | UUID | None]:
+        campaign = self.db.get(Campaign, campaign_id)
+        if not campaign:
+            raise ValueError('Campaign not found')
+        template = self.template_service.get(campaign.template_id)
+        if not template:
+            raise ValueError('Template not found')
+
+        template_variables = self.template_service.variables_for_template(template.id)
+        context = {
+            **(template_variables.sample_variables if template_variables else {}),
+            **variables,
+        }
+        subject, html, text = self.template_service.render(template, context)
+        result = self.provider.send(
+            EmailMessage(
+                to_email=to_email,
+                from_email=str(self.settings.default_from_email),
+                subject=subject,
+                html_body=html,
+                text_body=text,
+            )
+        )
+        self.event_service.record(
+            EventCreate(
+                campaign_id=campaign.id,
+                event_type=EmailEventType.sent,
+                provider_message_id=result.provider_message_id,
+                metadata_json={
+                    'provider': result.provider,
+                    'status_code': result.status_code,
+                    'template_id': str(template.id),
+                    'to_email': to_email,
+                    'source': 'campaign_test_send',
+                },
+            )
+        )
+        return {
+            'provider': result.provider,
+            'provider_message_id': result.provider_message_id,
+            'status_code': result.status_code,
+            'campaign_id': campaign.id,
+            'template_id': template.id,
+            'to_email': to_email,
         }
 
     def send_email_to_contact(

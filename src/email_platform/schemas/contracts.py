@@ -196,6 +196,11 @@ class CampaignLaunchRequest(BaseModel):
     dry_run: bool = False
 
 
+class CampaignTestSendRequest(BaseModel):
+    to_email: EmailStr
+    variables: JsonObject = Field(default_factory=dict)
+
+
 class CampaignLaunchRead(BaseModel):
     job_id: UUID
     campaign_id: UUID
@@ -682,6 +687,12 @@ class EmailSendResponse(SendResponse):
     contact_id: UUID
     template_id: UUID
     campaign_id: UUID | None = None
+
+
+class CampaignTestSendResponse(SendResponse):
+    campaign_id: UUID
+    template_id: UUID
+    to_email: EmailStr
 
 
 class EventCreate(BaseModel):

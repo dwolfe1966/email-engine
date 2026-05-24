@@ -47,6 +47,8 @@ from email_platform.schemas.contracts import (
     CampaignProcessDueRead,
     CampaignRead,
     CampaignSendJobRead,
+    CampaignTestSendRequest,
+    CampaignTestSendResponse,
     CampaignTimelineRead,
     CampaignUpdate,
     CampaignValidationRead,
@@ -375,6 +377,23 @@ def launch_campaign(
     if not launch:
         raise HTTPException(status_code=404, detail='Campaign not found')
     return launch
+
+
+@router.post('/campaigns/{campaign_id}/test-send', response_model=CampaignTestSendResponse)
+def send_campaign_test_email(
+    campaign_id: UUID,
+    payload: CampaignTestSendRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, str | int | UUID | None]:
+    try:
+        return SendingService(db, settings).send_campaign_test(
+            campaign_id=campaign_id,
+            to_email=str(payload.to_email),
+            variables=payload.variables,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get('/campaigns/{campaign_id}/analytics', response_model=CampaignAnalyticsRead)
