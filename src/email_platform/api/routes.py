@@ -396,6 +396,8 @@ def send_campaign_test_email(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post('/campaigns/{campaign_id}/test-preview', response_model=CampaignTestPreviewRead)

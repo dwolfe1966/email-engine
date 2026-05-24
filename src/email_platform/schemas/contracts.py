@@ -696,11 +696,17 @@ class EmailSendResponse(SendResponse):
 class CampaignTestSendResponse(SendResponse):
     campaign_id: UUID
     template_id: UUID
+    send_job_id: UUID
+    send_record_id: UUID
+    contact_id: UUID
     to_email: EmailStr
     subject: str
     html_body: str
     text_body: str | None = None
     variables: JsonObject = Field(default_factory=dict)
+    tracking_open_url: str | None = None
+    tracking_click_base: str | None = None
+    unsubscribe_url: str | None = None
 
 
 class CampaignTestPreviewRead(BaseModel):
