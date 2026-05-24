@@ -497,6 +497,8 @@ li {
               <button type="button" data-design-add="list">List</button>
               <button type="button" data-design-add="image">Image</button>
               <button type="button" data-design-add="divider">Divider</button>
+              <button type="button" data-design-add="spacer">Spacer</button>
+              <button type="button" data-design-add="trust_signal">Trust Text</button>
               <button type="button" data-design-add="html">HTML</button>
             </div>
             <div class="design-actions">
@@ -822,6 +824,8 @@ ${presetRules[preset] || ""}`;
       if (type === "list") return { id, type, ordered: false, items: ["First point", "Second point"] };
       if (type === "image") return { id, type, src: "https://example.com/image.png", alt: "Image", href: "", width: 600 };
       if (type === "divider") return { id, type, color: "#d8dee6" };
+      if (type === "spacer") return { id, type, height: 24 };
+      if (type === "trust_signal") return { id, type, text: "Trusted by teams building better email workflows." };
       return { id, type: "html", code: "<p>Custom HTML</p>" };
     }
 
@@ -927,6 +931,10 @@ ${presetRules[preset] || ""}`;
         container.append(field("Image URL", "src"), field("Alt text", "alt"), field("Link URL", "href"), field("Width", "width", "number"));
       } else if (block.type === "divider") {
         container.append(field("Color", "color", "color"));
+      } else if (block.type === "spacer") {
+        container.append(field("Height", "height", "number"));
+      } else if (block.type === "trust_signal") {
+        container.append(field("Text", "text", "textarea"));
       } else {
         container.append(field("HTML", "code", "textarea"));
       }
@@ -945,21 +953,31 @@ ${presetRules[preset] || ""}`;
       const parsed = new DOMParser().parseFromString(html || "", "text/html");
       const blocks = [];
       let children = Array.from(parsed.body.children);
-      if (children.length === 1 && children[0].tagName.toLowerCase() === "div") {
-        const onlyChild = children[0];
-        const className = onlyChild.getAttribute("class") || "";
-        if (/\b(email-document|email-shell|email-container)\b/.test(className)) {
-          children = Array.from(onlyChild.children);
-        }
-      }
+      children = unwrapDesignContainers(children);
       children.forEach((node) => {
         const tag = node.tagName.toLowerCase();
         if (/^h[1-3]$/.test(tag)) {
-          blocks.push({ id: `b_${blocks.length}`, type: "heading", level: Number(tag.slice(1)), align: "left", text: node.textContent.trim() });
+          blocks.push({
+            id: `b_${blocks.length}`,
+            type: "heading",
+            level: Number(tag.slice(1)),
+            align: textAlign(node),
+            text: node.textContent.trim(),
+          });
         } else if (tag === "p") {
           const link = node.querySelector("a");
           if (link && /\b(button|btn|cta)\b/i.test(link.className || "")) {
-            blocks.push({ id: `b_${blocks.length}`, type: "button", text: link.textContent.trim(), href: link.getAttribute("href") || "", bg: "#2563eb", color: "#ffffff" });
+            const style = window.getComputedStyle(link);
+            blocks.push({
+              id: `b_${blocks.length}`,
+              type: "button",
+              text: link.textContent.trim(),
+              href: link.getAttribute("href") || "",
+              bg: rgbToHex(style.backgroundColor) || "#2563eb",
+              color: rgbToHex(style.color) || "#ffffff",
+            });
+          } else if (/\b(secondary-text|muted|trust)\b/i.test(node.className || "") && node.textContent.trim()) {
+            blocks.push({ id: `b_${blocks.length}`, type: "trust_signal", text: node.textContent.trim() });
           } else if (node.children.length === 0) {
             blocks.push({ id: `b_${blocks.length}`, type: "paragraph", text: node.textContent.trim() });
           } else {
@@ -970,8 +988,20 @@ ${presetRules[preset] || ""}`;
           blocks.push({ id: `b_${blocks.length}`, type: "list", ordered: tag === "ol", items });
         } else if (tag === "img") {
           blocks.push({ id: `b_${blocks.length}`, type: "image", src: node.getAttribute("src") || "", alt: node.getAttribute("alt") || "", href: "", width: Number(node.getAttribute("width") || 600) });
+        } else if (tag === "a" && node.children.length === 1 && node.children[0].tagName.toLowerCase() === "img") {
+          const img = node.children[0];
+          blocks.push({
+            id: `b_${blocks.length}`,
+            type: "image",
+            src: img.getAttribute("src") || "",
+            alt: img.getAttribute("alt") || "",
+            href: node.getAttribute("href") || "",
+            width: Number(img.getAttribute("width") || 600),
+          });
         } else if (tag === "hr") {
           blocks.push({ id: `b_${blocks.length}`, type: "divider", color: "#d8dee6" });
+        } else if (tag === "div" && isSpacer(node)) {
+          blocks.push({ id: `b_${blocks.length}`, type: "spacer", height: spacerHeight(node) });
         } else {
           blocks.push({ id: `b_${blocks.length}`, type: "html", code: node.outerHTML });
         }
@@ -979,9 +1009,42 @@ ${presetRules[preset] || ""}`;
       return blocks.length ? blocks : [newBlock("html")];
     }
 
+    function unwrapDesignContainers(children) {
+      let nodes = children;
+      while (nodes.length === 1 && nodes[0].tagName.toLowerCase() === "div") {
+        const className = nodes[0].getAttribute("class") || "";
+        if (!/\b(email-document|email-shell|email-container|content-card)\b/.test(className)) break;
+        nodes = Array.from(nodes[0].children);
+      }
+      return nodes;
+    }
+
+    function textAlign(node) {
+      const align = (node.style && node.style.textAlign) || node.getAttribute("align") || "left";
+      return ["left", "center", "right"].includes(align) ? align : "left";
+    }
+
+    function rgbToHex(value) {
+      const match = String(value || "").match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?/);
+      if (!match) return "";
+      if (match[4] === "0") return "";
+      return `#${[match[1], match[2], match[3]].map((part) => Number(part).toString(16).padStart(2, "0")).join("")}`;
+    }
+
+    function isSpacer(node) {
+      const height = spacerHeight(node);
+      return height > 0 && (!node.textContent.trim() || node.innerHTML.trim() === "&nbsp;");
+    }
+
+    function spacerHeight(node) {
+      const source = node.style?.height || node.style?.lineHeight || "";
+      const parsed = Number(String(source).replace("px", ""));
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 24;
+    }
+
     function designDocumentTemplateSource() {
       return state.designDoc.blocks.map((block) => {
-        if (block.type === "heading") return `<h${block.level || 1}>${block.text || ""}</h${block.level || 1}>`;
+        if (block.type === "heading") return `<h${block.level || 1} style="text-align:${block.align || "left"};">${block.text || ""}</h${block.level || 1}>`;
         if (block.type === "paragraph") return `<p>${block.text || ""}</p>`;
         if (block.type === "button") return `<p><a class="button" href="${block.href || ""}">${block.text || ""}</a></p>`;
         if (block.type === "list") {
@@ -989,8 +1052,13 @@ ${presetRules[preset] || ""}`;
           const items = (block.items || []).map((item) => `<li>${item}</li>`).join("");
           return `<${tag}>${items}</${tag}>`;
         }
-        if (block.type === "image") return `<img src="${block.src || ""}" alt="${block.alt || ""}" width="${block.width || 600}" />`;
+        if (block.type === "image") {
+          const image = `<img src="${block.src || ""}" alt="${block.alt || ""}" width="${block.width || 600}" />`;
+          return block.href ? `<a href="${block.href}">${image}</a>` : image;
+        }
         if (block.type === "divider") return "<hr />";
+        if (block.type === "spacer") return `<div style="height:${block.height || 24}px;line-height:${block.height || 24}px;font-size:0;">&nbsp;</div>`;
+        if (block.type === "trust_signal") return `<p class="secondary-text" style="text-align:center;">${block.text || ""}</p>`;
         return block.code || "";
       }).join("\n");
     }

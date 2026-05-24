@@ -168,6 +168,10 @@ def test_template_editor_page() -> None:
     assert 'Blocks -> Source' in response.text
     assert 'designDocumentTemplateSource' in response.text
     assert 'previewDesignDocument' in response.text
+    assert 'data-design-add="spacer"' in response.text
+    assert 'data-design-add="trust_signal"' in response.text
+    assert 'unwrapDesignContainers' in response.text
+    assert 'rgbToHex' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text
