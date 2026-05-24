@@ -179,7 +179,7 @@ class TemplateService:
         self.db.refresh(template)
         return template
 
-    def ensure_sample_templates(self) -> list[EmailTemplate]:
+    def ensure_sample_templates(self, reset: bool = False) -> list[EmailTemplate]:
         templates: list[EmailTemplate] = []
         for payload in SAMPLE_TEMPLATES:
             template = self.db.scalar(
@@ -197,6 +197,22 @@ class TemplateService:
                         css_body=template.css_body,
                         text_body=template.text_body,
                         document_json=payload.document_json,
+                    ),
+                )
+            elif reset:
+                template.subject = payload.subject
+                template.html_body = payload.html_body
+                template.css_body = payload.css_body
+                template.text_body = payload.text_body
+                self._add_version(
+                    template,
+                    TemplateVersionCreate(
+                        subject=payload.subject,
+                        html_body=payload.html_body,
+                        css_body=payload.css_body,
+                        text_body=payload.text_body,
+                        document_json=payload.document_json,
+                        set_current=True,
                     ),
                 )
             templates.append(template)

@@ -682,8 +682,8 @@ def create_template(payload: TemplateCreate, db: DbSession) -> EmailTemplate:
 
 
 @router.post('/templates/samples', response_model=list[TemplateRead])
-def create_sample_templates(db: DbSession) -> list[EmailTemplate]:
-    return TemplateService(db).ensure_sample_templates()
+def create_sample_templates(db: DbSession, reset: bool = False) -> list[EmailTemplate]:
+    return TemplateService(db).ensure_sample_templates(reset=reset)
 
 
 @router.get('/templates/{template_id}/versions', response_model=list[TemplateVersionRead])

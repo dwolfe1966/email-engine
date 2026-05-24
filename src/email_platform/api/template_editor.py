@@ -557,6 +557,7 @@ li {
             <div class="actions">
               <button class="secondary" type="button" id="generateCss">Generate CSS</button>
               <button class="secondary" type="button" id="appendCss">Append CSS</button>
+              <button class="secondary" type="button" id="formatSource">Format Source</button>
               <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
               <button class="secondary" type="button" id="insertBlockHtml">Insert Block</button>
             </div>
@@ -715,6 +716,42 @@ li {
         target.value = `${target.value}${snippet}`;
       }
       if (target.id === "htmlBody") loadVisualFromSource();
+      scheduleVariableRefresh();
+    }
+
+    function formatTemplateSource(source) {
+      if (!source || !source.trim()) return "";
+      const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+      const blockStart = /^{%\s*(if|for|block|macro|filter|with)\b/;
+      const blockMiddle = /^{%\s*(else|elif)\b/;
+      const blockEnd = /^{%\s*end(if|for|block|macro|filter|with)\b/;
+      const prepared = String(source)
+        .replace(/>\s*</g, ">\n<")
+        .replace(/\s*({%-?\s*(?:if|for|elif|else|endif|endfor|block|endblock|macro|endmacro|filter|endfilter|with|endwith)\b[\s\S]*?-?%})\s*/g, "\n$1\n")
+        .replace(/\n{2,}/g, "\n");
+      const lines = prepared.split("\n").map((line) => line.trim()).filter(Boolean);
+      let depth = 0;
+      const out = [];
+      lines.forEach((line) => {
+        const lower = line.toLowerCase();
+        const closingTag = /^<\//.test(lower);
+        const tagMatch = lower.match(/^<([a-z0-9:-]+)/);
+        const openingTag = tagMatch && !closingTag && !lower.endsWith("/>") && !voidTags.has(tagMatch[1]);
+        const sameLineClose = tagMatch ? new RegExp(`</${tagMatch[1]}\\s*>$`, "i").test(line) : false;
+        if (closingTag || blockEnd.test(line) || blockMiddle.test(line)) {
+          depth = Math.max(0, depth - 1);
+        }
+        out.push(`${"  ".repeat(depth)}${line}`);
+        if ((openingTag && !sameLineClose) || blockStart.test(line) || blockMiddle.test(line)) {
+          depth += 1;
+        }
+      });
+      return out.join("\n");
+    }
+
+    function formatSourceFields() {
+      document.getElementById("htmlBody").value = formatTemplateSource(value("htmlBody"));
+      loadVisualFromSource();
       scheduleVariableRefresh();
     }
 
@@ -884,7 +921,7 @@ li {
     async function applyAiDraft() {
       if (!state.aiDraft) return;
       document.getElementById("subject").value = state.aiDraft.subject || "";
-      document.getElementById("htmlBody").value = state.aiDraft.html_body || "";
+      document.getElementById("htmlBody").value = formatTemplateSource(state.aiDraft.html_body || "");
       document.getElementById("cssBody").value = state.aiDraft.css_body || "";
       document.getElementById("textBody").value = state.aiDraft.text_body || "";
       applyAiSampleVariables();
@@ -1587,7 +1624,7 @@ ${presetRules[preset] || ""}`;
       state.sampleVariables = null;
       document.getElementById("templateName").value = fullTemplate.name;
       document.getElementById("subject").value = fullTemplate.subject;
-      document.getElementById("htmlBody").value = fullTemplate.html_body || "";
+      document.getElementById("htmlBody").value = formatTemplateSource(fullTemplate.html_body || "");
       document.getElementById("cssBody").value = fullTemplate.css_body || "";
       document.getElementById("textBody").value = fullTemplate.text_body || "";
       state.designDoc = await designDocForTemplate(fullTemplate);
@@ -1693,7 +1730,7 @@ ${presetRules[preset] || ""}`;
     }
 
     async function seedSamples() {
-      const templates = await request("/api/v1/templates/samples", { method: "POST" });
+      const templates = await request("/api/v1/templates/samples?reset=true", { method: "POST" });
       log({ seeded_templates: templates.map((template) => template.name) });
       await loadTemplates();
     }
@@ -1775,6 +1812,7 @@ ${presetRules[preset] || ""}`;
     document
       .getElementById("appendCss")
       .addEventListener("click", () => applyGeneratedCss("append"));
+    document.getElementById("formatSource").addEventListener("click", formatSourceFields);
     document.getElementById("insertButtonHtml").addEventListener("click", () => {
       runCommand("insertHTML", '<p><a class="button" href="{{ cta_url }}">Call to Action</a></p>');
     });

@@ -220,6 +220,9 @@ def test_template_editor_page() -> None:
     assert '.template-item.selected' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
+    assert 'Format Source' in response.text
+    assert '/api/v1/templates/samples?reset=true' in response.text
+    assert 'formatTemplateSource' in response.text
     assert 'CSS Builder' in response.text
     assert 'Insert Block' in response.text
     assert 'Design Blocks' in response.text
