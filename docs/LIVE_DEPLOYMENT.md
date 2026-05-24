@@ -57,6 +57,17 @@ The smoke test verified:
 - `POST /api/v1/emails/send`
 - `POST /api/v1/tests/send-email`
 
+Production campaign workflow smoke test:
+
+```bash
+CONTACT_EMAIL=<recipient@example.com> scripts/production_campaign_smoke.py
+```
+
+The campaign workflow smoke test creates a template, contact, audience, and campaign in the
+configured environment, sends one actual campaign test email, records synthetic open/click events,
+and verifies campaign analytics. It defaults to `https://email-engine.app`; set
+`BASE_URL=http://localhost:8000` for local testing.
+
 SentientMail GUI smoke test:
 
 - `POST /api/render` through `https://ui-eight-rho.vercel.app`
