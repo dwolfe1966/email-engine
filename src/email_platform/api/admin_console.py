@@ -1388,6 +1388,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
             <div class="actions">
               <button class="secondary" id="viewDelivery" type="button">Delivery</button>
               <button class="secondary" id="viewAnalytics" type="button">Analytics</button>
+              <button class="secondary" id="viewEvents" type="button">Events</button>
+              <button class="secondary" id="viewTimeline" type="button">Timeline</button>
             </div>
           </div>
           <div class="test-send-grid" id="testSendDetails"></div>
@@ -1817,6 +1819,15 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       location.href = `/admin/analytics${params.toString() ? `?${params.toString()}` : ""}`;
     }
 
+    function openAnalyticsEventsForLastTest(view) {
+      const params = new URLSearchParams();
+      if (lastTestSend?.campaign_id) params.set("campaign_id", lastTestSend.campaign_id);
+      if (lastTestSend?.send_job_id) params.set("send_job_id", lastTestSend.send_job_id);
+      if (lastTestSend?.send_record_id) params.set("send_record_id", lastTestSend.send_record_id);
+      params.set("view", view);
+      location.href = `/admin/analytics?${params.toString()}`;
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       loadCampaigns().catch((error) => writeResult(error.message, false));
     });
@@ -1856,6 +1867,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("viewDelivery").addEventListener("click", openDeliveryForLastTest);
     document.getElementById("viewAnalytics").addEventListener("click", openAnalyticsForLastTest);
+    document.getElementById("viewEvents").addEventListener("click", () => {
+      openAnalyticsEventsForLastTest("events");
+    });
+    document.getElementById("viewTimeline").addEventListener("click", () => {
+      openAnalyticsEventsForLastTest("timeline");
+    });
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
     });
@@ -3252,6 +3269,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       return params;
     }
 
+    function applyInitialFilters() {
+      if (initialParams.get("event_type")) {
+        document.getElementById("eventType").value = initialParams.get("event_type");
+      }
+    }
+
     async function loadCampaignOptions() {
       const data = await fetchJson(`/api/v1/campaigns/list?${pageQuery().toString()}`);
       campaigns.splice(0, campaigns.length, ...data.items);
@@ -3434,7 +3457,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       .then(loadJourneyOptions)
       .then(loadJobOptions)
       .then(loadRecordOptions)
-      .then(() => (value("campaignId") ? campaignAnalytics() : analyticsOverview()))
+      .then(applyInitialFilters)
+      .then(() => {
+        if (initialParams.get("view") === "events") return loadEvents();
+        if (initialParams.get("view") === "timeline") return eventTimeline();
+        return value("campaignId") ? campaignAnalytics() : analyticsOverview();
+      })
       .catch((error) => writeResult(error.message, false));
   </script>
 </body>
