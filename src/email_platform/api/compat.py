@@ -1153,6 +1153,16 @@ def _document_block_to_html(block: Mapping[str, object]) -> str:
             'padding:11px 16px;text-decoration:none;border-radius:6px;font-weight:700;">'
             f'{text}</a></p>'
         )
+    if block_type == 'list':
+        ordered = bool(block.get('ordered'))
+        tag = 'ol' if ordered else 'ul'
+        items = block.get('items')
+        if not isinstance(items, list):
+            items = []
+        rendered_items = '\n'.join(
+            f'<li>{_escape_html(str(item))}</li>' for item in items if str(item).strip()
+        )
+        return f'<{tag}>\n{rendered_items}\n</{tag}>'
     if block_type == 'divider':
         color = _escape_html(str(block.get('color', '#d8dee6')))
         return f'<hr style="border:0;border-top:1px solid {color};" />'

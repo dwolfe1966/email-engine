@@ -191,6 +191,7 @@ def test_render_document_renders_design_blocks() -> None:
                         'bg': '#111827',
                         'color': '#ffffff',
                     },
+                    {'type': 'list', 'ordered': True, 'items': ['One {{ plan }}', 'Two']},
                     {
                         'type': 'image',
                         'src': 'https://example.com/hero.png',
@@ -219,6 +220,9 @@ def test_render_document_renders_design_blocks() -> None:
     assert 'Your plan is trial.' in html
     assert 'class="button"' in html
     assert 'href="https://example.com/dashboard"' in html
+    assert '<ol>' in html
+    assert '<li>One trial</li>' in html
+    assert '<li>Two</li>' in html
     assert 'src="https://example.com/hero.png"' in html
     assert 'alt="Hero"' in html
     assert 'border-top:1px solid #cccccc' in html
