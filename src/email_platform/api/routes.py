@@ -850,6 +850,55 @@ def record_tracking_click_api(
     )
 
 
+@router.post('/tests/email-send-records/{send_record_id}/open', response_model=TrackingEventRead)
+def record_test_tracking_open(
+    send_record_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> TrackingEventRead:
+    service = TrackingService(db, settings.unsubscribe_secret)
+    if not service.get_send_record(send_record_id):
+        raise HTTPException(status_code=404, detail='Send record not found')
+    token = service.create_token(send_record_id)
+    event = service.record_open(
+        token,
+        {
+            **_tracking_request_metadata(request),
+            'source': 'manual_test_event',
+        },
+    )
+    return TrackingEventRead(
+        event_id=event.id, send_record_id=send_record_id, event_type=event.event_type
+    )
+
+
+@router.post('/tests/email-send-records/{send_record_id}/click', response_model=TrackingEventRead)
+def record_test_tracking_click(
+    send_record_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+    target_url: str | None = None,
+) -> TrackingEventRead:
+    service = TrackingService(db, settings.unsubscribe_secret)
+    if not service.get_send_record(send_record_id):
+        raise HTTPException(status_code=404, detail='Send record not found')
+    if target_url and not _is_http_url(target_url):
+        raise HTTPException(status_code=400, detail='Click URL must be http or https')
+    token = service.create_token(send_record_id)
+    metadata = {
+        **_tracking_request_metadata(request),
+        'source': 'manual_test_event',
+    }
+    if target_url:
+        metadata['target_url'] = target_url
+    event = service.record_click(token, metadata)
+    return TrackingEventRead(
+        event_id=event.id, send_record_id=send_record_id, event_type=event.event_type
+    )
+
+
 @router.post('/delivery/process-queued', response_model=DeliveryRunRead)
 def process_queued_delivery(
     db: DbSession,

@@ -2739,6 +2739,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
             <input id="limit" type="number" min="1" max="500" value="25" />
           </label>
         </div>
+        <label>Click target URL
+          <input id="clickTargetUrl" placeholder="https://email-engine.app/" />
+        </label>
         <div class="actions">
           <button id="processQueued">Process Queued</button>
           <button class="secondary" id="loadJobs">Load Jobs</button>
@@ -2748,6 +2751,8 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
           <button class="danger" id="deleteRecord">Delete Record</button>
           <button class="secondary" id="loadSuppressions">Suppressions</button>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
+          <button class="secondary" id="recordOpen">Record Open</button>
+          <button class="secondary" id="recordClick">Record Click</button>
           <button class="secondary" id="clear">Clear</button>
         </div>
       </div>
@@ -2893,6 +2898,29 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       await request(`/api/v1/email-send-records/${value("sendRecordId")}/tracking-links`);
     }
 
+    async function recordOpen() {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      await request(`/api/v1/tests/email-send-records/${value("sendRecordId")}/open`, {
+        method: "POST"
+      });
+    }
+
+    async function recordClick() {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      const params = new URLSearchParams();
+      if (value("clickTargetUrl")) params.set("target_url", value("clickTargetUrl"));
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      await request(`/api/v1/tests/email-send-records/${value("sendRecordId")}/click${suffix}`, {
+        method: "POST"
+      });
+    }
+
     document.getElementById("processQueued").addEventListener("click", () => {
       processQueued().catch((error) => writeResult(error.message, false));
     });
@@ -2924,6 +2952,12 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     });
     document.getElementById("trackingLinks").addEventListener("click", () => {
       trackingLinks().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("recordOpen").addEventListener("click", () => {
+      recordOpen().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("recordClick").addEventListener("click", () => {
+      recordClick().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";

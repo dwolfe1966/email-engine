@@ -53,6 +53,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/email-send-records/{send_record_id}/requeue',
         '/api/v1/email-send-records/{send_record_id}/skip',
         '/api/v1/email-send-records/{send_record_id}/tracking-links',
+        '/api/v1/tests/email-send-records/{send_record_id}/click',
+        '/api/v1/tests/email-send-records/{send_record_id}/open',
         '/api/v1/tracking/click/{token}',
         '/api/v1/tracking/open/{token}',
         '/api/v1/provider-webhooks/sendgrid',
