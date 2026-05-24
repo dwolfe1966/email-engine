@@ -1390,8 +1390,13 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
               <button class="secondary" id="viewAnalytics" type="button">Analytics</button>
               <button class="secondary" id="viewEvents" type="button">Events</button>
               <button class="secondary" id="viewTimeline" type="button">Timeline</button>
+              <button class="secondary" id="recordTestOpen" type="button">Record Open</button>
+              <button class="secondary" id="recordTestClick" type="button">Record Click</button>
             </div>
           </div>
+          <label>Click target URL
+            <input id="testClickTargetUrl" placeholder="https://email-engine.app/" />
+          </label>
           <div class="test-send-grid" id="testSendDetails"></div>
         </div>
         <div class="actions">
@@ -1828,6 +1833,30 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       location.href = `/admin/analytics?${params.toString()}`;
     }
 
+    async function recordTestOpen() {
+      if (!lastTestSend?.send_record_id) {
+        writeResult("Run a test send first.", false);
+        return;
+      }
+      await request(`/api/v1/tests/email-send-records/${lastTestSend.send_record_id}/open`, {
+        method: "POST"
+      });
+    }
+
+    async function recordTestClick() {
+      if (!lastTestSend?.send_record_id) {
+        writeResult("Run a test send first.", false);
+        return;
+      }
+      const params = new URLSearchParams();
+      const targetUrl = document.getElementById("testClickTargetUrl").value.trim();
+      if (targetUrl) params.set("target_url", targetUrl);
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      await request(`/api/v1/tests/email-send-records/${lastTestSend.send_record_id}/click${suffix}`, {
+        method: "POST"
+      });
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       loadCampaigns().catch((error) => writeResult(error.message, false));
     });
@@ -1872,6 +1901,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("viewTimeline").addEventListener("click", () => {
       openAnalyticsEventsForLastTest("timeline");
+    });
+    document.getElementById("recordTestOpen").addEventListener("click", () => {
+      recordTestOpen().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("recordTestClick").addEventListener("click", () => {
+      recordTestClick().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("approveCampaign").addEventListener("click", () => {
       approveCampaign().catch((error) => writeResult(error.message, false));
