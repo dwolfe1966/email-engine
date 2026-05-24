@@ -403,7 +403,6 @@ def compat_list_sends(
             or_(
                 EmailTemplate.name.ilike(pattern),
                 EmailTemplate.subject.ilike(pattern),
-                EmailTemplate.description.ilike(pattern),
             )
         )
         search_filter = or_(
