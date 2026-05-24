@@ -163,6 +163,9 @@ def test_template_editor_page() -> None:
     assert 'Seed Samples' in response.text
     assert 'CSS Builder' in response.text
     assert 'Insert Block' in response.text
+    assert 'Design Blocks' in response.text
+    assert 'Source -> Blocks' in response.text
+    assert 'Blocks -> Source' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text

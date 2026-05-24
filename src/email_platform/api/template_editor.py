@@ -163,6 +163,60 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       font-size: 12px;
       padding: 6px 8px;
     }
+    .design-builder {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      display: grid;
+      gap: 0;
+      overflow: hidden;
+    }
+    .design-palette,
+    .design-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      background: #f9fafb;
+      border-bottom: 1px solid var(--line);
+    }
+    .design-palette button,
+    .design-actions button {
+      background: white;
+      color: var(--blue);
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+    .design-block-list {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+    .design-block-row {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      display: grid;
+      gap: 7px;
+      background: #fff;
+    }
+    .design-block-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .design-block-head strong {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: .03em;
+    }
+    .design-block-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
     .css-builder {
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -318,6 +372,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
           <button class="secondary active" type="button" data-editor-tab="source">Source</button>
           <button class="secondary" type="button" data-editor-tab="visual">WYSIWYG</button>
+          <button class="secondary" type="button" data-editor-tab="blocks">Design Blocks</button>
         </div>
         <div class="editor-panel active" id="sourcePanel">
           <label>HTML
@@ -433,6 +488,24 @@ li {
             <iframe id="visualEditor"></iframe>
           </div>
         </div>
+        <div class="editor-panel" id="blocksPanel">
+          <div class="design-builder">
+            <div class="design-palette">
+              <button type="button" data-design-add="heading">Heading</button>
+              <button type="button" data-design-add="paragraph">Paragraph</button>
+              <button type="button" data-design-add="button">Button</button>
+              <button type="button" data-design-add="list">List</button>
+              <button type="button" data-design-add="image">Image</button>
+              <button type="button" data-design-add="divider">Divider</button>
+              <button type="button" data-design-add="html">HTML</button>
+            </div>
+            <div class="design-actions">
+              <button class="secondary" type="button" id="sourceToBlocks">Source -> Blocks</button>
+              <button class="secondary" type="button" id="blocksToSource">Blocks -> Source</button>
+            </div>
+            <div class="design-block-list" id="designBlockList"></div>
+          </div>
+        </div>
         <label>Text
           <textarea id="textBody">Hello {{ first_name }}. Your plan is {{ plan }}.</textarea>
         </label>
@@ -454,7 +527,8 @@ li {
           <textarea id="variablesJson">{
   "first_name": "Alex",
   "plan": "trial",
-  "recommendations": ["Map data", "Build audience", "Launch campaign"]
+  "recommendations": ["Map data", "Build audience", "Launch campaign"],
+  "cta_url": "https://example.com/dashboard"
 }</textarea>
         </label>
         <div class="variable-panel">
@@ -489,6 +563,7 @@ li {
       variableTimer: null,
       inspectingVariables: false,
       editorTab: "source",
+      designDoc: { blocks: [] },
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -607,7 +682,11 @@ li {
       });
       document.getElementById("sourcePanel").classList.toggle("active", tab === "source");
       document.getElementById("visualPanel").classList.toggle("active", tab === "visual");
+      document.getElementById("blocksPanel").classList.toggle("active", tab === "blocks");
       if (tab === "visual") loadVisualFromSource();
+      if (tab === "blocks" && state.designDoc.blocks.length === 0) {
+        sourceToDesignBlocks();
+      }
     }
 
     function runCommand(command, value = null) {
@@ -733,6 +812,141 @@ ${presetRules[preset] || ""}`;
       return blocks[block] || "";
     }
 
+    function newBlock(type) {
+      const id = `b_${Math.random().toString(36).slice(2, 10)}`;
+      if (type === "heading") return { id, type, text: "Main headline", level: 1, align: "left" };
+      if (type === "paragraph") return { id, type, text: "Add body copy with {{ first_name }}." };
+      if (type === "button") {
+        return { id, type, text: "Call to Action", href: "{{ cta_url }}", bg: "#2563eb", color: "#ffffff" };
+      }
+      if (type === "list") return { id, type, ordered: false, items: ["First point", "Second point"] };
+      if (type === "image") return { id, type, src: "https://example.com/image.png", alt: "Image", href: "", width: 600 };
+      if (type === "divider") return { id, type, color: "#d8dee6" };
+      return { id, type: "html", code: "<p>Custom HTML</p>" };
+    }
+
+    function renderDesignBlocks() {
+      const list = document.getElementById("designBlockList");
+      list.textContent = "";
+      if (!state.designDoc.blocks.length) {
+        const empty = document.createElement("p");
+        empty.className = "secondary-text";
+        empty.textContent = "No blocks yet. Add a block or convert from Source.";
+        list.appendChild(empty);
+        return;
+      }
+      state.designDoc.blocks.forEach((block, index) => {
+        const row = document.createElement("div");
+        row.className = "design-block-row";
+        const head = document.createElement("div");
+        head.className = "design-block-head";
+        const title = document.createElement("strong");
+        title.textContent = block.type;
+        const remove = document.createElement("button");
+        remove.className = "secondary";
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.addEventListener("click", () => {
+          state.designDoc.blocks.splice(index, 1);
+          renderDesignBlocks();
+        });
+        head.append(title, remove);
+        row.appendChild(head);
+        row.appendChild(blockEditor(block, index));
+        list.appendChild(row);
+      });
+    }
+
+    function blockEditor(block, index) {
+      const container = document.createElement("div");
+      container.className = "design-block-grid";
+      const field = (label, key, type = "text") => {
+        const wrapper = document.createElement("label");
+        wrapper.textContent = label;
+        const input = type === "textarea" ? document.createElement("textarea") : document.createElement("input");
+        if (type !== "textarea") input.type = type;
+        input.value = Array.isArray(block[key]) ? block[key].join("\n") : (block[key] ?? "");
+        input.addEventListener("input", () => {
+          block[key] = key === "items"
+            ? input.value.split("\n").map((item) => item.trim()).filter(Boolean)
+            : input.value;
+          state.designDoc.blocks[index] = block;
+        });
+        wrapper.appendChild(input);
+        return wrapper;
+      };
+      if (block.type === "heading") {
+        container.append(field("Text", "text"), field("Level", "level", "number"), field("Align", "align"));
+      } else if (block.type === "paragraph") {
+        container.append(field("Text", "text", "textarea"));
+      } else if (block.type === "button") {
+        container.append(field("Text", "text"), field("URL", "href"), field("Background", "bg", "color"), field("Text color", "color", "color"));
+      } else if (block.type === "list") {
+        const ordered = document.createElement("label");
+        ordered.textContent = "List type";
+        const select = document.createElement("select");
+        select.innerHTML = '<option value="false">Bulleted</option><option value="true">Numbered</option>';
+        select.value = block.ordered ? "true" : "false";
+        select.addEventListener("change", () => { block.ordered = select.value === "true"; });
+        ordered.appendChild(select);
+        container.append(ordered, field("Items", "items", "textarea"));
+      } else if (block.type === "image") {
+        container.append(field("Image URL", "src"), field("Alt text", "alt"), field("Link URL", "href"), field("Width", "width", "number"));
+      } else if (block.type === "divider") {
+        container.append(field("Color", "color", "color"));
+      } else {
+        container.append(field("HTML", "code", "textarea"));
+      }
+      return container;
+    }
+
+    function sourceToDesignBlocks() {
+      state.designDoc = { blocks: htmlToDesignBlocks(value("htmlBody")) };
+      renderDesignBlocks();
+    }
+
+    function htmlToDesignBlocks(html) {
+      const parsed = new DOMParser().parseFromString(html || "", "text/html");
+      const blocks = [];
+      Array.from(parsed.body.children).forEach((node) => {
+        const tag = node.tagName.toLowerCase();
+        if (/^h[1-3]$/.test(tag)) {
+          blocks.push({ id: `b_${blocks.length}`, type: "heading", level: Number(tag.slice(1)), align: "left", text: node.textContent.trim() });
+        } else if (tag === "p") {
+          const link = node.querySelector("a");
+          if (link && /\b(button|btn|cta)\b/i.test(link.className || "")) {
+            blocks.push({ id: `b_${blocks.length}`, type: "button", text: link.textContent.trim(), href: link.getAttribute("href") || "", bg: "#2563eb", color: "#ffffff" });
+          } else if (node.children.length === 0) {
+            blocks.push({ id: `b_${blocks.length}`, type: "paragraph", text: node.textContent.trim() });
+          } else {
+            blocks.push({ id: `b_${blocks.length}`, type: "html", code: node.outerHTML });
+          }
+        } else if (tag === "ul" || tag === "ol") {
+          const items = Array.from(node.children).filter((li) => li.tagName.toLowerCase() === "li").map((li) => li.textContent.trim()).filter(Boolean);
+          blocks.push({ id: `b_${blocks.length}`, type: "list", ordered: tag === "ol", items });
+        } else if (tag === "img") {
+          blocks.push({ id: `b_${blocks.length}`, type: "image", src: node.getAttribute("src") || "", alt: node.getAttribute("alt") || "", href: "", width: Number(node.getAttribute("width") || 600) });
+        } else if (tag === "hr") {
+          blocks.push({ id: `b_${blocks.length}`, type: "divider", color: "#d8dee6" });
+        } else {
+          blocks.push({ id: `b_${blocks.length}`, type: "html", code: node.outerHTML });
+        }
+      });
+      return blocks.length ? blocks : [newBlock("html")];
+    }
+
+    async function renderDesignDocumentToSource({ silent = false } = {}) {
+      const data = await request("/api/render-document", {
+        method: "POST",
+        body: JSON.stringify({ document: state.designDoc, variables: await renderVariablesContext(true) }),
+      });
+      document.getElementById("htmlBody").value = data.html_body || data.html || "";
+      document.getElementById("htmlPreview").srcdoc = document.getElementById("htmlBody").value;
+      loadVisualFromSource();
+      if (!silent) log({ design_blocks_rendered: state.designDoc.blocks.length });
+      return data;
+    }
+
     function payload() {
       if (state.editorTab === "visual") syncSourceFromVisual();
       return {
@@ -791,6 +1005,8 @@ ${presetRules[preset] || ""}`;
       document.getElementById("htmlBody").value = fullTemplate.html_body || "";
       document.getElementById("cssBody").value = fullTemplate.css_body || "";
       document.getElementById("textBody").value = fullTemplate.text_body || "";
+      state.designDoc = { blocks: [] };
+      renderDesignBlocks();
       loadVisualFromSource();
       log({ selected: fullTemplate.id });
       refreshVariablesAndPreview({ applySample: true, silent: true })
@@ -838,6 +1054,11 @@ ${presetRules[preset] || ""}`;
     }
 
     async function previewTemplate(options = {}) {
+      if (state.editorTab === "blocks") {
+        const data = await renderDesignDocumentToSource({ silent: options.silent });
+        if (!options.silent) log(data);
+        return;
+      }
       const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/preview", {
         method: "POST",
@@ -848,6 +1069,9 @@ ${presetRules[preset] || ""}`;
     }
 
     async function saveTemplate() {
+      if (state.editorTab === "blocks") {
+        await renderDesignDocumentToSource({ silent: true });
+      }
       const body = payload();
       const path = state.templateId ? `/api/v1/templates/${state.templateId}` : "/api/v1/templates";
       const method = state.templateId ? "PATCH" : "POST";
@@ -880,6 +1104,16 @@ ${presetRules[preset] || ""}`;
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
+    document.querySelectorAll("[data-design-add]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.designDoc.blocks.push(newBlock(button.dataset.designAdd));
+        renderDesignBlocks();
+      });
+    });
+    document.getElementById("sourceToBlocks").addEventListener("click", sourceToDesignBlocks);
+    document.getElementById("blocksToSource").addEventListener("click", () => {
+      renderDesignDocumentToSource().catch((error) => log({ error: error.message }));
+    });
     document.querySelectorAll("[data-editor-tab]").forEach((button) => {
       button.addEventListener("click", () => setEditorTab(button.dataset.editorTab));
     });
@@ -945,6 +1179,8 @@ ${presetRules[preset] || ""}`;
     document.getElementById("newTemplate").addEventListener("click", () => {
       state.templateId = "";
       document.getElementById("templateName").value = `template-${Date.now()}`;
+      state.designDoc = { blocks: [] };
+      renderDesignBlocks();
       loadVisualFromSource();
       log({ mode: "new" });
       scheduleVariableRefresh();
