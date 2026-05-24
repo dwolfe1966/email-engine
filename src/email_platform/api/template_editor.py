@@ -573,10 +573,17 @@ li {
     }
 
     function htmlDocument(html, css) {
+      const bodyHtml = extractBodyHtml(html || "");
       return `<!doctype html><html><head><style>
         body { padding: 14px; min-height: 320px; outline: none; }
         ${css || ""}
-      </style></head><body contenteditable="true">${html || ""}</body></html>`;
+      </style></head><body contenteditable="true">${bodyHtml}</body></html>`;
+    }
+
+    function extractBodyHtml(html) {
+      if (!html) return "";
+      const match = String(html).match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      return match ? match[1] : html;
     }
 
     function loadVisualFromSource() {
@@ -763,24 +770,32 @@ ${presetRules[preset] || ""}`;
         const subject = document.createElement("small");
         subject.textContent = template.subject;
         item.append(name, subject);
-        item.addEventListener("click", () => selectTemplate(template));
+        item.addEventListener("click", () => {
+          selectTemplate(template).catch((error) => log({ selected: template.id, error: error.message }));
+        });
         list.appendChild(item);
       });
     }
 
-    function selectTemplate(template) {
-      state.templateId = template.id;
+    async function templateForEditor(template) {
+      if (template.html_body != null) return template;
+      return request(`/api/v1/templates/${template.id}`);
+    }
+
+    async function selectTemplate(template) {
+      const fullTemplate = await templateForEditor(template);
+      state.templateId = fullTemplate.id;
       state.sampleVariables = null;
-      document.getElementById("templateName").value = template.name;
-      document.getElementById("subject").value = template.subject;
-      document.getElementById("htmlBody").value = template.html_body;
-      document.getElementById("cssBody").value = template.css_body || "";
-      document.getElementById("textBody").value = template.text_body || "";
+      document.getElementById("templateName").value = fullTemplate.name;
+      document.getElementById("subject").value = fullTemplate.subject;
+      document.getElementById("htmlBody").value = fullTemplate.html_body || "";
+      document.getElementById("cssBody").value = fullTemplate.css_body || "";
+      document.getElementById("textBody").value = fullTemplate.text_body || "";
       loadVisualFromSource();
-      log({ selected: template.id });
+      log({ selected: fullTemplate.id });
       refreshVariablesAndPreview({ applySample: true, silent: true })
-        .then(() => log({ selected: template.id, preview: "updated" }))
-        .catch((error) => log({ selected: template.id, error: error.message }));
+        .then(() => log({ selected: fullTemplate.id, preview: "updated" }))
+        .catch((error) => log({ selected: fullTemplate.id, error: error.message }));
     }
 
     async function validateTemplate() {
