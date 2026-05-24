@@ -41,6 +41,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}/workflow-status',
         '/api/v1/analytics/audiences',
         '/api/v1/analytics/campaigns',
+        '/api/v1/analytics/campaign-summaries',
         '/api/v1/analytics/domains',
         '/api/v1/analytics/journeys',
         '/api/v1/analytics/overview',

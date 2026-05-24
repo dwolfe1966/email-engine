@@ -48,6 +48,7 @@ from email_platform.schemas.contracts import (
     CampaignCreate,
     CampaignLaunchRead,
     CampaignLaunchRequest,
+    CampaignListSummaryRead,
     CampaignPerformanceRead,
     CampaignProcessDueRead,
     CampaignRead,
@@ -690,6 +691,37 @@ def list_campaign_performance(
     return {'items': items, 'limit': limit, 'offset': offset, 'total': total}
 
 
+@router.get('/analytics/campaign-summaries', response_model=ListResponse[CampaignListSummaryRead])
+def list_campaign_summaries(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    analytics = AnalyticsService(db)
+    items, total = analytics.campaign_performance(limit=limit, offset=offset)
+    campaign_service = CampaignService(db)
+    summaries = []
+    for item in items:
+        latest_send_job = next(
+            iter(
+                campaign_service.list_send_jobs(
+                    campaign_id=item.campaign_id,
+                    limit=1,
+                    offset=0,
+                )
+            ),
+            None,
+        )
+        summaries.append(
+            CampaignListSummaryRead(
+                campaign=item,
+                latest_send_job=latest_send_job,
+                progress=_send_job_progress(db, latest_send_job) if latest_send_job else None,
+            )
+        )
+    return {'items': summaries, 'limit': limit, 'offset': offset, 'total': total}
+
+
 @router.get('/analytics/audiences', response_model=ListResponse[AudiencePerformanceRead])
 def list_audience_performance(
     db: DbSession,
@@ -924,9 +956,13 @@ def get_campaign_send_job_progress(send_job_id: UUID, db: DbSession) -> Campaign
     send_job = db.get(CampaignSendJob, send_job_id)
     if not send_job:
         raise HTTPException(status_code=404, detail='Send job not found')
+    return _send_job_progress(db, send_job)
+
+
+def _send_job_progress(db: Session, send_job: CampaignSendJob) -> CampaignSendJobProgressRead:
     rows = db.execute(
         select(EmailSendRecord.status, func.count())
-        .where(EmailSendRecord.send_job_id == send_job_id)
+        .where(EmailSendRecord.send_job_id == send_job.id)
         .group_by(EmailSendRecord.status)
     ).all()
     counts = {status.value: int(count) for status, count in rows}

@@ -825,6 +825,12 @@ class CampaignPerformanceRead(BaseModel):
     bounce_rate: float
 
 
+class CampaignListSummaryRead(BaseModel):
+    campaign: CampaignPerformanceRead
+    latest_send_job: CampaignSendJobRead | None = None
+    progress: CampaignSendJobProgressRead | None = None
+
+
 class AudiencePerformanceRead(BaseModel):
     audience_id: UUID
     name: str
