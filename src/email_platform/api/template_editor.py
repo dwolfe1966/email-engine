@@ -433,6 +433,13 @@ li {
       }
     }
 
+    async function renderVariablesContext(fallbackToEmpty = false) {
+      if (!state.sampleVariables) {
+        await inspectVariables({ silent: true });
+      }
+      return { ...(state.sampleVariables || {}), ...variables(fallbackToEmpty) };
+    }
+
     function renderVariables(data) {
       state.sampleVariables = data.sample_variables || null;
       const list = document.getElementById("variableList");
@@ -663,9 +670,10 @@ ${presetRules[preset] || ""}`;
     }
 
     async function validateTemplate() {
+      const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/validate", {
         method: "POST",
-        body: JSON.stringify({ ...payload(), variables: variables() }),
+        body: JSON.stringify({ ...payload(), variables: renderVariables }),
       });
       log(data);
     }
@@ -694,9 +702,10 @@ ${presetRules[preset] || ""}`;
     }
 
     async function previewTemplate() {
+      const renderVariables = await renderVariablesContext();
       const data = await request("/api/v1/templates/preview", {
         method: "POST",
-        body: JSON.stringify({ ...payload(), variables: variables() }),
+        body: JSON.stringify({ ...payload(), variables: renderVariables }),
       });
       log(data);
       document.getElementById("htmlPreview").srcdoc = data.ok ? data.html_body : "";
