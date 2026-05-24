@@ -1299,6 +1299,14 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       font-size: 11px;
       margin-top: 2px;
     }
+    .test-send-events {
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .test-send-events:empty { display: none; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1416,6 +1424,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
             <input id="testClickTargetUrl" placeholder="https://email-engine.app/" />
           </label>
           <div class="test-send-metrics" id="testSendMetrics"></div>
+          <div class="test-send-events" id="testSendEvents"></div>
           <div class="test-send-grid" id="testSendDetails"></div>
         </div>
         <div class="actions">
@@ -1607,6 +1616,37 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       `).join("");
     }
 
+    function renderTestSendEvents(data) {
+      const container = document.getElementById("testSendEvents");
+      const events = data?.items || [];
+      if (!events.length) {
+        container.textContent = "";
+        return;
+      }
+      const rows = events.map((event) => {
+        const metadata = event.metadata_json || {};
+        return `
+          <tr>
+            <td>${escapeHtml(event.event_type)}</td>
+            <td>${escapeHtml(event.occurred_at || "")}</td>
+            <td>${escapeHtml(metadata.target_url || "")}</td>
+          </tr>
+        `;
+      }).join("");
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Occurred</th>
+              <th>Target</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
     function resetForm() {
       selectedId = "";
       lastTestSend = null;
@@ -1616,6 +1656,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("variables").value = "{}";
       document.getElementById("testSendPanel").hidden = true;
       renderTestSendMetrics(null);
+      renderTestSendEvents(null);
     }
 
     function selectCampaign(item) {
@@ -1794,6 +1835,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       renderTestSendDetails(data);
       renderTemplatePreview(data);
       await refreshLastTestAnalytics();
+      await refreshLastTestEvents();
     }
 
     async function testPreviewCampaign() {
@@ -1885,6 +1927,17 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       return data;
     }
 
+    async function refreshLastTestEvents() {
+      if (!lastTestSend?.send_record_id) return null;
+      const params = new URLSearchParams();
+      params.set("send_record_id", lastTestSend.send_record_id);
+      params.set("limit", "10");
+      params.set("offset", "0");
+      const data = await request(`/api/v1/events/list?${params.toString()}`);
+      renderTestSendEvents(data);
+      return data;
+    }
+
     async function recordTestOpen() {
       if (!lastTestSend?.send_record_id) {
         writeResult("Run a test send first.", false);
@@ -1894,6 +1947,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         method: "POST"
       });
       await refreshLastTestAnalytics();
+      await refreshLastTestEvents();
     }
 
     async function recordTestClick() {
@@ -1909,6 +1963,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         method: "POST"
       });
       await refreshLastTestAnalytics();
+      await refreshLastTestEvents();
     }
 
     document.getElementById("refresh").addEventListener("click", () => {
