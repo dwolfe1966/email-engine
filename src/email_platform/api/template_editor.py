@@ -314,6 +314,11 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       color: var(--text);
       font-weight: 500;
     }
+    .template-item.selected {
+      border-color: var(--blue);
+      background: #eff6ff;
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
     .template-item small { display: block; color: var(--muted); margin-top: 3px; }
     pre {
       margin: 0;
@@ -886,12 +891,20 @@ li {
       return document.getElementById("visualEditor").contentDocument;
     }
 
+    function hasComplexTemplateSource(html) {
+      return /<table\b|{%\s*(?:for|if|elif|else|endif|endfor)\b/i.test(String(html || ""));
+    }
+
     function htmlDocument(html, css) {
       const bodyHtml = extractBodyHtml(html || "");
+      const editable = hasComplexTemplateSource(bodyHtml) ? "false" : "true";
+      const warning = editable === "false"
+        ? '<div style="padding:8px 10px;margin-bottom:10px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font:12px Arial,sans-serif;">Complex Jinja/table template: edit in Source or Design Blocks to preserve preview rendering.</div>'
+        : "";
       return `<!doctype html><html><head><style>
         body { padding: 14px; min-height: 320px; outline: none; }
         ${css || ""}
-      </style></head><body contenteditable="true">${bodyHtml}</body></html>`;
+      </style></head><body contenteditable="${editable}">${warning}${bodyHtml}</body></html>`;
     }
 
     function extractBodyHtml(html) {
@@ -906,6 +919,9 @@ li {
     }
 
     function syncSourceFromVisual() {
+      if (hasComplexTemplateSource(value("htmlBody"))) {
+        return;
+      }
       const doc = visualDocument();
       if (!doc || !doc.body) return;
       document.getElementById("htmlBody").value = doc.body.innerHTML.trim();
@@ -1523,7 +1539,8 @@ ${presetRules[preset] || ""}`;
       list.textContent = "";
       templates.forEach((template) => {
         const item = document.createElement("button");
-        item.className = "template-item";
+        item.className = `template-item${state.templateId === template.id ? " selected" : ""}`;
+        item.dataset.id = template.id;
         const name = document.createTextNode(template.name);
         const subject = document.createElement("small");
         subject.textContent = template.subject;
@@ -1535,6 +1552,12 @@ ${presetRules[preset] || ""}`;
       });
     }
 
+    function markSelectedTemplate(id) {
+      document.querySelectorAll("#templateList .template-item").forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     async function templateForEditor(template) {
       if (template.html_body != null) return template;
       return request(`/api/v1/templates/${template.id}`);
@@ -1543,6 +1566,7 @@ ${presetRules[preset] || ""}`;
     async function selectTemplate(template) {
       const fullTemplate = await templateForEditor(template);
       state.templateId = fullTemplate.id;
+      markSelectedTemplate(fullTemplate.id);
       state.sampleVariables = null;
       document.getElementById("templateName").value = fullTemplate.name;
       document.getElementById("subject").value = fullTemplate.subject;

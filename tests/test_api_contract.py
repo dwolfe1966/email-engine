@@ -214,6 +214,8 @@ def test_template_editor_page() -> None:
     assert 'Detected Variables' in response.text
     assert 'Use Sample JSON' in response.text
     assert 'Modify Current' in response.text
+    assert 'Complex Jinja/table template' in response.text
+    assert '.template-item.selected' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
     assert 'CSS Builder' in response.text
@@ -388,6 +390,35 @@ def test_v1_document_render_handles_table_loop_sample_variables() -> None:
     assert '$49.00' in data['html_body']
 
 
+def test_v1_template_preview_handles_table_loop_sample_variables() -> None:
+    client = TestClient(app)
+    payload = {
+        'subject': 'Receipt for {{ order_number }}',
+        'html_body': (
+            '<table class="summary" role="presentation">'
+            '<tr><th>Item</th><th>Total</th></tr>'
+            '{% for item in order_items %}'
+            '<tr><td>{{ item.name }}</td><td>{{ item.total }}</td></tr>'
+            '{% endfor %}'
+            '</table>'
+            '<a href="{{ unsubscribe_url }}">Unsubscribe</a>'
+        ),
+        'css_body': '.summary { width: 100%; }',
+        'text_body': '{% for item in order_items %}{{ item.name }} {{ item.total }}{% endfor %}',
+        'variables': {},
+    }
+    variables_response = client.post('/api/v1/templates/variables', json=payload)
+    assert variables_response.status_code == 200
+    payload['variables'] = variables_response.json()['sample_variables']
+    response = client.post('/api/v1/templates/preview', json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    assert 'Starter plan' in data['html_body']
+    assert '$49.00' in data['html_body']
+
+
 def test_document_renderer_supports_sentientmail_logo_block() -> None:
     html = document_to_html(
         {
@@ -520,6 +551,7 @@ def test_admin_pages() -> None:
     assert 'Email Engine Audience Builder' in audiences.text
     assert 'Load Contact Fields' in audiences.text
     assert 'Snapshot' in audiences.text
+    assert '.item.selected' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Clone' in campaigns.text
     assert 'Validate' in campaigns.text

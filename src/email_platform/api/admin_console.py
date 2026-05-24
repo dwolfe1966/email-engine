@@ -682,6 +682,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     .rule-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1000,6 +1001,12 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       renderRules();
     }
 
+    function markSelected(containerId, id) {
+      document.querySelectorAll(`#${containerId} .item`).forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     function resetForm() {
       selectedId = "";
       document.getElementById("name").value = `audience-${Date.now()}`;
@@ -1009,6 +1016,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
 
     function selectAudience(item) {
       selectedId = item.id;
+      markSelected("items", selectedId);
       document.getElementById("name").value = item.name || "";
       document.getElementById("description").value = item.description || "";
       loadRuleTree(item.rule_tree || {});
@@ -1021,7 +1029,8 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       container.textContent = "";
       data.items.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
@@ -1240,6 +1249,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     .inline {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1561,6 +1571,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       }[char]));
     }
 
+    function markSelected(containerId, id) {
+      document.querySelectorAll(`#${containerId} .item`).forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     function parseJson(id, fallback) {
       const raw = document.getElementById(id).value.trim();
       return raw ? JSON.parse(raw) : fallback;
@@ -1839,6 +1855,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
 
     function selectCampaign(item) {
       selectedId = item.id;
+      markSelected("items", selectedId);
       clearLastTestSend();
       document.getElementById("readinessPanel").hidden = true;
       renderWorkflowSteps();
@@ -1861,7 +1878,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       container.textContent = "";
       data.items.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
@@ -2414,6 +2432,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     pre {
       margin: 0;
       min-height: 300px;
@@ -2626,6 +2645,12 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       return data;
     }
 
+    function markSelected(containerId, id) {
+      document.querySelectorAll(`#${containerId} .item`).forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     function parseJson(id, fallback) {
       const raw = document.getElementById(id).value.trim();
       return raw ? JSON.parse(raw) : fallback;
@@ -2681,6 +2706,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       selectedJourneyId = item.id;
       selectedJourney = item;
       selectedStepId = "";
+      markSelected("journeys", selectedJourneyId);
       document.getElementById("journeyName").value = item.name || "";
       document.getElementById("journeyStatus").value = item.status || "draft";
       document.getElementById("journeyDescription").value = item.description || "";
@@ -2707,6 +2733,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
 
     function selectStep(item) {
       selectedStepId = item.id;
+      markSelected("steps", selectedStepId);
       document.getElementById("stepName").value = item.name || "";
       document.getElementById("stepType").value = item.step_type || "send_email";
       document.getElementById("stepPosition").value = item.position || 0;
@@ -2722,7 +2749,8 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
         .sort((left, right) => left.position - right.position)
         .forEach((item) => {
           const button = document.createElement("button");
-          button.className = "item";
+          button.className = `item${selectedStepId === item.id ? " selected" : ""}`;
+          button.dataset.id = item.id;
           button.type = "button";
           button.textContent = `${item.position}. ${item.name}`;
           const detail = document.createElement("small");
@@ -2835,7 +2863,8 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       container.textContent = "";
       data.items.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedJourneyId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
@@ -4315,6 +4344,7 @@ ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     .stats {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4449,6 +4479,12 @@ ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
       return data;
     }
 
+    function markSelected(containerId, id) {
+      document.querySelectorAll(`#${containerId} .item`).forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     function parseMetadata() {
       const raw = document.getElementById("metadataJson").value.trim();
       return raw ? JSON.parse(raw) : {};
@@ -4466,6 +4502,7 @@ ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
 
     function selectSuppression(item) {
       selectedId = item.id;
+      markSelected("items", selectedId);
       document.getElementById("email").value = item.email || "";
       document.getElementById("reason").value = item.reason || "manual";
       document.getElementById("source").value = item.source || "manual_admin";
@@ -4507,7 +4544,8 @@ ADMIN_SUPPRESSIONS_HTML = r"""<!doctype html>
       container.textContent = "";
       filtered.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.email;
         const detail = document.createElement("small");
@@ -4677,6 +4715,7 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     .inline {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -4832,6 +4871,12 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       return data;
     }
 
+    function markSelected(containerId, id) {
+      document.querySelectorAll(`#${containerId} .item`).forEach((item) => {
+        item.classList.toggle("selected", item.dataset.id === id);
+      });
+    }
+
     function parseJson(id, fallback) {
       const raw = document.getElementById(id).value.trim();
       return raw ? JSON.parse(raw) : fallback;
@@ -4867,6 +4912,7 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
     function selectSource(item) {
       selectedSourceId = item.id;
       selectedMappingId = "";
+      markSelected("sources", selectedSourceId);
       document.getElementById("sourceName").value = item.name || "";
       document.getElementById("sourceType").value = item.source_type || "manual";
       document.getElementById("secretRef").value = item.secret_ref || "";
@@ -4879,6 +4925,7 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
     function selectMapping(item) {
       selectedMappingId = item.id;
       selectedSourceId = item.data_source_id || selectedSourceId;
+      markSelected("mappings", selectedMappingId);
       document.getElementById("mappingName").value = item.name || "";
       document.getElementById("objectType").value = item.object_type || "contact";
       document.getElementById("mappingJson").value = JSON.stringify(item.mapping || {}, null, 2);
@@ -4896,7 +4943,8 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       container.textContent = "";
       data.items.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedSourceId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
@@ -4916,7 +4964,8 @@ ADMIN_DATA_SOURCES_HTML = r"""<!doctype html>
       container.textContent = "";
       data.items.forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedMappingId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id;
         button.type = "button";
         button.textContent = item.name;
         const detail = document.createElement("small");
@@ -5171,6 +5220,7 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       color: var(--text);
     }
     .item small { display: block; color: var(--muted); margin-top: 3px; }
+    .item.selected { border-color: var(--blue); background: #eff6ff; box-shadow: inset 3px 0 0 var(--blue); }
     pre {
       margin: 0;
       min-height: 260px;
@@ -5393,7 +5443,8 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
       list.textContent = "";
       pickItems(data).forEach((item) => {
         const button = document.createElement("button");
-        button.className = "item";
+        button.className = `item${selectedId === item.id ? " selected" : ""}`;
+        button.dataset.id = item.id || "";
         button.type = "button";
         const title = document.createTextNode(titleFor(item));
         const detail = document.createElement("small");
@@ -5401,6 +5452,9 @@ ADMIN_ENTITIES_HTML = r"""<!doctype html>
         button.append(title, detail);
         button.addEventListener("click", () => {
           selectedId = item.id || "";
+          document.querySelectorAll("#items .item").forEach((node) => {
+            node.classList.toggle("selected", node.dataset.id === selectedId);
+          });
           document.getElementById("editor").value = JSON.stringify(item, null, 2);
           writeResult(item);
         });
