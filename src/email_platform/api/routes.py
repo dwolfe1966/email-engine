@@ -47,6 +47,8 @@ from email_platform.schemas.contracts import (
     CampaignProcessDueRead,
     CampaignRead,
     CampaignSendJobRead,
+    CampaignTestPreviewRead,
+    CampaignTestPreviewRequest,
     CampaignTestSendRequest,
     CampaignTestSendResponse,
     CampaignTimelineRead,
@@ -390,6 +392,22 @@ def send_campaign_test_email(
         return SendingService(db, settings).send_campaign_test(
             campaign_id=campaign_id,
             to_email=str(payload.to_email),
+            variables=payload.variables,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post('/campaigns/{campaign_id}/test-preview', response_model=CampaignTestPreviewRead)
+def preview_campaign_test_email(
+    campaign_id: UUID,
+    payload: CampaignTestPreviewRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> dict[str, object]:
+    try:
+        return SendingService(db, settings).preview_campaign_test(
+            campaign_id=campaign_id,
             variables=payload.variables,
         )
     except ValueError as exc:

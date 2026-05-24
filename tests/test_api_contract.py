@@ -28,6 +28,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaigns/{campaign_id}/approve',
         '/api/v1/campaigns/{campaign_id}/clone',
         '/api/v1/campaigns/{campaign_id}/launch',
+        '/api/v1/campaigns/{campaign_id}/test-preview',
         '/api/v1/campaigns/{campaign_id}/test-send',
         '/api/v1/campaigns/{campaign_id}/validate',
         '/api/v1/analytics/audiences',
@@ -242,6 +243,7 @@ def test_admin_pages() -> None:
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Clone' in campaigns.text
     assert 'Validate' in campaigns.text
+    assert 'Test Preview' in campaigns.text
     assert 'Test Send' in campaigns.text
     assert 'Approve' in campaigns.text
     assert 'Process Due' in campaigns.text

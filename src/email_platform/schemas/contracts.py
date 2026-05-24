@@ -201,6 +201,10 @@ class CampaignTestSendRequest(BaseModel):
     variables: JsonObject = Field(default_factory=dict)
 
 
+class CampaignTestPreviewRequest(BaseModel):
+    variables: JsonObject = Field(default_factory=dict)
+
+
 class CampaignLaunchRead(BaseModel):
     job_id: UUID
     campaign_id: UUID
@@ -693,6 +697,15 @@ class CampaignTestSendResponse(SendResponse):
     campaign_id: UUID
     template_id: UUID
     to_email: EmailStr
+    subject: str
+    html_body: str
+    text_body: str | None = None
+    variables: JsonObject = Field(default_factory=dict)
+
+
+class CampaignTestPreviewRead(BaseModel):
+    campaign_id: UUID
+    template_id: UUID
     subject: str
     html_body: str
     text_body: str | None = None

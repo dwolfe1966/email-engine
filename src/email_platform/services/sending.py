@@ -48,6 +48,45 @@ class SendingService:
     def send_campaign_test(
         self, campaign_id: UUID, to_email: str, variables: Mapping[str, object]
     ) -> dict[str, str | int | UUID | None]:
+        rendered = self.preview_campaign_test(campaign_id, variables)
+        subject = str(rendered['subject'])
+        html = str(rendered['html_body'])
+        text = rendered['text_body'] if isinstance(rendered['text_body'], str) else None
+        result = self.provider.send(
+            EmailMessage(
+                to_email=to_email,
+                from_email=str(self.settings.default_from_email),
+                subject=subject,
+                html_body=html,
+                text_body=text,
+            )
+        )
+        self.event_service.record(
+            EventCreate(
+                campaign_id=rendered['campaign_id'],
+                event_type=EmailEventType.sent,
+                provider_message_id=result.provider_message_id,
+                metadata_json={
+                    'provider': result.provider,
+                    'status_code': result.status_code,
+                    'template_id': str(rendered['template_id']),
+                    'to_email': to_email,
+                    'subject': subject,
+                    'source': 'campaign_test_send',
+                },
+            )
+        )
+        return {
+            'provider': result.provider,
+            'provider_message_id': result.provider_message_id,
+            'status_code': result.status_code,
+            **rendered,
+            'to_email': to_email,
+        }
+
+    def preview_campaign_test(
+        self, campaign_id: UUID, variables: Mapping[str, object]
+    ) -> dict[str, object]:
         campaign = self.db.get(Campaign, campaign_id)
         if not campaign:
             raise ValueError('Campaign not found')
@@ -61,37 +100,9 @@ class SendingService:
             **variables,
         }
         subject, html, text = self.template_service.render(template, context)
-        result = self.provider.send(
-            EmailMessage(
-                to_email=to_email,
-                from_email=str(self.settings.default_from_email),
-                subject=subject,
-                html_body=html,
-                text_body=text,
-            )
-        )
-        self.event_service.record(
-            EventCreate(
-                campaign_id=campaign.id,
-                event_type=EmailEventType.sent,
-                provider_message_id=result.provider_message_id,
-                metadata_json={
-                    'provider': result.provider,
-                    'status_code': result.status_code,
-                    'template_id': str(template.id),
-                    'to_email': to_email,
-                    'subject': subject,
-                    'source': 'campaign_test_send',
-                },
-            )
-        )
         return {
-            'provider': result.provider,
-            'provider_message_id': result.provider_message_id,
-            'status_code': result.status_code,
             'campaign_id': campaign.id,
             'template_id': template.id,
-            'to_email': to_email,
             'subject': subject,
             'html_body': html,
             'text_body': text,

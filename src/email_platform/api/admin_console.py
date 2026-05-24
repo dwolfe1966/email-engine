@@ -1356,6 +1356,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <button class="secondary" id="previewAudience">Preview Audience</button>
           <button class="secondary" id="previewTemplate">Preview Template</button>
           <button class="secondary" id="validateCampaign">Validate</button>
+          <button class="secondary" id="testPreview">Test Preview</button>
           <button class="secondary" id="testSend">Test Send</button>
           <button class="secondary" id="approveCampaign">Approve</button>
           <button class="secondary" id="processDue">Process Due</button>
@@ -1674,6 +1675,20 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       });
     }
 
+    async function testPreviewCampaign() {
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
+        return;
+      }
+      const data = await request(`/api/v1/campaigns/${selectedId}/test-preview`, {
+        method: "POST",
+        body: JSON.stringify({
+          variables: parseJson("variables", {})
+        })
+      });
+      renderTemplatePreview(data);
+    }
+
     async function approveCampaign() {
       if (!selectedId) {
         writeResult("Save or select a campaign first.", false);
@@ -1745,6 +1760,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("validateCampaign").addEventListener("click", () => {
       validateCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("testPreview").addEventListener("click", () => {
+      testPreviewCampaign().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("testSend").addEventListener("click", () => {
       testSendCampaign().catch((error) => writeResult(error.message, false));
