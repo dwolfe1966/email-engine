@@ -385,7 +385,7 @@ def send_campaign_test_email(
     payload: CampaignTestSendRequest,
     db: DbSession,
     settings: SettingsDep,
-) -> dict[str, str | int | UUID | None]:
+) -> dict[str, object]:
     try:
         return SendingService(db, settings).send_campaign_test(
             campaign_id=campaign_id,

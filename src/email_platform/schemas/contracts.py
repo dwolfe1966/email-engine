@@ -693,6 +693,10 @@ class CampaignTestSendResponse(SendResponse):
     campaign_id: UUID
     template_id: UUID
     to_email: EmailStr
+    subject: str
+    html_body: str
+    text_body: str | None = None
+    variables: JsonObject = Field(default_factory=dict)
 
 
 class EventCreate(BaseModel):

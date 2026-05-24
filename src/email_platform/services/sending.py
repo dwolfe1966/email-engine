@@ -80,6 +80,7 @@ class SendingService:
                     'status_code': result.status_code,
                     'template_id': str(template.id),
                     'to_email': to_email,
+                    'subject': subject,
                     'source': 'campaign_test_send',
                 },
             )
@@ -91,6 +92,10 @@ class SendingService:
             'campaign_id': campaign.id,
             'template_id': template.id,
             'to_email': to_email,
+            'subject': subject,
+            'html_body': html,
+            'text_body': text,
+            'variables': context,
         }
 
     def send_email_to_contact(
