@@ -1434,6 +1434,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <button class="secondary" id="validateCampaign">Validate</button>
           <button class="secondary" id="testPreview">Test Preview</button>
           <button class="secondary" id="testSend">Test Send</button>
+          <button class="secondary" id="loadLastTestSend">Load Last Send</button>
           <button class="secondary" id="approveCampaign">Approve</button>
           <button class="secondary" id="processDue">Process Due</button>
           <button class="secondary" id="dryRun">Dry Run</button>
@@ -1660,8 +1661,16 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       renderTestSendEvents(null);
     }
 
+    function clearLastTestSend() {
+      lastTestSend = null;
+      document.getElementById("testSendPanel").hidden = true;
+      renderTestSendMetrics(null);
+      renderTestSendEvents(null);
+    }
+
     function selectCampaign(item) {
       selectedId = item.id;
+      clearLastTestSend();
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
       document.getElementById("scheduledAt").value = item.scheduled_at
@@ -1839,6 +1848,36 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       await refreshLastTestEvents();
     }
 
+    async function loadLastTestSend() {
+      if (!selectedId) {
+        writeResult("Select a campaign first.", false);
+        return;
+      }
+      const records = await request(
+        `/api/v1/email-send-records/list?campaign_id=${selectedId}&limit=1&offset=0`
+      );
+      const record = records.items?.[0];
+      if (!record) {
+        writeResult("No send records found for this campaign.", false);
+        return;
+      }
+      const links = await request(`/api/v1/email-send-records/${record.id}/tracking-links`);
+      renderTestSendDetails({
+        campaign_id: record.campaign_id,
+        template_id: record.template_id,
+        send_job_id: record.send_job_id,
+        send_record_id: record.id,
+        contact_id: record.contact_id,
+        to_email: record.to_email,
+        provider_message_id: record.provider_message_id,
+        tracking_open_url: links.open_url,
+        tracking_click_base: links.click_url_template,
+        unsubscribe_url: record.variables?.unsubscribe_url
+      });
+      await refreshLastTestAnalytics();
+      await refreshLastTestEvents();
+    }
+
     async function testPreviewCampaign() {
       if (!selectedId) {
         writeResult("Save or select a campaign first.", false);
@@ -2012,6 +2051,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("testSend").addEventListener("click", () => {
       testSendCampaign().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadLastTestSend").addEventListener("click", () => {
+      loadLastTestSend().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("viewDelivery").addEventListener("click", openDeliveryForLastTest);
     document.getElementById("viewAnalytics").addEventListener("click", openAnalyticsForLastTest);
