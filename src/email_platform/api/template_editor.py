@@ -1165,7 +1165,9 @@ ${presetRules[preset] || ""}`;
         const head = document.createElement("div");
         head.className = "design-block-head";
         const title = document.createElement("strong");
-        title.textContent = block.type;
+        title.textContent = block.type === "html" && hasComplexTemplateSource(block.code || "")
+          ? "html (raw Jinja)"
+          : block.type;
         const controls = document.createElement("div");
         controls.className = "actions";
         const moveUp = document.createElement("button");
@@ -1355,18 +1357,65 @@ ${presetRules[preset] || ""}`;
 
     function splitHtmlForDesignBlocks(html) {
       const segments = [];
-      const complexPattern = /<table\b[\s\S]*?<\/table>|{%\s*(?:for|if|elif|else|endif|endfor)[\s\S]*?%}/gi;
+      const ranges = protectedTemplateRanges(html || "");
       let cursor = 0;
-      let match;
-      while ((match = complexPattern.exec(html)) !== null) {
-        if (match.index > cursor) {
-          segments.push({ type: "html", html: html.slice(cursor, match.index) });
+      ranges.forEach((range) => {
+        if (range.start > cursor) {
+          segments.push({ type: "html", html: html.slice(cursor, range.start) });
         }
-        segments.push({ type: "raw", html: match[0] });
-        cursor = match.index + match[0].length;
-      }
+        segments.push({ type: "raw", html: html.slice(range.start, range.end) });
+        cursor = range.end;
+      });
       if (cursor < html.length) segments.push({ type: "html", html: html.slice(cursor) });
       return segments.length ? segments : [{ type: "html", html }];
+    }
+
+    function protectedTemplateRanges(html) {
+      const ranges = [];
+      const tablePattern = /<table\b[\s\S]*?<\/table>/gi;
+      let match;
+      while ((match = tablePattern.exec(html)) !== null) {
+        ranges.push({ start: match.index, end: match.index + match[0].length });
+      }
+
+      const tagPattern = /{%-?\s*(if|for|elif|else|endif|endfor)\b[\s\S]*?-?%}/gi;
+      const stack = [];
+      while ((match = tagPattern.exec(html)) !== null) {
+        const tag = match[1].toLowerCase();
+        if (tag === "if" || tag === "for") {
+          stack.push({ tag, start: match.index });
+          continue;
+        }
+        if (tag === "endif" || tag === "endfor") {
+          const opener = tag === "endif" ? "if" : "for";
+          for (let index = stack.length - 1; index >= 0; index -= 1) {
+            if (stack[index].tag !== opener) continue;
+            const start = stack[index].start;
+            stack.splice(index, 1);
+            if (stack.length === 0) {
+              ranges.push({ start, end: match.index + match[0].length });
+            }
+            break;
+          }
+        }
+      }
+
+      return mergeRanges(ranges);
+    }
+
+    function mergeRanges(ranges) {
+      return ranges
+        .filter((range) => range.end > range.start)
+        .sort((a, b) => a.start - b.start)
+        .reduce((merged, range) => {
+          const previous = merged[merged.length - 1];
+          if (!previous || range.start > previous.end) {
+            merged.push({ ...range });
+          } else {
+            previous.end = Math.max(previous.end, range.end);
+          }
+          return merged;
+        }, []);
     }
 
     function nodesToDesignBlocks(html, startIndex = 0) {

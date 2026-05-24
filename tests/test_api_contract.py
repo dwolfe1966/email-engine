@@ -234,6 +234,9 @@ def test_template_editor_page() -> None:
     assert '/api/v1/templates/document/variables' in response.text
     assert '/api/v1/templates/document/validate' in response.text
     assert 'splitHtmlForDesignBlocks' in response.text
+    assert 'protectedTemplateRanges' in response.text
+    assert 'mergeRanges' in response.text
+    assert 'html (raw Jinja)' in response.text
     assert 'htmlToDesignBlocks(template.html_body || "")' in response.text
     assert 'data-design-add="spacer"' in response.text
     assert 'data-design-add="trust_signal"' in response.text
