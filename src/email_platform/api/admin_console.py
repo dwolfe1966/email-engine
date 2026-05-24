@@ -3093,10 +3093,97 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
+    .report {
+      display: grid;
+      gap: 12px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfe;
+      min-width: 0;
+    }
+    .kpi .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+    .kpi .value {
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 750;
+    }
+    .chart {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .chart h3 { margin: 0; font-size: 13px; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(92px, 150px) minmax(0, 1fr) 64px;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 0;
+    }
+    .bar-track {
+      min-width: 0;
+      height: 10px;
+      border-radius: 999px;
+      background: #eef2f7;
+      overflow: hidden;
+    }
+    .bar {
+      height: 100%;
+      min-width: 2px;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+    .bar.green { background: #15803d; }
+    .bar.amber { background: #b45309; }
+    .bar.red { background: #b42318; }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      min-width: 640px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+    th { color: var(--muted); background: #f8fafc; font-weight: 650; }
+    .empty-state {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--muted);
+      background: #fbfcfe;
+    }
     pre {
       margin: 0;
-      min-height: calc(100vh - 180px);
-      max-height: calc(100vh - 180px);
+      min-height: 260px;
+      max-height: 420px;
       overflow: auto;
       background: #0f172a;
       color: #e5edf8;
@@ -3579,8 +3666,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             <input id="offset" type="number" min="0" value="0" />
           </label>
         </div>
+        <label>Timeline days
+          <input id="days" type="number" min="1" max="365" value="30" />
+        </label>
         <div class="actions">
           <button id="campaignAnalytics">Campaign Analytics</button>
+          <button class="secondary" id="campaignTimeline">Campaign Timeline</button>
           <button class="secondary" id="analyticsOverview">Analytics Overview</button>
           <button class="secondary" id="audiencePerformance">Audience Performance</button>
           <button class="secondary" id="campaignPerformance">Campaign Performance</button>
@@ -3596,14 +3687,18 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       </div>
     </section>
     <section>
-      <div class="head"><h2>Response</h2></div>
+      <div class="head"><h2>Report</h2></div>
       <div class="body">
+        <div id="report" class="report">
+          <div class="empty-state">Run a report to view charts and tables.</div>
+        </div>
         <pre id="result"></pre>
       </div>
     </section>
   </main>
   <script>
     const result = document.getElementById("result");
+    const report = document.getElementById("report");
     const audiences = [];
     const campaigns = [];
     const journeys = [];
@@ -3613,6 +3708,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
+      renderReport(data, ok);
     }
 
     async function readResponse(response) {
@@ -3655,6 +3751,228 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
 
     function shortId(id) {
       return id ? id.slice(0, 8) : "-";
+    }
+
+    function pct(value) {
+      return `${Math.round((Number(value || 0)) * 1000) / 10}%`;
+    }
+
+    function int(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function kpis(items) {
+      return `<div class="kpi-grid">${items.map((item) => `
+        <div class="kpi">
+          <div class="label">${escapeHtml(item.label)}</div>
+          <div class="value">${escapeHtml(item.value)}</div>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function metricBars(title, rows, color = "") {
+      const filtered = rows.filter((row) => Number(row.count || 0) > 0);
+      if (!filtered.length) return "";
+      const max = Math.max(...filtered.map((row) => Number(row.count || 0)), 1);
+      return `<div class="chart">
+        <h3>${escapeHtml(title)}</h3>
+        ${filtered.map((row) => `
+          <div class="bar-row">
+            <div>${escapeHtml(row.name)}</div>
+            <div class="bar-track"><div class="bar ${color}" style="width:${Math.max(2, (Number(row.count || 0) / max) * 100)}%"></div></div>
+            <div>${int(row.count)}</div>
+          </div>
+        `).join("")}
+      </div>`;
+    }
+
+    function table(title, rows, columns) {
+      if (!rows || !rows.length) {
+        return `<div class="chart"><h3>${escapeHtml(title)}</h3><div class="empty-state">No rows returned.</div></div>`;
+      }
+      return `<div class="chart">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead>
+            <tbody>
+              ${rows.map((row) => `<tr>${columns.map((column) => {
+                const raw = typeof column.value === "function" ? column.value(row) : row[column.key];
+                return `<td>${escapeHtml(raw)}</td>`;
+              }).join("")}</tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+
+    function timelineChart(data) {
+      const points = (data.points || []).filter((point) =>
+        ["requested_count", "sent_count", "opened_count", "clicked_count", "failed_count"].some(
+          (key) => Number(point[key] || 0) > 0
+        )
+      );
+      if (!points.length) {
+        return `<div class="chart"><h3>Campaign Timeline</h3><div class="empty-state">No activity in the selected window.</div></div>`;
+      }
+      const max = Math.max(...points.map((point) =>
+        Math.max(
+          Number(point.requested_count || 0),
+          Number(point.sent_count || 0),
+          Number(point.opened_count || 0),
+          Number(point.clicked_count || 0),
+          Number(point.failed_count || 0)
+        )
+      ), 1);
+      return `<div class="chart">
+        <h3>Campaign Timeline</h3>
+        ${points.map((point) => `
+          <div class="bar-row">
+            <div>${escapeHtml(point.date)}</div>
+            <div class="bar-track" title="sent ${int(point.sent_count)}, opened ${int(point.opened_count)}, clicked ${int(point.clicked_count)}, failed ${int(point.failed_count)}">
+              <div class="bar green" style="width:${Math.max(2, (Number(point.sent_count || 0) / max) * 100)}%"></div>
+            </div>
+            <div>${int(point.sent_count)} sent</div>
+          </div>
+          <div class="bar-row">
+            <div></div>
+            <div class="bar-track"><div class="bar" style="width:${Math.max(2, (Number(point.opened_count || 0) / max) * 100)}%"></div></div>
+            <div>${int(point.opened_count)} open</div>
+          </div>
+          <div class="bar-row">
+            <div></div>
+            <div class="bar-track"><div class="bar amber" style="width:${Math.max(2, (Number(point.clicked_count || 0) / max) * 100)}%"></div></div>
+            <div>${int(point.clicked_count)} click</div>
+          </div>
+        `).join("")}
+      </div>`;
+    }
+
+    function renderReport(data, ok = true) {
+      if (!ok) {
+        report.innerHTML = `<div class="empty-state">${escapeHtml(data)}</div>`;
+        return;
+      }
+      if (!data) {
+        report.innerHTML = `<div class="empty-state">No report data.</div>`;
+        return;
+      }
+      if (data.points) {
+        report.innerHTML = timelineChart(data);
+        return;
+      }
+      if (data.campaign_count !== undefined && data.recent_events) {
+        report.innerHTML = [
+          kpis([
+            { label: "Campaigns", value: int(data.campaign_count) },
+            { label: "Contacts", value: int(data.contact_count) },
+            { label: "Send jobs", value: int(data.send_job_count) },
+            { label: "Send records", value: int(data.send_record_count) },
+            { label: "Events", value: int(data.event_count) },
+          ]),
+          metricBars("Send Status", data.status_counts || [], "green"),
+          metricBars("Events", data.event_counts || []),
+          table("Recent Events", data.recent_events || [], [
+            { label: "Type", value: (row) => row.event_type },
+            { label: "Occurred", value: (row) => row.occurred_at },
+            { label: "Campaign", value: (row) => shortId(row.campaign_id) },
+            { label: "Send job", value: (row) => shortId(row.send_job_id) },
+            { label: "Record", value: (row) => shortId(row.send_record_id) },
+          ]),
+        ].join("");
+        return;
+      }
+      if (data.campaign_id && data.status_counts && data.event_counts) {
+        report.innerHTML = [
+          kpis([
+            { label: "Requested", value: int(data.requested_count) },
+            { label: "Sent", value: int(data.sent_count) },
+            { label: "Opened", value: int(data.opened_count) },
+            { label: "Clicked", value: int(data.clicked_count) },
+            { label: "Open rate", value: pct(data.open_rate) },
+            { label: "Click rate", value: pct(data.click_rate) },
+            { label: "Bounce rate", value: pct(data.bounce_rate) },
+          ]),
+          metricBars("Send Status", data.status_counts || [], "green"),
+          metricBars("Events", data.event_counts || []),
+        ].join("");
+        return;
+      }
+      if (data.items) {
+        renderListReport(data.items);
+        return;
+      }
+      report.innerHTML = `<div class="empty-state">Raw response only for this request.</div>`;
+    }
+
+    function renderListReport(items) {
+      const first = items[0] || {};
+      if ("campaign_id" in first && "open_rate" in first) {
+        report.innerHTML = table("Campaign Performance", items, [
+          { label: "Campaign", value: (row) => row.name || shortId(row.campaign_id) },
+          { label: "Status", value: (row) => row.status },
+          { label: "Sent", value: (row) => int(row.sent_count) },
+          { label: "Opened", value: (row) => int(row.opened_count) },
+          { label: "Clicked", value: (row) => int(row.clicked_count) },
+          { label: "Open rate", value: (row) => pct(row.open_rate) },
+          { label: "Click rate", value: (row) => pct(row.click_rate) },
+          { label: "Bounce rate", value: (row) => pct(row.bounce_rate) },
+        ]);
+        return;
+      }
+      if ("audience_id" in first && "estimated_count" in first) {
+        report.innerHTML = table("Audience Performance", items, [
+          { label: "Audience", value: (row) => row.name || shortId(row.audience_id) },
+          { label: "Estimated", value: (row) => int(row.estimated_count) },
+          { label: "Jobs", value: (row) => int(row.send_job_count) },
+          { label: "Sent", value: (row) => int(row.sent_count) },
+          { label: "Open rate", value: (row) => pct(row.open_rate) },
+          { label: "Click rate", value: (row) => pct(row.click_rate) },
+        ]);
+        return;
+      }
+      if ("domain" in first && "send_record_count" in first) {
+        report.innerHTML = table("Domain Deliverability", items, [
+          { label: "Domain", value: (row) => row.domain },
+          { label: "Provider", value: (row) => row.provider || "-" },
+          { label: "Records", value: (row) => int(row.send_record_count) },
+          { label: "Sent", value: (row) => int(row.sent_count) },
+          { label: "Opened", value: (row) => int(row.opened_count) },
+          { label: "Bounce rate", value: (row) => pct(row.bounce_rate) },
+        ]);
+        return;
+      }
+      if ("journey_id" in first && "enrollment_count" in first) {
+        report.innerHTML = table("Journey Performance", items, [
+          { label: "Journey", value: (row) => row.name || shortId(row.journey_id) },
+          { label: "Status", value: (row) => row.status },
+          { label: "Enrollments", value: (row) => int(row.enrollment_count) },
+          { label: "Active", value: (row) => int(row.active_count) },
+          { label: "Completed", value: (row) => int(row.completed_count) },
+          { label: "Step failures", value: (row) => int(row.step_failed_count) },
+        ]);
+        return;
+      }
+      if ("event_type" in first) {
+        report.innerHTML = table("Events", items, [
+          { label: "Type", value: (row) => row.event_type },
+          { label: "Occurred", value: (row) => row.occurred_at },
+          { label: "Campaign", value: (row) => shortId(row.campaign_id) },
+          { label: "Send job", value: (row) => shortId(row.send_job_id) },
+          { label: "Record", value: (row) => shortId(row.send_record_id) },
+        ]);
+        return;
+      }
+      report.innerHTML = `<div class="empty-state">Raw response only for this request.</div>`;
     }
 
     function pageQuery() {
@@ -3752,6 +4070,17 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       await request(`/api/v1/campaigns/${value("campaignId")}/analytics${suffix}`);
     }
 
+    async function campaignTimeline() {
+      if (!value("campaignId")) {
+        writeResult("Enter a campaign ID first.", false);
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set("days", value("days") || "30");
+      if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      await request(`/api/v1/campaigns/${value("campaignId")}/analytics/timeline?${params.toString()}`);
+    }
+
     async function analyticsOverview() {
       const params = new URLSearchParams();
       params.set("recent_event_limit", value("limit") || "25");
@@ -3813,6 +4142,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
 
     document.getElementById("campaignAnalytics").addEventListener("click", () => {
       campaignAnalytics().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("campaignTimeline").addEventListener("click", () => {
+      campaignTimeline().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("analyticsOverview").addEventListener("click", () => {
       analyticsOverview().catch((error) => writeResult(error.message, false));

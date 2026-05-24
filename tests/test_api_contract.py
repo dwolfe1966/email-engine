@@ -520,6 +520,7 @@ def test_admin_pages() -> None:
     assert 'Save Suppression' in suppressions.text
     assert 'Email Engine Analytics' in analytics.text
     assert 'Campaign Analytics' in analytics.text
+    assert 'Campaign Timeline' in analytics.text
     assert 'Analytics Overview' in analytics.text
     assert 'Audience Performance' in analytics.text
     assert 'Campaign Performance' in analytics.text
