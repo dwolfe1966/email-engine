@@ -845,3 +845,14 @@ class UnsubscribeTokenRead(BaseModel):
 class UnsubscribeRead(BaseModel):
     status: str
     contact_id: UUID
+
+
+class CampaignWorkflowStatusRead(BaseModel):
+    campaign: CampaignRead
+    template: TemplateRead | None = None
+    template_variables: TemplateVariablesRead | None = None
+    validation: CampaignValidationRead
+    audience_preview: AudiencePreviewRead | None = None
+    analytics: CampaignAnalyticsRead | None = None
+    latest_send_job: CampaignSendJobRead | None = None
+    latest_send_record: EmailSendRecordRead | None = None

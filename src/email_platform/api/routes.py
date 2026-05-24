@@ -54,6 +54,7 @@ from email_platform.schemas.contracts import (
     CampaignTimelineRead,
     CampaignUpdate,
     CampaignValidationRead,
+    CampaignWorkflowStatusRead,
     ContactRead,
     ContactUpdate,
     ContactUpsert,
@@ -414,6 +415,62 @@ def preview_campaign_test_email(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get('/campaigns/{campaign_id}/workflow-status', response_model=CampaignWorkflowStatusRead)
+def get_campaign_workflow_status(
+    campaign_id: UUID,
+    db: DbSession,
+) -> CampaignWorkflowStatusRead:
+    campaign_service = CampaignService(db)
+    campaign = campaign_service.get(campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+
+    template_service = TemplateService(db)
+    template = template_service.get(campaign.template_id)
+    template_variables = template_service.variables_for_template(campaign.template_id)
+    validation_variables = template_variables.sample_variables if template_variables else {}
+    validation = campaign_service.validate(
+        campaign_id,
+        CampaignLaunchRequest(variables=validation_variables),
+    )
+    if not validation:
+        raise HTTPException(status_code=404, detail='Campaign not found')
+
+    audience_preview = None
+    try:
+        estimated_count, sample_contacts = AudienceService(db).preview(
+            campaign.audience_query,
+            limit=25,
+        )
+        audience_preview = AudiencePreviewRead(
+            estimated_count=estimated_count,
+            sample_contacts=sample_contacts,
+        )
+    except ValueError:
+        audience_preview = None
+
+    latest_send_job = next(
+        iter(campaign_service.list_send_jobs(campaign_id=campaign_id, limit=1, offset=0)),
+        None,
+    )
+    latest_send_record = next(
+        iter(campaign_service.list_send_records(campaign_id=campaign_id, limit=1, offset=0)),
+        None,
+    )
+    analytics = AnalyticsService(db).campaign_metrics(campaign_id)
+
+    return CampaignWorkflowStatusRead(
+        campaign=campaign,
+        template=template,
+        template_variables=template_variables,
+        validation=validation,
+        audience_preview=audience_preview,
+        analytics=analytics,
+        latest_send_job=latest_send_job,
+        latest_send_record=latest_send_record,
+    )
 
 
 @router.get('/campaigns/{campaign_id}/analytics', response_model=CampaignAnalyticsRead)

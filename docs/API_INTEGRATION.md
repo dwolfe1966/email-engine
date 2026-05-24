@@ -39,6 +39,9 @@ Campaigns:
 - `POST /api/v1/campaigns/{campaign_id}/validate`
 - `POST /api/v1/campaigns/{campaign_id}/approve`
 - `POST /api/v1/campaigns/{campaign_id}/launch`
+- `POST /api/v1/campaigns/{campaign_id}/test-preview`
+- `POST /api/v1/campaigns/{campaign_id}/test-send`
+- `GET /api/v1/campaigns/{campaign_id}/workflow-status`
 - `GET /api/v1/campaign-send-jobs/list?campaign_id={campaign_id}`
 - `GET /api/v1/email-send-records/list?campaign_id={campaign_id}`
 - `POST /api/v1/delivery/process-queued?limit=25&campaign_id={campaign_id}`
