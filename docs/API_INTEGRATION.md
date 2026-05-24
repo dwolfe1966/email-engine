@@ -12,6 +12,9 @@ Interactive OpenAPI docs are available at:
 /docs
 ```
 
+SentientMail campaign workflow examples are available in
+`docs/SENTIENTMAIL_CAMPAIGN_EXAMPLES.md`.
+
 ## Frontend-Ready Endpoints
 
 Templates:
