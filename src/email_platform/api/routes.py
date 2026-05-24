@@ -293,6 +293,8 @@ def _openai_template_draft(
             'Return production-ready email template content as JSON only.',
             'Use Jinja syntax for variables, loops, and conditionals where useful.',
             'Include {{ tracking_open }}, {{ tracking_click }}, and {{ unsubscribe_url }}.',
+            'Use {{ tracking_open }} as a standalone tracking pixel placeholder, not as an href.',
+            'Use {{ tracking_click }} only as an href value for one primary call-to-action link.',
             'Keep HTML email friendly: simple tables/divs, inline-safe CSS classes, no script.',
             'Preserve every required variable at least once in subject, HTML, or text.',
         ],
