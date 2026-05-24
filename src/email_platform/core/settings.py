@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     unsubscribe_secret: str = 'change-me'
     public_base_url: str = 'https://email-engine.app'
+    ai_template_provider: str = 'auto'
+    openai_api_key: str | None = None
+    openai_model: str = 'gpt-4o-mini'
 
     @field_validator('database_url', 'database_migration_url', mode='before')
     @classmethod

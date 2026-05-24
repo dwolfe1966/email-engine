@@ -1,9 +1,11 @@
 import json
+from collections.abc import Mapping
 from html import escape
 from typing import Annotated, cast
 from urllib.parse import quote, urlparse
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, select
@@ -232,9 +234,141 @@ def _normalized_required_variables(values: list[str]) -> set[str]:
     return normalized
 
 
+def _ai_template_provider(settings: Settings) -> str:
+    provider = settings.ai_template_provider.strip().lower()
+    if provider == 'auto':
+        return 'openai' if settings.openai_api_key else 'deterministic'
+    return provider
+
+
+def _template_draft_payload(payload: AITemplateDraftRequest, settings: Settings) -> dict[str, object]:
+    provider = _ai_template_provider(settings)
+    if provider == 'openai':
+        if not settings.openai_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail='OPENAI_API_KEY is required when AI_TEMPLATE_PROVIDER=openai',
+            )
+        try:
+            return _openai_template_draft(payload, settings)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            if settings.ai_template_provider.strip().lower() == 'auto':
+                draft = _deterministic_template_draft(payload)
+                draft['notes'] = [
+                    *cast(list[str], draft['notes']),
+                    f'OpenAI draft failed; used deterministic fallback: {exc}',
+                ]
+                return draft
+            raise HTTPException(status_code=502, detail=f'OpenAI template draft failed: {exc}') from exc
+    if provider != 'deterministic':
+        raise HTTPException(status_code=400, detail=f'Unsupported AI template provider: {provider}')
+    return _deterministic_template_draft(payload)
+
+
+def _openai_template_draft(
+    payload: AITemplateDraftRequest,
+    settings: Settings,
+) -> dict[str, object]:
+    schema = {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'subject': {'type': 'string'},
+            'html_body': {'type': 'string'},
+            'css_body': {'type': 'string'},
+            'text_body': {'type': 'string'},
+            'notes': {'type': 'array', 'items': {'type': 'string'}},
+        },
+        'required': ['subject', 'html_body', 'css_body', 'text_body', 'notes'],
+    }
+    variables = sorted(_normalized_required_variables(payload.required_variables))
+    prompt = {
+        'brief': payload.brief,
+        'brand': payload.brand,
+        'required_variables': variables,
+        'audience_summary': payload.audience_summary,
+        'requirements': [
+            'Return production-ready email template content as JSON only.',
+            'Use Jinja syntax for variables, loops, and conditionals where useful.',
+            'Include {{ tracking_open }}, {{ tracking_click }}, and {{ unsubscribe_url }}.',
+            'Keep HTML email friendly: simple tables/divs, inline-safe CSS classes, no script.',
+            'Preserve every required variable at least once in subject, HTML, or text.',
+        ],
+    }
+    with httpx.Client(timeout=45) as client:
+        response = client.post(
+            'https://api.openai.com/v1/responses',
+            headers={
+                'Authorization': f'Bearer {settings.openai_api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': settings.openai_model,
+                'input': [
+                    {
+                        'role': 'system',
+                        'content': (
+                            'You are an expert lifecycle email template builder. '
+                            'Generate concise, compliant, Jinja-compatible campaign templates.'
+                        ),
+                    },
+                    {'role': 'user', 'content': json.dumps(prompt)},
+                ],
+                'text': {
+                    'format': {
+                        'type': 'json_schema',
+                        'name': 'email_template_draft',
+                        'strict': True,
+                        'schema': schema,
+                    }
+                },
+            },
+        )
+    if response.status_code >= 400:
+        raise RuntimeError(f'{response.status_code} {response.text[:500]}')
+    raw = response.json()
+    text = raw.get('output_text') or _responses_output_text(raw)
+    if not text:
+        raise RuntimeError('OpenAI response did not include output_text')
+    draft = json.loads(text)
+    notes = draft.get('notes') if isinstance(draft.get('notes'), list) else []
+    return {
+        'subject': str(draft.get('subject') or payload.brief[:60] or 'Email campaign'),
+        'html_body': str(draft.get('html_body') or ''),
+        'css_body': str(draft.get('css_body') or ''),
+        'text_body': str(draft.get('text_body') or ''),
+        'notes': [str(note) for note in notes],
+        'provider': 'openai',
+        'model': settings.openai_model,
+    }
+
+
+def _responses_output_text(response: Mapping[str, object]) -> str | None:
+    output = response.get('output')
+    if not isinstance(output, list):
+        return None
+    parts: list[str] = []
+    for item in output:
+        if not isinstance(item, Mapping):
+            continue
+        content = item.get('content')
+        if not isinstance(content, list):
+            continue
+        for chunk in content:
+            if isinstance(chunk, Mapping) and isinstance(chunk.get('text'), str):
+                parts.append(chunk['text'])
+    return ''.join(parts) or None
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
-def draft_template_with_ai(payload: AITemplateDraftRequest, db: DbSession) -> AITemplateDraftRead:
-    draft = _deterministic_template_draft(payload)
+def draft_template_with_ai(
+    payload: AITemplateDraftRequest,
+    db: DbSession,
+    settings: SettingsDep,
+) -> AITemplateDraftRead:
+    draft = _template_draft_payload(payload, settings)
     template_request = TemplateValidationRequest(
         subject=draft['subject'],
         html_body=draft['html_body'],
@@ -262,6 +396,8 @@ def draft_template_with_ai(payload: AITemplateDraftRequest, db: DbSession) -> AI
         notes=cast(list[str], draft['notes']),
         validation=validation,
         template_variables=variables,
+        provider=cast(str, draft.get('provider', 'email-engine')),
+        model=cast(str, draft.get('model', 'deterministic-template-draft-v1')),
     )
 
 
