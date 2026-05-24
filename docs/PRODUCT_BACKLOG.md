@@ -1,5 +1,7 @@
 # Product Backlog
 
+AI enablement is tracked in `docs/AI_ENABLEMENT_PLAN.md`.
+
 This backlog is organized around the target platform capabilities:
 
 1. Mapping and pulling from complex heterogeneous data stores
