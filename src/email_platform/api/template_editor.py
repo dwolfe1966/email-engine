@@ -245,6 +245,64 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       min-height: 36px;
       padding: 4px;
     }
+    .ai-builder {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #f9fafb;
+      display: grid;
+      gap: 10px;
+    }
+    .ai-builder textarea {
+      min-height: 90px;
+      font-family: var(--sans);
+      font-size: 13px;
+    }
+    .ai-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .ai-meta-tile {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .ai-meta-tile span {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .ai-meta-tile strong {
+      overflow-wrap: anywhere;
+      font-size: 13px;
+    }
+    .ai-variable-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ai-variable-chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .ai-variable-chip.native {
+      color: var(--muted);
+    }
+    .ai-sample-json {
+      min-height: 72px;
+      max-height: 170px;
+    }
     .template-list { display: grid; gap: 6px; max-height: calc(100vh - 160px); overflow: auto; }
     .template-item {
       border: 1px solid var(--line);
@@ -380,6 +438,26 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
         <label>Subject
           <input id="subject" value="Hello {{ first_name }}" />
         </label>
+        <div class="ai-builder">
+          <strong>AI Builder</strong>
+          <label>Brief
+            <textarea id="aiBrief" placeholder="Describe the template you want to generate. Include audience, offer, tone, required sections, and any variables you want to use."></textarea>
+          </label>
+          <div class="actions">
+            <button type="button" id="aiDraft">Generate Draft</button>
+            <button class="secondary" type="button" id="aiPreviewDraft" disabled>Preview Draft</button>
+            <button class="secondary" type="button" id="aiApplyDraft" disabled>Apply Draft</button>
+            <button class="secondary" type="button" id="aiUseSampleVariables" disabled>Use Sample JSON</button>
+          </div>
+          <div class="ai-meta-grid" id="aiDraftMeta">
+            <div class="ai-meta-tile"><span>Provider</span><strong>-</strong></div>
+            <div class="ai-meta-tile"><span>Model</span><strong>-</strong></div>
+            <div class="ai-meta-tile"><span>Validation</span><strong>-</strong></div>
+            <div class="ai-meta-tile"><span>Variables</span><strong>-</strong></div>
+          </div>
+          <div class="ai-variable-list" id="aiDraftVariables"></div>
+          <pre class="ai-sample-json" id="aiSampleJson">Generate a draft to see sample variables.</pre>
+        </div>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
           <button class="secondary active" type="button" data-editor-tab="source">Source</button>
           <button class="secondary" type="button" data-editor-tab="visual">WYSIWYG</button>
@@ -584,6 +662,7 @@ li {
       inspectingVariables: false,
       editorTab: "source",
       designDoc: { blocks: [] },
+      aiDraft: null,
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -652,6 +731,115 @@ li {
         row.append(copy, kind, insert);
         list.appendChild(row);
       });
+    }
+
+    function detectedVariableNames() {
+      const rows = document.querySelectorAll("#variableList .variable-row strong");
+      const values = Array.from(rows).map((row) => row.textContent).filter(Boolean);
+      if (values.length) return values;
+      const source = `${value("subject")}\n${value("htmlBody")}\n${value("textBody")}`;
+      return Array.from(source.matchAll(/{{\s*([a-zA-Z_][\w.]*)/g))
+        .map((match) => match[1].split(".")[0])
+        .filter((name, index, list) => list.indexOf(name) === index);
+    }
+
+    function renderAiDraft(data) {
+      state.aiDraft = data;
+      document.getElementById("aiPreviewDraft").disabled = !data;
+      document.getElementById("aiApplyDraft").disabled = !data;
+      document.getElementById("aiUseSampleVariables").disabled = !data?.sample_variables;
+      const variables = data?.template_variables?.variables || [];
+      const nativeVariables = data?.template_variables?.native_variables || [];
+      document.getElementById("aiDraftMeta").innerHTML = `
+        <div class="ai-meta-tile"><span>Provider</span><strong>${data?.provider || "-"}</strong></div>
+        <div class="ai-meta-tile"><span>Model</span><strong>${data?.model || "-"}</strong></div>
+        <div class="ai-meta-tile"><span>Validation</span><strong>${data?.validation?.ok ? "OK" : "Needs review"}</strong></div>
+        <div class="ai-meta-tile"><span>Variables</span><strong>${variables.length} user / ${nativeVariables.length} native</strong></div>
+      `;
+      const list = document.getElementById("aiDraftVariables");
+      list.textContent = "";
+      [...variables, ...nativeVariables].forEach((item) => {
+        const chip = document.createElement("span");
+        chip.className = `ai-variable-chip${item.native ? " native" : ""}`;
+        chip.textContent = item.native ? `${item.name} native` : item.name;
+        list.appendChild(chip);
+      });
+      if (!list.childNodes.length) {
+        const empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "No variables detected in draft.";
+        list.appendChild(empty);
+      }
+      document.getElementById("aiSampleJson").textContent = JSON.stringify(
+        data?.sample_variables || {},
+        null,
+        2,
+      );
+    }
+
+    function applyAiSampleVariables() {
+      if (!state.aiDraft?.sample_variables) return;
+      state.sampleVariables = state.aiDraft.sample_variables;
+      document.getElementById("variablesJson").value = JSON.stringify(
+        state.aiDraft.sample_variables,
+        null,
+        2,
+      );
+      log({ applied_ai_sample_variables: Object.keys(state.aiDraft.sample_variables) });
+    }
+
+    async function draftTemplateWithAi() {
+      const brief = value("aiBrief").trim();
+      if (!brief) {
+        log({ error: "AI brief is required." });
+        return;
+      }
+      await inspectVariables({ silent: true }).catch(() => {});
+      const data = await request("/api/v1/ai/templates/draft", {
+        method: "POST",
+        body: JSON.stringify({
+          brief,
+          brand: {
+            name: value("templateName") || "Email Engine",
+            primary_color: value("cssBrandColor") || "#2563eb",
+            tone: "clear, useful, and production ready",
+          },
+          required_variables: detectedVariableNames(),
+        }),
+      });
+      renderAiDraft(data);
+      log({ ai_draft: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+    }
+
+    async function previewAiDraft() {
+      if (!state.aiDraft) return;
+      const data = await request("/api/v1/templates/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          name: value("templateName") || "ai-draft",
+          subject: state.aiDraft.subject,
+          html_body: state.aiDraft.html_body,
+          css_body: state.aiDraft.css_body || null,
+          text_body: state.aiDraft.text_body || null,
+          variables: state.aiDraft.sample_variables || {},
+        }),
+      });
+      document.getElementById("htmlPreview").srcdoc = data.ok ? data.html_body : "";
+      log(data);
+    }
+
+    async function applyAiDraft() {
+      if (!state.aiDraft) return;
+      document.getElementById("subject").value = state.aiDraft.subject || "";
+      document.getElementById("htmlBody").value = state.aiDraft.html_body || "";
+      document.getElementById("cssBody").value = state.aiDraft.css_body || "";
+      document.getElementById("textBody").value = state.aiDraft.text_body || "";
+      applyAiSampleVariables();
+      state.designDoc = { blocks: [] };
+      renderDesignBlocks();
+      loadVisualFromSource();
+      await refreshVariablesAndPreview({ applySample: false, silent: true });
+      log({ applied_ai_draft: state.aiDraft.subject });
     }
 
     function scheduleVariableRefresh() {
@@ -1441,6 +1629,16 @@ ${presetRules[preset] || ""}`;
     document.getElementById("refreshTemplates").addEventListener("click", loadTemplates);
     document.getElementById("seedSamples").addEventListener("click", seedSamples);
     document.getElementById("inspectVariables").addEventListener("click", inspectVariables);
+    document.getElementById("aiDraft").addEventListener("click", () => {
+      draftTemplateWithAi().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiPreviewDraft").addEventListener("click", () => {
+      previewAiDraft().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiApplyDraft").addEventListener("click", () => {
+      applyAiDraft().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiUseSampleVariables").addEventListener("click", applyAiSampleVariables);
     document.getElementById("applySampleVariables").addEventListener("click", () => {
       if (!state.sampleVariables) return;
       document.getElementById("variablesJson").value = JSON.stringify(
