@@ -1128,8 +1128,16 @@ def _document_block_to_html(block: Mapping[str, object]) -> str:
         text = _escape_html(str(block.get('text', block.get('content', ''))))
         return f'<h{level} style="text-align:{align};">{text}</h{level}>'
     if block_type == 'paragraph':
+        html = _optional_str(block.get('html'))
+        if html:
+            return f'<p>{html}</p>'
         text = _escape_html(str(block.get('text', block.get('content', ''))))
-        return f'<p>{text.replace(chr(10), "<br>")}</p>'
+        align = _one_of(block.get('align'), {'left', 'center', 'right'}, 'left')
+        color = _escape_html(str(block.get('color', '')))
+        styles = [f'text-align:{align};']
+        if color:
+            styles.append(f'color:{color};')
+        return f'<p style="{"".join(styles)}">{text.replace(chr(10), "<br>")}</p>'
     if block_type == 'image':
         src = _escape_html(str(block.get('src', '')))
         alt = _escape_html(str(block.get('alt', '')))
@@ -1147,10 +1155,14 @@ def _document_block_to_html(block: Mapping[str, object]) -> str:
         href = _escape_html(str(block.get('href', '{{ cta_url }}')))
         bg = _escape_html(str(block.get('bg', '#2563eb')))
         color = _escape_html(str(block.get('color', '#ffffff')))
+        radius = _bounded_int(block.get('radius'), default=6, minimum=0, maximum=48)
+        padding_y = _bounded_int(block.get('padding_y'), default=11, minimum=4, maximum=32)
+        padding_x = _bounded_int(block.get('padding_x'), default=16, minimum=8, maximum=48)
         return (
             f'<p><a class="button" href="{href}" '
             f'style="display:inline-block;background:{bg};color:{color};'
-            'padding:11px 16px;text-decoration:none;border-radius:6px;font-weight:700;">'
+            f'padding:{padding_y}px {padding_x}px;text-decoration:none;'
+            f'border-radius:{radius}px;font-weight:700;">'
             f'{text}</a></p>'
         )
     if block_type == 'list':

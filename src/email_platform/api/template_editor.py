@@ -817,9 +817,21 @@ ${presetRules[preset] || ""}`;
     function newBlock(type) {
       const id = `b_${Math.random().toString(36).slice(2, 10)}`;
       if (type === "heading") return { id, type, text: "Main headline", level: 1, align: "left" };
-      if (type === "paragraph") return { id, type, text: "Add body copy with {{ first_name }}." };
+      if (type === "paragraph") {
+        return { id, type, text: "Add body copy with {{ first_name }}.", align: "left", color: "" };
+      }
       if (type === "button") {
-        return { id, type, text: "Call to Action", href: "{{ cta_url }}", bg: "#2563eb", color: "#ffffff" };
+        return {
+          id,
+          type,
+          text: "Call to Action",
+          href: "{{ cta_url }}",
+          bg: "#2563eb",
+          color: "#ffffff",
+          radius: 6,
+          padding_y: 11,
+          padding_x: 16,
+        };
       }
       if (type === "list") return { id, type, ordered: false, items: ["First point", "Second point"] };
       if (type === "image") return { id, type, src: "https://example.com/image.png", alt: "Image", href: "", width: 600 };
@@ -911,9 +923,21 @@ ${presetRules[preset] || ""}`;
       if (block.type === "heading") {
         container.append(field("Text", "text"), field("Level", "level", "number"), field("Align", "align"));
       } else if (block.type === "paragraph") {
-        container.append(field("Text", "text", "textarea"));
+        container.append(
+          field(block.html != null ? "Inline HTML" : "Text", block.html != null ? "html" : "text", "textarea"),
+          field("Align", "align"),
+          field("Color", "color", "color"),
+        );
       } else if (block.type === "button") {
-        container.append(field("Text", "text"), field("URL", "href"), field("Background", "bg", "color"), field("Text color", "color", "color"));
+        container.append(
+          field("Text", "text"),
+          field("URL", "href"),
+          field("Background", "bg", "color"),
+          field("Text color", "color", "color"),
+          field("Radius", "radius", "number"),
+          field("Padding Y", "padding_y", "number"),
+          field("Padding X", "padding_x", "number"),
+        );
       } else if (block.type === "list") {
         const ordered = document.createElement("label");
         ordered.textContent = "List type";
@@ -975,13 +999,28 @@ ${presetRules[preset] || ""}`;
               href: link.getAttribute("href") || "",
               bg: rgbToHex(style.backgroundColor) || "#2563eb",
               color: rgbToHex(style.color) || "#ffffff",
+              radius: pxNumber(style.borderRadius, 6),
+              padding_y: parsePadding(style.padding).y,
+              padding_x: parsePadding(style.padding).x,
             });
           } else if (/\b(secondary-text|muted|trust)\b/i.test(node.className || "") && node.textContent.trim()) {
             blocks.push({ id: `b_${blocks.length}`, type: "trust_signal", text: node.textContent.trim() });
           } else if (node.children.length === 0) {
-            blocks.push({ id: `b_${blocks.length}`, type: "paragraph", text: node.textContent.trim() });
+            blocks.push({
+              id: `b_${blocks.length}`,
+              type: "paragraph",
+              text: node.textContent.trim(),
+              align: textAlign(node),
+              color: rgbToHex(node.style?.color) || "",
+            });
           } else {
-            blocks.push({ id: `b_${blocks.length}`, type: "html", code: node.outerHTML });
+            blocks.push({
+              id: `b_${blocks.length}`,
+              type: "paragraph",
+              html: node.innerHTML.trim(),
+              align: textAlign(node),
+              color: rgbToHex(node.style?.color) || "",
+            });
           }
         } else if (tag === "ul" || tag === "ol") {
           const items = Array.from(node.children).filter((li) => li.tagName.toLowerCase() === "li").map((li) => li.textContent.trim()).filter(Boolean);
@@ -1042,11 +1081,31 @@ ${presetRules[preset] || ""}`;
       return Number.isFinite(parsed) && parsed > 0 ? parsed : 24;
     }
 
+    function pxNumber(value, fallback) {
+      const parsed = Number(String(value || "").replace("px", ""));
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function parsePadding(value) {
+      const parts = String(value || "")
+        .split(/\s+/)
+        .map((part) => pxNumber(part, 0))
+        .filter((part) => part > 0);
+      if (parts.length >= 2) return { y: parts[0], x: parts[1] };
+      if (parts.length === 1) return { y: parts[0], x: parts[0] };
+      return { y: 11, x: 16 };
+    }
+
     function designDocumentTemplateSource() {
       return state.designDoc.blocks.map((block) => {
         if (block.type === "heading") return `<h${block.level || 1} style="text-align:${block.align || "left"};">${block.text || ""}</h${block.level || 1}>`;
-        if (block.type === "paragraph") return `<p>${block.text || ""}</p>`;
-        if (block.type === "button") return `<p><a class="button" href="${block.href || ""}">${block.text || ""}</a></p>`;
+        if (block.type === "paragraph") {
+          const style = `text-align:${block.align || "left"};${block.color ? `color:${block.color};` : ""}`;
+          return `<p style="${style}">${block.html != null ? block.html : (block.text || "")}</p>`;
+        }
+        if (block.type === "button") {
+          return `<p><a class="button" href="${block.href || ""}" style="display:inline-block;background:${block.bg || "#2563eb"};color:${block.color || "#ffffff"};padding:${block.padding_y || 11}px ${block.padding_x || 16}px;text-decoration:none;border-radius:${block.radius || 6}px;font-weight:700;">${block.text || ""}</a></p>`;
+        }
         if (block.type === "list") {
           const tag = block.ordered ? "ol" : "ul";
           const items = (block.items || []).map((item) => `<li>${item}</li>`).join("");

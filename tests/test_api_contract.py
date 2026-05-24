@@ -172,6 +172,9 @@ def test_template_editor_page() -> None:
     assert 'data-design-add="trust_signal"' in response.text
     assert 'unwrapDesignContainers' in response.text
     assert 'rgbToHex' in response.text
+    assert 'parsePadding' in response.text
+    assert 'Inline HTML' in response.text
+    assert 'Padding X' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text
@@ -199,6 +202,13 @@ def test_render_document_renders_design_blocks() -> None:
                         'href': '{{ cta_url }}',
                         'bg': '#111827',
                         'color': '#ffffff',
+                        'radius': 12,
+                        'padding_y': 14,
+                        'padding_x': 22,
+                    },
+                    {
+                        'type': 'paragraph',
+                        'html': '<strong>{{ plan }}</strong> with <a href="{{ cta_url }}">link</a>',
                     },
                     {'type': 'list', 'ordered': True, 'items': ['One {{ plan }}', 'Two']},
                     {
@@ -229,6 +239,9 @@ def test_render_document_renders_design_blocks() -> None:
     assert 'Your plan is trial.' in html
     assert 'class="button"' in html
     assert 'href="https://example.com/dashboard"' in html
+    assert 'border-radius:12px' in html
+    assert 'padding:14px 22px' in html
+    assert '<strong>trial</strong> with <a href="https://example.com/dashboard">link</a>' in html
     assert '<ol>' in html
     assert '<li>One trial</li>' in html
     assert '<li>Two</li>' in html
