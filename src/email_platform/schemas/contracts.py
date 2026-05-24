@@ -66,6 +66,7 @@ class TemplateCreate(BaseModel):
     html_body: str
     css_body: str | None = None
     text_body: str | None = None
+    document_json: JsonObject = Field(default_factory=dict)
 
 
 class TemplateUpdate(BaseModel):
@@ -74,6 +75,7 @@ class TemplateUpdate(BaseModel):
     html_body: str | None = None
     css_body: str | None = None
     text_body: str | None = None
+    document_json: JsonObject | None = None
 
 
 class TemplateVersionCreate(BaseModel):

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from email_platform.api.compat import _template_create_payload
 from email_platform.main import app
 
 
@@ -180,6 +181,8 @@ def test_template_editor_page() -> None:
     assert 'Export JSON' in response.text
     assert 'Import JSON' in response.text
     assert 'applyDesignDocJson' in response.text
+    assert 'designDocForTemplate' in response.text
+    assert 'document_json' in response.text
     assert 'Entity Workbench' in response.text
     assert '/admin' in response.text
     assert '/admin/audience-import' in response.text
@@ -255,6 +258,28 @@ def test_render_document_renders_design_blocks() -> None:
     assert 'border-top:1px solid #cccccc' in html
     assert 'height:18px' in html
     assert '<li>Saved raw HTML</li>' in html
+
+
+def test_template_payload_accepts_document_json() -> None:
+    document = {
+        'blocks': [
+            {
+                'type': 'paragraph',
+                'text': 'Hello {{ first_name }}',
+                'align': 'left',
+            }
+        ]
+    }
+    payload = _template_create_payload(
+        {
+            'name': 'document-json',
+            'subject': 'Hello {{ first_name }}',
+            'html_body': '<p>Hello {{ first_name }}</p>',
+            'document_json': document,
+        }
+    )
+
+    assert payload.document_json == document
 
 
 def test_template_variables_endpoint_extracts_samples_and_native_variables() -> None:

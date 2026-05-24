@@ -774,6 +774,7 @@ def _template_create_payload(payload: dict[str, object]) -> TemplateCreate:
         html_body=str(payload.get('html_body', payload.get('html', ''))),
         css_body=_optional_str(payload.get('css_body', payload.get('css'))),
         text_body=_optional_str(payload.get('text_body', payload.get('text'))),
+        document_json=_object_payload(payload.get('document_json', payload.get('document'))),
     )
 
 
@@ -792,6 +793,8 @@ def _template_update_payload(payload: dict[str, object]) -> TemplateUpdate:
         ('text_body', 'text_body'),
         ('plain_text', 'text_body'),
         ('text', 'text_body'),
+        ('document_json', 'document_json'),
+        ('document', 'document_json'),
     ]:
         if source_key in version:
             values[target_key] = version[source_key]

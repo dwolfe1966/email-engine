@@ -1229,6 +1229,7 @@ ${presetRules[preset] || ""}`;
         html_body: value("htmlBody"),
         css_body: value("cssBody") || null,
         text_body: value("textBody") || null,
+        document_json: state.designDoc.blocks.length ? state.designDoc : {},
       };
     }
 
@@ -1287,13 +1288,25 @@ ${presetRules[preset] || ""}`;
       document.getElementById("htmlBody").value = fullTemplate.html_body || "";
       document.getElementById("cssBody").value = fullTemplate.css_body || "";
       document.getElementById("textBody").value = fullTemplate.text_body || "";
-      state.designDoc = { blocks: [] };
+      state.designDoc = await designDocForTemplate(fullTemplate);
       renderDesignBlocks();
       loadVisualFromSource();
       log({ selected: fullTemplate.id });
       refreshVariablesAndPreview({ applySample: true, silent: true })
         .then(() => log({ selected: fullTemplate.id, preview: "updated" }))
         .catch((error) => log({ selected: fullTemplate.id, error: error.message }));
+    }
+
+    async function designDocForTemplate(template) {
+      try {
+        const versions = await request(`/api/v1/templates/${template.id}/versions`);
+        const current = versions.find((version) => version.is_current) || versions[0];
+        if (current?.document_json?.blocks?.length) return current.document_json;
+      } catch (error) {
+        log({ selected: template.id, document_json_error: error.message });
+      }
+      if (template.document_json?.blocks?.length) return template.document_json;
+      return { blocks: [] };
     }
 
     async function validateTemplate() {

@@ -156,7 +156,8 @@ class TemplateService:
         self.db = db
 
     def create(self, payload: TemplateCreate) -> EmailTemplate:
-        template = EmailTemplate(**payload.model_dump())
+        template_data = payload.model_dump(exclude={'document_json'})
+        template = EmailTemplate(**template_data)
         self.db.add(template)
         self.db.flush()
         self._add_version(
@@ -166,6 +167,7 @@ class TemplateService:
                 html_body=template.html_body,
                 css_body=template.css_body,
                 text_body=template.text_body,
+                document_json=payload.document_json,
             ),
         )
         self.db.commit()
@@ -179,7 +181,7 @@ class TemplateService:
                 select(EmailTemplate).where(EmailTemplate.name == payload.name)
             )
             if not template:
-                template = EmailTemplate(**payload.model_dump())
+                template = EmailTemplate(**payload.model_dump(exclude={'document_json'}))
                 self.db.add(template)
                 self.db.flush()
                 self._add_version(
@@ -189,6 +191,7 @@ class TemplateService:
                         html_body=template.html_body,
                         css_body=template.css_body,
                         text_body=template.text_body,
+                        document_json=payload.document_json,
                     ),
                 )
             templates.append(template)
@@ -247,9 +250,12 @@ class TemplateService:
         template = self.get(template_id)
         if not template:
             return None
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        payload_values = payload.model_dump(exclude_unset=True)
+        document_json = payload_values.pop('document_json', None)
+        for key, value in payload_values.items():
             setattr(template, key, value)
-        if {'subject', 'html_body', 'css_body', 'text_body'} & payload.model_fields_set:
+        version_fields = {'subject', 'html_body', 'css_body', 'text_body', 'document_json'}
+        if version_fields & payload.model_fields_set:
             self._add_version(
                 template,
                 TemplateVersionCreate(
@@ -257,6 +263,7 @@ class TemplateService:
                     html_body=template.html_body,
                     css_body=template.css_body,
                     text_body=template.text_body,
+                    document_json=document_json or {},
                 ),
             )
         self.db.commit()
