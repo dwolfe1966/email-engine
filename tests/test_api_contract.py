@@ -176,6 +176,8 @@ def test_template_editor_page() -> None:
     assert '/api/v1/templates/document/render' in response.text
     assert '/api/v1/templates/document/variables' in response.text
     assert '/api/v1/templates/document/validate' in response.text
+    assert 'splitHtmlForDesignBlocks' in response.text
+    assert 'htmlToDesignBlocks(template.html_body || "")' in response.text
     assert 'data-design-add="spacer"' in response.text
     assert 'data-design-add="trust_signal"' in response.text
     assert 'unwrapDesignContainers' in response.text
@@ -298,6 +300,42 @@ def test_v1_render_document_renders_design_blocks() -> None:
     assert '<h2 style="text-align:left;">Hello Alex</h2>' in data['html_body']
     assert 'href="https://example.com/dashboard"' in data['html_body']
     assert 'border-radius:10px' in data['html_body']
+
+
+def test_v1_document_render_handles_table_loop_sample_variables() -> None:
+    client = TestClient(app)
+    payload = {
+        'subject': 'Receipt for {{ order_number }}',
+        'document_json': {
+            'blocks': [
+                {'type': 'heading', 'text': 'Thanks, {{ first_name }}'},
+                {
+                    'type': 'html',
+                    'code': (
+                        '<table class="summary" role="presentation">'
+                        '<tr><th>Item</th><th>Total</th></tr>'
+                        '{% for item in order_items %}'
+                        '<tr><td>{{ item.name }}</td><td>{{ item.total }}</td></tr>'
+                        '{% endfor %}'
+                        '</table>'
+                    ),
+                },
+                {'type': 'html', 'code': '<a href="{{ unsubscribe_url }}">Unsubscribe</a>'},
+            ]
+        },
+        'variables': {},
+    }
+
+    variables_response = client.post('/api/v1/templates/document/variables', json=payload)
+    assert variables_response.status_code == 200
+    payload['variables'] = variables_response.json()['sample_variables']
+    response = client.post('/api/v1/templates/document/render', json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    assert 'Starter plan' in data['html_body']
+    assert '$49.00' in data['html_body']
 
 
 def test_v1_document_variables_and_validate_use_design_blocks() -> None:

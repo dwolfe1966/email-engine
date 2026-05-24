@@ -1052,9 +1052,35 @@ ${presetRules[preset] || ""}`;
     }
 
     function htmlToDesignBlocks(html) {
-      if (/{[%#][\s\S]*?[%#]}/.test(html || "")) {
-        return [{ id: "b_0", type: "html", code: html || "" }];
+      const blocks = [];
+      splitHtmlForDesignBlocks(html || "").forEach((segment) => {
+        if (segment.type === "raw") {
+          const code = segment.html.trim();
+          if (code) blocks.push({ id: `b_${blocks.length}`, type: "html", code });
+          return;
+        }
+        blocks.push(...nodesToDesignBlocks(segment.html, blocks.length));
+      });
+      return blocks.length ? blocks : [newBlock("html")];
+    }
+
+    function splitHtmlForDesignBlocks(html) {
+      const segments = [];
+      const complexPattern = /<table\b[\s\S]*?<\/table>|{%\s*(?:for|if|elif|else|endif|endfor)[\s\S]*?%}/gi;
+      let cursor = 0;
+      let match;
+      while ((match = complexPattern.exec(html)) !== null) {
+        if (match.index > cursor) {
+          segments.push({ type: "html", html: html.slice(cursor, match.index) });
+        }
+        segments.push({ type: "raw", html: match[0] });
+        cursor = match.index + match[0].length;
       }
+      if (cursor < html.length) segments.push({ type: "html", html: html.slice(cursor) });
+      return segments.length ? segments : [{ type: "html", html }];
+    }
+
+    function nodesToDesignBlocks(html, startIndex = 0) {
       const parsed = new DOMParser().parseFromString(html || "", "text/html");
       const blocks = [];
       let children = Array.from(parsed.body.children);
@@ -1063,7 +1089,7 @@ ${presetRules[preset] || ""}`;
         const tag = node.tagName.toLowerCase();
         if (/^h[1-3]$/.test(tag)) {
           blocks.push({
-            id: `b_${blocks.length}`,
+            id: `b_${startIndex + blocks.length}`,
             type: "heading",
             level: Number(tag.slice(1)),
             align: textAlign(node),
@@ -1074,7 +1100,7 @@ ${presetRules[preset] || ""}`;
           if (link && /\b(button|btn|cta)\b/i.test(link.className || "")) {
             const style = window.getComputedStyle(link);
             blocks.push({
-              id: `b_${blocks.length}`,
+              id: `b_${startIndex + blocks.length}`,
               type: "button",
               text: link.textContent.trim(),
               href: link.getAttribute("href") || "",
@@ -1085,10 +1111,10 @@ ${presetRules[preset] || ""}`;
               padding_x: parsePadding(style.padding).x,
             });
           } else if (/\b(secondary-text|muted|trust)\b/i.test(node.className || "") && node.textContent.trim()) {
-            blocks.push({ id: `b_${blocks.length}`, type: "trust_signal", text: node.textContent.trim() });
+            blocks.push({ id: `b_${startIndex + blocks.length}`, type: "trust_signal", text: node.textContent.trim() });
           } else if (node.children.length === 0) {
             blocks.push({
-              id: `b_${blocks.length}`,
+              id: `b_${startIndex + blocks.length}`,
               type: "paragraph",
               text: node.textContent.trim(),
               align: textAlign(node),
@@ -1096,7 +1122,7 @@ ${presetRules[preset] || ""}`;
             });
           } else {
             blocks.push({
-              id: `b_${blocks.length}`,
+              id: `b_${startIndex + blocks.length}`,
               type: "paragraph",
               html: node.innerHTML.trim(),
               align: textAlign(node),
@@ -1105,13 +1131,13 @@ ${presetRules[preset] || ""}`;
           }
         } else if (tag === "ul" || tag === "ol") {
           const items = Array.from(node.children).filter((li) => li.tagName.toLowerCase() === "li").map((li) => li.textContent.trim()).filter(Boolean);
-          blocks.push({ id: `b_${blocks.length}`, type: "list", ordered: tag === "ol", items });
+          blocks.push({ id: `b_${startIndex + blocks.length}`, type: "list", ordered: tag === "ol", items });
         } else if (tag === "img") {
-          blocks.push({ id: `b_${blocks.length}`, type: "image", src: node.getAttribute("src") || "", alt: node.getAttribute("alt") || "", href: "", width: Number(node.getAttribute("width") || 600) });
+          blocks.push({ id: `b_${startIndex + blocks.length}`, type: "image", src: node.getAttribute("src") || "", alt: node.getAttribute("alt") || "", href: "", width: Number(node.getAttribute("width") || 600) });
         } else if (tag === "a" && node.children.length === 1 && node.children[0].tagName.toLowerCase() === "img") {
           const img = node.children[0];
           blocks.push({
-            id: `b_${blocks.length}`,
+            id: `b_${startIndex + blocks.length}`,
             type: "image",
             src: img.getAttribute("src") || "",
             alt: img.getAttribute("alt") || "",
@@ -1119,14 +1145,20 @@ ${presetRules[preset] || ""}`;
             width: Number(img.getAttribute("width") || 600),
           });
         } else if (tag === "hr") {
-          blocks.push({ id: `b_${blocks.length}`, type: "divider", color: "#d8dee6" });
+          blocks.push({ id: `b_${startIndex + blocks.length}`, type: "divider", color: "#d8dee6" });
         } else if (tag === "div" && isSpacer(node)) {
-          blocks.push({ id: `b_${blocks.length}`, type: "spacer", height: spacerHeight(node) });
+          blocks.push({ id: `b_${startIndex + blocks.length}`, type: "spacer", height: spacerHeight(node) });
         } else {
-          blocks.push({ id: `b_${blocks.length}`, type: "html", code: node.outerHTML });
+          blocks.push({ id: `b_${startIndex + blocks.length}`, type: "html", code: node.outerHTML });
         }
       });
-      return blocks.length ? blocks : [newBlock("html")];
+      const looseText = Array.from(parsed.body.childNodes)
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => node.textContent.trim())
+        .filter(Boolean)
+        .join("\n");
+      if (looseText) blocks.push({ id: `b_${startIndex + blocks.length}`, type: "html", code: looseText });
+      return blocks;
     }
 
     function unwrapDesignContainers(children) {
@@ -1315,7 +1347,7 @@ ${presetRules[preset] || ""}`;
         log({ selected: template.id, document_json_error: error.message });
       }
       if (template.document_json?.blocks?.length) return template.document_json;
-      return { blocks: [] };
+      return { blocks: htmlToDesignBlocks(template.html_body || "") };
     }
 
     async function validateTemplate() {
