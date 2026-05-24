@@ -389,6 +389,7 @@ def compat_list_sends(
     limit: Limit = 100,
     offset: Offset = 0,
     status: str | None = None,
+    search: str | None = None,
 ) -> dict[str, object]:
     status_filter = _campaign_status_from_send_status(status)
     statement = select(Campaign).order_by(Campaign.created_at.desc())
@@ -396,6 +397,21 @@ def compat_list_sends(
     if status_filter:
         statement = statement.where(Campaign.status == status_filter)
         count_statement = count_statement.where(Campaign.status == status_filter)
+    if search and search.strip():
+        pattern = f'%{search.strip()}%'
+        matching_templates = select(EmailTemplate.id).where(
+            or_(
+                EmailTemplate.name.ilike(pattern),
+                EmailTemplate.subject.ilike(pattern),
+                EmailTemplate.description.ilike(pattern),
+            )
+        )
+        search_filter = or_(
+            Campaign.name.ilike(pattern),
+            Campaign.template_id.in_(matching_templates),
+        )
+        statement = statement.where(search_filter)
+        count_statement = count_statement.where(search_filter)
     campaigns = list(db.scalars(statement.limit(limit).offset(offset)).all())
     total = db.scalar(count_statement) or 0
     return _list_response(_send_list_details(db, campaigns), limit, offset, total)
