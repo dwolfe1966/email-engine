@@ -40,7 +40,8 @@ class SendingService:
         template = self.template_service.get(template_id)
         if not template:
             raise ValueError('Template not found')
-        subject, html, text = self.template_service.render(template, variables)
+        context = self._template_test_context(template_id, variables)
+        subject, html, text = self.template_service.render(template, context)
         result = self.provider.send(
             EmailMessage(
                 to_email=to_email,
@@ -54,6 +55,10 @@ class SendingService:
             'provider': result.provider,
             'provider_message_id': result.provider_message_id,
             'status_code': result.status_code,
+            'subject': subject,
+            'html_body': html,
+            'text_body': text,
+            'variables': context,
         }
 
     def send_campaign_test(
@@ -190,6 +195,15 @@ class SendingService:
         self, campaign: Campaign, variables: Mapping[str, object]
     ) -> dict[str, object]:
         template_variables = self.template_service.variables_for_template(campaign.template_id)
+        return {
+            **(template_variables.sample_variables if template_variables else {}),
+            **variables,
+        }
+
+    def _template_test_context(
+        self, template_id: UUID, variables: Mapping[str, object]
+    ) -> dict[str, object]:
+        template_variables = self.template_service.variables_for_template(template_id)
         return {
             **(template_variables.sample_variables if template_variables else {}),
             **variables,

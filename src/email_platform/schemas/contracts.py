@@ -758,6 +758,10 @@ class SendResponse(BaseModel):
     provider: str
     provider_message_id: str | None = None
     status_code: int
+    subject: str | None = None
+    html_body: str | None = None
+    text_body: str | None = None
+    variables: JsonObject | None = None
 
 
 class EmailSendResponse(SendResponse):
