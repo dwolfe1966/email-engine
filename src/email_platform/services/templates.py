@@ -151,6 +151,249 @@ Unsubscribe: {{ unsubscribe_url }}""",
 Register: {{ registration_url }}
 Unsubscribe: {{ unsubscribe_url }}""",
     ),
+    TemplateCreate(
+        name='Sample_Ecommerce_Order_Receipt',
+        subject='Order {{ order_number }} is confirmed',
+        html_body="""<div class="email-shell">
+  <div class="email-container">
+    <p class="eyebrow">Order confirmed</p>
+    <h1>Thanks, {{ first_name }}</h1>
+    <p>Your order {{ order_number }} is confirmed and will ship to {{ shipping_city }}.</p>
+    <table class="summary" role="presentation">
+      <tr><th>Item</th><th>Qty</th><th>Total</th></tr>
+      {% for item in order_items %}
+        <tr><td>{{ item.name }}</td><td>{{ item.quantity }}</td><td>{{ item.total }}</td></tr>
+      {% endfor %}
+    </table>
+    {% if discount_code %}
+      <p class="callout">Discount {{ discount_code }} was applied to this purchase.</p>
+    {% endif %}
+    <p><a class="button" href="{{ tracking_click }}">Track order</a></p>
+    {{ tracking_open }}
+    <p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>
+  </div>
+</div>""",
+        css_body=""".email-shell { background: #f4f6f8; padding: 24px 0; }
+.email-container { max-width: 640px; margin: 0 auto; background: #ffffff; padding: 24px; }
+.eyebrow { color: #0f766e; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.summary { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.summary th, .summary td { border-bottom: 1px solid #d8dee6; padding: 10px; text-align: left; }
+.button { background: #0f766e; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #ecfdf5; border-left: 4px solid #0f766e; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Thanks, {{ first_name }}. Order {{ order_number }} is confirmed.
+{% for item in order_items %}- {{ item.quantity }} x {{ item.name }}: {{ item.total }}
+{% endfor %}
+Track: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Ecommerce_Abandoned_Cart',
+        subject='{{ first_name }}, your cart is waiting',
+        html_body="""<h1>Your cart is still here</h1>
+<p>Hello {{ first_name }}, you left these items behind:</p>
+<ul class="product-list">
+{% for item in cart_items %}
+  <li><strong>{{ item.name }}</strong> - {{ item.price }}</li>
+{% else %}
+  <li>Your cart is empty.</li>
+{% endfor %}
+</ul>
+{% if coupon_code %}
+  <p class="callout">Use {{ coupon_code }} before {{ coupon_expires }} for a limited-time discount.</p>
+{% endif %}
+<p><a class="button" href="{{ tracking_click }}">Return to cart</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".product-list { padding-left: 20px; line-height: 1.6; }
+.button { background: #111827; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #fff7ed; border-left: 4px solid #ea580c; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Your cart is waiting, {{ first_name }}.
+{% for item in cart_items %}- {{ item.name }}: {{ item.price }}
+{% endfor %}
+Return to cart: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Ecommerce_Back_In_Stock',
+        subject='{{ product_name }} is back in stock',
+        html_body="""<p class="eyebrow">Back in stock</p>
+<h1>{{ product_name }} is available again</h1>
+<p>Hello {{ first_name }}, an item you saved is back in stock.</p>
+{% if low_stock %}
+  <p class="callout">Inventory is moving quickly, so order soon if you still want it.</p>
+{% endif %}
+<p><a class="button" href="{{ tracking_click }}">Shop {{ product_name }}</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #9333ea; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #9333ea; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #faf5ff; border-left: 4px solid #9333ea; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""{{ product_name }} is back in stock.
+Shop: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Subscription_Trial_Ending',
+        subject='{{ first_name }}, your trial ends {{ trial_end_date }}',
+        html_body="""<p class="eyebrow">Trial reminder</p>
+<h1>Your {{ product_name }} trial is almost over</h1>
+<p>Hello {{ first_name }}, your trial ends {{ trial_end_date }}.</p>
+{% if is_last_chance %}
+  <p class="callout">This is the last reminder before your trial expires.</p>
+{% endif %}
+<ul>
+{% for benefit in benefits %}
+  <li>{{ benefit }}</li>
+{% endfor %}
+</ul>
+<p><a class="button" href="{{ upgrade_url }}">Choose a plan</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #2563eb; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #2563eb; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Your {{ product_name }} trial ends {{ trial_end_date }}.
+{% for benefit in benefits %}- {{ benefit }}
+{% endfor %}
+Choose a plan: {{ upgrade_url }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Subscription_Payment_Failed',
+        subject='Action needed: update payment for {{ account_name }}',
+        html_body="""<h1>Payment update needed</h1>
+<p>Hello {{ first_name }}, we could not process payment for {{ account_name }}.</p>
+{% if retry_date %}
+  <p>We will automatically retry on {{ retry_date }}.</p>
+{% endif %}
+<p class="callout">Update your payment method to avoid service interruption.</p>
+<p><a class="button" href="{{ billing_url }}">Update billing</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".button { background: #b91c1c; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #fef2f2; border-left: 4px solid #b91c1c; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Payment update needed for {{ account_name }}.
+{% if retry_date %}We will retry on {{ retry_date }}.
+{% endif %}Update billing: {{ billing_url }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Subscription_Usage_Digest',
+        subject='Your {{ product_name }} usage summary',
+        html_body="""<p class="eyebrow">Usage digest</p>
+<h1>{{ first_name }}, here is your {{ product_name }} summary</h1>
+<table class="summary" role="presentation">
+  <tr><th>Metric</th><th>Value</th><th>Change</th></tr>
+  {% for metric in usage_metrics %}
+    <tr><td>{{ metric.name }}</td><td>{{ metric.value }}</td><td>{{ metric.delta }}</td></tr>
+  {% endfor %}
+</table>
+{% if upgrade_recommended %}
+  <p class="callout">Your activity suggests the {{ recommended_plan }} plan may fit your team better.</p>
+{% endif %}
+<p><a class="button" href="{{ dashboard_url }}">View dashboard</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #0f766e; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.summary { width: 100%; border-collapse: collapse; margin: 16px 0; }
+.summary th, .summary td { border-bottom: 1px solid #d8dee6; padding: 10px; text-align: left; }
+.button { background: #0f766e; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #ecfdf5; border-left: 4px solid #0f766e; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Your {{ product_name }} usage summary:
+{% for metric in usage_metrics %}- {{ metric.name }}: {{ metric.value }} ({{ metric.delta }})
+{% endfor %}
+Dashboard: {{ dashboard_url }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Social_Welcome',
+        subject='Welcome to {{ network_name }}, {{ first_name }}',
+        html_body="""<h1>Welcome, {{ first_name }}</h1>
+<p>Your {{ network_name }} account is ready. Here are a few good first steps:</p>
+<ol>
+{% for action in suggested_actions %}
+  <li>{{ action }}</li>
+{% endfor %}
+</ol>
+<p><a class="button" href="{{ profile_url }}">Complete your profile</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".button { background: #4f46e5; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Welcome to {{ network_name }}, {{ first_name }}.
+{% for action in suggested_actions %}- {{ action }}
+{% endfor %}
+Complete profile: {{ profile_url }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Social_Connection_Request',
+        subject='{{ requester_name }} wants to connect',
+        html_body="""<p class="eyebrow">New connection request</p>
+<h1>{{ requester_name }} wants to connect</h1>
+<p>{{ requester_name }} from {{ requester_company }} sent you a request.</p>
+{% if mutual_count %}
+  <p>You have {{ mutual_count }} mutual connections:</p>
+  <ul>
+  {% for person in mutual_connections %}
+    <li>{{ person }}</li>
+  {% endfor %}
+  </ul>
+{% endif %}
+<p><a class="button" href="{{ tracking_click }}">Respond to request</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #db2777; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #db2777; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""{{ requester_name }} wants to connect.
+{% if mutual_count %}Mutual connections:
+{% for person in mutual_connections %}- {{ person }}
+{% endfor %}{% endif %}
+Respond: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
+    TemplateCreate(
+        name='Sample_Social_Weekly_Digest',
+        subject='{{ first_name }}, your weekly {{ network_name }} digest',
+        html_body="""<p class="eyebrow">Weekly digest</p>
+<h1>What happened this week</h1>
+{% if has_unread_messages %}
+  <p class="callout">You have unread messages waiting.</p>
+{% endif %}
+<h2>Notifications</h2>
+<ul>
+{% for note in notifications %}
+  <li>{{ note.title }} - {{ note.summary }}</li>
+{% endfor %}
+</ul>
+<h2>Popular posts</h2>
+<ol>
+{% for post in posts %}
+  <li><strong>{{ post.title }}</strong> by {{ post.author }}</li>
+{% endfor %}
+</ol>
+<p><a class="button" href="{{ tracking_click }}">Open {{ network_name }}</a></p>
+{{ tracking_open }}
+<p class="footer"><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>""",
+        css_body=""".eyebrow { color: #2563eb; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.button { background: #2563eb; color: #ffffff; display: inline-block; padding: 11px 16px; text-decoration: none; }
+.callout { background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px; }
+.footer { color: #5b6673; font-size: 12px; }""",
+        text_body="""Your weekly {{ network_name }} digest.
+{% for note in notifications %}- {{ note.title }}: {{ note.summary }}
+{% endfor %}
+{% for post in posts %}- {{ post.title }} by {{ post.author }}
+{% endfor %}
+Open: {{ tracking_click }}
+Unsubscribe: {{ unsubscribe_url }}""",
+    ),
 )
 
 
@@ -688,6 +931,29 @@ class TemplateService:
                 {'name': 'Starter plan', 'quantity': 1, 'total': '$49.00'},
                 {'name': 'Implementation session', 'quantity': 2, 'total': '$300.00'},
             ]
+        if lowered == 'cart_items':
+            return [
+                {'name': 'Everyday tote', 'price': '$64.00'},
+                {'name': 'Ceramic travel mug', 'price': '$28.00'},
+            ]
+        if lowered == 'usage_metrics':
+            return [
+                {'name': 'Messages sent', 'value': '18,420', 'delta': '+12%'},
+                {'name': 'Active contacts', 'value': '4,180', 'delta': '+7%'},
+                {'name': 'Automations completed', 'value': '312', 'delta': '+19%'},
+            ]
+        if lowered == 'notifications':
+            return [
+                {'title': '12 profile views', 'summary': 'People in your industry viewed you'},
+                {'title': '3 group mentions', 'summary': 'Your posts started conversations'},
+            ]
+        if lowered == 'posts':
+            return [
+                {'title': 'How teams are using AI in lifecycle marketing', 'author': 'Jordan Lee'},
+                {'title': 'A practical guide to deliverability basics', 'author': 'Mina Patel'},
+            ]
+        if lowered in {'mutual_connections', 'suggested_actions'}:
+            return ['Complete your profile', 'Follow three topics', 'Invite a teammate']
         if lowered == 'benefits':
             return ['Priority access', 'Expert office hours', 'Implementation checklist']
         if 'recommendation' in lowered or lowered.endswith('items') or lowered.endswith('list'):

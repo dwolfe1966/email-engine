@@ -3,7 +3,9 @@ from fastapi.testclient import TestClient
 from email_platform.api.compat import _template_create_payload
 from email_platform.api.operation_feedback import with_operation_feedback
 from email_platform.main import app
+from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateValidationRequest
 from email_platform.services.documents import document_to_html
+from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
 
 
 def test_openapi_exposes_gui_integration_paths() -> None:
@@ -601,6 +603,47 @@ def test_template_variables_endpoint_extracts_samples_and_native_variables() -> 
     assert isinstance(data['sample_variables']['recommendations'], list)
     assert isinstance(data['sample_variables']['order_items'][0], dict)
     assert data['sample_variables']['unsubscribe_url'].startswith('https://')
+
+
+def test_seeded_sample_template_collections_render_with_generated_data() -> None:
+    service = TemplateService(db=None)  # type: ignore[arg-type]
+    sample_names = {template.name for template in SAMPLE_TEMPLATES}
+
+    assert {
+        'Sample_Ecommerce_Order_Receipt',
+        'Sample_Ecommerce_Abandoned_Cart',
+        'Sample_Ecommerce_Back_In_Stock',
+        'Sample_Subscription_Trial_Ending',
+        'Sample_Subscription_Payment_Failed',
+        'Sample_Subscription_Usage_Digest',
+        'Sample_Social_Welcome',
+        'Sample_Social_Connection_Request',
+        'Sample_Social_Weekly_Digest',
+    }.issubset(sample_names)
+
+    for template in SAMPLE_TEMPLATES:
+        variables = service.variables(
+            TemplateValidationRequest(
+                subject=template.subject,
+                html_body=template.html_body,
+                css_body=template.css_body,
+                text_body=template.text_body,
+                variables={},
+            )
+        ).sample_variables
+        preview = service.preview(
+            TemplatePreviewRequest(
+                subject=template.subject,
+                html_body=template.html_body,
+                css_body=template.css_body,
+                text_body=template.text_body,
+                variables=variables,
+            )
+        )
+
+        assert preview.ok, template.name
+        assert preview.subject
+        assert 'Unsubscribe' in preview.html_body
 
 
 def test_admin_pages() -> None:
