@@ -1,57 +1,59 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
+from email_platform.api.operation_feedback import with_operation_feedback
+
 router = APIRouter()
 
 
 @router.get('/admin', response_class=HTMLResponse, include_in_schema=False)
 def admin_home() -> str:
-    return ADMIN_HOME_HTML
+    return with_operation_feedback(ADMIN_HOME_HTML)
 
 
 @router.get('/admin/entities', response_class=HTMLResponse, include_in_schema=False)
 def admin_entities() -> str:
-    return ADMIN_ENTITIES_HTML
+    return with_operation_feedback(ADMIN_ENTITIES_HTML)
 
 
 @router.get('/admin/audience-import', response_class=HTMLResponse, include_in_schema=False)
 def admin_audience_import() -> str:
-    return ADMIN_AUDIENCE_IMPORT_HTML
+    return with_operation_feedback(ADMIN_AUDIENCE_IMPORT_HTML)
 
 
 @router.get('/admin/audiences', response_class=HTMLResponse, include_in_schema=False)
 def admin_audiences() -> str:
-    return ADMIN_AUDIENCES_HTML
+    return with_operation_feedback(ADMIN_AUDIENCES_HTML)
 
 
 @router.get('/admin/campaigns', response_class=HTMLResponse, include_in_schema=False)
 def admin_campaigns() -> str:
-    return ADMIN_CAMPAIGNS_HTML
+    return with_operation_feedback(ADMIN_CAMPAIGNS_HTML)
 
 
 @router.get('/admin/journeys', response_class=HTMLResponse, include_in_schema=False)
 def admin_journeys() -> str:
-    return ADMIN_JOURNEYS_HTML
+    return with_operation_feedback(ADMIN_JOURNEYS_HTML)
 
 
 @router.get('/admin/delivery', response_class=HTMLResponse, include_in_schema=False)
 def admin_delivery() -> str:
-    return ADMIN_DELIVERY_HTML
+    return with_operation_feedback(ADMIN_DELIVERY_HTML)
 
 
 @router.get('/admin/analytics', response_class=HTMLResponse, include_in_schema=False)
 def admin_analytics() -> str:
-    return ADMIN_ANALYTICS_HTML
+    return with_operation_feedback(ADMIN_ANALYTICS_HTML)
 
 
 @router.get('/admin/data-sources', response_class=HTMLResponse, include_in_schema=False)
 def admin_data_sources() -> str:
-    return ADMIN_DATA_SOURCES_HTML
+    return with_operation_feedback(ADMIN_DATA_SOURCES_HTML)
 
 
 @router.get('/admin/suppressions', response_class=HTMLResponse, include_in_schema=False)
 def admin_suppressions() -> str:
-    return ADMIN_SUPPRESSIONS_HTML
+    return with_operation_feedback(ADMIN_SUPPRESSIONS_HTML)
 
 
 ADMIN_HOME_HTML = r"""<!doctype html>

@@ -1,12 +1,14 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
+from email_platform.api.operation_feedback import with_operation_feedback
+
 router = APIRouter()
 
 
 @router.get('/tester', response_class=HTMLResponse, include_in_schema=False)
 def api_test_console() -> str:
-    return TEST_CONSOLE_HTML
+    return with_operation_feedback(TEST_CONSOLE_HTML)
 
 
 TEST_CONSOLE_HTML = r"""<!doctype html>

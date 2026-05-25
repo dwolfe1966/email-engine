@@ -1,12 +1,14 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
+from email_platform.api.operation_feedback import with_operation_feedback
+
 router = APIRouter()
 
 
 @router.get('/template-editor', response_class=HTMLResponse, include_in_schema=False)
 def template_editor() -> str:
-    return TEMPLATE_EDITOR_HTML
+    return with_operation_feedback(TEMPLATE_EDITOR_HTML)
 
 
 TEMPLATE_EDITOR_HTML = r"""<!doctype html>
@@ -1818,26 +1820,33 @@ ${presetRules[preset] || ""}`;
 
     function designDocumentTemplateSource() {
       return state.designDoc.blocks.map((block) => {
-        if (block.type === "heading") return `<h${block.level || 1} style="text-align:${block.align || "left"};">${block.text || ""}</h${block.level || 1}>`;
+        if (block.type === "heading") {
+          const level = block.level || 1;
+          return "<h" + level + ' style="text-align:' + (block.align || "left") + ';">' + (block.text || "") + "</h" + level + ">";
+        }
         if (block.type === "paragraph") {
-          const style = `text-align:${block.align || "left"};${block.color ? `color:${block.color};` : ""}`;
-          return `<p style="${style}">${block.html != null ? block.html : (block.text || "")}</p>`;
+          const style = "text-align:" + (block.align || "left") + ";" + (block.color ? "color:" + block.color + ";" : "");
+          return '<p style="' + style + '">' + (block.html != null ? block.html : (block.text || "")) + "</p>";
         }
         if (block.type === "button") {
-          return `<p><a class="button" href="${block.href || ""}" style="display:inline-block;background:${block.bg || "#2563eb"};color:${block.color || "#ffffff"};padding:${block.padding_y || 11}px ${block.padding_x || 16}px;text-decoration:none;border-radius:${block.radius || 6}px;font-weight:700;">${block.text || ""}</a></p>`;
+          const style = "display:inline-block;background:" + (block.bg || "#2563eb") + ";color:" + (block.color || "#ffffff") + ";padding:" + (block.padding_y || 11) + "px " + (block.padding_x || 16) + "px;text-decoration:none;border-radius:" + (block.radius || 6) + "px;font-weight:700;";
+          return '<p><a class="button" href="' + (block.href || "") + '" style="' + style + '">' + (block.text || "") + "</a></p>";
         }
         if (block.type === "list") {
           const tag = block.ordered ? "ol" : "ul";
-          const items = (block.items || []).map((item) => `<li>${item}</li>`).join("");
-          return `<${tag}>${items}</${tag}>`;
+          const items = (block.items || []).map((item) => "<li>" + item + "</li>").join("");
+          return "<" + tag + ">" + items + "</" + tag + ">";
         }
         if (block.type === "image") {
-          const image = `<img src="${block.src || ""}" alt="${block.alt || ""}" width="${block.width || 600}" />`;
-          return block.href ? `<a href="${block.href}">${image}</a>` : image;
+          const image = '<img src="' + (block.src || "") + '" alt="' + (block.alt || "") + '" width="' + (block.width || 600) + '" />';
+          return block.href ? '<a href="' + block.href + '">' + image + "</a>" : image;
         }
         if (block.type === "divider") return "<hr />";
-        if (block.type === "spacer") return `<div style="height:${block.height || 24}px;line-height:${block.height || 24}px;font-size:0;">&nbsp;</div>`;
-        if (block.type === "trust_signal") return `<p class="secondary-text" style="text-align:center;">${block.text || ""}</p>`;
+        if (block.type === "spacer") {
+          const height = block.height || 24;
+          return '<div style="height:' + height + 'px;line-height:' + height + 'px;font-size:0;">&nbsp;</div>';
+        }
+        if (block.type === "trust_signal") return '<p class="secondary-text" style="text-align:center;">' + (block.text || "") + "</p>";
         return block.code || "";
       }).join("\n");
     }
