@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 
 from email_platform.api.admin_console import router as admin_console_router
+from email_platform.api.auth import router as auth_router
 from email_platform.api.compat import router as compat_router
 from email_platform.api.routes import router
 from email_platform.api.template_editor import router as template_editor_router
@@ -39,6 +40,7 @@ def ready() -> dict[str, str]:
     return {'status': 'ready'}
 
 
+app.include_router(auth_router)
 app.include_router(router)
 app.include_router(compat_router)
 app.include_router(admin_console_router)

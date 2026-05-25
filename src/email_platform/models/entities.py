@@ -503,3 +503,46 @@ class EmailEvent(Base):
 
     send_record: Mapped[EmailSendRecord | None] = relationship()
     send_job: Mapped[CampaignSendJob | None] = relationship()
+
+
+class User(Base):
+    """Operator user. Multi-tenant identity model will layer on top of this
+    later (see PRODUCT_BACKLOG.md P0). For the single-tenant scaffold, every
+    user has equal scope; role is reserved for the eventual RBAC split."""
+
+    __tablename__ = 'users'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(40), default='admin')
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # Track failure count + lockout deadline on the user row so we don't
+    # need a Redis/in-memory store. Resets on a successful login.
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserSession(Base):
+    """Server-side session record. The cookie carries a 32-byte random
+    token; we store only its sha256 hash here. A read-only DB compromise
+    doesn't grant active sessions."""
+
+    __tablename__ = 'user_sessions'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('users.id'), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    user: Mapped[User] = relationship()
