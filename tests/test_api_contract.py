@@ -618,6 +618,8 @@ def test_admin_pages() -> None:
     assert 'Test Preview' in campaigns.text
     assert 'Test Send' in campaigns.text
     assert 'Approve' in campaigns.text
+    assert 'AI Campaign Review' in campaigns.text
+    assert 'AI Review' in campaigns.text
     assert 'Process Due' in campaigns.text
     assert 'Email Engine Journey Manager' in journeys.text
     assert 'Save Journey' in journeys.text

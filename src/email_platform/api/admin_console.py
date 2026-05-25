@@ -1353,6 +1353,63 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 12px;
     }
+    .ai-review-panel {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+    .ai-review-panel[hidden] { display: none; }
+    .ai-review-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ai-review-summary {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ai-review-list {
+      display: grid;
+      gap: 7px;
+    }
+    .ai-review-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+      display: grid;
+      gap: 4px;
+    }
+    .ai-review-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .ai-review-card-head strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ai-priority {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 6px;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .ai-priority-high { border-color: var(--red); color: var(--red); }
+    .ai-priority-medium { border-color: #d97706; color: #92400e; }
+    .ai-priority-low { border-color: #16a34a; color: #166534; }
+    .ai-review-card p { margin: 0; color: var(--text); font-size: 12px; line-height: 1.35; }
+    .ai-review-card small { color: var(--muted); font-size: 11px; line-height: 1.35; }
     .workflow-steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1484,6 +1541,15 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <div class="readiness-grid" id="readinessGrid"></div>
           <ul class="readiness-list" id="readinessIssues"></ul>
         </div>
+        <div class="ai-review-panel" id="aiReviewPanel" hidden>
+          <div class="head">
+            <h2>AI Campaign Review</h2>
+            <span id="aiReviewSummary"></span>
+          </div>
+          <div class="ai-review-meta" id="aiReviewMeta"></div>
+          <ul class="ai-review-summary" id="aiReviewNotes"></ul>
+          <div class="ai-review-list" id="aiReviewList"></div>
+        </div>
         <div class="test-send-panel" id="testSendPanel" hidden>
           <div class="head">
             <h2>Last Test Send</h2>
@@ -1509,6 +1575,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <button class="secondary" id="previewTemplate">Preview Template</button>
           <button class="secondary" id="validateCampaign">Validate</button>
           <button class="secondary" id="workflowStatus">Workflow Status</button>
+          <button class="secondary" id="aiReview">AI Review</button>
           <button class="secondary" id="testPreview">Test Preview</button>
           <button class="secondary" id="testSend">Test Send</button>
           <button class="secondary" id="loadLastTestSend">Load Last Send</button>
@@ -1606,6 +1673,10 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     async function sampleVariablesForTemplate(templateId) {
       const data = await request(`/api/v1/templates/${templateId}/variables`);
       return data.sample_variables || {};
+    }
+
+    function displayProvider(value) {
+      return String(value || "").toLowerCase() === "sendgrid" ? "SG" : (value || "email-engine");
     }
 
     function renderContacts(contacts) {
@@ -1793,6 +1864,34 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         .join("");
     }
 
+    function renderAiReview(data) {
+      const panel = document.getElementById("aiReviewPanel");
+      const summary = document.getElementById("aiReviewSummary");
+      const meta = document.getElementById("aiReviewMeta");
+      const notes = document.getElementById("aiReviewNotes");
+      const list = document.getElementById("aiReviewList");
+      const recommendations = data.recommendations || [];
+      panel.hidden = false;
+      summary.textContent = `${recommendations.length} recommendation${recommendations.length === 1 ? "" : "s"}`;
+      meta.innerHTML = `
+        <span>${escapeHtml(displayProvider(data.provider))}${data.model ? ` - ${escapeHtml(data.model)}` : ""}</span>
+        <span>${data.validation?.ok ? "validation ready" : "validation needs review"}</span>
+      `;
+      notes.innerHTML = (data.summary || [])
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("");
+      list.innerHTML = recommendations.slice(0, 6).map((item) => `
+        <div class="ai-review-card">
+          <div class="ai-review-card-head">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span class="ai-priority ai-priority-${escapeHtml(item.priority)}">${escapeHtml(item.priority)}</span>
+          </div>
+          <p>${escapeHtml(item.detail)}</p>
+          <small>${escapeHtml(item.suggested_instruction)}</small>
+        </div>
+      `).join("") || `<div class="empty-state">No recommendations returned.</div>`;
+    }
+
     function renderWorkflowSteps(data = null) {
       const container = document.getElementById("workflowSteps");
       const validation = data?.validation || {};
@@ -1842,6 +1941,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("audienceQuery").value = "{}";
       document.getElementById("variables").value = "{}";
       document.getElementById("readinessPanel").hidden = true;
+      document.getElementById("aiReviewPanel").hidden = true;
       document.getElementById("testSendPanel").hidden = true;
       renderWorkflowSteps();
       renderTestSendMetrics(null);
@@ -1860,6 +1960,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       markSelected("items", selectedId);
       clearLastTestSend();
       document.getElementById("readinessPanel").hidden = true;
+      document.getElementById("aiReviewPanel").hidden = true;
       renderWorkflowSteps();
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
@@ -2045,6 +2146,38 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         });
         await refreshLastTestEvents();
       }
+    }
+
+    async function reviewCampaignWithAi() {
+      const template = selectedTemplate();
+      if (!template) {
+        writeResult("Select a template first.", false);
+        return;
+      }
+      const sampleVariables = await sampleVariablesForTemplate(template.id);
+      const variables = { ...sampleVariables, ...parseJson("variables", {}) };
+      const audience = selectedAudience();
+      const goals = [
+        "Improve this campaign template for test-mode launch readiness.",
+        "Preserve Jinja variables, loops, tracking links, and unsubscribe behavior.",
+        "Look for subject, CTA, personalization, rendering, and compliance improvements."
+      ];
+      const data = await request("/api/v1/ai/templates/recommend", {
+        method: "POST",
+        body: JSON.stringify({
+          current_subject: template.subject,
+          current_html: template.html_body,
+          current_css: template.css_body,
+          current_text: template.text_body,
+          sample_variables: variables,
+          goals,
+          audience_summary: [
+            `Campaign: ${document.getElementById("name").value.trim() || selectedId || "unsaved"}`,
+            audience ? `Audience: ${audience.name}` : "Audience: rule query",
+          ].join(" - ")
+        })
+      });
+      renderAiReview(data);
     }
 
     async function testSendCampaign() {
@@ -2270,6 +2403,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     });
     document.getElementById("workflowStatus").addEventListener("click", () => {
       workflowStatus().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("aiReview").addEventListener("click", () => {
+      reviewCampaignWithAi().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("testPreview").addEventListener("click", () => {
       testPreviewCampaign().catch((error) => writeResult(error.message, false));
