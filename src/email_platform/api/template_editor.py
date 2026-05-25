@@ -308,6 +308,57 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
     .ai-change-summary li + li {
       margin-top: 3px;
     }
+    .ai-recommendations {
+      display: grid;
+      gap: 8px;
+    }
+    .ai-recommendation {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 9px;
+      display: grid;
+      gap: 6px;
+    }
+    .ai-recommendation-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    .ai-recommendation-head strong {
+      font-size: 13px;
+    }
+    .ai-recommendation p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .ai-priority {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .ai-priority.high {
+      border-color: #fecaca;
+      color: #991b1b;
+      background: #fef2f2;
+    }
+    .ai-priority.medium {
+      border-color: #fed7aa;
+      color: #9a3412;
+      background: #fff7ed;
+    }
+    .ai-priority.low {
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
     .ai-sample-json {
       min-height: 72px;
       max-height: 170px;
@@ -484,6 +535,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
           <div class="actions">
             <button type="button" id="aiDraft">Generate Draft</button>
             <button class="secondary" type="button" id="aiEdit">Modify Current</button>
+            <button class="secondary" type="button" id="aiRecommend">Suggest Improvements</button>
             <button class="secondary" type="button" id="aiPreviewDraft" disabled>Preview Draft</button>
             <button class="secondary" type="button" id="aiApplyDraft" disabled>Apply Draft</button>
             <button class="secondary" type="button" id="aiUseSampleVariables" disabled>Use Sample JSON</button>
@@ -496,6 +548,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
           </div>
           <div class="ai-variable-list" id="aiDraftVariables"></div>
           <ul class="ai-change-summary" id="aiChangeSummary"></ul>
+          <div class="ai-recommendations" id="aiRecommendations"></div>
           <pre class="ai-sample-json" id="aiSampleJson">Generate a draft to see sample variables.</pre>
         </div>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
@@ -729,6 +782,7 @@ li {
       editorTab: "source",
       designDoc: { blocks: [] },
       aiDraft: null,
+      aiRecommendations: null,
       sendingTest: false,
     };
 
@@ -887,6 +941,56 @@ li {
       );
     }
 
+    function renderAiRecommendations(data) {
+      state.aiRecommendations = data;
+      const container = document.getElementById("aiRecommendations");
+      container.textContent = "";
+      (data?.recommendations || []).forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "ai-recommendation";
+        const head = document.createElement("div");
+        head.className = "ai-recommendation-head";
+        const title = document.createElement("strong");
+        const priority = document.createElement("span");
+        const detail = document.createElement("p");
+        const instruction = document.createElement("p");
+        const use = document.createElement("button");
+        title.textContent = item.title || item.code;
+        priority.className = `ai-priority ${item.priority || "low"}`;
+        priority.textContent = item.priority || "low";
+        detail.textContent = item.detail || "";
+        instruction.textContent = item.suggested_instruction || "";
+        use.className = "secondary";
+        use.type = "button";
+        use.textContent = "Use as Edit Instruction";
+        use.addEventListener("click", () => {
+          document.getElementById("aiBrief").value = item.suggested_instruction || item.detail || "";
+          document.getElementById("aiBrief").focus();
+          log({ selected_ai_recommendation: item.code, next: "Click Modify Current to apply it." });
+        });
+        head.append(title, priority);
+        row.append(head, detail, instruction, use);
+        container.appendChild(row);
+      });
+      if (!container.childNodes.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No improvement recommendations returned.";
+        container.appendChild(empty);
+      }
+      document.getElementById("aiDraftMeta").innerHTML = `
+        <div class="ai-meta-tile"><span>Provider</span><strong>${data?.provider || "-"}</strong></div>
+        <div class="ai-meta-tile"><span>Model</span><strong>${data?.model || "-"}</strong></div>
+        <div class="ai-meta-tile"><span>Validation</span><strong>${data?.validation?.ok ? "OK" : "Needs review"}</strong></div>
+        <div class="ai-meta-tile"><span>Recommendations</span><strong>${(data?.recommendations || []).length}</strong></div>
+      `;
+      document.getElementById("aiSampleJson").textContent = JSON.stringify(
+        data?.sample_variables || {},
+        null,
+        2,
+      );
+    }
+
     function applyAiSampleVariables() {
       if (!state.aiDraft?.sample_variables) return;
       state.sampleVariables = state.aiDraft.sample_variables;
@@ -949,6 +1053,33 @@ li {
       applyAiSampleVariables();
       await previewAiDraft();
       log({ ai_edit: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+    }
+
+    async function recommendTemplateWithAi() {
+      await inspectVariables({ silent: true }).catch(() => {});
+      const data = await request("/api/v1/ai/templates/recommend", {
+        method: "POST",
+        body: JSON.stringify({
+          current_subject: value("subject"),
+          current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
+          current_css: value("cssBody") || null,
+          current_text: value("textBody") || null,
+          sample_variables: variables(true),
+          goals: value("aiBrief").trim() ? [value("aiBrief").trim()] : [],
+          audience_summary: value("templateName") || null,
+        }),
+      });
+      renderAiRecommendations(data);
+      if (data.sample_variables) {
+        state.sampleVariables = data.sample_variables;
+        document.getElementById("variablesJson").value = JSON.stringify(data.sample_variables, null, 2);
+      }
+      log({
+        ai_recommendations: data.recommendations.map((item) => item.code),
+        provider: data.provider,
+        model: data.model,
+        validation: data.validation,
+      });
     }
 
     async function previewAiDraft() {
@@ -1911,6 +2042,9 @@ ${presetRules[preset] || ""}`;
     });
     document.getElementById("aiEdit").addEventListener("click", () => {
       editTemplateWithAi().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiRecommend").addEventListener("click", () => {
+      recommendTemplateWithAi().catch((error) => log({ error: error.message }));
     });
     document.getElementById("aiPreviewDraft").addEventListener("click", () => {
       previewAiDraft().catch((error) => log({ error: error.message }));
