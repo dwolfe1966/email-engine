@@ -35,6 +35,9 @@ from email_platform.schemas.contracts import (
     AITemplateDraftRead,
     AITemplateDraftRequest,
     AITemplateEditRequest,
+    AITemplateRecommendationRead,
+    AITemplateRecommendationsRead,
+    AITemplateRecommendRequest,
     AnalyticsOverviewRead,
     AudienceCreate,
     AudienceImportPreviewRead,
@@ -556,6 +559,178 @@ def _ai_edit_change_metadata(
     return changed_fields, summary
 
 
+def _template_recommendations(
+    payload: AITemplateRecommendRequest,
+    validation: TemplateValidationRead,
+    variables: TemplateVariablesRead,
+) -> list[AITemplateRecommendationRead]:
+    subject = payload.current_subject or ''
+    html_body = payload.current_html or ''
+    css_body = payload.current_css or ''
+    text_body = payload.current_text or ''
+    recommendations: list[AITemplateRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_instruction: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AITemplateRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_instruction=suggested_instruction,
+                confidence=confidence,
+            )
+        )
+
+    if not validation.ok:
+        findings = [
+            *validation.errors,
+            *[f'Missing variable: {name}' for name in validation.missing_variables],
+            *validation.lint_errors,
+        ]
+        add(
+            'fix_validation_blockers',
+            'quality',
+            'high',
+            'Fix validation blockers before launch',
+            '; '.join(findings[:4]) or 'Template validation did not pass.',
+            'Fix the validation blockers while preserving the template intent and Jinja variables.',
+            0.98,
+        )
+
+    if '{{ tracking_click' not in html_body and 'tracking_click' not in html_body:
+        add(
+            'add_tracked_cta',
+            'tracking',
+            'high',
+            'Add a tracked primary CTA',
+            'The template does not appear to use the native tracking_click variable for a primary call to action.',
+            'Add one clear primary CTA that uses {{ tracking_click }} as the href and keeps the current visual style.',
+            0.9,
+        )
+
+    if '{{ tracking_open' not in html_body and 'tracking_open' not in html_body:
+        add(
+            'add_open_tracking',
+            'tracking',
+            'medium',
+            'Include open tracking placeholder',
+            'The HTML does not include the native tracking_open placeholder.',
+            'Add {{ tracking_open }} as a standalone tracking placeholder near the end of the HTML body.',
+            0.86,
+        )
+
+    if '{{ unsubscribe_url' not in html_body and 'unsubscribe_url' not in html_body:
+        add(
+            'add_unsubscribe',
+            'compliance',
+            'high',
+            'Add unsubscribe link',
+            'Marketing email templates should expose the native unsubscribe_url variable.',
+            'Add a compact footer with an unsubscribe link using {{ unsubscribe_url }}.',
+            0.94,
+        )
+
+    if '<h1' not in html_body.lower() and '<h2' not in html_body.lower():
+        add(
+            'add_clear_headline',
+            'content',
+            'medium',
+            'Add a scannable headline',
+            'The HTML does not contain a heading tag, which makes the message harder to scan.',
+            'Add a concise H1 headline that summarizes the email value proposition.',
+            0.78,
+        )
+
+    if len(html_body.strip()) < 360:
+        add(
+            'expand_message_structure',
+            'content',
+            'medium',
+            'Add supporting structure',
+            'The email body is short; it may need supporting copy, benefits, or next steps.',
+            'Expand the email with a short intro, 2-3 benefit bullets, and a clear CTA while keeping it concise.',
+            0.72,
+        )
+
+    user_variable_names = {item.name for item in variables.variables}
+    has_subject_personalization = any(f'{{{{ {name}' in subject for name in user_variable_names)
+    if user_variable_names and not has_subject_personalization:
+        add(
+            'personalize_subject',
+            'personalization',
+            'low',
+            'Personalize the subject line',
+            'The subject line does not appear to use detected user variables.',
+            'Test a subject line variant that uses the most relevant user variable naturally.',
+            0.68,
+        )
+
+    sample_values = payload.sample_variables or variables.sample_variables
+    has_collection = any(isinstance(value, list) for value in sample_values.values())
+    if has_collection and '{% for ' not in html_body:
+        add(
+            'use_loop_for_collection',
+            'personalization',
+            'medium',
+            'Render collection data with a loop',
+            'Sample data includes list-like values, but the template does not use a Jinja for-loop.',
+            'Use a Jinja {% for %} loop to render the relevant list data in a readable section.',
+            0.82,
+        )
+
+    has_boolean_or_segment = any(isinstance(value, bool) for value in sample_values.values()) or bool(
+        payload.audience_summary
+    )
+    if has_boolean_or_segment and '{% if ' not in html_body:
+        add(
+            'add_conditional_copy',
+            'personalization',
+            'low',
+            'Add conditional copy',
+            'Audience or boolean sample data is available, but the template does not use Jinja conditionals.',
+            'Add a small Jinja {% if %} block that changes one sentence based on audience or profile data.',
+            0.65,
+        )
+
+    if not css_body.strip():
+        add(
+            'add_email_css',
+            'design',
+            'low',
+            'Add basic email CSS',
+            'No CSS body is defined, so previews and email clients may render inconsistently.',
+            'Add simple email-safe CSS for typography, layout width, links, buttons, and footer text.',
+            0.7,
+        )
+
+    if text_body and '{{ unsubscribe_url' not in text_body and 'unsubscribe_url' not in text_body:
+        add(
+            'sync_plain_text_unsubscribe',
+            'compliance',
+            'medium',
+            'Add unsubscribe to plain text',
+            'The plain-text body does not include the unsubscribe URL.',
+            'Add an unsubscribe line to the plain-text body using {{ unsubscribe_url }}.',
+            0.88,
+        )
+
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    return sorted(
+        recommendations,
+        key=lambda item: (priority_order.get(item.priority, 9), -item.confidence, item.code),
+    )[:8]
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -635,6 +810,52 @@ def edit_template_with_ai(
         template_variables=variables,
         provider=cast(str, draft.get('provider', 'email-engine')),
         model=cast(str, draft.get('model', 'deterministic-template-edit-v1')),
+    )
+
+
+@router.post('/ai/templates/recommend', response_model=AITemplateRecommendationsRead)
+def recommend_template_improvements(
+    payload: AITemplateRecommendRequest,
+    db: DbSession,
+) -> AITemplateRecommendationsRead:
+    template_request = TemplateValidationRequest(
+        subject=payload.current_subject,
+        html_body=payload.current_html,
+        css_body=payload.current_css,
+        text_body=payload.current_text,
+        variables=payload.sample_variables,
+    )
+    template_service = TemplateService(db)
+    variables = template_service.variables(template_request)
+    render_variables = {**variables.sample_variables, **payload.sample_variables}
+    validation = template_service.validate(
+        TemplateValidationRequest(
+            subject=payload.current_subject,
+            html_body=payload.current_html,
+            css_body=payload.current_css,
+            text_body=payload.current_text,
+            variables=render_variables,
+        )
+    )
+    recommendations = _template_recommendations(payload, validation, variables)
+    high_count = sum(1 for item in recommendations if item.priority == 'high')
+    medium_count = sum(1 for item in recommendations if item.priority == 'medium')
+    summary = [
+        f'{len(recommendations)} recommendation(s) generated.',
+        f'{high_count} high priority, {medium_count} medium priority.',
+    ]
+    if validation.ok:
+        summary.append('Template validation currently passes with merged sample variables.')
+    else:
+        summary.append('Template validation needs attention before launch.')
+    return AITemplateRecommendationsRead(
+        recommendations=recommendations,
+        summary=summary,
+        sample_variables=render_variables,
+        validation=validation,
+        template_variables=variables,
+        provider='email-engine',
+        model='deterministic-template-recommend-v1',
     )
 
 

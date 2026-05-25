@@ -203,6 +203,36 @@ class AITemplateEditRequest(BaseModel):
     audience_summary: str | None = None
 
 
+class AITemplateRecommendRequest(BaseModel):
+    current_subject: str
+    current_html: str
+    current_css: str | None = None
+    current_text: str | None = None
+    sample_variables: JsonObject = Field(default_factory=dict)
+    goals: list[str] = Field(default_factory=list)
+    audience_summary: str | None = None
+
+
+class AITemplateRecommendationRead(BaseModel):
+    code: str
+    category: str
+    priority: str
+    title: str
+    detail: str
+    suggested_instruction: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class AITemplateRecommendationsRead(BaseModel):
+    recommendations: list[AITemplateRecommendationRead] = Field(default_factory=list)
+    summary: list[str] = Field(default_factory=list)
+    sample_variables: JsonObject = Field(default_factory=dict)
+    validation: TemplateValidationRead
+    template_variables: TemplateVariablesRead
+    provider: str = 'email-engine'
+    model: str = 'deterministic-template-recommend-v1'
+
+
 class AITemplateDraftRead(BaseModel):
     subject: str
     html_body: str

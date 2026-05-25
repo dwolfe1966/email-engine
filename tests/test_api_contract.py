@@ -12,6 +12,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
     expected_paths = {
         '/api/v1/ai/templates/draft',
         '/api/v1/ai/templates/edit',
+        '/api/v1/ai/templates/recommend',
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
@@ -204,6 +205,38 @@ def test_ai_template_edit_contract() -> None:
     assert 'Requested update' in data['html_body']
     assert 'html_body' in data['changed_fields']
     assert 'HTML body changed.' in data['change_summary']
+
+
+def test_ai_template_recommend_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/templates/recommend',
+        json={
+            'current_subject': 'Weekly update',
+            'current_html': '<p>Hello {{ first_name }}</p>',
+            'current_css': '',
+            'current_text': 'Hello {{ first_name }}',
+            'sample_variables': {
+                'first_name': 'Taylor',
+                'recommendations': ['One', 'Two'],
+                'is_trial': True,
+            },
+            'goals': ['Improve conversion'],
+            'audience_summary': 'Trial users',
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-template-recommend-v1'
+    assert data['recommendations']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'add_tracked_cta' in codes
+    assert 'add_unsubscribe' in codes
+    assert 'use_loop_for_collection' in codes
+    assert data['sample_variables']['first_name'] == 'Taylor'
+    assert data['template_variables']['variables'][0]['name'] == 'first_name'
 
 
 def test_template_editor_page() -> None:
