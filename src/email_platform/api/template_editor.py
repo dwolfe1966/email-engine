@@ -1,12 +1,14 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
+from email_platform.api.operation_feedback import with_operation_feedback
+
 router = APIRouter()
 
 
 @router.get('/template-editor', response_class=HTMLResponse, include_in_schema=False)
 def template_editor() -> str:
-    return TEMPLATE_EDITOR_HTML
+    return with_operation_feedback(TEMPLATE_EDITOR_HTML)
 
 
 TEMPLATE_EDITOR_HTML = r"""<!doctype html>
