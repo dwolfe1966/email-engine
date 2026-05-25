@@ -3613,6 +3613,63 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     .bar.green { background: #15803d; }
     .bar.amber { background: #b45309; }
     .bar.red { background: #b42318; }
+    .rate-comparison {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .rate-comparison h3 { margin: 0; font-size: 13px; }
+    .rate-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(120px, 1fr));
+      gap: 10px;
+      align-items: center;
+      padding: 7px 0;
+      border-top: 1px solid #eef2f7;
+    }
+    .rate-row:first-of-type { border-top: none; }
+    .rate-name {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .rate-name strong,
+    .rate-name span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .rate-name span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .rate-track-row {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 44px;
+      gap: 6px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .rate-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      overflow: hidden;
+    }
+    .rate-fill {
+      height: 100%;
+      min-width: 2px;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+    .rate-fill.open { background: #2563eb; }
+    .rate-fill.click { background: #15803d; }
+    .rate-fill.bounce { background: #b42318; }
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
@@ -3930,6 +3987,43 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       </div>`;
     }
 
+    function rateTrack(label, value, tone) {
+      const percent = Math.max(0, Math.min(100, Number(value || 0) * 100));
+      return `<div class="rate-track-row">
+        <span>${escapeHtml(label)}</span>
+        <div class="rate-track">
+          <div class="rate-fill ${escapeHtml(tone)}" style="width:${Math.max(2, percent)}%"></div>
+        </div>
+        <strong>${pct(value)}</strong>
+      </div>`;
+    }
+
+    function campaignRateComparison(items) {
+      const rows = (items || [])
+        .filter((row) =>
+          Number(row.sent_count || 0) > 0 ||
+          Number(row.opened_count || 0) > 0 ||
+          Number(row.clicked_count || 0) > 0 ||
+          Number(row.bounced_count || 0) > 0
+        )
+        .slice(0, 8);
+      if (!rows.length) return "";
+      return `<div class="rate-comparison">
+        <h3>Campaign Rate Comparison</h3>
+        ${rows.map((row) => `
+          <div class="rate-row">
+            <div class="rate-name">
+              <strong>${escapeHtml(row.name || shortId(row.campaign_id))}</strong>
+              <span>${escapeHtml(row.status || "")} - ${int(row.sent_count)} sent</span>
+            </div>
+            ${rateTrack("Open", row.open_rate, "open")}
+            ${rateTrack("Click", row.click_rate, "click")}
+            ${rateTrack("Bounce", row.bounce_rate, "bounce")}
+          </div>
+        `).join("")}
+      </div>`;
+    }
+
     function table(title, rows, columns) {
       if (!rows || !rows.length) {
         return `<div class="chart"><h3>${escapeHtml(title)}</h3><div class="empty-state">No rows returned.</div></div>`;
@@ -4052,7 +4146,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     function renderListReport(items) {
       const first = items[0] || {};
       if ("campaign_id" in first && "open_rate" in first) {
-        report.innerHTML = campaignInsights(items) + table("Campaign Performance", items, [
+        report.innerHTML = campaignInsights(items) + campaignRateComparison(items) + table("Campaign Performance", items, [
           { label: "Campaign", value: (row) => row.name || shortId(row.campaign_id) },
           { label: "Status", value: (row) => row.status },
           { label: "Requested", value: (row) => int(row.requested_count) },
