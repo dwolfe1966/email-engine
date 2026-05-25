@@ -369,6 +369,16 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       min-height: 72px;
       max-height: 170px;
     }
+    .ai-status {
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .ai-status[hidden] { display: none; }
     .template-list { display: grid; gap: 6px; max-height: calc(100vh - 160px); overflow: auto; }
     .template-item {
       border: 1px solid var(--line);
@@ -555,6 +565,7 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
           <div class="ai-variable-list" id="aiDraftVariables"></div>
           <ul class="ai-change-summary" id="aiChangeSummary"></ul>
           <div class="ai-recommendations" id="aiRecommendations"></div>
+          <div class="ai-status" id="aiStatus" hidden></div>
           <pre class="ai-sample-json" id="aiSampleJson">Generate a draft to see sample variables.</pre>
         </div>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
@@ -789,6 +800,8 @@ li {
       designDoc: { blocks: [] },
       aiDraft: null,
       aiRecommendations: null,
+      aiOperationTimer: null,
+      aiOperationStartedAt: 0,
       sendingTest: false,
     };
 
@@ -796,6 +809,30 @@ li {
 
     function log(data) {
       document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+    }
+
+    function setAiBusy(label = "") {
+      const status = document.getElementById("aiStatus");
+      const buttons = ["aiDraft", "aiEdit", "aiRecommend"];
+      window.clearInterval(state.aiOperationTimer);
+      if (!label) {
+        status.hidden = true;
+        status.textContent = "";
+        buttons.forEach((id) => { document.getElementById(id).disabled = false; });
+        document.getElementById("aiDraft").textContent = "Generate Draft";
+        document.getElementById("aiEdit").textContent = "Modify Current";
+        document.getElementById("aiRecommend").textContent = "Suggest Improvements";
+        return;
+      }
+      state.aiOperationStartedAt = Date.now();
+      status.hidden = false;
+      buttons.forEach((id) => { document.getElementById(id).disabled = true; });
+      const render = () => {
+        const seconds = Math.max(0, Math.floor((Date.now() - state.aiOperationStartedAt) / 1000));
+        status.textContent = `${label}... ${seconds}s`;
+      };
+      render();
+      state.aiOperationTimer = window.setInterval(render, 1000);
     }
 
     function variables(fallbackToEmpty = false) {
@@ -1025,21 +1062,26 @@ li {
         log({ error: "AI brief is required." });
         return;
       }
-      await inspectVariables({ silent: true }).catch(() => {});
-      const data = await request("/api/v1/ai/templates/draft", {
-        method: "POST",
-        body: JSON.stringify({
-          brief,
-          brand: {
-            name: value("templateName") || "Email Engine",
-            primary_color: value("cssBrandColor") || "#2563eb",
-            tone: "clear, useful, and production ready",
-          },
-          required_variables: detectedVariableNames(),
-        }),
-      });
-      renderAiDraft(data);
-      log({ ai_draft: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+      setAiBusy("Generating AI draft");
+      try {
+        await inspectVariables({ silent: true }).catch(() => {});
+        const data = await request("/api/v1/ai/templates/draft", {
+          method: "POST",
+          body: JSON.stringify({
+            brief,
+            brand: {
+              name: value("templateName") || "Email Engine",
+              primary_color: value("cssBrandColor") || "#2563eb",
+              tone: "clear, useful, and production ready",
+            },
+            required_variables: detectedVariableNames(),
+          }),
+        });
+        renderAiDraft(data);
+        log({ ai_draft: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+      } finally {
+        setAiBusy("");
+      }
     }
 
     async function editTemplateWithAi(instructionOverride = "") {
@@ -1048,55 +1090,65 @@ li {
         log({ error: "AI edit instruction is required." });
         return;
       }
-      await inspectVariables({ silent: true }).catch(() => {});
-      const data = await request("/api/v1/ai/templates/edit", {
-        method: "POST",
-        body: JSON.stringify({
-          instruction,
-          current_subject: value("subject"),
-          current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
-          current_css: value("cssBody") || null,
-          current_text: value("textBody") || null,
-          brand: {
-            name: value("templateName") || "Email Engine",
-            primary_color: value("cssBrandColor") || "#2563eb",
-            tone: "clear, useful, and production ready",
-          },
-          required_variables: detectedVariableNames(),
-          sample_variables: variables(true),
-        }),
-      });
-      renderAiDraft(data);
-      applyAiSampleVariables();
-      await previewAiDraft();
-      log({ ai_edit: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+      setAiBusy("Modifying template with AI");
+      try {
+        await inspectVariables({ silent: true }).catch(() => {});
+        const data = await request("/api/v1/ai/templates/edit", {
+          method: "POST",
+          body: JSON.stringify({
+            instruction,
+            current_subject: value("subject"),
+            current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
+            current_css: value("cssBody") || null,
+            current_text: value("textBody") || null,
+            brand: {
+              name: value("templateName") || "Email Engine",
+              primary_color: value("cssBrandColor") || "#2563eb",
+              tone: "clear, useful, and production ready",
+            },
+            required_variables: detectedVariableNames(),
+            sample_variables: variables(true),
+          }),
+        });
+        renderAiDraft(data);
+        applyAiSampleVariables();
+        await previewAiDraft();
+        log({ ai_edit: data.subject, provider: data.provider, model: data.model, validation: data.validation });
+      } finally {
+        setAiBusy("");
+      }
     }
 
     async function recommendTemplateWithAi() {
-      await inspectVariables({ silent: true }).catch(() => {});
-      const data = await request("/api/v1/ai/templates/recommend", {
-        method: "POST",
-        body: JSON.stringify({
-          current_subject: value("subject"),
-          current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
-          current_css: value("cssBody") || null,
-          current_text: value("textBody") || null,
-          sample_variables: variables(true),
-          goals: value("aiBrief").trim() ? [value("aiBrief").trim()] : [],
-          audience_summary: value("templateName") || null,
-        }),
-      });
-      renderAiRecommendations(data);
-      if (data.sample_variables) {
-        state.sampleVariables = data.sample_variables;
-        document.getElementById("variablesJson").value = JSON.stringify(data.sample_variables, null, 2);
+      setAiBusy("Getting AI recommendations");
+      try {
+        await inspectVariables({ silent: true }).catch(() => {});
+        const data = await request("/api/v1/ai/templates/recommend", {
+          method: "POST",
+          body: JSON.stringify({
+            current_subject: value("subject"),
+            current_html: state.editorTab === "blocks" ? designDocumentTemplateSource() : value("htmlBody"),
+            current_css: value("cssBody") || null,
+            current_text: value("textBody") || null,
+            sample_variables: variables(true),
+            goals: value("aiBrief").trim() ? [value("aiBrief").trim()] : [],
+            audience_summary: value("templateName") || null,
+          }),
+        });
+        renderAiRecommendations(data);
+        if (data.sample_variables) {
+          state.sampleVariables = data.sample_variables;
+          document.getElementById("variablesJson").value = JSON.stringify(data.sample_variables, null, 2);
+        }
+        log({
+          ai_recommendations: data.recommendations.map((item) => item.code),
+          provider: data.provider,
+          model: data.model,
+          validation: data.validation,
+        });
+      } finally {
+        setAiBusy("");
       }
-      log({
-        ai_recommendations: data.recommendations.map((item) => item.code),
-        provider: data.provider,
-        model: data.model,
-        validation: data.validation,
-      });
     }
 
     async function previewAiDraft() {
