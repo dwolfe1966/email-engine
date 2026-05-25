@@ -335,6 +335,12 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       font-size: 12px;
       line-height: 1.4;
     }
+    .ai-recommendation-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
     .ai-priority {
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -954,12 +960,15 @@ li {
         const priority = document.createElement("span");
         const detail = document.createElement("p");
         const instruction = document.createElement("p");
+        const actions = document.createElement("div");
         const use = document.createElement("button");
+        const modify = document.createElement("button");
         title.textContent = item.title || item.code;
         priority.className = `ai-priority ${item.priority || "low"}`;
         priority.textContent = item.priority || "low";
         detail.textContent = item.detail || "";
         instruction.textContent = item.suggested_instruction || "";
+        actions.className = "ai-recommendation-actions";
         use.className = "secondary";
         use.type = "button";
         use.textContent = "Use as Edit Instruction";
@@ -968,8 +977,16 @@ li {
           document.getElementById("aiBrief").focus();
           log({ selected_ai_recommendation: item.code, next: "Click Modify Current to apply it." });
         });
+        modify.type = "button";
+        modify.textContent = "Modify Now";
+        modify.addEventListener("click", () => {
+          const nextInstruction = item.suggested_instruction || item.detail || "";
+          document.getElementById("aiBrief").value = nextInstruction;
+          editTemplateWithAi(nextInstruction).catch((error) => log({ error: error.message }));
+        });
+        actions.append(use, modify);
         head.append(title, priority);
-        row.append(head, detail, instruction, use);
+        row.append(head, detail, instruction, actions);
         container.appendChild(row);
       });
       if (!container.childNodes.length) {
@@ -1025,8 +1042,8 @@ li {
       log({ ai_draft: data.subject, provider: data.provider, model: data.model, validation: data.validation });
     }
 
-    async function editTemplateWithAi() {
-      const instruction = value("aiBrief").trim();
+    async function editTemplateWithAi(instructionOverride = "") {
+      const instruction = (instructionOverride || value("aiBrief")).trim();
       if (!instruction) {
         log({ error: "AI edit instruction is required." });
         return;
