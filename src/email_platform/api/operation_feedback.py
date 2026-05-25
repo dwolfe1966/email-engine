@@ -88,14 +88,74 @@ OPERATION_FEEDBACK_SNIPPET = r"""
   let activeStartedAt = 0;
   let timer = 0;
 
-  function labelFor(input) {
+  function operationFor(input, init) {
     const raw = typeof input === "string" ? input : input && input.url ? input.url : "API request";
+    const method = (init && init.method) || (input && input.method) || "GET";
     try {
       const url = new URL(raw, window.location.origin);
-      return `${url.pathname}${url.search ? " " + url.search : ""}`;
+      return describeOperation(String(method).toUpperCase(), url.pathname, url.search);
     } catch {
-      return String(raw || "API request");
+      const detail = String(raw || "API request");
+      return {
+        label: "API operation running",
+        successLabel: "API operation complete",
+        errorLabel: "API operation failed",
+        detail
+      };
     }
+  }
+
+  function describeOperation(method, pathname, search) {
+    const detail = `${method} ${pathname}${search ? " " + search : ""}`;
+    const rules = [
+      [/^\/api\/v1\/ai\/templates\/edit$/, "AI template edit"],
+      [/^\/api\/v1\/ai\/templates\/recommend$/, "AI template recommendation"],
+      [/^\/api\/v1\/ai\/templates\/draft$/, "AI template draft"],
+      [/^\/api\/v1\/templates\/samples$/, "Sample templates reset"],
+      [/^\/api\/v1\/templates\/preview$/, "Template preview"],
+      [/^\/api\/v1\/templates\/document\/render$/, "Design render"],
+      [/^\/api\/v1\/templates\/(?:variables|document\/variables)$/, "Template variables"],
+      [/^\/api\/v1\/templates\/(?:validate|document\/validate)$/, "Template validation"],
+      [/^\/api\/v1\/templates(?:\/[^/]+)?(?:\/document)?$/, "Template"],
+      [/^\/api\/v1\/campaigns\/[^/]+\/launch$/, "Campaign launch"],
+      [/^\/api\/v1\/campaigns\/[^/]+\/send-test$/, "Campaign test send"],
+      [/^\/api\/v1\/campaigns\/[^/]+\/workflow-status$/, "Workflow readiness"],
+      [/^\/api\/v1\/campaigns\/[^/]+\/analytics(?:\/timeline)?$/, "Campaign analytics"],
+      [/^\/api\/v1\/campaigns(?:\/[^/]+)?$/, "Campaign"],
+      [/^\/api\/v1\/campaign-send-jobs\/[^/]+\/progress$/, "Delivery progress"],
+      [/^\/api\/v1\/campaign-send-jobs\/list$/, "Delivery jobs"],
+      [/^\/api\/v1\/email-send-records\/[^/]+\/(?:requeue|skip)$/, "Send record update"],
+      [/^\/api\/v1\/email-send-records\/list$/, "Send records"],
+      [/^\/api\/v1\/delivery\/process-queued$/, "Delivery processing"],
+      [/^\/api\/v1\/tracking\/(?:open|click)\//, "Tracking event"],
+      [/^\/api\/v1\/events(?:\/list|\/timeline)?$/, "Event analytics"],
+      [/^\/api\/v1\/analytics\//, "Analytics report"],
+      [/^\/api\/v1\/audiences\/import-csv\/preview$/, "Audience import preview"],
+      [/^\/api\/v1\/audiences\/import-csv$/, "Audience import"],
+      [/^\/api\/v1\/audiences\/[^/]+\/(?:preview|snapshots)$/, "Audience preview"],
+      [/^\/api\/v1\/audience-snapshots\/list$/, "Audience snapshots"],
+      [/^\/api\/v1\/audiences(?:\/[^/]+)?$/, "Audience"],
+      [/^\/api\/v1\/contacts(?:\/[^/]+)?$/, "Contact"],
+      [/^\/api\/v1\/journeys\/process$/, "Journey processing"],
+      [/^\/api\/v1\/journeys(?:\/[^/]+)?$/, "Journey"],
+      [/^\/api\/v1\/journey-steps(?:\/[^/]+)?$/, "Journey step"],
+      [/^\/api\/v1\/journey-enrollments(?:\/[^/]+|\/list)?$/, "Journey enrollment"],
+      [/^\/api\/v1\/data-sources\/[^/]+\/(?:validate|schema|ingest)$/, "Data source operation"],
+      [/^\/api\/v1\/data-source-import-jobs\/list$/, "Import jobs"],
+      [/^\/api\/v1\/data-sources(?:\/[^/]+)?$/, "Data source"],
+      [/^\/api\/v1\/suppressions(?:\/[^/]+|\/list)?$/, "Suppression"],
+      [/^\/api\/v1\/tests\/send-email$/, "Test email send"],
+      [/^\/api\/v1\/tests\//, "Test operation"],
+      [/^\/api\/auth\/(?:login|logout|me)$/, "Authentication"],
+    ];
+    const match = rules.find(([pattern]) => pattern.test(pathname));
+    const name = match ? match[1] : "API operation";
+    return {
+      label: `${name} running`,
+      successLabel: `${name} complete`,
+      errorLabel: `${name} failed`,
+      detail
+    };
   }
 
   function setState(tone, title, detail, meta, active) {
@@ -115,21 +175,21 @@ OPERATION_FEEDBACK_SNIPPET = r"""
     }, 1000);
   }
 
-  function begin(detail) {
+  function begin(operation) {
     activeCount += 1;
     if (!activeStartedAt) activeStartedAt = performance.now();
-    setState("info", "API operation running", detail, `${activeCount} operation${activeCount === 1 ? "" : "s"} · 0s`, true);
+    setState("info", operation.label, operation.detail, `${activeCount} operation${activeCount === 1 ? "" : "s"} · 0s`, true);
     startTimer();
     return performance.now();
   }
 
-  function complete(startedAt, ok, detail) {
+  function complete(startedAt, ok, operation, detail) {
     activeCount = Math.max(0, activeCount - 1);
     if (activeCount > 0) return;
     window.clearInterval(timer);
     const elapsed = ((performance.now() - startedAt) / 1000).toFixed(1);
     activeStartedAt = 0;
-    setState(ok ? "success" : "error", ok ? "API operation complete" : "API operation failed", detail, `${elapsed}s`, false);
+    setState(ok ? "success" : "error", ok ? operation.successLabel : operation.errorLabel, detail, `${elapsed}s`, false);
   }
 
   dismissButton.addEventListener("click", () => {
@@ -138,14 +198,14 @@ OPERATION_FEEDBACK_SNIPPET = r"""
 
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
-    const detail = labelFor(input);
-    const startedAt = begin(detail);
+    const operation = operationFor(input, init);
+    const startedAt = begin(operation);
     try {
       const response = await originalFetch(input, init);
-      complete(startedAt, response.ok, `${response.status} ${detail}`);
+      complete(startedAt, response.ok, operation, `${response.status} ${operation.detail}`);
       return response;
     } catch (error) {
-      complete(startedAt, false, `${detail}: ${error && error.message ? error.message : error}`);
+      complete(startedAt, false, operation, `${operation.detail}: ${error && error.message ? error.message : error}`);
       throw error;
     }
   };

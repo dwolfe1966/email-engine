@@ -477,6 +477,11 @@ def test_operation_feedback_injects_at_final_body_close() -> None:
     assert rendered.index('function htmlDocument') < rendered.index('<main>admin</main>')
     assert rendered.index('<main>admin</main>') < rendered.index('ee-operation-feedback')
     assert rendered.count('ee-operation-feedback') >= 1
+    assert 'AI template edit' in rendered
+    assert 'Campaign launch' in rendered
+    assert 'Audience import preview' in rendered
+    assert 'label: `${name} running`' in rendered
+    assert 'operationFor(input, init)' in rendered
     assert 'return `<!doctype html><body>${content}</body></html>`;' in rendered
 
 
