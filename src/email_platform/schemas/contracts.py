@@ -969,3 +969,25 @@ class CampaignWorkflowStatusRead(BaseModel):
     analytics: CampaignAnalyticsRead | None = None
     latest_send_job: CampaignSendJobRead | None = None
     latest_send_record: EmailSendRecordRead | None = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+class AuthUserRead(BaseModel):
+    id: UUID
+    email: str
+    display_name: str
+    role: str
+
+    model_config = {'from_attributes': True}
+
+
+class LoginResponse(BaseModel):
+    user: AuthUserRead
+
+
+class MeResponse(BaseModel):
+    user: AuthUserRead
