@@ -254,6 +254,8 @@ def test_template_editor_page() -> None:
     assert '.template-item.selected' in response.text
     assert 'applyInitialQuery' in response.text
     assert 'ai_prompt_loaded' in response.text
+    assert 'Campaign recommendation loaded' in response.text
+    assert 'aiPromptModify' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
     assert 'Format Source' in response.text

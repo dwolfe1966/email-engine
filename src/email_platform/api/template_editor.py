@@ -343,6 +343,24 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       gap: 6px;
       flex-wrap: wrap;
     }
+    .ai-handoff-banner {
+      border: 1px solid #bfdbfe;
+      border-radius: 7px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      padding: 9px;
+      display: grid;
+      gap: 7px;
+      font-size: 12px;
+    }
+    .ai-handoff-banner[hidden] { display: none; }
+    .ai-handoff-banner strong {
+      color: #172554;
+    }
+    .ai-handoff-banner p {
+      margin: 0;
+      line-height: 1.4;
+    }
     .ai-priority {
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -557,6 +575,14 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
             <button class="secondary" type="button" id="aiPreviewDraft" disabled>Preview Draft</button>
             <button class="secondary" type="button" id="aiApplyDraft" disabled>Apply Draft</button>
             <button class="secondary" type="button" id="aiUseSampleVariables" disabled>Use Sample JSON</button>
+          </div>
+          <div class="ai-handoff-banner" id="aiHandoffBanner" hidden>
+            <strong>Campaign recommendation loaded</strong>
+            <p>The brief came from Campaign Manager. Modify the current template when you are ready, or edit the brief first.</p>
+            <div class="actions">
+              <button type="button" id="aiPromptModify">Modify Current</button>
+              <button class="secondary" type="button" id="aiPromptDismiss">Dismiss</button>
+            </div>
           </div>
           <div class="ai-meta-grid" id="aiDraftMeta">
             <div class="ai-meta-tile"><span>Provider</span><strong>-</strong></div>
@@ -1288,7 +1314,9 @@ li {
 
     function applyInitialAiPrompt(prompt) {
       const brief = document.getElementById("aiBrief");
+      const banner = document.getElementById("aiHandoffBanner");
       brief.value = prompt;
+      banner.hidden = false;
       document.querySelector(".ai-builder")?.scrollIntoView({ behavior: "smooth", block: "start" });
       brief.focus();
       log({ ai_prompt_loaded: true, next: "Click Modify Current to apply it or Suggest Improvements for context." });
@@ -2180,6 +2208,12 @@ ${presetRules[preset] || ""}`;
     });
     document.getElementById("aiEdit").addEventListener("click", () => {
       editTemplateWithAi().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiPromptModify").addEventListener("click", () => {
+      editTemplateWithAi().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("aiPromptDismiss").addEventListener("click", () => {
+      document.getElementById("aiHandoffBanner").hidden = true;
     });
     document.getElementById("aiRecommend").addEventListener("click", () => {
       recommendTemplateWithAi().catch((error) => log({ error: error.message }));
