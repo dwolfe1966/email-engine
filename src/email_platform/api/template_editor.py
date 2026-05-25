@@ -805,6 +805,7 @@ li {
       aiOperationTimer: null,
       aiOperationStartedAt: 0,
       sendingTest: false,
+      visualRenderSeq: 0,
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -1201,11 +1202,11 @@ li {
       return /<table\b|{%\s*(?:for|if|elif|else|endif|endfor)\b/i.test(String(html || ""));
     }
 
-    function htmlDocument(html, css) {
+    function htmlDocument(html, css, options = {}) {
       const bodyHtml = extractBodyHtml(html || "");
-      const editable = hasComplexTemplateSource(bodyHtml) ? "false" : "true";
-      const warning = editable === "false"
-        ? '<div style="padding:8px 10px;margin-bottom:10px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font:12px Arial,sans-serif;">Complex Jinja/table template: edit in Source or Design Blocks to preserve preview rendering.</div>'
+      const editable = options.editable === false ? "false" : "true";
+      const warning = options.warning
+        ? '<div style="padding:8px 10px;margin-bottom:10px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font:12px Arial,sans-serif;">' + options.warning + '</div>'
         : "";
       return `<!doctype html><html><head><style>
         body { padding: 14px; min-height: 320px; outline: none; }
@@ -1219,9 +1220,43 @@ li {
       return match ? match[1] : html;
     }
 
-    function loadVisualFromSource() {
+    async function loadVisualFromSource() {
       const frame = document.getElementById("visualEditor");
-      frame.srcdoc = htmlDocument(value("htmlBody"), value("cssBody"));
+      const html = value("htmlBody");
+      const css = value("cssBody");
+      if (!hasComplexTemplateSource(html)) {
+        frame.srcdoc = htmlDocument(html, css);
+        return;
+      }
+      const seq = ++state.visualRenderSeq;
+      frame.srcdoc = htmlDocument(
+        html,
+        css,
+        {
+          editable: false,
+          warning: "Rendering complex Jinja/table template with sample variables. Edit in Source or Design Blocks.",
+        },
+      );
+      try {
+        const data = await request("/api/v1/templates/preview", {
+          method: "POST",
+          body: JSON.stringify({ ...payload(), variables: await renderVariablesContext(true) }),
+        });
+        if (seq !== state.visualRenderSeq) return;
+        frame.srcdoc = data.ok
+          ? htmlDocument(
+              data.html_body,
+              "",
+              {
+                editable: false,
+                warning: "Rendered preview with sample variables. Edit complex source in Source or Design Blocks.",
+              },
+            )
+          : htmlDocument(html, css, { editable: false, warning: "Preview render failed. Edit in Source." });
+      } catch (error) {
+        if (seq !== state.visualRenderSeq) return;
+        frame.srcdoc = htmlDocument(html, css, { editable: false, warning: `Preview render failed: ${error.message}` });
+      }
     }
 
     function syncSourceFromVisual() {

@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from email_platform.api.compat import _template_create_payload
+from email_platform.api.operation_feedback import with_operation_feedback
 from email_platform.main import app
 from email_platform.services.documents import document_to_html
 
@@ -249,7 +250,7 @@ def test_template_editor_page() -> None:
     assert 'Detected Variables' in response.text
     assert 'Use Sample JSON' in response.text
     assert 'Modify Current' in response.text
-    assert 'Complex Jinja/table template' in response.text
+    assert 'Rendering complex Jinja/table template with sample variables' in response.text
     assert '.template-item.selected' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
@@ -458,6 +459,21 @@ def test_v1_template_preview_handles_table_loop_sample_variables() -> None:
     assert data['ok'] is True
     assert 'Starter plan' in data['html_body']
     assert '$49.00' in data['html_body']
+
+
+def test_operation_feedback_injects_at_final_body_close() -> None:
+    html = (
+        '<html><body><script>'
+        'function htmlDocument(){ return `<!doctype html><body>${content}</body></html>`; }'
+        '</script><main>admin</main></body></html>'
+    )
+
+    rendered = with_operation_feedback(html)
+
+    assert rendered.index('function htmlDocument') < rendered.index('<main>admin</main>')
+    assert rendered.index('<main>admin</main>') < rendered.index('ee-operation-feedback')
+    assert rendered.count('ee-operation-feedback') >= 1
+    assert 'return `<!doctype html><body>${content}</body></html>`;' in rendered
 
 
 def test_document_renderer_supports_sentientmail_logo_block() -> None:
