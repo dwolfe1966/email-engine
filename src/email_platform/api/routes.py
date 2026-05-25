@@ -331,6 +331,50 @@ def _template_edit_payload(payload: AITemplateEditRequest, settings: Settings) -
     return _deterministic_template_edit(payload)
 
 
+def _template_recommendation_payload(
+    payload: AITemplateRecommendRequest,
+    validation: TemplateValidationRead,
+    variables: TemplateVariablesRead,
+    settings: Settings,
+) -> tuple[list[AITemplateRecommendationRead], list[str], str, str]:
+    provider = _ai_template_provider(settings)
+    if provider == 'openai':
+        if not settings.openai_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail='OPENAI_API_KEY is required when AI_TEMPLATE_PROVIDER=openai',
+            )
+        try:
+            recommendations, summary = _openai_template_recommendations(
+                payload,
+                validation,
+                variables,
+                settings,
+            )
+            return recommendations, summary, 'openai', settings.openai_model
+        except HTTPException:
+            raise
+        except Exception as exc:
+            if settings.ai_template_provider.strip().lower() == 'auto':
+                recommendations = _template_recommendations(payload, validation, variables)
+                summary = _template_recommendation_summary(recommendations, validation)
+                summary.append(f'OpenAI recommendations failed; used deterministic fallback: {exc}')
+                return recommendations, summary, 'email-engine', 'deterministic-template-recommend-v1'
+            raise HTTPException(
+                status_code=502,
+                detail=f'OpenAI template recommendations failed: {exc}',
+            ) from exc
+    if provider != 'deterministic':
+        raise HTTPException(status_code=400, detail=f'Unsupported AI template provider: {provider}')
+    recommendations = _template_recommendations(payload, validation, variables)
+    return (
+        recommendations,
+        _template_recommendation_summary(recommendations, validation),
+        'email-engine',
+        'deterministic-template-recommend-v1',
+    )
+
+
 def _openai_template_draft(
     payload: AITemplateDraftRequest,
     settings: Settings,
@@ -497,6 +541,124 @@ def _openai_template_edit(
         'provider': 'openai',
         'model': settings.openai_model,
     }
+
+
+def _openai_template_recommendations(
+    payload: AITemplateRecommendRequest,
+    validation: TemplateValidationRead,
+    variables: TemplateVariablesRead,
+    settings: Settings,
+) -> tuple[list[AITemplateRecommendationRead], list[str]]:
+    schema = {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'recommendations': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'code': {'type': 'string'},
+                        'category': {'type': 'string'},
+                        'priority': {'type': 'string', 'enum': ['high', 'medium', 'low']},
+                        'title': {'type': 'string'},
+                        'detail': {'type': 'string'},
+                        'suggested_instruction': {'type': 'string'},
+                        'confidence': {'type': 'number', 'minimum': 0, 'maximum': 1},
+                    },
+                    'required': [
+                        'code',
+                        'category',
+                        'priority',
+                        'title',
+                        'detail',
+                        'suggested_instruction',
+                        'confidence',
+                    ],
+                },
+            },
+            'summary': {'type': 'array', 'items': {'type': 'string'}},
+        },
+        'required': ['recommendations', 'summary'],
+    }
+    prompt = {
+        'current_template': {
+            'subject': payload.current_subject,
+            'html_body': payload.current_html,
+            'css_body': payload.current_css or '',
+            'text_body': payload.current_text or '',
+        },
+        'sample_variables': payload.sample_variables,
+        'goals': payload.goals,
+        'audience_summary': payload.audience_summary,
+        'validation': validation.model_dump(mode='json'),
+        'template_variables': variables.model_dump(mode='json'),
+        'requirements': [
+            'Return JSON only.',
+            'Recommend targeted improvements for a lifecycle email template editor.',
+            'Prefer concrete recommendations the user can apply with an AI edit instruction.',
+            'Prioritize validation blockers, compliance, tracking, dynamic personalization, and email-client-safe design.',
+            'Do not recommend removing existing Jinja variables, loops, conditionals, tracking placeholders, or unsubscribe links.',
+            'Use stable snake_case codes.',
+            'Return at most 8 recommendations sorted by priority and usefulness.',
+        ],
+    }
+    with httpx.Client(timeout=45) as client:
+        response = client.post(
+            'https://api.openai.com/v1/responses',
+            headers={
+                'Authorization': f'Bearer {settings.openai_api_key}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': settings.openai_model,
+                'input': [
+                    {
+                        'role': 'system',
+                        'content': (
+                            'You are an expert lifecycle email strategist and template QA reviewer. '
+                            'Produce concise, safe, actionable template recommendations.'
+                        ),
+                    },
+                    {'role': 'user', 'content': json.dumps(prompt)},
+                ],
+                'text': {
+                    'format': {
+                        'type': 'json_schema',
+                        'name': 'email_template_recommendations',
+                        'strict': True,
+                        'schema': schema,
+                    }
+                },
+            },
+        )
+    if response.status_code >= 400:
+        raise RuntimeError(f'{response.status_code} {response.text[:500]}')
+    raw = response.json()
+    text = raw.get('output_text') or _responses_output_text(raw)
+    if not text:
+        raise RuntimeError('OpenAI response did not include output_text')
+    result = json.loads(text)
+    items = result.get('recommendations') if isinstance(result, Mapping) else []
+    summary_items = result.get('summary') if isinstance(result, Mapping) else []
+    recommendations = [
+        AITemplateRecommendationRead(
+            code=str(item.get('code') or 'template_improvement'),
+            category=str(item.get('category') or 'quality'),
+            priority=str(item.get('priority') or 'medium'),
+            title=str(item.get('title') or 'Improve template'),
+            detail=str(item.get('detail') or ''),
+            suggested_instruction=str(item.get('suggested_instruction') or item.get('detail') or ''),
+            confidence=float(item.get('confidence') or 0.7),
+        )
+        for item in items
+        if isinstance(item, Mapping)
+    ][:8]
+    summary = [str(item) for item in summary_items if str(item).strip()]
+    if not summary:
+        summary = _template_recommendation_summary(recommendations, validation)
+    return recommendations, summary
 
 
 def _responses_output_text(response: Mapping[str, object]) -> str | None:
@@ -731,6 +893,23 @@ def _template_recommendations(
     )[:8]
 
 
+def _template_recommendation_summary(
+    recommendations: list[AITemplateRecommendationRead],
+    validation: TemplateValidationRead,
+) -> list[str]:
+    high_count = sum(1 for item in recommendations if item.priority == 'high')
+    medium_count = sum(1 for item in recommendations if item.priority == 'medium')
+    summary = [
+        f'{len(recommendations)} recommendation(s) generated.',
+        f'{high_count} high priority, {medium_count} medium priority.',
+    ]
+    if validation.ok:
+        summary.append('Template validation currently passes with merged sample variables.')
+    else:
+        summary.append('Template validation needs attention before launch.')
+    return summary
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -817,6 +996,7 @@ def edit_template_with_ai(
 def recommend_template_improvements(
     payload: AITemplateRecommendRequest,
     db: DbSession,
+    settings: SettingsDep,
 ) -> AITemplateRecommendationsRead:
     template_request = TemplateValidationRequest(
         subject=payload.current_subject,
@@ -837,25 +1017,20 @@ def recommend_template_improvements(
             variables=render_variables,
         )
     )
-    recommendations = _template_recommendations(payload, validation, variables)
-    high_count = sum(1 for item in recommendations if item.priority == 'high')
-    medium_count = sum(1 for item in recommendations if item.priority == 'medium')
-    summary = [
-        f'{len(recommendations)} recommendation(s) generated.',
-        f'{high_count} high priority, {medium_count} medium priority.',
-    ]
-    if validation.ok:
-        summary.append('Template validation currently passes with merged sample variables.')
-    else:
-        summary.append('Template validation needs attention before launch.')
+    recommendations, summary, provider, model = _template_recommendation_payload(
+        payload,
+        validation,
+        variables,
+        settings,
+    )
     return AITemplateRecommendationsRead(
         recommendations=recommendations,
         summary=summary,
         sample_variables=render_variables,
         validation=validation,
         template_variables=variables,
-        provider='email-engine',
-        model='deterministic-template-recommend-v1',
+        provider=provider,
+        model=model,
     )
 
 
