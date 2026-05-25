@@ -20,6 +20,69 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-05-25 (later 2) — Auth router mounted under BOTH `/api/v1/auth/*` and `/api/auth/*`
+
+**Pushed by:** Chris's Claude
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- `src/email_platform/api/auth.py` — `APIRouter` declaration no
+  longer carries `prefix='/api/v1/auth'`. The handlers still
+  declare paths as `/login`, `/logout`, `/me` relative to whatever
+  prefix the mount supplies.
+- `src/email_platform/main.py` — `include_router(auth_router)`
+  now happens twice:
+
+  ```python
+  app.include_router(auth_router, prefix='/api/v1/auth')
+  app.include_router(auth_router, prefix='/api/auth')
+  ```
+
+  Both prefixes share one set of handlers, one schema, one DB read.
+
+### Why
+
+The shared SentientMail React UI in `daxym76/SentientMail/ui/`
+hardcodes `/api/auth/login` (no `/v1`). David's Vercel
+deployment of that UI talks to email-engine, which used to mount
+auth only at `/api/v1/auth/login`. Result: every login attempt
+on `ui-eight-rho.vercel.app` returned 404 → UI fell back to
+the generic "Invalid email or password" message → looked like a
+credentials problem when it was actually a routing problem.
+
+This is the "Option A" of the two paths called out in the prior
+COLLAB_LOG entry (the other being a UI-side `VITE_AUTH_BASE`
+env). Option A wins on:
+- Cheaper to ship (no UI rebuild, no Vercel env coordination).
+- Lower-blast-radius (additive — David's existing `/v1` clients
+  untouched).
+- Future-proof if the API path conventions ever diverge —
+  the shared UI keeps one path; backend-specific clients keep
+  their `/v1` namespace.
+
+### What the SentientMail side needs to do
+
+Nothing. The shared UI was already calling `/api/auth/...`; this
+makes that call succeed on David's deployment too.
+
+### Compatibility notes
+
+- **Backward-compatible.** Anyone hitting `/api/v1/auth/login` on
+  email-engine still hits the same handler, same response.
+- **Routing-only change.** No handler logic touched, no schema
+  changed, no DB migration. `pytest` clean (19 passing).
+- **Cookie scope unchanged.** Same `esp_session` name, same
+  HttpOnly/Secure/SameSite=Lax shape, same Max-Age.
+- **No effect on email-engine's other routers** (admin_console,
+  template_editor, etc.) — auth is still the only router with
+  this dual-mount.
+- **Future cleanup:** if email-engine ever decides to retire the
+  `/v1` prefix on auth (or move it to `/v2`), the dual-mount
+  makes that a one-line change.
+
+---
+
 ## 2026-05-25 (later) — Spokeo side: nginx basic-auth dropped + `require_user` enforced on all non-auth/non-health routes
 
 **Pushed by:** Chris's Claude
