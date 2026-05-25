@@ -149,6 +149,7 @@ router = APIRouter(prefix='/api/v1')
 DbSession = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 Limit = Annotated[int, Query(ge=1, le=500)]
+RecentEventLimit = Annotated[int, Query(ge=0, le=500)]
 Offset = Annotated[int, Query(ge=0)]
 TRANSPARENT_GIF = (
     b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!'
@@ -1446,7 +1447,9 @@ def get_campaign_analytics_timeline(
 
 
 @router.get('/analytics/overview', response_model=AnalyticsOverviewRead)
-def get_analytics_overview(db: DbSession, recent_event_limit: Limit = 25) -> AnalyticsOverviewRead:
+def get_analytics_overview(
+    db: DbSession, recent_event_limit: RecentEventLimit = 25
+) -> AnalyticsOverviewRead:
     return AnalyticsService(db).overview(recent_event_limit=recent_event_limit)
 
 

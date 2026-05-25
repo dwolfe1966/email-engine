@@ -485,6 +485,20 @@ def test_operation_feedback_injects_at_final_body_close() -> None:
     assert 'return `<!doctype html><body>${content}</body></html>`;' in rendered
 
 
+def test_analytics_overview_schema_allows_zero_recent_events() -> None:
+    client = TestClient(app)
+
+    response = client.get('/openapi.json')
+
+    assert response.status_code == 200
+    data = response.json()
+    params = data['paths']['/api/v1/analytics/overview']['get']['parameters']
+    recent_event_limit = next(
+        item for item in params if item['name'] == 'recent_event_limit'
+    )
+    assert recent_event_limit['schema']['minimum'] == 0
+
+
 def test_document_renderer_supports_sentientmail_logo_block() -> None:
     html = document_to_html(
         {
