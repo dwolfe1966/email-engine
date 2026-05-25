@@ -106,6 +106,22 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       padding: 14px;
       max-width: 1120px;
     }
+    .system-status {
+      grid-column: 1 / -1;
+      min-height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 12px 14px;
+    }
+    .system-status.ok { border-color: #067647; }
+    .system-status.warn { border-color: #b54708; background: #fffbeb; }
+    .system-status.error { border-color: #b42318; background: #fef3f2; }
+    .system-status strong { display: block; margin-bottom: 4px; }
+    .system-status code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+    }
     a {
       display: grid;
       gap: 8px;
@@ -142,6 +158,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     </nav>
   </header>
   <main>
+    <section class="system-status" id="schemaStatus">
+      <strong>Schema status</strong>
+      <span>Checking database migration status...</span>
+    </section>
     <a href="/admin/entities">
       <strong>Entity Workbench</strong>
       <span>List, create, update, and delete core API entities from one page.</span>
@@ -191,6 +211,24 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <span>Inspect the generated OpenAPI schema and execute raw endpoints.</span>
     </a>
   </main>
+  <script>
+    async function loadSchemaStatus() {
+      const el = document.getElementById("schemaStatus");
+      try {
+        const response = await fetch("/api/v1/system/schema-status");
+        const data = await response.json();
+        el.classList.toggle("ok", Boolean(data.ok));
+        el.classList.toggle("warn", !data.ok);
+        el.innerHTML = data.ok
+          ? `<strong>Schema status</strong><span>Database schema is current at revision <code>${data.current_revision || "none"}</code>.</span>`
+          : `<strong>Schema migration needed</strong><span>Current revision <code>${data.current_revision || "none"}</code>, expected <code>${data.expected_revision || "unknown"}</code>. Run <code>${data.migration_command}</code>.</span>`;
+      } catch (error) {
+        el.classList.add("error");
+        el.innerHTML = `<strong>Schema status unavailable</strong><span>${error.message}</span>`;
+      }
+    }
+    loadSchemaStatus();
+  </script>
 </body>
 </html>"""
 
