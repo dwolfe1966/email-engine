@@ -40,7 +40,12 @@ def ready() -> dict[str, str]:
     return {'status': 'ready'}
 
 
-app.include_router(auth_router)
+# Auth router mounted under two prefixes. /api/v1/auth/... is the
+# native email-engine path; /api/auth/... is the alias the shared
+# SentientMail UI calls. Both share one handler — the duplicate mount
+# is a routing affordance only, not a duplicated implementation.
+app.include_router(auth_router, prefix='/api/v1/auth')
+app.include_router(auth_router, prefix='/api/auth')
 app.include_router(router)
 app.include_router(compat_router)
 app.include_router(admin_console_router)

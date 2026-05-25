@@ -37,7 +37,12 @@ from email_platform.services.auth import (
     revoke_session,
 )
 
-router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
+# Router declared without a prefix so main.py can mount it under two
+# paths. The shared SentientMail UI hits `/api/auth/login`, while
+# native email-engine clients use `/api/v1/auth/login`. Both surfaces
+# share one handler, one schema, one DB read — the prefix is purely a
+# routing decision.
+router = APIRouter(tags=['auth'])
 
 DbSession = Annotated[Session, Depends(get_db)]
 CookieToken = Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)]
