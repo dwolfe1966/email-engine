@@ -155,6 +155,12 @@ OPERATION_FEEDBACK_SNIPPET = r"""
 
 
 def with_operation_feedback(html: str) -> str:
-    if '</body>' not in html:
+    close_body_index = html.lower().rfind('</body>')
+    if close_body_index == -1:
         return html + OPERATION_FEEDBACK_SNIPPET
-    return html.replace('</body>', f'{OPERATION_FEEDBACK_SNIPPET}\n</body>', 1)
+    return (
+        html[:close_body_index]
+        + OPERATION_FEEDBACK_SNIPPET
+        + '\n'
+        + html[close_body_index:]
+    )
