@@ -252,6 +252,8 @@ def test_template_editor_page() -> None:
     assert 'Modify Current' in response.text
     assert 'Rendering complex Jinja/table template with sample variables' in response.text
     assert '.template-item.selected' in response.text
+    assert 'applyInitialQuery' in response.text
+    assert 'ai_prompt_loaded' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
     assert 'Format Source' in response.text
@@ -620,6 +622,8 @@ def test_admin_pages() -> None:
     assert 'Approve' in campaigns.text
     assert 'AI Campaign Review' in campaigns.text
     assert 'AI Review' in campaigns.text
+    assert 'Use in Template Editor' in campaigns.text
+    assert 'templateEditorAiUrl' in campaigns.text
     assert 'Process Due' in campaigns.text
     assert 'Email Engine Journey Manager' in journeys.text
     assert 'Save Journey' in journeys.text

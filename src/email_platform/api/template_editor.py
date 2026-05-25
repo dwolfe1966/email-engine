@@ -806,6 +806,7 @@ li {
       aiOperationStartedAt: 0,
       sendingTest: false,
       visualRenderSeq: 0,
+      initialQueryApplied: false,
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -1283,6 +1284,14 @@ li {
       if (tab === "blocks" && state.designDoc.blocks.length === 0) {
         sourceToDesignBlocks();
       }
+    }
+
+    function applyInitialAiPrompt(prompt) {
+      const brief = document.getElementById("aiBrief");
+      brief.value = prompt;
+      document.querySelector(".ai-builder")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      brief.focus();
+      log({ ai_prompt_loaded: true, next: "Click Modify Current to apply it or Suggest Improvements for context." });
     }
 
     function runCommand(command, value = null) {
@@ -1966,6 +1975,22 @@ ${presetRules[preset] || ""}`;
         });
         list.appendChild(item);
       });
+      await applyInitialQuery(templates);
+    }
+
+    async function applyInitialQuery(templates) {
+      if (state.initialQueryApplied) return;
+      const params = new URLSearchParams(location.search);
+      const templateId = params.get("template_id");
+      const aiPrompt = params.get("ai_prompt");
+      if (!templateId && !aiPrompt) return;
+      state.initialQueryApplied = true;
+      if (templateId) {
+        const template = templates.find((item) => item.id === templateId) || { id: templateId };
+        await selectTemplate(template);
+      }
+      if (aiPrompt) applyInitialAiPrompt(aiPrompt);
+      history.replaceState(null, "", location.pathname);
     }
 
     function markSelectedTemplate(id) {

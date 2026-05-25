@@ -1410,6 +1410,11 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     .ai-priority-low { border-color: #16a34a; color: #166534; }
     .ai-review-card p { margin: 0; color: var(--text); font-size: 12px; line-height: 1.35; }
     .ai-review-card small { color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .ai-review-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
     .workflow-steps {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1670,6 +1675,14 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       return templateItems.find((item) => item.id === templateId) || null;
     }
 
+    function templateEditorAiUrl(instruction) {
+      const params = new URLSearchParams();
+      const templateId = selectedTemplateId();
+      if (templateId) params.set("template_id", templateId);
+      if (instruction) params.set("ai_prompt", instruction);
+      return `/template-editor?${params.toString()}`;
+    }
+
     async function sampleVariablesForTemplate(templateId) {
       const data = await request(`/api/v1/templates/${templateId}/variables`);
       return data.sample_variables || {};
@@ -1888,8 +1901,22 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           </div>
           <p>${escapeHtml(item.detail)}</p>
           <small>${escapeHtml(item.suggested_instruction)}</small>
+          <div class="ai-review-card-actions">
+            <button
+              type="button"
+              class="secondary"
+              data-ai-instruction="${escapeHtml(item.suggested_instruction || item.detail || "")}"
+            >
+              Use in Template Editor
+            </button>
+          </div>
         </div>
       `).join("") || `<div class="empty-state">No recommendations returned.</div>`;
+      list.querySelectorAll("[data-ai-instruction]").forEach((button) => {
+        button.addEventListener("click", () => {
+          location.href = templateEditorAiUrl(button.dataset.aiInstruction || "");
+        });
+      });
     }
 
     function renderWorkflowSteps(data = null) {
