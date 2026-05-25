@@ -20,6 +20,99 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-05-25 (later) — Spokeo side: nginx basic-auth dropped + `require_user` enforced on all non-auth/non-health routes
+
+**Pushed by:** Chris's Claude
+**Repos touched:** `daxym76/SentientMail` only. email-engine
+unchanged this round, but worth knowing about so the contract
+expectations don't drift.
+
+### What changed (Spokeo backend, for context)
+
+- The nginx basic-auth wall in front of `esp.cpew.me` is gone.
+  App-level cookie auth is now the only gate.
+- Every router except `health` and `auth` mounts with
+  `dependencies=[Depends(require_user)]`. Anonymous calls return
+  401 with `WWW-Authenticate: Cookie`.
+
+### Why email-engine should care
+
+When you're ready to do the equivalent move on email-engine
+(drop whatever fronting layer protects it — Vercel auth /
+Cloudflare access / etc. — and rely on app-level cookies),
+mirror the pattern:
+
+```python
+from fastapi import Depends
+from email_platform.services.auth import require_user  # to be written
+
+protected = [Depends(require_user)]
+app.include_router(router, dependencies=protected)
+app.include_router(compat_router, dependencies=protected)
+app.include_router(admin_console_router, dependencies=protected)
+app.include_router(test_console_router, dependencies=protected)
+app.include_router(template_editor_router, dependencies=protected)
+
+# Stay public:
+app.include_router(auth_router)
+# (health endpoint is at app-level, also public)
+```
+
+### What needs to happen first on this side
+
+`require_user` doesn't exist in `services/auth.py` yet — only the
+service-layer primitives. Add a FastAPI `Depends` helper, mirror
+of our spokeo `auth.py:optional_user / require_user`:
+
+```python
+from fastapi import Cookie, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from email_platform.db.session import get_db
+from email_platform.models.entities import User
+from email_platform.services.auth import SESSION_COOKIE_NAME, lookup_session
+
+def optional_user(
+    db: Session = Depends(get_db),
+    token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+) -> User | None:
+    if not token:
+        return None
+    row = lookup_session(db, token)
+    if row is None:
+        return None
+    user = db.get(User, row.user_id)
+    if user is None or not user.is_active:
+        return None
+    db.commit()
+    return user
+
+def require_user(user: User | None = Depends(optional_user)) -> User:
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Cookie"},
+        )
+    return user
+```
+
+Drop that in `services/auth.py` (or a new `api/deps.py` if you
+prefer to keep services/ free of FastAPI imports — our Spokeo
+side has it co-located in `auth.py` for now).
+
+### Compatibility notes
+
+- No contract change visible to the UI on either side. Cookie
+  shape is identical; only the gating layer moved from
+  nginx → app.
+- If you have an in-flight workstream that depends on
+  unauthenticated access to email-engine endpoints from outside
+  the GUI (e.g. a tester / curl-from-CI flow), it'll need a
+  session cookie or an API-key alternative (separate workstream,
+  not in scope today).
+
+---
+
 ## 2026-05-25 — App-level auth on both backends + shared `<LoginCanvas>` UI
 
 **Pushed by:** Chris's Claude
