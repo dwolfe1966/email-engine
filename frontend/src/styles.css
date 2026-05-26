@@ -635,6 +635,15 @@ th {
   align-content: start;
 }
 
+.selectable-card {
+  cursor: pointer;
+}
+
+.selected-card {
+  border-color: #b8ccff;
+  background: #eef5ff;
+}
+
 .entity-card span,
 .muted {
   color: var(--muted);

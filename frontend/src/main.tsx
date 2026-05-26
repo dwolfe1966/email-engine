@@ -723,8 +723,8 @@ function headerAction(page: PageKey) {
     compliance: { label: 'Add Suppression', href: '#compliance' },
     data: { label: 'Add Data Source', href: '#data' },
     contacts: { label: 'Import Contacts', href: '#data' },
-    audience: { label: 'Create Audience', href: '#audience' },
-    templates: { label: 'Create Template', href: '#templates' },
+    audience: { label: 'Create Audience', href: '#audience/new' },
+    templates: { label: 'Create Template', href: '#templates/new' },
     'ai-studio': { label: 'Run AI Review', href: '#ai-studio' },
   };
   return actions[page] || null;
@@ -1737,12 +1737,15 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   );
 }
 
-function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
+function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation }: {
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
+  route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
+  const routeParts = route.split('/');
+  const isNewAudience = routeParts[0] === 'audience' && routeParts[1] === 'new';
   const [selectedAudienceId, setSelectedAudienceId] = useState('');
   const [name, setName] = useState('ESP Audience Draft');
   const [description, setDescription] = useState('Created from the ESP audience workflow.');
@@ -1753,15 +1756,22 @@ function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
   const [sampleContacts, setSampleContacts] = useState<ContactRead[]>([]);
 
   useEffect(() => {
-    if (!selectedAudienceId && audienceItems.length) {
+    if (isNewAudience && selectedAudienceId) {
+      resetAudienceEditor();
+      return;
+    }
+    if (!isNewAudience && !selectedAudienceId && audienceItems.length) {
       loadAudienceIntoEditor(audienceItems[0]);
     }
-  }, [audienceItems, selectedAudienceId]);
+  }, [audienceItems, isNewAudience, selectedAudienceId]);
 
   const estimated = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
   const sent = audiences.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
   const bestAudience = audiences.reduce<AudiencePerformance | null>((best, item) =>
     !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
+  const audiencePerformanceById = new Map(audiences.map((audience) => [audience.audience_id, audience]));
+  const selectedAudience = audienceItems.find((item) => item.id === selectedAudienceId);
+  const selectedAudiencePerformance = selectedAudienceId ? audiencePerformanceById.get(selectedAudienceId) : null;
 
   function loadAudienceIntoEditor(audience: AudienceRead) {
     setSelectedAudienceId(audience.id);
@@ -1771,6 +1781,16 @@ function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
     setMatchedCount(audience.estimated_count);
     setSampleContacts([]);
     setStatus(`Loaded audience: ${audience.name}`);
+  }
+
+  function resetAudienceEditor() {
+    setSelectedAudienceId('');
+    setName('ESP Audience Draft');
+    setDescription('Created from the ESP audience workflow.');
+    setRuleJson('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
+    setMatchedCount(null);
+    setSampleContacts([]);
+    setStatus('Ready to create or preview a new audience.');
   }
 
   function parsedRuleTree() {
@@ -1819,6 +1839,7 @@ function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
           body: JSON.stringify(payload),
         });
       setSelectedAudienceId(saved.id);
+      window.location.hash = '#audience';
       setMatchedCount(saved.estimated_count);
       await onRefresh();
       return `Saved audience: ${saved.name} (${formatInt(saved.estimated_count)} matched).`;
@@ -1851,41 +1872,78 @@ function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Audiences', value: formatInt(audiences.length), change: 'saved segments' }} />
+        <MetricCard metric={{ label: 'Audiences', value: formatInt(audienceItems.length), change: 'saved segments' }} />
         <MetricCard metric={{ label: 'Estimated reach', value: formatInt(estimated), change: 'matched contacts' }} />
         <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
         <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Import</span>
-          <strong>Audience import</strong>
-          <p>Upload CSV contacts, preview mappings, and create contacts for segmentation.</p>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Audiences</h2>
+            <span className="muted">Select an audience to inspect reach, performance, and builder details.</span>
+          </div>
           <a href="#data">Import contacts</a>
-        </article>
-        <article className="workflow-card">
-          <span>Segment</span>
-          <strong>Audience builder</strong>
-          <p>Preview matching contacts and tune field constraints before campaign launch.</p>
-          <a href="#audience">Open builder</a>
-        </article>
-        <article className="workflow-card">
-          <span>AI</span>
-          <strong>Audience review</strong>
-          <p>Use AI recommendations to find unknown fields, zero-match rules, and targeting risks.</p>
-          <a href="#audience">Review audience</a>
-        </article>
-        <article className="workflow-card">
-          <span>Snapshots</span>
-          <strong>Save launch state</strong>
-          <p>Create audience snapshots before larger sends so launch targeting is auditable.</p>
-          <a href="#audience">Create snapshot</a>
-        </article>
+        </div>
+        {audienceItems.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Audience</th>
+                <th>Status</th>
+                <th>Estimated</th>
+                <th>Sent</th>
+                <th>Open rate</th>
+                <th>Click rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audienceItems.map((audience) => {
+                const performance = audiencePerformanceById.get(audience.id);
+                return (
+                  <tr
+                    className={`selectable-row ${audience.id === selectedAudienceId ? 'selected-row' : ''}`}
+                    key={audience.id}
+                    onClick={() => loadAudienceIntoEditor(audience)}
+                  >
+                    <td>{audience.name}</td>
+                    <td><span className="pill">{audience.status}</span></td>
+                    <td>{formatInt(performance?.estimated_count ?? audience.estimated_count)}</td>
+                    <td>{formatInt(performance?.sent_count)}</td>
+                    <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
+                    <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No audiences yet" detail="Import contacts or create a dynamic audience rule set." actionHref="#data" actionLabel="Import contacts" />
+        )}
       </section>
+      {selectedAudience ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedAudience.name}</h2>
+              <span className="muted">Selected audience summary</span>
+            </div>
+            <button className="link-button" onClick={previewAudience} disabled={busy}>Preview contacts</button>
+          </div>
+          <div className="summary-grid">
+            <div><span>Status</span><strong>{selectedAudience.status}</strong></div>
+            <div><span>Estimated</span><strong>{formatInt(selectedAudiencePerformance?.estimated_count ?? selectedAudience.estimated_count)}</strong></div>
+            <div><span>Sent</span><strong>{formatInt(selectedAudiencePerformance?.sent_count)}</strong></div>
+            <div><span>Open rate</span><strong>{selectedAudiencePerformance ? formatPct(selectedAudiencePerformance.open_rate) : '-'}</strong></div>
+            <div><span>Click rate</span><strong>{selectedAudiencePerformance ? formatPct(selectedAudiencePerformance.click_rate) : '-'}</strong></div>
+            <div><span>Description</span><strong>{selectedAudience.description || '-'}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Audience Workflow</h2>
-          <a href="#audience">Open builder</a>
+          <h2>{selectedAudience ? 'Audience Builder' : 'Create Audience'}</h2>
+          <a href="#data">Import contacts</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1946,49 +2004,22 @@ function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
           </section>
         ) : null}
       </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <h2>Audiences</h2>
-          <a href="#audience">Open audience builder</a>
-        </div>
-        {audiences.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Audience</th>
-                <th>Status</th>
-                <th>Estimated</th>
-                <th>Sent</th>
-                <th>Open rate</th>
-                <th>Click rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {audiences.map((audience) => (
-                <tr key={audience.audience_id}>
-                  <td>{audience.name}</td>
-                  <td><span className="pill">{audience.status}</span></td>
-                  <td>{formatInt(audience.estimated_count)}</td>
-                  <td>{formatInt(audience.sent_count)}</td>
-                  <td>{formatPct(audience.open_rate)}</td>
-                  <td>{formatPct(audience.click_rate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No audiences yet" detail="Import contacts or create a dynamic audience rule set." actionHref="/admin/audience-import" actionLabel="Import audience" />
-        )}
-      </section>
     </section>
   );
 }
 
-function TemplatesPage({ templates, onRefresh, onOperation }: {
+function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   templates: TemplateRead[];
+  route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
+  const routeParts = route.split('/');
+  const routeTemplateId = routeParts[0] === 'templates' && routeParts[1] && routeParts[1] !== 'new'
+    ? routeParts[1]
+    : '';
+  const isDetailPage = routeParts[0] === 'templates' && Boolean(routeParts[1]);
+  const isNewTemplate = routeParts[0] === 'templates' && routeParts[1] === 'new';
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [name, setName] = useState('ESP Template Draft');
   const [subject, setSubject] = useState('Hello {{ first_name }}');
@@ -1999,12 +2030,37 @@ function TemplatesPage({ templates, onRefresh, onOperation }: {
   const [busy, setBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+  const templateCategories = new Set(templates.map((template) => template.category || 'template'));
+  const templateSteps = [
+    { label: 'Setup', detail: name.trim() || 'Name the template', ready: Boolean(name.trim()) },
+    { label: 'Subject', detail: subject.trim() || 'Add a subject line', ready: Boolean(subject.trim()) },
+    { label: 'Content', detail: htmlBody.trim() ? 'HTML/Jinja ready' : 'Add HTML/Jinja', ready: Boolean(htmlBody.trim()) },
+    { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Inspect variables', ready: Boolean(variables.length) },
+    { label: 'Preview', detail: previewHtml ? 'Preview rendered' : 'Render preview', ready: Boolean(previewHtml) },
+  ];
 
   useEffect(() => {
-    if (!selectedTemplateId && templates.length) {
-      loadTemplateIntoEditor(templates[0]);
+    if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
+      const template = templates.find((item) => item.id === routeTemplateId);
+      if (template) loadTemplateIntoEditor(template);
     }
-  }, [selectedTemplateId, templates]);
+    if (isNewTemplate && selectedTemplateId) {
+      resetTemplateEditor();
+    }
+  }, [isNewTemplate, routeTemplateId, selectedTemplateId, templates]);
+
+  function resetTemplateEditor() {
+    setSelectedTemplateId('');
+    setName('ESP Template Draft');
+    setSubject('Hello {{ first_name }}');
+    setHtmlBody('<p>Hello {{ first_name }},</p>\n<p>Welcome to Email Engine.</p>');
+    setCssBody('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
+    setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
+    setPreviewHtml('');
+    setVariables([]);
+    setStatus('Ready to create a new template.');
+  }
 
   function loadTemplateIntoEditor(template: TemplateRead) {
     setSelectedTemplateId(template.id);
@@ -2064,6 +2120,7 @@ function TemplatesPage({ templates, onRefresh, onOperation }: {
           body: JSON.stringify(payload),
         });
       setSelectedTemplateId(saved.id);
+      window.location.hash = `#templates/${saved.id}`;
       await onRefresh();
       return `Saved template: ${saved.name}`;
     });
@@ -2113,46 +2170,124 @@ function TemplatesPage({ templates, onRefresh, onOperation }: {
     });
   }
 
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid">
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Templates', value: formatInt(templates.length), change: 'saved templates' }} />
+          <MetricCard metric={{ label: 'Categories', value: formatInt(templateCategories.size), change: 'content groups' }} />
+          <MetricCard metric={{ label: 'Selected', value: selectedTemplate ? 'Loaded' : 'None', change: selectedTemplate?.name || 'select a template' }} />
+          <MetricCard metric={{ label: 'Variables', value: formatInt(variables.length), change: variables.length ? 'last inspected' : 'not inspected' }} />
+        </section>
+        <section className="cards-grid full-span">
+          {templates.length ? templates.map((template) => (
+            <article
+              className={`panel entity-card selectable-card ${template.id === selectedTemplateId ? 'selected-card' : ''}`}
+              key={template.id}
+              onClick={() => loadTemplateIntoEditor(template)}
+            >
+              <span>{template.category || 'template'}</span>
+              <strong>{template.name}</strong>
+              <p>{template.subject}</p>
+              <a className="link-button" href={`#templates/${template.id}`} onClick={(event) => event.stopPropagation()}>Open editor</a>
+            </article>
+          )) : (
+            <EmptyState title="No templates yet" detail="Seed sample templates or create one in the template wizard." actionHref="#templates/new" actionLabel="Create template" />
+          )}
+        </section>
+        {selectedTemplate ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedTemplate.name}</h2>
+                <span className="muted">Selected template summary</span>
+              </div>
+              <a href={`#templates/${selectedTemplate.id}`}>Open template wizard</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Category</span><strong>{selectedTemplate.category || 'template'}</strong></div>
+              <div><span>Subject</span><strong>{selectedTemplate.subject}</strong></div>
+              <div><span>CSS</span><strong>{selectedTemplate.css_body ? 'Configured' : 'None'}</strong></div>
+              <div><span>Text</span><strong>{selectedTemplate.text_body ? 'Configured' : 'None'}</strong></div>
+              <div><span>HTML size</span><strong>{formatInt((selectedTemplate.html_body || '').length)} chars</strong></div>
+              <div><span>Variables</span><strong>{variables.length ? variables.map((item) => item.name).join(', ') : 'Inspect in wizard'}</strong></div>
+            </div>
+          </section>
+        ) : null}
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>Template Actions</h2>
+              <span className="muted">Create from a blank wizard or load sample templates.</span>
+            </div>
+            <div className="button-row">
+              <a href="#templates/new">Create template</a>
+              <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
   return (
     <section className="page-grid">
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Create</span>
-          <strong>Template editor</strong>
-          <p>Edit Jinja/HTML, sample variables, preview rendering, and send test emails.</p>
-          <a href="#templates">Open editor</a>
-        </article>
-        <article className="workflow-card">
-          <span>AI</span>
-          <strong>Generate content</strong>
-          <p>Use AI to draft, modify, and improve templates while preserving dynamic variables.</p>
-          <a href="#templates">Open AI tools</a>
-        </article>
-        <article className="workflow-card">
-          <span>Design</span>
-          <strong>WYSIWYG blocks</strong>
-          <p>Use design blocks for headings, paragraphs, buttons, images, dividers, and raw HTML.</p>
-          <a href="#templates">Open design tab</a>
-        </article>
-        <article className="workflow-card">
-          <span>Samples</span>
-          <strong>Seed examples</strong>
-          <p>Load ecommerce, subscription, and social templates to validate dynamic language support.</p>
-          <a href="#templates">Seed samples</a>
-        </article>
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Templates', value: formatInt(templates.length), change: 'saved templates' }} />
+        <MetricCard metric={{ label: 'Categories', value: formatInt(templateCategories.size), change: 'content groups' }} />
+        <MetricCard metric={{ label: 'Selected', value: selectedTemplate ? 'Loaded' : 'None', change: selectedTemplate?.name || 'select a template' }} />
+        <MetricCard metric={{ label: 'Variables', value: formatInt(variables.length), change: variables.length ? 'last inspected' : 'not inspected' }} />
       </section>
+      <section className="campaign-flow full-span">
+        {templateSteps.map((step, index) => (
+          <article className={step.ready ? 'ready' : ''} key={step.label}>
+            <span>{index + 1}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <p>{step.detail}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+      {selectedTemplate ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedTemplate.name}</h2>
+              <span className="muted">Selected template summary</span>
+            </div>
+            <a href="#templates">Back to templates</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Category</span><strong>{selectedTemplate.category || 'template'}</strong></div>
+            <div><span>Subject</span><strong>{selectedTemplate.subject}</strong></div>
+            <div><span>CSS</span><strong>{selectedTemplate.css_body ? 'Configured' : 'None'}</strong></div>
+            <div><span>Text</span><strong>{selectedTemplate.text_body ? 'Configured' : 'None'}</strong></div>
+            <div><span>HTML size</span><strong>{formatInt((selectedTemplate.html_body || '').length)} chars</strong></div>
+            <div><span>Variables</span><strong>{variables.length ? variables.map((item) => item.name).join(', ') : 'Inspect to detect'}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Template Workflow</h2>
-          <a href="#templates">Open editor</a>
+          <h2>{selectedTemplate ? 'Template Wizard' : 'Create Template Wizard'}</h2>
+          <div className="button-row">
+            <a href="#templates">Back to templates</a>
+            <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
+          </div>
         </div>
         <div className="form-grid">
           <label>
             Existing template
             <select value={selectedTemplateId} onChange={(event) => {
               const template = templates.find((item) => item.id === event.target.value);
-              if (template) loadTemplateIntoEditor(template);
-              else setSelectedTemplateId('');
+              if (template) {
+                loadTemplateIntoEditor(template);
+                window.location.hash = `#templates/${template.id}`;
+              } else {
+                resetTemplateEditor();
+                window.location.hash = '#templates/new';
+              }
             }}>
               <option value="">Create new template</option>
               {templates.map((template) => (
@@ -2195,18 +2330,6 @@ function TemplatesPage({ templates, onRefresh, onOperation }: {
         {previewHtml ? (
           <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
         ) : null}
-      </section>
-      <section className="cards-grid full-span">
-        {templates.length ? templates.map((template) => (
-          <article className="panel entity-card" key={template.id}>
-            <span>{template.category || 'template'}</span>
-            <strong>{template.name}</strong>
-            <p>{template.subject}</p>
-            <button className="link-button" onClick={() => loadTemplateIntoEditor(template)}>Load in ESP editor</button>
-          </article>
-        )) : (
-          <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="#templates" actionLabel="Open Template Editor" />
-        )}
       </section>
     </section>
   );
@@ -4717,6 +4840,7 @@ function App() {
         <AudiencePage
           audiences={dashboard.audiences}
           audienceItems={dashboard.audienceItems}
+          route={route}
           onRefresh={async () => {
             const [audienceData, audienceItems] = await Promise.all([
               fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
@@ -4736,6 +4860,7 @@ function App() {
       return (
         <TemplatesPage
           templates={dashboard.templates}
+          route={route}
           onRefresh={async () => {
             const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
             setDashboard((current) => ({
