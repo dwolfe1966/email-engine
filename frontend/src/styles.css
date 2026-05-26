@@ -134,6 +134,17 @@ nav a.active {
   line-height: 1.45;
 }
 
+.topbar p::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: var(--green);
+  vertical-align: 1px;
+}
+
 .assistant-card button,
 .primary {
   border: 0;

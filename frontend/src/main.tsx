@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
@@ -22,7 +22,62 @@ type Campaign = {
   sent: string;
   openRate: string;
   clickRate: string;
-  revenue: string;
+  failures: string;
+};
+
+type CountRow = {
+  name: string;
+  count: number;
+};
+
+type AnalyticsOverview = {
+  campaign_count: number;
+  contact_count: number;
+  send_job_count: number;
+  send_record_count: number;
+  event_count: number;
+  status_counts: CountRow[];
+  event_counts: CountRow[];
+  recent_events: unknown[];
+};
+
+type CampaignPerformance = {
+  campaign_id: string;
+  name: string;
+  status: string;
+  requested_count: number;
+  sent_count: number;
+  failed_count: number;
+  opened_count: number;
+  clicked_count: number;
+  open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+};
+
+type ListResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+type AIAnalyticsAnalysis = {
+  recommendations: Array<{
+    code: string;
+    priority: string;
+    title: string;
+    detail: string;
+    suggested_action: string;
+  }>;
+};
+
+type DashboardState = {
+  overview: AnalyticsOverview | null;
+  campaigns: CampaignPerformance[];
+  aiInsights: Insight[];
+  loading: boolean;
+  error: string | null;
 };
 
 const navItems = [
@@ -37,15 +92,15 @@ const navItems = [
   'Settings',
 ];
 
-const metrics: Metric[] = [
+const fallbackMetrics: Metric[] = [
   { label: 'Total sends', value: '128,540', change: '+18.4%' },
   { label: 'Open rate', value: '42.6%', change: '+7.3%' },
   { label: 'Click rate', value: '8.7%', change: '+3.6%' },
-  { label: 'Revenue', value: '$24,780', change: '+21.6%' },
-  { label: 'New contacts', value: '3,256', change: '+12.5%' },
+  { label: 'Contacts', value: '3,256', change: '+12.5%' },
+  { label: 'Events', value: '24,780', change: '+21.6%' },
 ];
 
-const insights: Insight[] = [
+const fallbackInsights: Insight[] = [
   {
     title: 'Optimal send time',
     detail: 'Your audience is most active on Tuesdays at 2:00 PM.',
@@ -70,14 +125,14 @@ const insights: Insight[] = [
   },
 ];
 
-const campaigns: Campaign[] = [
+const fallbackCampaigns: Campaign[] = [
   {
     name: 'Spring Sale Announcement',
     status: 'Sent',
     sent: '32,450',
     openRate: '45.1%',
     clickRate: '9.1%',
-    revenue: '$8,743',
+    failures: '0',
   },
   {
     name: 'New Product Launch',
@@ -85,7 +140,7 @@ const campaigns: Campaign[] = [
     sent: '28,124',
     openRate: '41.3%',
     clickRate: '8.3%',
-    revenue: '$6,231',
+    failures: '0',
   },
   {
     name: 'Weekly Newsletter',
@@ -93,7 +148,7 @@ const campaigns: Campaign[] = [
     sent: '67,966',
     openRate: '42.0%',
     clickRate: '8.5%',
-    revenue: '$9,806',
+    failures: '0',
   },
 ];
 
@@ -103,6 +158,69 @@ const chartLines = [
   'M0,205 C52,184 78,198 112,176 C142,156 164,172 190,158 C228,134 252,150 282,136 C316,118 344,142 374,130 C414,112 448,122 520,98',
   'M0,235 C44,220 82,230 118,212 C156,194 182,206 214,192 C252,174 282,190 312,178 C348,160 388,176 424,158 C464,138 490,152 520,134',
 ];
+
+function formatInt(value: number | undefined) {
+  return Number(value || 0).toLocaleString();
+}
+
+function formatPct(value: number | undefined) {
+  return `${Math.round(Number(value || 0) * 1000) / 10}%`;
+}
+
+function countByName(rows: CountRow[] | undefined, name: string) {
+  return Number((rows || []).find((row) => row.name === name)?.count || 0);
+}
+
+async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+    ...options,
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(data?.detail || `${path} failed`);
+  }
+  return data as T;
+}
+
+function metricsFromOverview(overview: AnalyticsOverview | null): Metric[] {
+  if (!overview) return fallbackMetrics;
+  const sent = countByName(overview.status_counts, 'sent');
+  const delivered = countByName(overview.event_counts, 'delivered');
+  const opens = countByName(overview.event_counts, 'opened');
+  const clicks = countByName(overview.event_counts, 'clicked');
+  const rateBase = Math.max(sent, delivered, 1);
+  return [
+    { label: 'Total sends', value: formatInt(overview.send_record_count), change: `${formatInt(sent)} sent` },
+    { label: 'Open rate', value: formatPct(opens / rateBase), change: `${formatInt(opens)} opens` },
+    { label: 'Click rate', value: formatPct(clicks / rateBase), change: `${formatInt(clicks)} clicks` },
+    { label: 'Contacts', value: formatInt(overview.contact_count), change: `${formatInt(overview.campaign_count)} campaigns` },
+    { label: 'Events', value: formatInt(overview.event_count), change: `${formatInt(overview.recent_events.length)} recent` },
+  ];
+}
+
+function campaignsFromPerformance(rows: CampaignPerformance[]): Campaign[] {
+  if (!rows.length) return fallbackCampaigns;
+  return rows.slice(0, 5).map((row) => ({
+    name: row.name,
+    status: row.status,
+    sent: formatInt(row.sent_count),
+    openRate: formatPct(row.open_rate),
+    clickRate: formatPct(row.click_rate),
+    failures: formatInt(row.failed_count),
+  }));
+}
+
+function insightsFromAi(data: AIAnalyticsAnalysis | null): Insight[] {
+  if (!data?.recommendations?.length) return fallbackInsights;
+  return data.recommendations.slice(0, 4).map((item) => ({
+    title: item.title || item.code,
+    detail: item.detail,
+    action: item.suggested_action,
+    tone: item.priority === 'high' ? 'warn' : item.priority === 'low' ? 'good' : undefined,
+  }));
+}
 
 function Icon({ label }: { label: string }) {
   return <span className="icon" aria-hidden="true">{label.slice(0, 1)}</span>;
@@ -144,12 +262,12 @@ function Sidebar() {
   );
 }
 
-function Header() {
+function Header({ status }: { status: string }) {
   return (
     <header className="topbar">
       <div>
         <h1>Overview</h1>
-        <p>Welcome back. Here is what is happening across your ESP.</p>
+        <p>{status}</p>
       </div>
       <div className="topbar-actions">
         <label className="search">
@@ -200,7 +318,7 @@ function PerformanceChart() {
   );
 }
 
-function InsightsPanel() {
+function InsightsPanel({ insights }: { insights: Insight[] }) {
   return (
     <section className="panel">
       <div className="panel-head">
@@ -223,7 +341,7 @@ function InsightsPanel() {
   );
 }
 
-function CampaignTable() {
+function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
   return (
     <section className="panel table-panel">
       <div className="panel-head">
@@ -238,7 +356,7 @@ function CampaignTable() {
             <th>Sends</th>
             <th>Open rate</th>
             <th>Click rate</th>
-            <th>Revenue</th>
+            <th>Failures</th>
           </tr>
         </thead>
         <tbody>
@@ -249,7 +367,7 @@ function CampaignTable() {
               <td>{campaign.sent}</td>
               <td>{campaign.openRate}</td>
               <td>{campaign.clickRate}</td>
-              <td>{campaign.revenue}</td>
+              <td>{campaign.failures}</td>
             </tr>
           ))}
         </tbody>
@@ -271,20 +389,97 @@ function QuickCreate() {
 }
 
 function App() {
+  const [dashboard, setDashboard] = useState<DashboardState>({
+    overview: null,
+    campaigns: [],
+    aiInsights: fallbackInsights,
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadDashboard() {
+      try {
+        const [overview, campaignData] = await Promise.all([
+          fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
+          fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
+        ]);
+        let aiInsights = fallbackInsights;
+        try {
+          const ai = await fetchJson<AIAnalyticsAnalysis>('/api/v1/ai/analytics/analyze', {
+            method: 'POST',
+            body: JSON.stringify({
+              report_type: 'esp_overview',
+              report_context: {
+                overview,
+                campaigns: campaignData,
+              },
+              goals: [
+                'Identify performance risks',
+                'Recommend next action',
+                'Improve ESP operator workflow decisions',
+              ],
+            }),
+          });
+          aiInsights = insightsFromAi(ai);
+        } catch {
+          aiInsights = fallbackInsights;
+        }
+        if (active) {
+          setDashboard({
+            overview,
+            campaigns: campaignData.items || [],
+            aiInsights,
+            loading: false,
+            error: null,
+          });
+        }
+      } catch (error) {
+        if (active) {
+          setDashboard({
+            overview: null,
+            campaigns: [],
+            aiInsights: fallbackInsights,
+            loading: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    loadDashboard();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const liveMetrics = useMemo(() => metricsFromOverview(dashboard.overview), [dashboard.overview]);
+  const liveCampaigns = useMemo(
+    () => campaignsFromPerformance(dashboard.campaigns),
+    [dashboard.campaigns],
+  );
+  const status = dashboard.loading
+    ? 'Loading live metrics from Email Engine APIs...'
+    : dashboard.error
+      ? `Live API unavailable: ${dashboard.error}. Showing design fallback data.`
+      : 'Live overview powered by Email Engine analytics APIs.';
+
   return (
     <div className="app-shell">
       <Sidebar />
       <main className="workspace">
-        <Header />
+        <Header status={status} />
         <section className="metric-grid">
-          {metrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
+          {liveMetrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
         </section>
         <section className="dashboard-grid">
           <PerformanceChart />
-          <InsightsPanel />
+          <InsightsPanel insights={dashboard.aiInsights} />
         </section>
         <section className="lower-grid">
-          <CampaignTable />
+          <CampaignTable campaigns={liveCampaigns} />
           <QuickCreate />
         </section>
       </main>
