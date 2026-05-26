@@ -993,10 +993,16 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   const totalRequested = campaigns.reduce((sum, item) => sum + Number(item.requested_count || 0), 0);
   const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
   const totalFailures = campaigns.reduce((sum, item) => sum + Number(item.failed_count || 0), 0);
-  const bestOpen = campaigns.reduce<CampaignPerformance | null>((best, item) =>
-    !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
   const selectedAudience = audiences.find((item) => item.id === audienceId);
   const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
+  const selectedTemplate = templates.find((item) => item.id === templateId);
+  const workflowSteps = [
+    { label: 'Setup', detail: selectedCampaign ? selectedCampaign.name : 'Create or select a draft', ready: Boolean(selectedCampaignId) },
+    { label: 'Content', detail: selectedTemplate ? selectedTemplate.name : 'Choose a template', ready: Boolean(templateId) },
+    { label: 'Audience', detail: selectedAudience ? `${selectedAudience.name} (${formatInt(selectedAudience.estimated_count)})` : 'Choose an audience', ready: Boolean(audienceId) },
+    { label: 'Test', detail: testEmail.trim() ? testEmail.trim() : 'Enter a test recipient', ready: Boolean(testEmail.trim()) },
+    { label: 'Launch', detail: 'Dry-run before production send', ready: Boolean(selectedCampaignId && templateId && audienceId) },
+  ];
 
   function parsedVariables() {
     try {
@@ -1099,36 +1105,24 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
         <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
         <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Next action</span>
-          <strong>Create campaign</strong>
-          <p>Use the workbench to attach template, audience, test variables, and launch readiness checks.</p>
-          <a href="#campaigns">Open Campaign Manager</a>
-        </article>
-        <article className="workflow-card">
-          <span>Content</span>
-          <strong>Template builder</strong>
-          <p>Generate or edit dynamic Jinja templates before pairing them with campaign audiences.</p>
-          <a href="#templates">Open Template Editor</a>
-        </article>
-        <article className={`workflow-card ${totalFailures ? 'warn' : ''}`}>
-          <span>Health</span>
-          <strong>{totalFailures ? 'Delivery review needed' : 'No failures visible'}</strong>
-          <p>{totalFailures ? 'Review failed records before scaling sends.' : 'No campaign failures are visible in this page of results.'}</p>
-          <a href="#delivery">Open Delivery Manager</a>
-        </article>
-        <article className="workflow-card">
-          <span>Benchmark</span>
-          <strong>{bestOpen ? `${formatPct(bestOpen.open_rate)} open rate` : 'No benchmark yet'}</strong>
-          <p>{bestOpen ? `${bestOpen.name} is the current open-rate benchmark.` : 'Send a test campaign to establish a benchmark.'}</p>
-          <a href="#analytics">Open Analytics</a>
-        </article>
+      <section className="campaign-flow full-span">
+        {workflowSteps.map((step, index) => (
+          <article className={step.ready ? 'ready' : ''} key={step.label}>
+            <span>{index + 1}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <p>{step.detail}</p>
+            </div>
+          </article>
+        ))}
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Campaign Workflow</h2>
-          <a href="#campaigns">Open campaigns</a>
+          <div>
+            <h2>Create and Test Campaign</h2>
+            <span className="muted">Choose content, audience, and sample data before sending a test or dry-run launch.</span>
+          </div>
+          <a href="#templates">Edit templates</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1167,16 +1161,25 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
             <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="you@example.com" />
           </label>
           <label className="wide-field">
-            Test variables JSON
+            Personalization data
             <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={8} />
           </label>
         </div>
-        <div className="button-row">
-          <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>Create Draft</button>
-          <button className="ghost" onClick={validateCampaign} disabled={operationBusy || !selectedCampaignId}>Validate</button>
-          <button className="ghost" onClick={previewTestEmail} disabled={operationBusy || !selectedCampaignId}>Preview Test</button>
-          <button className="ghost" onClick={sendTestEmail} disabled={operationBusy || !selectedCampaignId}>Send Test Email</button>
-          <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy || !selectedCampaignId}>Dry-Run Launch</button>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Draft</strong>
+            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>Save Draft</button>
+          </div>
+          <div>
+            <strong>Review</strong>
+            <button className="ghost" onClick={validateCampaign} disabled={operationBusy || !selectedCampaignId}>Check Audience</button>
+            <button className="ghost" onClick={previewTestEmail} disabled={operationBusy || !selectedCampaignId}>Preview Email</button>
+          </div>
+          <div>
+            <strong>Send</strong>
+            <button className="ghost" onClick={sendTestEmail} disabled={operationBusy || !selectedCampaignId}>Send Test</button>
+            <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy || !selectedCampaignId}>Dry-Run Launch</button>
+          </div>
         </div>
         <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{operationBusy ? 'Working' : 'Status'}</strong>
@@ -1189,8 +1192,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
-          <h2>Campaign Manager</h2>
-          <a href="#campaigns">Open workbench</a>
+          <div>
+            <h2>Campaigns</h2>
+            <span className="muted">Recent campaign performance and delivery health.</span>
+          </div>
+          <a href="#analytics">View reports</a>
         </div>
         {campaigns.length ? (
           <table>
@@ -1220,7 +1226,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
             </tbody>
           </table>
         ) : (
-          <EmptyState title="No campaigns yet" detail="Create a campaign in the workbench, then it will appear here." actionHref="/admin/campaigns" actionLabel="Create campaign" />
+          <EmptyState title="No campaigns yet" detail="Create a campaign in the workflow above, then it will appear here." actionHref="#campaigns" actionLabel="Create campaign" />
         )}
       </section>
     </section>
