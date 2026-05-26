@@ -108,6 +108,58 @@ type CampaignRead = {
   scheduled_at: string | null;
 };
 
+type CampaignSendJobRead = {
+  id: string;
+  campaign_id: string;
+  audience_snapshot_id: string | null;
+  status: string;
+  requested_count: number;
+  queued_count: number;
+  suppressed_count: number;
+  metadata_json: Record<string, unknown>;
+};
+
+type CampaignSendJobProgress = {
+  send_job_id: string;
+  campaign_id: string;
+  status: string;
+  requested_count: number;
+  queued_count: number;
+  sending_count: number;
+  sent_count: number;
+  failed_count: number;
+  suppressed_count: number;
+  skipped_count: number;
+  processed_count: number;
+  remaining_count: number;
+  active_count: number;
+  percent_complete: number;
+};
+
+type EmailSendRecordRead = {
+  id: string;
+  campaign_id: string;
+  send_job_id: string | null;
+  contact_id: string;
+  template_id: string;
+  status: string;
+  to_email: string;
+  variables: Record<string, unknown>;
+  provider: string | null;
+  provider_message_id: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+};
+
+type DeliveryRun = {
+  claimed_count: number;
+  sent_count: number;
+  failed_count: number;
+  processed_record_ids: string[];
+};
+
 type AudienceRead = {
   id: string;
   name: string;
@@ -203,6 +255,8 @@ type DashboardState = {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
   campaignItems: CampaignRead[];
+  sendJobs: CampaignSendJobRead[];
+  sendRecords: EmailSendRecordRead[];
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
   templates: TemplateRead[];
@@ -218,6 +272,7 @@ type PageKey =
   | 'overview'
   | 'campaigns'
   | 'automations'
+  | 'delivery'
   | 'audience'
   | 'templates'
   | 'ai-studio'
@@ -298,6 +353,7 @@ const navItems: NavItem[] = [
   { label: 'Overview', key: 'overview', href: '#overview' },
   { label: 'Campaigns', key: 'campaigns', href: '#campaigns' },
   { label: 'Automations', key: 'automations', href: '#automations' },
+  { label: 'Delivery', key: 'delivery', href: '#delivery' },
   { label: 'Audience', key: 'audience', href: '#audience' },
   { label: 'Templates', key: 'templates', href: '#templates' },
   { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
@@ -381,6 +437,11 @@ function formatPct(value: number | undefined) {
   return `${Math.round(Number(value || 0) * 1000) / 10}%`;
 }
 
+function providerLabel(value: string | null | undefined) {
+  if (!value) return '-';
+  return value.toLowerCase() === 'sendgrid' ? 'SG' : value;
+}
+
 function countByName(rows: CountRow[] | undefined, name: string) {
   return Number((rows || []).find((row) => row.name === name)?.count || 0);
 }
@@ -452,6 +513,7 @@ function pageSubtitle(page: PageKey, dashboard: DashboardState) {
     overview: 'Live overview powered by Email Engine analytics APIs.',
     campaigns: 'Create, inspect, and launch campaigns from the product workspace.',
     automations: 'Monitor journeys, enrollments, queued sends, and execution health.',
+    delivery: 'Inspect send jobs, process queued messages, and manage individual send records.',
     audience: 'Manage audiences and segmentation readiness.',
     templates: 'Create, edit, and test dynamic email templates.',
     'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
@@ -1621,6 +1683,247 @@ function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; on
   );
 }
 
+function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
+  sendJobs: CampaignSendJobRead[];
+  sendRecords: EmailSendRecordRead[];
+  campaigns: CampaignRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedJobId, setSelectedJobId] = useState('');
+  const [selectedRecordId, setSelectedRecordId] = useState('');
+  const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
+  const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
+  const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
+    if (!selectedRecordId && sendRecords.length) setSelectedRecordId(sendRecords[0].id);
+  }, [sendJobs, selectedJobId, selectedRecordId, sendRecords]);
+
+  const queuedRecords = sendRecords.filter((record) => record.status === 'queued').length;
+  const failedRecords = sendRecords.filter((record) => record.status === 'failed').length;
+  const sentRecords = sendRecords.filter((record) => record.status === 'sent').length;
+  const activeJobs = sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
+  const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
+  const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
+  const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
+
+  async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      setStatus(await operation());
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadProgress() {
+    await runDeliveryOperation('Loading send job progress', async () => {
+      if (!selectedJobId) throw new Error('Select a send job.');
+      const data = await fetchJson<CampaignSendJobProgress>(`/api/v1/campaign-send-jobs/${selectedJobId}/progress`);
+      setProgress(data);
+      return `Loaded progress: ${formatInt(data.processed_count)} processed, ${formatInt(data.remaining_count)} remaining.`;
+    });
+  }
+
+  async function processQueued() {
+    await runDeliveryOperation('Processing queued records', async () => {
+      const suffix = selectedJobId ? `?limit=25&send_job_id=${encodeURIComponent(selectedJobId)}` : '?limit=25';
+      const data = await fetchJson<DeliveryRun>(`/api/v1/delivery/process-queued${suffix}`, { method: 'POST' });
+      await onRefresh();
+      if (selectedJobId) {
+        const refreshedProgress = await fetchJson<CampaignSendJobProgress>(`/api/v1/campaign-send-jobs/${selectedJobId}/progress`);
+        setProgress(refreshedProgress);
+      }
+      return `Processed ${formatInt(data.claimed_count)} record(s): ${formatInt(data.sent_count)} sent, ${formatInt(data.failed_count)} failed.`;
+    });
+  }
+
+  async function requeueRecord() {
+    await runDeliveryOperation('Requeueing send record', async () => {
+      if (!selectedRecordId) throw new Error('Select a send record.');
+      const record = await fetchJson<EmailSendRecordRead>(`/api/v1/email-send-records/${selectedRecordId}/requeue`, { method: 'POST' });
+      await onRefresh();
+      return `Requeued ${record.to_email}; status is ${record.status}.`;
+    });
+  }
+
+  async function skipRecord() {
+    await runDeliveryOperation('Skipping send record', async () => {
+      if (!selectedRecordId) throw new Error('Select a send record.');
+      const record = await fetchJson<EmailSendRecordRead>(`/api/v1/email-send-records/${selectedRecordId}/skip`, { method: 'POST' });
+      await onRefresh();
+      return `Skipped ${record.to_email}; status is ${record.status}.`;
+    });
+  }
+
+  async function loadTrackingLinks() {
+    await runDeliveryOperation('Loading tracking links', async () => {
+      if (!selectedRecordId) throw new Error('Select a send record.');
+      const data = await fetchJson<Record<string, unknown>>(`/api/v1/email-send-records/${selectedRecordId}/tracking-links`);
+      setTrackingLinks(data);
+      return `Loaded tracking links for ${selectedRecord?.to_email || selectedRecordId}.`;
+    });
+  }
+
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Send jobs', value: formatInt(sendJobs.length), change: `${formatInt(activeJobs)} active`, tone: activeJobs ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Queued records', value: formatInt(queuedRecords), change: 'visible records', tone: queuedRecords ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Sent records', value: formatInt(sentRecords), change: 'visible records' }} />
+        <MetricCard metric={{ label: 'Failed records', value: formatInt(failedRecords), change: 'needs review', tone: failedRecords ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Progress', value: progress ? formatPct(progress.percent_complete) : 'n/a', change: progress ? `${formatInt(progress.active_count)} active` : 'select a job' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className={`workflow-card ${queuedRecords ? 'warn' : ''}`}>
+          <span>Queue</span>
+          <strong>{formatInt(queuedRecords)} queued</strong>
+          <p>Process campaign and journey send records in controlled batches from this workspace.</p>
+          <a href="/admin/delivery">Open Delivery Manager</a>
+        </article>
+        <article className={`workflow-card ${failedRecords ? 'warn' : ''}`}>
+          <span>Recovery</span>
+          <strong>{formatInt(failedRecords)} failed</strong>
+          <p>Review failed records, requeue recoverable sends, or skip records that should not retry.</p>
+          <a href="/admin/delivery">Inspect records</a>
+        </article>
+        <article className="workflow-card">
+          <span>Campaign</span>
+          <strong>{selectedCampaign?.name || 'No campaign selected'}</strong>
+          <p>Send job and record selectors are connected to campaign IDs for launch follow-up.</p>
+          <a href="#campaigns">Open campaigns</a>
+        </article>
+        <article className="workflow-card">
+          <span>Tracking</span>
+          <strong>Links and events</strong>
+          <p>Inspect generated tracking links on individual records before reviewing analytics.</p>
+          <a href="#analytics">Open analytics</a>
+        </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Delivery Operations</h2>
+          <a href="/admin/delivery">Advanced delivery</a>
+        </div>
+        <div className="form-grid">
+          <label className="wide-field">
+            Send job
+            <select value={selectedJobId} onChange={(event) => {
+              setSelectedJobId(event.target.value);
+              setProgress(null);
+            }}>
+              <option value="">All queued records</option>
+              {sendJobs.map((job) => (
+                <option value={job.id} key={job.id}>
+                  {job.id.slice(0, 8)} | {job.status} | requested {formatInt(job.requested_count)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Send record
+            <select value={selectedRecordId} onChange={(event) => {
+              setSelectedRecordId(event.target.value);
+              setTrackingLinks(null);
+            }}>
+              <option value="">Select record</option>
+              {sendRecords.map((record) => (
+                <option value={record.id} key={record.id}>
+                  {record.to_email} | {record.status} | {record.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Provider
+            <input value={providerLabel(selectedRecord?.provider)} readOnly />
+          </label>
+          <label>
+            Attempts
+            <input value={selectedRecord ? `${selectedRecord.attempt_count} / ${selectedRecord.max_attempts}` : 'No record selected'} readOnly />
+          </label>
+          <label className="wide-field">
+            Last error
+            <input value={selectedRecord?.error_message || 'No error visible'} readOnly />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={processQueued} disabled={busy}>Process Queued</button>
+          <button className="ghost" onClick={loadProgress} disabled={busy || !selectedJobId}>Load Progress</button>
+          <button className="ghost" onClick={requeueRecord} disabled={busy || !selectedRecordId}>Requeue Record</button>
+          <button className="ghost" onClick={skipRecord} disabled={busy || !selectedRecordId}>Skip Record</button>
+          <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
+          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
+      {progress ? (
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Processed', value: formatInt(progress.processed_count), change: `${formatInt(progress.remaining_count)} remaining` }} />
+          <MetricCard metric={{ label: 'Queued', value: formatInt(progress.queued_count), change: `${formatInt(progress.sending_count)} sending`, tone: progress.queued_count ? 'warn' : 'good' }} />
+          <MetricCard metric={{ label: 'Sent', value: formatInt(progress.sent_count), change: 'completed sends' }} />
+          <MetricCard metric={{ label: 'Failed', value: formatInt(progress.failed_count), change: `${formatInt(progress.skipped_count)} skipped`, tone: progress.failed_count ? 'warn' : 'good' }} />
+        </section>
+      ) : null}
+      {trackingLinks ? (
+        <section className="panel full-span">
+          <div className="panel-head"><h2>Tracking Links</h2><span className="muted">{selectedRecord?.to_email || selectedRecordId}</span></div>
+          <pre className="json-preview">{JSON.stringify(trackingLinks, null, 2)}</pre>
+        </section>
+      ) : null}
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Send Jobs</h2><span className="muted">{formatInt(sendJobs.length)} visible</span></div>
+        {sendJobs.length ? (
+          <table>
+            <thead><tr><th>Job</th><th>Campaign</th><th>Status</th><th>Requested</th><th>Queued</th><th>Suppressed</th></tr></thead>
+            <tbody>
+              {sendJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>{job.id.slice(0, 8)}</td>
+                  <td>{campaigns.find((campaign) => campaign.id === job.campaign_id)?.name || job.campaign_id.slice(0, 8)}</td>
+                  <td><span className="pill">{job.status}</span></td>
+                  <td>{formatInt(job.requested_count)}</td>
+                  <td>{formatInt(job.queued_count)}</td>
+                  <td>{formatInt(job.suppressed_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No send jobs" detail="Launch or dry-run a campaign to create send jobs for delivery review." actionHref="#campaigns" actionLabel="Open Campaigns" />}
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Send Records</h2><span className="muted">{formatInt(sendRecords.length)} visible</span></div>
+        {sendRecords.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Status</th><th>Campaign</th><th>Job</th><th>Provider</th><th>Attempts</th><th>Next retry</th></tr></thead>
+            <tbody>
+              {sendRecords.map((record) => (
+                <tr key={record.id}>
+                  <td>{record.to_email}</td>
+                  <td><span className="pill">{record.status}</span></td>
+                  <td>{campaigns.find((campaign) => campaign.id === record.campaign_id)?.name || record.campaign_id.slice(0, 8)}</td>
+                  <td>{record.send_job_id ? record.send_job_id.slice(0, 8) : '-'}</td>
+                  <td>{providerLabel(record.provider)}</td>
+                  <td>{record.attempt_count} / {record.max_attempts}</td>
+                  <td>{record.next_attempt_at || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No send records" detail="Launch a test campaign or process a journey to create send records." actionHref="#campaigns" actionLabel="Open Campaigns" />}
+      </section>
+    </section>
+  );
+}
+
 function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
@@ -2404,6 +2707,8 @@ function App() {
     overview: null,
     campaigns: [],
     campaignItems: [],
+    sendJobs: [],
+    sendRecords: [],
     audiences: [],
     audienceItems: [],
     templates: [],
@@ -2428,10 +2733,12 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
+          fetchJson<ListResponse<CampaignSendJobRead>>('/api/v1/campaign-send-jobs/list?limit=25&offset=0'),
+          fetchJson<ListResponse<EmailSendRecordRead>>('/api/v1/email-send-records/list?limit=25&offset=0'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
           fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
@@ -2465,6 +2772,8 @@ function App() {
             overview,
             campaigns: campaignData.items || [],
             campaignItems: campaignItems.items || [],
+            sendJobs: sendJobData.items || [],
+            sendRecords: sendRecordData.items || [],
             audiences: audienceData.items || [],
             audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
@@ -2482,6 +2791,8 @@ function App() {
             overview: null,
             campaigns: [],
             campaignItems: [],
+            sendJobs: [],
+            sendRecords: [],
             audiences: [],
             audienceItems: [],
             templates: [],
@@ -2545,6 +2856,26 @@ function App() {
               ...current,
               journeys: journeyData.items || [],
               journeyItems: journeyItems.items || [],
+            }));
+          }}
+        />
+      );
+    }
+    if (activePage === 'delivery') {
+      return (
+        <DeliveryPage
+          sendJobs={dashboard.sendJobs}
+          sendRecords={dashboard.sendRecords}
+          campaigns={dashboard.campaignItems}
+          onRefresh={async () => {
+            const [sendJobData, sendRecordData] = await Promise.all([
+              fetchJson<ListResponse<CampaignSendJobRead>>('/api/v1/campaign-send-jobs/list?limit=25&offset=0'),
+              fetchJson<ListResponse<EmailSendRecordRead>>('/api/v1/email-send-records/list?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              sendJobs: sendJobData.items || [],
+              sendRecords: sendRecordData.items || [],
             }));
           }}
         />
