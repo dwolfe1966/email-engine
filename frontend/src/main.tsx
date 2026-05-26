@@ -3852,6 +3852,9 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
 }
 
 function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+  const [checkResults, setCheckResults] = useState<Record<string, { ok: boolean; detail: string; ms: number }>>({});
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState('Workflow readiness checks have not run yet.');
   const contractGroups = [
     {
       area: 'Contacts and Data',
@@ -3922,6 +3925,88 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
     ['Send job / record', 'Email Engine', 'SentientMail should treat these as delivery-state read/manage objects.'],
     ['Journey', 'Email Engine', 'SentientMail should use journey/enrollment APIs for automation workflows.'],
   ];
+  const smokeChecks = [
+    {
+      key: 'contacts',
+      label: 'Contacts available',
+      path: '/api/v1/audiences/contacts/meta?sample_limit=1&scan_limit=100',
+      detail: 'Audience, import, and personalization workflows can discover contact fields.',
+      action: 'Open Contacts',
+      href: '#contacts',
+    },
+    {
+      key: 'templates',
+      label: 'Templates available',
+      path: '/api/v1/templates/list?limit=1&offset=0',
+      detail: 'Template editing, preview, and campaign creation can load saved templates.',
+      action: 'Open Templates',
+      href: '#templates',
+    },
+    {
+      key: 'campaigns',
+      label: 'Campaigns available',
+      path: '/api/v1/campaigns/list?limit=1&offset=0',
+      detail: 'Campaign manager can create, test, and launch campaign objects.',
+      action: 'Open Campaigns',
+      href: '#campaigns',
+    },
+    {
+      key: 'delivery',
+      label: 'Delivery available',
+      path: '/api/v1/campaign-send-jobs/list?limit=1&offset=0',
+      detail: 'Send jobs and delivery progress can be inspected after launch.',
+      action: 'Open Delivery',
+      href: '#delivery',
+    },
+    {
+      key: 'analytics',
+      label: 'Analytics available',
+      path: '/api/v1/analytics/overview?recent_event_limit=1',
+      detail: 'Reports can load summary counts, event mix, and recent activity.',
+      action: 'Open Analytics',
+      href: '#analytics',
+    },
+    {
+      key: 'diagnostics',
+      label: 'System ready',
+      path: '/api/v1/system/diagnostics',
+      detail: 'Schema and provider readiness can be checked from the product UI.',
+      action: 'Open Settings',
+      href: '#settings',
+    },
+  ];
+  const passedChecks = Object.values(checkResults).filter((result) => result.ok).length;
+  const totalChecks = smokeChecks.length;
+
+  async function runSmokeChecks() {
+    setChecking(true);
+    setStatus('Checking core ESP workflow APIs...');
+    try {
+      const results = await Promise.all(smokeChecks.map(async (check) => {
+        const start = performance.now();
+        try {
+          await fetchJson<unknown>(check.path);
+          return [check.key, { ok: true, detail: 'Ready', ms: Math.round(performance.now() - start) }] as const;
+        } catch (error) {
+          return [check.key, {
+            ok: false,
+            detail: error instanceof Error ? error.message : String(error),
+            ms: Math.round(performance.now() - start),
+          }] as const;
+        }
+      }));
+      const nextResults = Object.fromEntries(results);
+      const okCount = Object.values(nextResults).filter((result) => result.ok).length;
+      setCheckResults(nextResults);
+      setStatus(`${okCount} of ${smokeChecks.length} core workflow APIs are reachable.`);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => {
+    runSmokeChecks();
+  }, []);
 
   return (
     <section className="page-grid">
@@ -3929,6 +4014,31 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
         <MetricCard metric={{ label: 'Contract groups', value: formatInt(contractGroups.length), change: 'workflow surfaces' }} />
         <MetricCard metric={{ label: 'Tables', value: formatInt(diagnostics?.database_tables.length || 0), change: 'schema inventory' }} />
         <MetricCard metric={{ label: 'Schema', value: diagnostics?.schema.ok ? 'Ready' : 'Review', change: diagnostics?.schema.current_revision || 'unknown', tone: diagnostics?.schema.ok ? 'good' : 'warn' }} />
+        <MetricCard metric={{ label: 'Workflow checks', value: `${passedChecks}/${totalChecks}`, change: checking ? 'checking now' : 'live APIs reachable', tone: passedChecks === totalChecks ? 'good' : 'warn' }} />
+      </section>
+      <section className="panel full-span">
+        <div className="panel-head"><h2>Workflow Readiness</h2><span className="muted">simple health checks for the ESP experience</span></div>
+        <div className={`operation-banner ${passedChecks < totalChecks && Object.keys(checkResults).length ? 'warn' : ''}`}>
+          <strong>{checking ? 'Checking' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={runSmokeChecks} disabled={checking}>Run Checks</button>
+          <button className="ghost" onClick={() => { window.location.hash = '#overview'; }}>Back to Overview</button>
+        </div>
+      </section>
+      <section className="workflow-grid full-span">
+        {smokeChecks.map((check) => {
+          const result = checkResults[check.key];
+          return (
+            <article className={`workflow-card ${result && !result.ok ? 'warn' : ''}`} key={check.key}>
+              <span>{result ? (result.ok ? 'Ready' : 'Needs attention') : 'Not checked'}</span>
+              <strong>{check.label}</strong>
+              <p>{result && !result.ok ? result.detail : check.detail}</p>
+              <a href={check.href}>{check.action}</a>
+            </article>
+          );
+        })}
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
