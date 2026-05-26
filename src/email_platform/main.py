@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from email_platform.api.admin_console import router as admin_console_router
@@ -14,6 +17,9 @@ from email_platform.db.session import SessionLocal
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
+ROOT_DIR = Path(__file__).resolve().parents[2]
+ESP_DIST_DIR = ROOT_DIR / 'frontend' / 'dist'
+ESP_INDEX = ESP_DIST_DIR / 'index.html'
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -26,6 +32,26 @@ app.add_middleware(
 @app.get('/', include_in_schema=False)
 def root() -> RedirectResponse:
     return RedirectResponse('/admin', status_code=307)
+
+
+if (ESP_DIST_DIR / 'assets').exists():
+    app.mount('/esp/assets', StaticFiles(directory=ESP_DIST_DIR / 'assets'), name='esp-assets')
+
+
+@app.get('/esp', include_in_schema=False)
+def esp_app() -> FileResponse:
+    if not ESP_INDEX.exists():
+        raise HTTPException(status_code=503, detail='ESP frontend has not been built')
+    return FileResponse(ESP_INDEX)
+
+
+@app.get('/esp/{path:path}', include_in_schema=False)
+def esp_app_fallback(path: str) -> FileResponse:
+    if path.startswith('assets/'):
+        raise HTTPException(status_code=404, detail='ESP asset not found')
+    if not ESP_INDEX.exists():
+        raise HTTPException(status_code=503, detail='ESP frontend has not been built')
+    return FileResponse(ESP_INDEX)
 
 
 @app.get('/health')

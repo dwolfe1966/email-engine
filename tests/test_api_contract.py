@@ -1018,3 +1018,22 @@ def test_root_redirects_to_admin() -> None:
     response = client.get('/')
     assert response.status_code == 307
     assert response.headers['location'] == '/admin'
+
+
+def test_esp_shell_serves_react_app() -> None:
+    client = TestClient(app)
+
+    response = client.get('/esp')
+
+    assert response.status_code == 200
+    assert 'Email Engine ESP' in response.text
+    assert '/esp/assets/' in response.text
+
+
+def test_esp_shell_fallback_serves_react_app() -> None:
+    client = TestClient(app)
+
+    response = client.get('/esp/campaigns')
+
+    assert response.status_code == 200
+    assert 'Email Engine ESP' in response.text
