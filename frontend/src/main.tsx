@@ -641,7 +641,12 @@ function insightsFromAi(data: AIAnalyticsAnalysis | null): Insight[] {
 
 function pageFromHash(): PageKey {
   const hash = window.location.hash.replace(/^#\/?/, '');
-  return navItems.find((item) => item.key === hash)?.key || 'overview';
+  const root = hash.split('/')[0];
+  return navItems.find((item) => item.key === root)?.key || 'overview';
+}
+
+function routeFromHash() {
+  return window.location.hash.replace(/^#\/?/, '');
 }
 
 function pageTitle(page: PageKey) {
@@ -722,12 +727,8 @@ function Header({ title, status, operation }: { title: string; status: string; o
         </div>
       </div>
       <div className="topbar-actions">
-        <label className="search">
-          <span>Search</span>
-          <input placeholder="Search campaigns, contacts, templates..." />
-        </label>
         <button className="ghost">May 1 - May 31, 2026</button>
-        <button className="primary" onClick={() => { window.location.hash = '#campaigns'; }}>Create Campaign</button>
+        <button className="primary" onClick={() => { window.location.hash = '#campaigns/new'; }}>Create Campaign</button>
       </div>
     </header>
   );
@@ -1010,14 +1011,21 @@ function EmptyState({ title, detail, actionHref, actionLabel }: {
   );
 }
 
-function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefresh, onOperation }: {
+function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, onRefresh, onOperation }: {
   campaigns: CampaignPerformance[];
   campaignItems: CampaignRead[];
   templates: TemplateRead[];
   audiences: AudienceRead[];
+  route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
+  const routeParts = route.split('/');
+  const routeCampaignId = routeParts[0] === 'campaigns' && routeParts[1] && routeParts[1] !== 'new'
+    ? routeParts[1]
+    : '';
+  const isDetailPage = routeParts[0] === 'campaigns' && Boolean(routeParts[1]);
+  const isNewCampaign = routeParts[0] === 'campaigns' && routeParts[1] === 'new';
   const [campaignName, setCampaignName] = useState('ESP Test Campaign');
   const [templateId, setTemplateId] = useState('');
   const [audienceId, setAudienceId] = useState('');
@@ -1031,8 +1039,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
     if (!audienceId && audiences.length) setAudienceId(audiences[0].id);
-    if (!selectedCampaignId && campaignItems.length) setSelectedCampaignId(campaignItems[0].id);
-  }, [audienceId, audiences, campaignItems, selectedCampaignId, templateId, templates]);
+    if (routeCampaignId && selectedCampaignId !== routeCampaignId) setSelectedCampaignId(routeCampaignId);
+    if (isNewCampaign && selectedCampaignId) setSelectedCampaignId('');
+  }, [audienceId, audiences, isNewCampaign, routeCampaignId, selectedCampaignId, templateId, templates]);
 
   const totalRequested = campaigns.reduce((sum, item) => sum + Number(item.requested_count || 0), 0);
   const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
@@ -1040,6 +1049,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   const selectedAudience = audiences.find((item) => item.id === audienceId);
   const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
   const selectedTemplate = templates.find((item) => item.id === templateId);
+  const campaignPerformanceById = new Map(campaigns.map((campaign) => [campaign.campaign_id, campaign]));
+
+  useEffect(() => {
+    if (!selectedCampaign) return;
+    setCampaignName(selectedCampaign.name);
+    if (selectedCampaign.template_id) setTemplateId(selectedCampaign.template_id);
+  }, [selectedCampaign]);
   const workflowSteps = [
     { label: 'Setup', detail: selectedCampaign ? selectedCampaign.name : 'Create or select a draft', ready: Boolean(selectedCampaignId) },
     { label: 'Content', detail: selectedTemplate ? selectedTemplate.name : 'Choose a template', ready: Boolean(templateId) },
@@ -1091,6 +1107,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
         body: JSON.stringify(payload),
       });
       setSelectedCampaignId(created.id);
+      window.location.hash = `#campaigns/${created.id}`;
       return `Created draft campaign: ${created.name}`;
     });
   }
@@ -1145,54 +1162,73 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
     });
   }
 
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid entity-list-page">
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Campaigns', value: formatInt(campaignItems.length), change: 'live rows' }} />
+          <MetricCard metric={{ label: 'Requested', value: formatInt(totalRequested), change: 'targeted sends' }} />
+          <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
+          <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Campaigns</h2>
+              <span className="muted">Open one campaign to edit setup, test content, and manage launch readiness.</span>
+            </div>
+            <div className="button-row">
+              <a href="#analytics">View reports</a>
+              <a href="#campaigns/new">New campaign</a>
+            </div>
+          </div>
+          {campaignItems.length ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Status</th>
+                  <th>Requested</th>
+                  <th>Sent</th>
+                  <th>Open rate</th>
+                  <th>Click rate</th>
+                  <th>Failures</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {campaignItems.map((campaign) => {
+                  const performance = campaignPerformanceById.get(campaign.id);
+                  return (
+                    <tr key={campaign.id}>
+                      <td>{campaign.name}</td>
+                      <td><span className="pill">{campaign.status}</span></td>
+                      <td>{formatInt(performance?.requested_count)}</td>
+                      <td>{formatInt(performance?.sent_count)}</td>
+                      <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
+                      <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
+                      <td>{formatInt(performance?.failed_count)}</td>
+                      <td><a className="link-button" href={`#campaigns/${campaign.id}`}>Open</a></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <EmptyState title="No campaigns yet" detail="Create a campaign, then it will appear in this list." actionHref="#campaigns/new" actionLabel="Create campaign" />
+          )}
+        </section>
+      </section>
+    );
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Campaigns', value: formatInt(campaigns.length), change: 'live rows' }} />
+        <MetricCard metric={{ label: 'Campaigns', value: formatInt(campaignItems.length), change: 'live rows' }} />
         <MetricCard metric={{ label: 'Requested', value: formatInt(totalRequested), change: 'targeted sends' }} />
         <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
         <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Campaigns</h2>
-            <span className="muted">Select a campaign to review details, test content, and manage launch readiness.</span>
-          </div>
-          <a href="#analytics">View reports</a>
-        </div>
-        {campaigns.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Status</th>
-                <th>Requested</th>
-                <th>Sent</th>
-                <th>Open rate</th>
-                <th>Click rate</th>
-                <th>Failures</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((campaign) => (
-                <tr className={campaign.campaign_id === selectedCampaignId ? 'selected-row' : ''} key={campaign.campaign_id}>
-                  <td>{campaign.name}</td>
-                  <td><span className="pill">{campaign.status}</span></td>
-                  <td>{formatInt(campaign.requested_count)}</td>
-                  <td>{formatInt(campaign.sent_count)}</td>
-                  <td>{formatPct(campaign.open_rate)}</td>
-                  <td>{formatPct(campaign.click_rate)}</td>
-                  <td>{formatInt(campaign.failed_count)}</td>
-                  <td><button className="link-button" onClick={() => setSelectedCampaignId(campaign.campaign_id)}>Select</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No campaigns yet" detail="Create a campaign in the detail panel below, then it will appear here." actionHref="#campaigns" actionLabel="Create campaign" />
-        )}
       </section>
       <section className="campaign-flow full-span">
         {workflowSteps.map((step, index) => (
@@ -1208,10 +1244,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <div>
-            <h2>{selectedCampaign ? 'Campaign Details and Actions' : 'Create Campaign'}</h2>
-            <span className="muted">Use this selected-item workspace for setup, test sends, preview, and dry-run launch.</span>
+            <h2>{selectedCampaign ? selectedCampaign.name : 'Create Campaign'}</h2>
+            <span className="muted">{selectedCampaign ? 'Edit setup, test content, and manage launch readiness.' : 'Create a draft campaign from a template and audience.'}</span>
           </div>
-          <a href="#templates">Edit templates</a>
+          <div className="button-row">
+            <a href="#campaigns">Back to campaigns</a>
+            <a href="#templates">Edit templates</a>
+          </div>
         </div>
         <div className="form-grid">
           <label>
@@ -1220,7 +1259,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
           </label>
           <label>
             Existing campaign
-            <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)}>
+            <select
+              value={selectedCampaignId}
+              onChange={(event) => {
+                const nextCampaignId = event.target.value;
+                setSelectedCampaignId(nextCampaignId);
+                window.location.hash = nextCampaignId ? `#campaigns/${nextCampaignId}` : '#campaigns/new';
+              }}
+            >
               <option value="">Create new draft</option>
               {campaignItems.map((campaign) => (
                 <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
@@ -4330,6 +4376,7 @@ function SimpleModulePage({ title, detail, links }: {
 
 function App() {
   const [activePage, setActivePage] = useState<PageKey>(pageFromHash);
+  const [route, setRoute] = useState(routeFromHash);
   const [operationNotice, setOperationNotice] = useState<OperationNotice>({
     label: 'Workspace',
     message: 'Ready for campaign, template, and optimization workflows.',
@@ -4363,6 +4410,7 @@ function App() {
   useEffect(() => {
     function syncPage() {
       setActivePage(pageFromHash());
+      setRoute(routeFromHash());
     }
     window.addEventListener('hashchange', syncPage);
     return () => window.removeEventListener('hashchange', syncPage);
@@ -4491,6 +4539,7 @@ function App() {
           campaignItems={dashboard.campaignItems}
           templates={dashboard.templates}
           audiences={dashboard.audienceItems}
+          route={route}
           onRefresh={async () => {
             const [campaignData, campaignItems] = await Promise.all([
               fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
@@ -4722,11 +4771,10 @@ function App() {
   return (
     <div className="app-shell">
       <Sidebar activePage={activePage} />
-	      <main className="workspace">
-	        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} />
-	        <WorkflowRail activePage={activePage} />
-	        {content}
-	      </main>
+		      <main className="workspace">
+		        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} />
+		        {content}
+		      </main>
     </div>
   );
 }
