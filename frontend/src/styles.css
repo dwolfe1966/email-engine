@@ -289,7 +289,9 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin: 0 0 14px;
+  margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
 }
 
 .workflow-rail a {
@@ -533,7 +535,7 @@ th {
 .page-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px 14px;
 }
 
 .full-span {
@@ -542,6 +544,26 @@ th {
 
 .compact-metrics {
   margin-bottom: 0;
+}
+
+.page-grid > .metric-grid.full-span,
+.page-grid > .campaign-flow.full-span,
+.page-grid > .workflow-grid.full-span {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-grid > .metric-grid.full-span + .workflow-grid.full-span,
+.page-grid > .metric-grid.full-span + .campaign-flow.full-span,
+.page-grid > .workflow-grid.full-span + .panel.full-span,
+.page-grid > .campaign-flow.full-span + .panel.full-span {
+  margin-top: 2px;
+}
+
+.page-grid > .panel.full-span + .panel.full-span,
+.page-grid > .panel.full-span + .table-panel.full-span,
+.page-grid > .metric-grid.full-span + .panel.full-span {
+  margin-top: 4px;
 }
 
 .cards-grid {

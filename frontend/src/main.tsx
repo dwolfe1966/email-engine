@@ -1639,10 +1639,11 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   );
 }
 
-function AudiencePage({ audiences, audienceItems, onRefresh }: {
+function AudiencePage({ audiences, audienceItems, onRefresh, onOperation }: {
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
   onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const [selectedAudienceId, setSelectedAudienceId] = useState('');
   const [name, setName] = useState('ESP Audience Draft');
@@ -1689,11 +1690,15 @@ function AudiencePage({ audiences, audienceItems, onRefresh }: {
   async function runAudienceOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
+    onOperation({ label: 'Audience workflow', message: `${label}...`, tone: 'working' });
     try {
       const message = await operation();
       setStatus(message);
+      onOperation({ label: 'Audience workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'Audience workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -2109,11 +2114,12 @@ function TemplatesPage({ templates, onRefresh, onOperation }: {
   );
 }
 
-function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
+function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation }: {
   sendJobs: CampaignSendJobRead[];
   sendRecords: EmailSendRecordRead[];
   campaigns: CampaignRead[];
   onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const [selectedJobId, setSelectedJobId] = useState('');
   const [selectedRecordId, setSelectedRecordId] = useState('');
@@ -2138,10 +2144,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
   async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
+    onOperation({ label: 'Delivery workflow', message: `${label}...`, tone: 'working' });
     try {
-      setStatus(await operation());
+      const message = await operation();
+      setStatus(message);
+      onOperation({ label: 'Delivery workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'Delivery workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -2528,11 +2539,12 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
   );
 }
 
-function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
+function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }: {
   dataSources: DataSourceRead[];
   mappings: DataSourceMappingRead[];
   importJobs: DataSourceImportJobRead[];
   onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [selectedMappingId, setSelectedMappingId] = useState('');
@@ -2606,10 +2618,15 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
   async function runDataOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
+    onOperation({ label: 'Data workflow', message: `${label}...`, tone: 'working' });
     try {
-      setStatus(await operation());
+      const message = await operation();
+      setStatus(message);
+      onOperation({ label: 'Data workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'Data workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -3092,13 +3109,14 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
   );
 }
 
-function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
+function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh, onOperation }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
   campaignItems: CampaignRead[];
   audiences: AudiencePerformance[];
   journeys: JourneyPerformance[];
   onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [days, setDays] = useState(30);
@@ -3141,10 +3159,13 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   async function loadReport() {
     setBusy(true);
     setStatus('Loading report...');
+    onOperation({ label: 'Optimization workflow', message: 'Loading campaign report...', tone: 'working' });
     try {
       await onRefresh();
       if (!selectedCampaignId) {
-        setStatus('No campaign selected.');
+        const message = 'No campaign selected.';
+        setStatus(message);
+        onOperation({ label: 'Optimization workflow', message, tone: 'warn' });
         return;
       }
       const [detail, timelineData, domainData] = await Promise.all([
@@ -3155,9 +3176,13 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       setCampaignDetail(detail);
       setTimeline(timelineData.points || []);
       setDomains(domainData.items || []);
-      setStatus(`Loaded report for ${selectedCampaign?.name || selectedCampaignId}.`);
+      const message = `Loaded report for ${selectedCampaign?.name || selectedCampaignId}.`;
+      setStatus(message);
+      onOperation({ label: 'Optimization workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'Optimization workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -3435,11 +3460,12 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   );
 }
 
-function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: {
+function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, onOperation }: {
   insights: Insight[];
   diagnostics: SystemDiagnostics | null;
   dashboard: DashboardState;
   onTemplatesRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const openAiReady = Boolean(diagnostics?.ai.openai_configured);
   const provider = diagnostics?.ai.provider || 'auto';
@@ -3471,10 +3497,15 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: 
   async function runAiOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
+    onOperation({ label: 'AI workflow', message: `${label}...`, tone: 'working' });
     try {
-      setStatus(await operation());
+      const message = await operation();
+      setStatus(message);
+      onOperation({ label: 'AI workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'AI workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -4458,7 +4489,7 @@ function App() {
           campaignItems={dashboard.campaignItems}
           templates={dashboard.templates}
           audiences={dashboard.audienceItems}
-	          onRefresh={async () => {
+          onRefresh={async () => {
             const [campaignData, campaignItems] = await Promise.all([
               fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
               fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
@@ -4468,9 +4499,9 @@ function App() {
               campaigns: campaignData.items || [],
               campaignItems: campaignItems.items || [],
             }));
-	          }}
+          }}
           onOperation={setOperationNotice}
-	        />
+        />
       );
     }
     if (activePage === 'automations') {
@@ -4519,6 +4550,7 @@ function App() {
               sendRecords: sendRecordData.items || [],
             }));
           }}
+          onOperation={setOperationNotice}
         />
       );
     }
@@ -4556,6 +4588,7 @@ function App() {
               importJobs: importJobData.items || [],
             }));
           }}
+          onOperation={setOperationNotice}
         />
       );
     }
@@ -4594,22 +4627,23 @@ function App() {
               audienceItems: audienceItems.items || [],
             }));
           }}
+          onOperation={setOperationNotice}
         />
       );
     }
     if (activePage === 'templates') {
       return (
-	        <TemplatesPage
-	          templates={dashboard.templates}
-	          onRefresh={async () => {
+        <TemplatesPage
+          templates={dashboard.templates}
+          onRefresh={async () => {
             const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
             setDashboard((current) => ({
               ...current,
               templates: templateData.items || [],
             }));
-	          }}
+          }}
           onOperation={setOperationNotice}
-	        />
+        />
       );
     }
     if (activePage === 'ai-studio') {
@@ -4622,6 +4656,7 @@ function App() {
             const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
             setDashboard((current) => ({ ...current, templates: templateData.items || [] }));
           }}
+          onOperation={setOperationNotice}
         />
       );
     }
@@ -4648,6 +4683,7 @@ function App() {
               journeys: journeyData.items || [],
             }));
           }}
+          onOperation={setOperationNotice}
         />
       );
     }
