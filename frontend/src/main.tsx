@@ -144,6 +144,29 @@ type AIAnalyticsAnalysis = {
   }>;
 };
 
+type AITemplateDraft = {
+  subject: string;
+  html_body: string;
+  css_body: string | null;
+  text_body: string | null;
+  sample_variables: Record<string, unknown>;
+  notes: string[];
+  changed_fields?: string[];
+  change_summary?: string[];
+  provider: string;
+  model: string;
+};
+
+type AITemplateRecommendation = {
+  code: string;
+  category: string;
+  priority: string;
+  title: string;
+  detail: string;
+  suggested_instruction: string;
+  confidence: number;
+};
+
 type SystemDiagnostics = {
   ok: boolean;
   environment: string;
@@ -1869,10 +1892,136 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   );
 }
 
-function AiStudioPage({ insights, diagnostics }: { insights: Insight[]; diagnostics: SystemDiagnostics | null }) {
+function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
+  insights: Insight[];
+  diagnostics: SystemDiagnostics | null;
+  onTemplatesRefresh: () => Promise<void>;
+}) {
   const openAiReady = Boolean(diagnostics?.ai.openai_configured);
   const provider = diagnostics?.ai.provider || 'auto';
   const model = diagnostics?.ai.model || 'configured model';
+  const [brief, setBrief] = useState('Create a polished ecommerce email for a spring sale with personalized greeting, plan-aware conditional copy, recommendations loop, tracking open, tracking click, and unsubscribe link.');
+  const [instruction, setInstruction] = useState('Make the copy more concise, add a clearer CTA, and preserve all Jinja variables.');
+  const [subject, setSubject] = useState('Hello {{ first_name }}');
+  const [htmlBody, setHtmlBody] = useState('<p>Hello {{ first_name }},</p>\n<p>We have a new offer for you.</p>\n{{ tracking_open }}\n<p><a href="{{ tracking_click }}">Shop now</a></p>\n<p><a href="{{ unsubscribe_url }}">Unsubscribe</a></p>');
+  const [cssBody, setCssBody] = useState('.button { background: #2563eb; color: #ffffff; padding: 12px 16px; }');
+  const [sampleJson, setSampleJson] = useState('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Spring bundle", "Limited offer"]\n}');
+  const [status, setStatus] = useState('Ready to run an AI template workflow.');
+  const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<AITemplateRecommendation[]>([]);
+  const [previewHtml, setPreviewHtml] = useState('');
+
+  function parsedSample() {
+    try {
+      const parsed = JSON.parse(sampleJson || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Sample data must be a JSON object.');
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid sample JSON.');
+    }
+  }
+
+  async function runAiOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      setStatus(await operation());
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applyDraft(draft: AITemplateDraft) {
+    setSubject(draft.subject || subject);
+    setHtmlBody(draft.html_body || htmlBody);
+    setCssBody(draft.css_body || '');
+    if (draft.sample_variables && Object.keys(draft.sample_variables).length) {
+      setSampleJson(JSON.stringify(draft.sample_variables, null, 2));
+    }
+    setNotes(draft.notes || []);
+  }
+
+  async function draftTemplate() {
+    await runAiOperation('Drafting template', async () => {
+      const draft = await fetchJson<AITemplateDraft>('/api/v1/ai/templates/draft', {
+        method: 'POST',
+        body: JSON.stringify({
+          brief,
+          brand: { product: 'Email Engine ESP', tone: 'clear, direct, useful' },
+          required_variables: ['first_name', 'tracking_open', 'tracking_click', 'unsubscribe_url'],
+        }),
+      });
+      applyDraft(draft);
+      return `Drafted template with ${draft.provider}/${draft.model}.`;
+    });
+  }
+
+  async function editTemplate() {
+    await runAiOperation('Editing template', async () => {
+      const draft = await fetchJson<AITemplateDraft>('/api/v1/ai/templates/edit', {
+        method: 'POST',
+        body: JSON.stringify({
+          instruction,
+          current_subject: subject,
+          current_html: htmlBody,
+          current_css: cssBody || null,
+          sample_variables: parsedSample(),
+        }),
+      });
+      applyDraft(draft);
+      return `Edited template. ${(draft.change_summary || draft.notes || []).slice(0, 2).join(' ')}`;
+    });
+  }
+
+  async function recommendTemplate() {
+    await runAiOperation('Loading recommendations', async () => {
+      const data = await fetchJson<{ recommendations: AITemplateRecommendation[]; sample_variables: Record<string, unknown>; summary: string[] }>('/api/v1/ai/templates/recommend', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_subject: subject,
+          current_html: htmlBody,
+          current_css: cssBody || null,
+          sample_variables: parsedSample(),
+          goals: ['Improve engagement', 'Preserve dynamic variables', 'Improve deliverability readiness'],
+        }),
+      });
+      setRecommendations(data.recommendations || []);
+      if (data.sample_variables && Object.keys(data.sample_variables).length) setSampleJson(JSON.stringify(data.sample_variables, null, 2));
+      return `Loaded ${formatInt(data.recommendations?.length || 0)} recommendation(s).`;
+    });
+  }
+
+  async function previewTemplate() {
+    await runAiOperation('Rendering preview', async () => {
+      const data = await fetchJson<{ subject: string; html_body: string; errors: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({ subject, html_body: htmlBody, css_body: cssBody || null, variables: parsedSample() }),
+      });
+      setPreviewHtml(data.html_body || '');
+      return `Rendered preview: ${data.subject}${data.errors?.length ? ` (${data.errors.join('; ')})` : ''}`;
+    });
+  }
+
+  async function saveAsTemplate() {
+    await runAiOperation('Saving template', async () => {
+      const saved = await fetchJson<TemplateRead>('/api/v1/templates', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `AI ESP Template ${new Date().toISOString().slice(0, 16)}`,
+          subject,
+          html_body: htmlBody,
+          css_body: cssBody || null,
+          text_body: null,
+        }),
+      });
+      await onTemplatesRefresh();
+      return `Saved template: ${saved.name}`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -1906,6 +2055,66 @@ function AiStudioPage({ insights, diagnostics }: { insights: Insight[]; diagnost
           <a href="/admin/analytics">Analyze performance</a>
         </article>
       </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head"><h2>AI Template Builder</h2><a href="/template-editor">Advanced editor</a></div>
+        <div className="form-grid">
+          <label className="wide-field">
+            Prompt
+            <textarea value={brief} onChange={(event) => setBrief(event.target.value)} rows={5} />
+          </label>
+          <label>
+            Edit instruction
+            <textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} rows={5} />
+          </label>
+          <label>
+            Subject
+            <input value={subject} onChange={(event) => setSubject(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            HTML / Jinja
+            <textarea value={htmlBody} onChange={(event) => setHtmlBody(event.target.value)} rows={10} />
+          </label>
+          <label>
+            Sample data JSON
+            <textarea value={sampleJson} onChange={(event) => setSampleJson(event.target.value)} rows={10} />
+          </label>
+          <label className="wide-field">
+            CSS
+            <textarea value={cssBody} onChange={(event) => setCssBody(event.target.value)} rows={5} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={draftTemplate} disabled={busy}>Draft</button>
+          <button className="ghost" onClick={editTemplate} disabled={busy}>Modify</button>
+          <button className="ghost" onClick={recommendTemplate} disabled={busy}>Recommendations</button>
+          <button className="ghost" onClick={previewTemplate} disabled={busy}>Preview</button>
+          <button className="ghost" onClick={saveAsTemplate} disabled={busy}>Save as Template</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+          {notes.length ? <small>{notes.slice(0, 2).join(' ')}</small> : null}
+        </div>
+        {previewHtml ? <iframe className="email-preview" title="AI template preview" srcDoc={previewHtml} /> : null}
+      </section>
+      {recommendations.length ? (
+        <section className="panel table-panel full-span">
+          <div className="panel-head"><h2>Template Recommendations</h2><span className="muted">{formatInt(recommendations.length)} items</span></div>
+          <table>
+            <thead><tr><th>Priority</th><th>Title</th><th>Detail</th><th>Suggested instruction</th></tr></thead>
+            <tbody>
+              {recommendations.map((item) => (
+                <tr key={item.code}>
+                  <td><span className="pill">{item.priority}</span></td>
+                  <td>{item.title}</td>
+                  <td>{item.detail}</td>
+                  <td>{item.suggested_instruction}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
       <section className="panel full-span">
         <div className="panel-head"><h2>AI Insights</h2><a href="/admin/analytics">Open analytics</a></div>
         <div className="insights">
@@ -2248,7 +2457,18 @@ function App() {
         />
       );
     }
-    if (activePage === 'ai-studio') return <AiStudioPage insights={dashboard.aiInsights} diagnostics={dashboard.diagnostics} />;
+    if (activePage === 'ai-studio') {
+      return (
+        <AiStudioPage
+          insights={dashboard.aiInsights}
+          diagnostics={dashboard.diagnostics}
+          onTemplatesRefresh={async () => {
+            const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
+            setDashboard((current) => ({ ...current, templates: templateData.items || [] }));
+          }}
+        />
+      );
+    }
     if (activePage === 'analytics') {
       return (
         <AnalyticsPage
