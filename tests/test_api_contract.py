@@ -17,6 +17,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/templates/edit',
         '/api/v1/ai/templates/recommend',
         '/api/v1/ai/analytics/analyze',
+        '/api/v1/ai/audiences/analyze',
         '/api/v1/ai/campaigns/analyze',
         '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
@@ -318,6 +319,37 @@ def test_ai_campaign_analysis_contract() -> None:
     assert 'fix_launch_validation' in codes
     assert 'repair_audience_targeting' in codes
     assert 'triage_delivery_risk' in codes
+
+
+def test_ai_audience_analysis_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/audiences/analyze',
+        json={
+            'audience_context': {
+                'audience': {'name': 'Trial users'},
+                'rule_tree': {
+                    'operator': 'and',
+                    'rules': [{'field': 'attributes.unknown_plan', 'comparator': 'eq', 'value': 'trial'}],
+                },
+                'preview': {'estimated_count': 0, 'sample_contacts': []},
+                'contact_meta': {
+                    'fields': ['email', 'first_name'],
+                    'attribute_keys': ['plan', 'source'],
+                },
+            },
+            'goals': ['Improve audience targeting'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-audience-analysis-v1'
+    assert data['summary']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'fix_unknown_fields' in codes
+    assert 'broaden_zero_match_audience' in codes
 
 
 def test_template_editor_page() -> None:
@@ -779,6 +811,9 @@ def test_admin_pages() -> None:
     assert 'Email Engine Audience Builder' in audiences.text
     assert 'Load Contact Fields' in audiences.text
     assert 'Snapshot' in audiences.text
+    assert 'AI Audience Review' in audiences.text
+    assert 'reviewAudienceWithAi' in audiences.text
+    assert '/api/v1/ai/audiences/analyze' in audiences.text
     assert '.item.selected' in audiences.text
     assert 'Email Engine Campaign Manager' in campaigns.text
     assert 'Clone' in campaigns.text

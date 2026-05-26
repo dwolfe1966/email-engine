@@ -1168,6 +1168,54 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       border: 1px solid var(--line);
       border-radius: 6px;
     }
+    .ai-audience-panel {
+      border: 1px solid #c7d7fe;
+      border-radius: 8px;
+      background: #f7f9ff;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .ai-audience-panel[hidden] { display: none; }
+    .ai-audience-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ai-audience-head strong { font-size: 13px; }
+    .ai-audience-head span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .ai-audience-summary {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ai-audience-list {
+      display: grid;
+      gap: 7px;
+    }
+    .ai-audience-card {
+      border: 1px solid #dbe4ff;
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+      display: grid;
+      gap: 4px;
+    }
+    .ai-audience-card.high { border-color: #f3c8c5; background: #fff7f7; }
+    .ai-audience-card.medium { border-color: #f1d09a; background: #fffaf0; }
+    .ai-audience-card strong { font-size: 13px; }
+    .ai-audience-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -1239,6 +1287,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
         <h2>Builder</h2>
         <div class="actions">
           <button class="secondary" id="preview">Preview</button>
+          <button class="secondary" id="aiAudienceReview">AI Review</button>
           <button class="secondary" id="snapshot">Snapshot</button>
           <button class="secondary" id="snapshots">Snapshots</button>
           <button id="save">Save</button>
@@ -1280,6 +1329,14 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
         <label>Rule tree JSON
           <textarea id="ruleTree"></textarea>
         </label>
+        <div class="ai-audience-panel" id="aiAudiencePanel" hidden>
+          <div class="ai-audience-head">
+            <strong>AI Audience Review</strong>
+            <span id="aiAudienceMeta"></span>
+          </div>
+          <ul class="ai-audience-summary" id="aiAudienceSummary"></ul>
+          <div class="ai-audience-list" id="aiAudienceList"></div>
+        </div>
         <div class="actions">
           <button class="secondary" id="loadContactMeta">Load Contact Fields</button>
           <button class="secondary" id="loadContactSamples">Sample Contacts</button>
@@ -1308,6 +1365,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
   <script>
     let selectedId = "";
     let rules = [];
+    let lastContactMeta = null;
     const result = document.getElementById("result");
 
     function writeResult(data, ok = true) {
@@ -1398,12 +1456,14 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       const data = await request(
         "/api/v1/audiences/contacts/meta?sample_limit=50&scan_limit=500"
       );
+      lastContactMeta = data;
       renderChips("coreFields", data.fields || []);
       renderChips(
         "attributeFields",
         (data.attribute_keys || []).map((key) => `attributes.${key}`)
       );
       renderContacts("contactSamples", data.sample_contacts || []);
+      return data;
     }
 
     function currentRuleTree() {
@@ -1461,6 +1521,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       selectedId = "";
       document.getElementById("name").value = `audience-${Date.now()}`;
       document.getElementById("description").value = "";
+      document.getElementById("aiAudiencePanel").hidden = true;
       loadRuleTree({ operator: "and", rules: [] });
     }
 
@@ -1469,6 +1530,7 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
       markSelected("items", selectedId);
       document.getElementById("name").value = item.name || "";
       document.getElementById("description").value = item.description || "";
+      document.getElementById("aiAudiencePanel").hidden = true;
       loadRuleTree(item.rule_tree || {});
       writeResult(item);
     }
@@ -1513,6 +1575,65 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
         body: JSON.stringify({ rule_tree: ruleTree, limit: 25 })
       });
       renderContacts("contactSamples", data.sample_contacts || []);
+      return data;
+    }
+
+    function selectedAudienceContext() {
+      return {
+        id: selectedId || null,
+        name: document.getElementById("name").value.trim(),
+        description: document.getElementById("description").value.trim() || null,
+        rule_tree: currentRuleTree(),
+      };
+    }
+
+    function renderAudienceAiReview(data) {
+      const panel = document.getElementById("aiAudiencePanel");
+      const meta = document.getElementById("aiAudienceMeta");
+      const summary = document.getElementById("aiAudienceSummary");
+      const list = document.getElementById("aiAudienceList");
+      panel.hidden = false;
+      meta.textContent = `${data.provider || "email-engine"} - ${data.model || "audience-analysis"}`;
+      summary.innerHTML = (data.summary || [])
+        .map((item) => `<li>${escapeHtml(item)}</li>`)
+        .join("");
+      list.innerHTML = (data.recommendations || []).map((item) => `
+        <div class="ai-audience-card ${escapeHtml(item.priority || "")}">
+          <strong>${escapeHtml(item.title || item.code)}</strong>
+          <p>${escapeHtml(item.detail || "")}</p>
+          <p>${escapeHtml(item.suggested_action || "")}</p>
+        </div>
+      `).join("") || '<div class="empty-state">No recommendations returned.</div>';
+    }
+
+    async function reviewAudienceWithAi() {
+      const button = document.getElementById("aiAudienceReview");
+      button.disabled = true;
+      button.textContent = "Reviewing...";
+      try {
+        const preview = await previewAudience();
+        const meta = lastContactMeta || await loadContactMeta();
+        const data = await request("/api/v1/ai/audiences/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            audience_context: {
+              audience: selectedAudienceContext(),
+              rule_tree: currentRuleTree(),
+              preview,
+              contact_meta: meta,
+            },
+            goals: [
+              "Assess audience readiness for campaign launch.",
+              "Identify rule, data quality, and segmentation risks.",
+              "Recommend concrete next steps for the Audience Builder.",
+            ],
+          })
+        });
+        renderAudienceAiReview(data);
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI Review";
+      }
     }
 
     async function saveAudience() {
@@ -1570,6 +1691,9 @@ ADMIN_AUDIENCES_HTML = r"""<!doctype html>
     });
     document.getElementById("preview").addEventListener("click", () => {
       previewAudience().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("aiAudienceReview").addEventListener("click", () => {
+      reviewAudienceWithAi().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("snapshot").addEventListener("click", () => {
       createSnapshot().catch((error) => writeResult(error.message, false));

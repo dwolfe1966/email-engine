@@ -35,6 +35,9 @@ from email_platform.schemas.contracts import (
     AIAnalyticsAnalysisRead,
     AIAnalyticsAnalysisRequest,
     AIAnalyticsRecommendationRead,
+    AIAudienceAnalysisRead,
+    AIAudienceAnalysisRequest,
+    AIAudienceRecommendationRead,
     AICampaignAnalysisRead,
     AICampaignAnalysisRequest,
     AICampaignRecommendationRead,
@@ -1204,6 +1207,147 @@ def _deterministic_campaign_analysis(
     )
 
 
+def _audience_rules(rule_tree: Mapping[str, object]) -> list[Mapping[str, object]]:
+    rules: list[Mapping[str, object]] = []
+    for item in _list(rule_tree.get('rules')):
+        if not isinstance(item, Mapping):
+            continue
+        if 'rules' in item:
+            rules.extend(_audience_rules(item))
+        elif item.get('field'):
+            rules.append(item)
+    return rules
+
+
+def _deterministic_audience_analysis(
+    payload: AIAudienceAnalysisRequest,
+) -> AIAudienceAnalysisRead:
+    context = payload.audience_context or {}
+    audience = _mapping(context.get('audience'))
+    rule_tree = _mapping(context.get('rule_tree') or audience.get('rule_tree'))
+    preview = _mapping(context.get('preview'))
+    contact_meta = _mapping(context.get('contact_meta'))
+    rules = _audience_rules(rule_tree)
+    estimated_count = int(_number(preview.get('estimated_count')))
+    sample_contacts = _list(preview.get('sample_contacts'))
+    fields = {str(field) for field in _list(contact_meta.get('fields'))}
+    attribute_fields = {f'attributes.{key}' for key in _list(contact_meta.get('attribute_keys'))}
+    known_fields = fields | attribute_fields
+    recommendations: list[AIAudienceRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_action: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AIAudienceRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_action=suggested_action,
+                confidence=confidence,
+            )
+        )
+
+    unknown_fields = sorted({
+        str(rule.get('field'))
+        for rule in rules
+        if known_fields and str(rule.get('field')) not in known_fields
+    })
+    if not rules:
+        add(
+            'add_audience_constraints',
+            'targeting',
+            'high',
+            'Add audience constraints',
+            'The audience rule tree does not contain any field rules.',
+            'Use contact samples and attribute fields to add at least one meaningful rule before campaign launch.',
+            0.94,
+        )
+    if unknown_fields:
+        add(
+            'fix_unknown_fields',
+            'schema',
+            'high',
+            'Fix unknown audience fields',
+            f'Rules reference fields not found in contact metadata: {", ".join(unknown_fields[:5])}.',
+            'Click a known Core Field or Attribute Field chip and replace unknown field paths.',
+            0.92,
+        )
+    if estimated_count <= 0:
+        add(
+            'broaden_zero_match_audience',
+            'targeting',
+            'high',
+            'Broaden zero-match audience',
+            'Preview returned zero matched contacts.',
+            'Relax the most restrictive comparator, verify values against Contact Samples, then preview again.',
+            0.96,
+        )
+    elif estimated_count < 5:
+        add(
+            'validate_small_audience',
+            'targeting',
+            'medium',
+            'Validate very small audience',
+            f'Preview estimates only {estimated_count} matched contact(s).',
+            'Confirm this is intentional for testing; otherwise relax one rule or switch AND to OR.',
+            0.78,
+        )
+    elif estimated_count > 50000 and len(rules) < 2:
+        add(
+            'narrow_broad_audience',
+            'targeting',
+            'medium',
+            'Narrow broad audience before scaling',
+            f'Preview estimates {estimated_count} contacts with limited constraints.',
+            'Add behavior, source, plan, lifecycle, or recency constraints before a production campaign.',
+            0.72,
+        )
+    if sample_contacts and not any(_mapping(contact).get('attributes') for contact in sample_contacts):
+        add(
+            'enrich_contact_attributes',
+            'data_quality',
+            'medium',
+            'Enrich contact attributes',
+            'Sample contacts do not expose attribute data for richer segmentation.',
+            'Use Data Sources or import mappings to populate attributes such as plan, lifecycle, product, or source.',
+            0.7,
+        )
+    if not recommendations:
+        add(
+            'audience_ready_for_testing',
+            'readiness',
+            'low',
+            'Audience ready for test campaign',
+            'No major audience rule or data-quality issue is visible in this context.',
+            'Create a snapshot, attach the audience to a campaign, and validate send count with a dry run.',
+            0.68,
+        )
+
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    recommendations = sorted(
+        recommendations,
+        key=lambda item: (priority_order.get(item.priority, 9), -item.confidence, item.code),
+    )[:8]
+    summary = [
+        f'Audience: {audience.get("name") or "current rule tree"}.',
+        f'{len(rules)} rule(s), operator {rule_tree.get("operator") or "and"}.',
+        f'Estimated matched contacts: {estimated_count}.',
+        f'{len(recommendations)} recommendation(s) generated.',
+    ]
+    if payload.goals:
+        summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
+    return AIAudienceAnalysisRead(summary=summary, recommendations=recommendations)
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -1340,6 +1484,13 @@ def analyze_campaign_with_ai(
     payload: AICampaignAnalysisRequest,
 ) -> AICampaignAnalysisRead:
     return _deterministic_campaign_analysis(payload)
+
+
+@router.post('/ai/audiences/analyze', response_model=AIAudienceAnalysisRead)
+def analyze_audience_with_ai(
+    payload: AIAudienceAnalysisRequest,
+) -> AIAudienceAnalysisRead:
+    return _deterministic_audience_analysis(payload)
 
 
 def _tracking_request_metadata(request: Request) -> JsonObject:
