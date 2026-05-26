@@ -7,6 +7,10 @@ campaign, template, audience, delivery, or analytics contracts. The core platfor
 provider-neutral so OpenAI, local models, or future providers can sit behind the same internal
 service interface.
 
+The default AI product surface is the native Email Engine admin at `email-engine.app`. SentientMail
+can consume the same APIs, but new AI authoring, campaign, audience, workflow, and analytics
+features should be designed first for Email Engine's self-standing ESP experience.
+
 ## First AI Surfaces
 
 ### 1. Template Builder Agent
@@ -31,7 +35,7 @@ Request:
 {
   "brief": "Create a trial activation email for SaaS users.",
   "brand": {
-    "name": "SentientMail",
+    "name": "Email Engine",
     "primary_color": "#2563eb",
     "tone": "direct, helpful"
   },

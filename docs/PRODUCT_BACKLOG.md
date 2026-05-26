@@ -2,6 +2,18 @@
 
 AI enablement is tracked in `docs/AI_ENABLEMENT_PLAN.md`.
 
+## Product Direction
+
+Email Engine is now the primary product surface, not only the backend API. The goal is to turn
+`email-engine.app` into a self-standing ESP with a high-quality admin GUI for template building,
+audience work, campaign management, delivery operations, tracking, reporting, analytics, and AI
+assistance.
+
+SentientMail remains a supported external/admin GUI client, and its strongest UX patterns should be
+ported into Email Engine where they improve the native product. New backend/API work should keep the
+SentientMail integration contract in mind, but the default implementation target is the native
+Email Engine admin unless a task explicitly says otherwise.
+
 This backlog is organized around the target platform capabilities:
 
 1. Mapping and pulling from complex heterogeneous data stores
@@ -21,6 +33,67 @@ This backlog is organized around the target platform capabilities:
 - Add audit logs for admin mutations.
 - Add structured JSON logging and request IDs.
 - Add release-phase migration automation for the deployment platform.
+- Establish Email Engine Admin as the primary ESP GUI with consistent navigation, operation
+  feedback, selected-entity highlighting, responsive layouts, and raw/API debug fallbacks.
+  **Initial admin pages, navigation, global operation feedback, entity highlighting, and system
+  diagnostics shipped.**
+- Keep SentientMail compatibility as an integration target, but avoid making SentientMail-only UX or
+  API assumptions the source of truth for new Email Engine product work.
+
+## P0.5: Native ESP Admin Experience
+
+The native admin should become as strong as or stronger than the current SentientMail GUI. Near-term
+work should focus on reusing the good SentientMail UX patterns while making the Email Engine object
+model clearer and more operationally complete.
+
+### Template Builder / Template Editor
+
+- Make `/template-editor` a full production authoring surface, not only a test tool.
+- Improve WYSIWYG fidelity for existing HTML/Jinja templates, including robust source-to-block and
+  block-to-source round trips.
+- Add stronger Design tab controls for common email layout blocks, buttons, images, tables, trust
+  elements, dividers, spacers, and reusable sections.
+- Add CSS builder controls for typography, spacing, container width, button style, table style,
+  color palettes, and mobile-safe defaults.
+- Add native sample-data presets per template category and detected variable type.
+- Add variable-aware preview behavior that refreshes sample data when selected templates change.
+- Add richer Jinja helper UI for loops, conditionals, fallback values, and nested objects.
+- Add version history, compare, rollback, and current-version controls in the native EE editor.
+- Add AI-assisted template draft/edit/recommend flows directly in the EE editor, with visible
+  progress for long-running AI operations.
+  **Initial AI draft/edit/recommend APIs, WYSIWYG blocks, CSS helper, sample-variable refresh, and
+  sample template collections shipped.**
+
+### Campaign Manager
+
+- Make `/admin/campaigns` the primary campaign workflow surface for create -> validate -> approve
+  -> test send -> launch/process -> monitor.
+- Port and improve SentientMail campaign UX patterns: workflow strips, launch result banners,
+  progress polling, active send counts, clear success/failure states, and campaign list summaries.
+  **Initial summary strip, workflow readiness, AI review, test-send panel, and launch progress
+  polling shipped.**
+- Add a campaign table/list view with fixed columns, wrapping long content, fast loading, filters,
+  search, pagination, status tabs, and progress cells.
+- Add clearer launch modes: dry run, test send, scheduled launch, queue launch, process queued.
+- Add campaign-level snapshot of template, audience, variables, and approval status used at launch.
+- Add explicit campaign event timeline and delivery drilldowns from the campaign page.
+- Add campaign examples and starter workflows for ecommerce, subscription, social, SaaS onboarding,
+  lifecycle, and reactivation use cases.
+
+### Reports / Analytics
+
+- Make `/admin/analytics` the native reports hub for operators and marketers.
+- Port and improve SentientMail reports UX patterns: overview cards, focused campaign panels,
+  campaign rate comparison, trend charts, domain/provider deliverability views, event drilldowns,
+  and fast filter changes.
+  **Initial campaign focused panel, rate comparison, KPI cards, timeline charts, overview, campaign,
+  audience, journey, and domain reports shipped.**
+- Add time-series graphs for opens, clicks, bounces, unsubscribes, failures, deliverability, and
+  campaign throughput.
+- Add comparison views for campaigns, audiences, journeys, templates, domains, and providers.
+- Add operator-friendly report defaults that load quickly, then progressively fetch heavier panels.
+- Add export/download for report tables and chart data.
+- Add AI analytics summaries and recommended next actions once metrics stabilize.
 
 ## P1: Data Source Mapping And Ingestion
 
