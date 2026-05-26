@@ -170,6 +170,56 @@ type SuppressionRead = {
   metadata_json: Record<string, unknown>;
 };
 
+type DataSourceRead = {
+  id: string;
+  name: string;
+  source_type: 'postgres' | 'mysql' | 'snowflake' | 'bigquery' | 'rest_api' | 'csv' | 'manual';
+  status: 'draft' | 'active' | 'paused';
+  config: Record<string, unknown>;
+  secret_ref: string | null;
+};
+
+type DataSourceMappingRead = {
+  id: string;
+  data_source_id: string;
+  name: string;
+  object_type: string;
+  mapping: Record<string, unknown>;
+  extraction_plan: Record<string, unknown>;
+};
+
+type DataSourceImportJobRead = {
+  id: string;
+  data_source_id: string;
+  mapping_id: string;
+  status: 'completed' | 'failed' | 'dry_run';
+  object_type: string;
+  received_count: number;
+  imported_count: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  errors: unknown[];
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+type DataSourceValidationRead = {
+  data_source_id: string;
+  source_type: DataSourceRead['source_type'];
+  ok: boolean;
+  checks: string[];
+  errors: string[];
+};
+
+type DataSourceSchemaRead = {
+  data_source_id: string;
+  source_type: DataSourceRead['source_type'];
+  object_types: string[];
+  fields: Array<{ name: string; field_type: string; sample_values: unknown[] }>;
+  sample_rows: Record<string, unknown>[];
+};
+
 type AudienceRead = {
   id: string;
   name: string;
@@ -268,6 +318,9 @@ type DashboardState = {
   sendJobs: CampaignSendJobRead[];
   sendRecords: EmailSendRecordRead[];
   suppressions: SuppressionRead[];
+  dataSources: DataSourceRead[];
+  dataMappings: DataSourceMappingRead[];
+  importJobs: DataSourceImportJobRead[];
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
   templates: TemplateRead[];
@@ -285,6 +338,7 @@ type PageKey =
   | 'automations'
   | 'delivery'
   | 'compliance'
+  | 'data'
   | 'audience'
   | 'templates'
   | 'ai-studio'
@@ -367,6 +421,7 @@ const navItems: NavItem[] = [
   { label: 'Automations', key: 'automations', href: '#automations' },
   { label: 'Delivery', key: 'delivery', href: '#delivery' },
   { label: 'Compliance', key: 'compliance', href: '#compliance' },
+  { label: 'Data', key: 'data', href: '#data' },
   { label: 'Audience', key: 'audience', href: '#audience' },
   { label: 'Templates', key: 'templates', href: '#templates' },
   { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
@@ -528,6 +583,7 @@ function pageSubtitle(page: PageKey, dashboard: DashboardState) {
     automations: 'Monitor journeys, enrollments, queued sends, and execution health.',
     delivery: 'Inspect send jobs, process queued messages, and manage individual send records.',
     compliance: 'Manage suppressions before campaign launch and delivery processing.',
+    data: 'Configure data sources, mappings, row ingestion, and import job visibility.',
     audience: 'Manage audiences and segmentation readiness.',
     templates: 'Create, edit, and test dynamic email templates.',
     'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
@@ -2116,6 +2172,325 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
   );
 }
 
+function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
+  dataSources: DataSourceRead[];
+  mappings: DataSourceMappingRead[];
+  importJobs: DataSourceImportJobRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedSourceId, setSelectedSourceId] = useState('');
+  const [selectedMappingId, setSelectedMappingId] = useState('');
+  const [name, setName] = useState('ESP Manual Contact Source');
+  const [sourceType, setSourceType] = useState<DataSourceRead['source_type']>('manual');
+  const [statusValue, setStatusValue] = useState<DataSourceRead['status']>('draft');
+  const [configJson, setConfigJson] = useState('{\n  "fields": ["email", "first_name", "last_name", "plan"],\n  "sample_rows": [\n    { "email": "sample@example.com", "first_name": "Sample", "last_name": "Contact", "plan": "trial" }\n  ]\n}');
+  const [mappingName, setMappingName] = useState('Contact import mapping');
+  const [mappingJson, setMappingJson] = useState('{\n  "email": "email",\n  "first_name": "first_name",\n  "last_name": "last_name",\n  "source": "source",\n  "attributes": {\n    "plan": "plan"\n  }\n}');
+  const [rowsJson, setRowsJson] = useState('[\n  { "email": "esp-import-sample@example.com", "first_name": "ESP", "last_name": "Sample", "source": "esp_data_page", "plan": "trial" }\n]');
+  const [validation, setValidation] = useState<DataSourceValidationRead | null>(null);
+  const [schema, setSchema] = useState<DataSourceSchemaRead | null>(null);
+  const [status, setStatus] = useState('Ready to configure a source, map fields, and import contacts.');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!selectedSourceId && dataSources.length) loadSource(dataSources[0]);
+  }, [dataSources, selectedSourceId]);
+
+  useEffect(() => {
+    const sourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId);
+    if (!selectedMappingId && sourceMappings.length) loadMapping(sourceMappings[0]);
+  }, [mappings, selectedMappingId, selectedSourceId]);
+
+  const sourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId);
+  const selectedSource = dataSources.find((source) => source.id === selectedSourceId);
+  const selectedMapping = mappings.find((mapping) => mapping.id === selectedMappingId);
+  const completedJobs = importJobs.filter((job) => job.status === 'completed').length;
+  const dryRunJobs = importJobs.filter((job) => job.status === 'dry_run').length;
+  const failedJobs = importJobs.filter((job) => job.status === 'failed').length;
+  const importedCount = importJobs.reduce((sum, job) => sum + Number(job.imported_count || 0), 0);
+
+  function parseJsonObject(value: string, label: string) {
+    try {
+      const parsed = JSON.parse(value || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(`${label} must be a JSON object.`);
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : `Invalid ${label}.`);
+    }
+  }
+
+  function parseRows() {
+    try {
+      const parsed = JSON.parse(rowsJson || '[]');
+      if (!Array.isArray(parsed)) throw new Error('Rows must be a JSON array.');
+      return parsed as Record<string, unknown>[];
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid rows JSON.');
+    }
+  }
+
+  function loadSource(source: DataSourceRead) {
+    setSelectedSourceId(source.id);
+    setName(source.name);
+    setSourceType(source.source_type);
+    setStatusValue(source.status);
+    setConfigJson(JSON.stringify(source.config || {}, null, 2));
+    setValidation(null);
+    setSchema(null);
+    setStatus(`Loaded source: ${source.name}`);
+  }
+
+  function loadMapping(mapping: DataSourceMappingRead) {
+    setSelectedMappingId(mapping.id);
+    setMappingName(mapping.name);
+    setMappingJson(JSON.stringify(mapping.mapping || {}, null, 2));
+    setStatus(`Loaded mapping: ${mapping.name}`);
+  }
+
+  async function runDataOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      setStatus(await operation());
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveSource() {
+    await runDataOperation(selectedSourceId ? 'Saving data source' : 'Creating data source', async () => {
+      const payload = {
+        name: name.trim() || 'Untitled ESP Data Source',
+        source_type: sourceType,
+        status: statusValue,
+        config: parseJsonObject(configJson, 'config'),
+        secret_ref: null,
+      };
+      const saved = selectedSourceId
+        ? await fetchJson<DataSourceRead>(`/api/v1/data-sources/${selectedSourceId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+        : await fetchJson<DataSourceRead>('/api/v1/data-sources', { method: 'POST', body: JSON.stringify(payload) });
+      setSelectedSourceId(saved.id);
+      await onRefresh();
+      return `Saved data source: ${saved.name}.`;
+    });
+  }
+
+  async function validateSource() {
+    await runDataOperation('Validating data source', async () => {
+      if (!selectedSourceId) throw new Error('Save or select a data source first.');
+      const data = await fetchJson<DataSourceValidationRead>(`/api/v1/data-sources/${selectedSourceId}/validate`, { method: 'POST' });
+      setValidation(data);
+      return data.ok ? `Validation passed: ${data.checks.join(', ') || 'checks complete'}.` : `Validation failed: ${data.errors.join(', ') || 'unknown issue'}.`;
+    });
+  }
+
+  async function discoverSchema() {
+    await runDataOperation('Discovering schema', async () => {
+      if (!selectedSourceId) throw new Error('Save or select a data source first.');
+      const data = await fetchJson<DataSourceSchemaRead>(`/api/v1/data-sources/${selectedSourceId}/schema`);
+      setSchema(data);
+      if (data.sample_rows?.length) setRowsJson(JSON.stringify(data.sample_rows.slice(0, 5), null, 2));
+      return `Discovered ${formatInt(data.fields.length)} field(s) and ${formatInt(data.sample_rows.length)} sample row(s).`;
+    });
+  }
+
+  async function saveMapping() {
+    await runDataOperation(selectedMappingId ? 'Saving mapping' : 'Creating mapping', async () => {
+      if (!selectedSourceId) throw new Error('Save or select a data source first.');
+      const payload = {
+        data_source_id: selectedSourceId,
+        name: mappingName.trim() || 'Contact import mapping',
+        object_type: 'contact',
+        mapping: parseJsonObject(mappingJson, 'mapping'),
+        extraction_plan: { source: 'esp_data_page' },
+      };
+      const saved = selectedMappingId
+        ? await fetchJson<DataSourceMappingRead>(`/api/v1/data-source-mappings/${selectedMappingId}`, { method: 'PATCH', body: JSON.stringify(payload) })
+        : await fetchJson<DataSourceMappingRead>('/api/v1/data-source-mappings', { method: 'POST', body: JSON.stringify(payload) });
+      setSelectedMappingId(saved.id);
+      await onRefresh();
+      return `Saved mapping: ${saved.name}.`;
+    });
+  }
+
+  async function ingestRows(dryRun: boolean) {
+    await runDataOperation(dryRun ? 'Dry-running import' : 'Importing rows', async () => {
+      if (!selectedSourceId) throw new Error('Select a data source.');
+      if (!selectedMappingId) throw new Error('Select or create a mapping.');
+      const job = await fetchJson<DataSourceImportJobRead>(`/api/v1/data-sources/${selectedSourceId}/ingest`, {
+        method: 'POST',
+        body: JSON.stringify({
+          mapping_id: selectedMappingId,
+          rows: parseRows(),
+          dry_run: dryRun,
+          metadata_json: { source: 'esp_data_page' },
+        }),
+      });
+      await onRefresh();
+      return `${dryRun ? 'Dry run' : 'Import'} ${job.status}: ${formatInt(job.imported_count)} imported, ${formatInt(job.skipped_count)} skipped.`;
+    });
+  }
+
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Sources', value: formatInt(dataSources.length), change: 'configured' }} />
+        <MetricCard metric={{ label: 'Mappings', value: formatInt(mappings.length), change: 'field maps' }} />
+        <MetricCard metric={{ label: 'Imported rows', value: formatInt(importedCount), change: `${formatInt(completedJobs)} completed jobs` }} />
+        <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
+        <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Source</span>
+          <strong>{selectedSource?.name || 'No source selected'}</strong>
+          <p>Configure source type, schema fields, and sample rows for future heterogeneous-store integrations.</p>
+          <a href="/admin/data-sources">Advanced data sources</a>
+        </article>
+        <article className="workflow-card">
+          <span>Mapping</span>
+          <strong>{selectedMapping?.name || 'No mapping selected'}</strong>
+          <p>Map incoming rows into contact fields and attributes before importing contacts.</p>
+          <a href="#audience">Open audience</a>
+        </article>
+        <article className={`workflow-card ${validation && !validation.ok ? 'warn' : ''}`}>
+          <span>Validation</span>
+          <strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong>
+          <p>{validation ? [...validation.checks, ...validation.errors].slice(0, 2).join(' ') : 'Validate source configuration before running imports.'}</p>
+          <a href="/admin/data-sources">Open diagnostics</a>
+        </article>
+        <article className="workflow-card">
+          <span>Schema</span>
+          <strong>{schema ? `${formatInt(schema.fields.length)} fields` : 'Unknown'}</strong>
+          <p>{schema?.fields?.length ? schema.fields.slice(0, 5).map((field) => field.name).join(', ') : 'Discover schema to expose usable fields and sample rows.'}</p>
+          <a href="#templates">Use attributes in templates</a>
+        </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Data Operations</h2>
+          <a href="/admin/data-sources">Advanced data sources</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Existing source
+            <select value={selectedSourceId} onChange={(event) => {
+              const source = dataSources.find((item) => item.id === event.target.value);
+              if (source) loadSource(source);
+              else setSelectedSourceId('');
+            }}>
+              <option value="">Create new source</option>
+              {dataSources.map((source) => <option value={source.id} key={source.id}>{source.name} ({source.source_type})</option>)}
+            </select>
+          </label>
+          <label>
+            Source name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Type
+            <select value={sourceType} onChange={(event) => setSourceType(event.target.value as DataSourceRead['source_type'])}>
+              <option value="manual">Manual</option>
+              <option value="csv">CSV</option>
+              <option value="rest_api">REST API</option>
+              <option value="postgres">Postgres</option>
+              <option value="mysql">MySQL</option>
+              <option value="snowflake">Snowflake</option>
+              <option value="bigquery">BigQuery</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select value={statusValue} onChange={(event) => setStatusValue(event.target.value as DataSourceRead['status'])}>
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+            </select>
+          </label>
+          <label className="wide-field">
+            Config JSON
+            <textarea value={configJson} onChange={(event) => setConfigJson(event.target.value)} rows={8} />
+          </label>
+          <label>
+            Existing mapping
+            <select value={selectedMappingId} onChange={(event) => {
+              const mapping = mappings.find((item) => item.id === event.target.value);
+              if (mapping) loadMapping(mapping);
+              else setSelectedMappingId('');
+            }}>
+              <option value="">Create new mapping</option>
+              {sourceMappings.map((mapping) => <option value={mapping.id} key={mapping.id}>{mapping.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Mapping name
+            <input value={mappingName} onChange={(event) => setMappingName(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            Contact mapping JSON
+            <textarea value={mappingJson} onChange={(event) => setMappingJson(event.target.value)} rows={8} />
+          </label>
+          <label>
+            Import rows JSON
+            <textarea value={rowsJson} onChange={(event) => setRowsJson(event.target.value)} rows={8} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={saveSource} disabled={busy}>Save Source</button>
+          <button className="ghost" onClick={validateSource} disabled={busy || !selectedSourceId}>Validate</button>
+          <button className="ghost" onClick={discoverSchema} disabled={busy || !selectedSourceId}>Discover Schema</button>
+          <button className="ghost" onClick={saveMapping} disabled={busy || !selectedSourceId}>Save Mapping</button>
+          <button className="ghost" onClick={() => ingestRows(true)} disabled={busy || !selectedSourceId || !selectedMappingId}>Dry Run</button>
+          <button className="ghost" onClick={() => ingestRows(false)} disabled={busy || !selectedSourceId || !selectedMappingId}>Import Rows</button>
+          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
+      {schema?.fields?.length ? (
+        <section className="panel table-panel full-span">
+          <div className="panel-head"><h2>Discovered Fields</h2><span className="muted">{formatInt(schema.fields.length)} fields</span></div>
+          <table>
+            <thead><tr><th>Field</th><th>Type</th><th>Samples</th></tr></thead>
+            <tbody>
+              {schema.fields.map((field) => (
+                <tr key={field.name}><td>{field.name}</td><td>{field.field_type}</td><td>{field.sample_values.map((value) => String(value)).join(', ') || '-'}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Import Jobs</h2><span className="muted">{formatInt(importJobs.length)} visible</span></div>
+        {importJobs.length ? (
+          <table>
+            <thead><tr><th>Created</th><th>Status</th><th>Object</th><th>Received</th><th>Imported</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Errors</th></tr></thead>
+            <tbody>
+              {importJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>{job.created_at}</td>
+                  <td><span className="pill">{job.status}</span></td>
+                  <td>{job.object_type}</td>
+                  <td>{formatInt(job.received_count)}</td>
+                  <td>{formatInt(job.imported_count)}</td>
+                  <td>{formatInt(job.created_count)}</td>
+                  <td>{formatInt(job.updated_count)}</td>
+                  <td>{formatInt(job.skipped_count)}</td>
+                  <td>{formatInt(job.errors?.length || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No import jobs" detail="Save a source and mapping, then run a dry run or import rows." actionHref="/admin/data-sources" actionLabel="Open Data Sources" />}
+      </section>
+    </section>
+  );
+}
+
 function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
@@ -2902,6 +3277,9 @@ function App() {
     sendJobs: [],
     sendRecords: [],
     suppressions: [],
+    dataSources: [],
+    dataMappings: [],
+    importJobs: [],
     audiences: [],
     audienceItems: [],
     templates: [],
@@ -2926,13 +3304,16 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, dataSourceData, dataMappingData, importJobData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
           fetchJson<ListResponse<CampaignSendJobRead>>('/api/v1/campaign-send-jobs/list?limit=25&offset=0'),
           fetchJson<ListResponse<EmailSendRecordRead>>('/api/v1/email-send-records/list?limit=25&offset=0'),
           fetchJson<ListResponse<SuppressionRead>>('/api/v1/suppressions/list?limit=25&offset=0'),
+          fetchJson<ListResponse<DataSourceRead>>('/api/v1/data-sources/list?limit=25&offset=0'),
+          fetchJson<ListResponse<DataSourceMappingRead>>('/api/v1/data-source-mappings/list?limit=25&offset=0'),
+          fetchJson<ListResponse<DataSourceImportJobRead>>('/api/v1/data-source-import-jobs/list?limit=25&offset=0'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
           fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
@@ -2969,6 +3350,9 @@ function App() {
             sendJobs: sendJobData.items || [],
             sendRecords: sendRecordData.items || [],
             suppressions: suppressionData.items || [],
+            dataSources: dataSourceData.items || [],
+            dataMappings: dataMappingData.items || [],
+            importJobs: importJobData.items || [],
             audiences: audienceData.items || [],
             audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
@@ -2989,6 +3373,9 @@ function App() {
             sendJobs: [],
             sendRecords: [],
             suppressions: [],
+            dataSources: [],
+            dataMappings: [],
+            importJobs: [],
             audiences: [],
             audienceItems: [],
             templates: [],
@@ -3087,6 +3474,28 @@ function App() {
             setDashboard((current) => ({
               ...current,
               suppressions: suppressionData.items || [],
+            }));
+          }}
+        />
+      );
+    }
+    if (activePage === 'data') {
+      return (
+        <DataPage
+          dataSources={dashboard.dataSources}
+          mappings={dashboard.dataMappings}
+          importJobs={dashboard.importJobs}
+          onRefresh={async () => {
+            const [dataSourceData, dataMappingData, importJobData] = await Promise.all([
+              fetchJson<ListResponse<DataSourceRead>>('/api/v1/data-sources/list?limit=25&offset=0'),
+              fetchJson<ListResponse<DataSourceMappingRead>>('/api/v1/data-source-mappings/list?limit=25&offset=0'),
+              fetchJson<ListResponse<DataSourceImportJobRead>>('/api/v1/data-source-import-jobs/list?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              dataSources: dataSourceData.items || [],
+              dataMappings: dataMappingData.items || [],
+              importJobs: importJobData.items || [],
             }));
           }}
         />
