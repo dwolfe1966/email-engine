@@ -239,6 +239,15 @@ type ContactRead = {
   is_unsubscribed: boolean;
 };
 
+type ContactMetadata = {
+  total: number;
+  scanned_count: number;
+  fields: string[];
+  attribute_keys: string[];
+  sources: Array<{ source: string; count: number }>;
+  sample_contacts: ContactRead[];
+};
+
 type ListResponse<T> = {
   items: T[];
   total: number;
@@ -321,6 +330,8 @@ type DashboardState = {
   dataSources: DataSourceRead[];
   dataMappings: DataSourceMappingRead[];
   importJobs: DataSourceImportJobRead[];
+  contacts: ContactRead[];
+  contactMeta: ContactMetadata | null;
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
   templates: TemplateRead[];
@@ -339,6 +350,7 @@ type PageKey =
   | 'delivery'
   | 'compliance'
   | 'data'
+  | 'contacts'
   | 'audience'
   | 'templates'
   | 'ai-studio'
@@ -422,6 +434,7 @@ const navItems: NavItem[] = [
   { label: 'Delivery', key: 'delivery', href: '#delivery' },
   { label: 'Compliance', key: 'compliance', href: '#compliance' },
   { label: 'Data', key: 'data', href: '#data' },
+  { label: 'Contacts', key: 'contacts', href: '#contacts' },
   { label: 'Audience', key: 'audience', href: '#audience' },
   { label: 'Templates', key: 'templates', href: '#templates' },
   { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
@@ -584,6 +597,7 @@ function pageSubtitle(page: PageKey, dashboard: DashboardState) {
     delivery: 'Inspect send jobs, process queued messages, and manage individual send records.',
     compliance: 'Manage suppressions before campaign launch and delivery processing.',
     data: 'Configure data sources, mappings, row ingestion, and import job visibility.',
+    contacts: 'Inspect contacts, attributes, source distribution, and editable profile data.',
     audience: 'Manage audiences and segmentation readiness.',
     templates: 'Create, edit, and test dynamic email templates.',
     'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
@@ -2491,6 +2505,251 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
   );
 }
 
+function ContactsPage({ contacts, metadata, onRefresh }: {
+  contacts: ContactRead[];
+  metadata: ContactMetadata | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedContactId, setSelectedContactId] = useState('');
+  const [email, setEmail] = useState('new-contact@example.com');
+  const [firstName, setFirstName] = useState('New');
+  const [lastName, setLastName] = useState('Contact');
+  const [source, setSource] = useState('esp_contacts');
+  const [attributesJson, setAttributesJson] = useState('{\n  "plan": "trial",\n  "segment": "manual-test"\n}');
+  const [isUnsubscribed, setIsUnsubscribed] = useState(false);
+  const [unsubscribeToken, setUnsubscribeToken] = useState('');
+  const [status, setStatus] = useState('Ready to inspect or edit contacts.');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!selectedContactId && contacts.length) loadContact(contacts[0]);
+  }, [contacts, selectedContactId]);
+
+  const unsubscribedCount = contacts.filter((contact) => contact.is_unsubscribed).length;
+  const attributedCount = contacts.filter((contact) => Object.keys(contact.attributes || {}).length).length;
+  const uniqueSources = new Set(contacts.map((contact) => contact.source).filter(Boolean)).size;
+  const selectedContact = contacts.find((contact) => contact.id === selectedContactId);
+  const sourceRows = metadata?.sources || [];
+  const attributeKeys = metadata?.attribute_keys || [];
+
+  function parseAttributes() {
+    try {
+      const parsed = JSON.parse(attributesJson || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Attributes must be a JSON object.');
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid attributes JSON.');
+    }
+  }
+
+  function loadContact(contact: ContactRead) {
+    setSelectedContactId(contact.id);
+    setEmail(contact.email);
+    setFirstName(contact.first_name || '');
+    setLastName(contact.last_name || '');
+    setSource(contact.source || '');
+    setAttributesJson(JSON.stringify(contact.attributes || {}, null, 2));
+    setIsUnsubscribed(Boolean(contact.is_unsubscribed));
+    setUnsubscribeToken('');
+    setStatus(`Loaded contact: ${contact.email}`);
+  }
+
+  async function runContactOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      setStatus(await operation());
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveContact() {
+    await runContactOperation(selectedContactId ? 'Saving contact' : 'Creating contact', async () => {
+      const payload = {
+        email: email.trim(),
+        first_name: firstName || null,
+        last_name: lastName || null,
+        source: source || null,
+        attributes: parseAttributes(),
+      };
+      if (!payload.email) throw new Error('Email is required.');
+      const saved = selectedContactId
+        ? await fetchJson<ContactRead>(`/api/v1/audiences/contacts/${selectedContactId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ ...payload, is_unsubscribed: isUnsubscribed }),
+        })
+        : await fetchJson<ContactRead>('/api/v1/audiences/contacts', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      setSelectedContactId(saved.id);
+      await onRefresh();
+      return `Saved contact: ${saved.email}.`;
+    });
+  }
+
+  async function newContact() {
+    setSelectedContactId('');
+    setEmail('new-contact@example.com');
+    setFirstName('New');
+    setLastName('Contact');
+    setSource('esp_contacts');
+    setAttributesJson('{\n  "plan": "trial",\n  "segment": "manual-test"\n}');
+    setIsUnsubscribed(false);
+    setUnsubscribeToken('');
+    setStatus('Ready to create a new contact.');
+  }
+
+  async function deleteContact() {
+    await runContactOperation('Deleting contact', async () => {
+      if (!selectedContactId) throw new Error('Select a contact.');
+      await fetchJson<{ id: string }>(`/api/v1/audiences/contacts/${selectedContactId}`, { method: 'DELETE' });
+      const deletedEmail = selectedContact?.email || selectedContactId;
+      await newContact();
+      await onRefresh();
+      return `Deleted contact: ${deletedEmail}.`;
+    });
+  }
+
+  async function loadUnsubscribeToken() {
+    await runContactOperation('Creating unsubscribe token', async () => {
+      if (!selectedContactId) throw new Error('Select a contact.');
+      const data = await fetchJson<{ contact_id: string; token: string }>(`/api/v1/audiences/contacts/${selectedContactId}/unsubscribe-token`, { method: 'POST' });
+      setUnsubscribeToken(data.token);
+      return `Generated unsubscribe token for ${selectedContact?.email || data.contact_id}.`;
+    });
+  }
+
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Contacts', value: formatInt(metadata?.total || contacts.length), change: `${formatInt(metadata?.scanned_count || contacts.length)} scanned` }} />
+        <MetricCard metric={{ label: 'Visible', value: formatInt(contacts.length), change: 'loaded rows' }} />
+        <MetricCard metric={{ label: 'Attributed', value: formatInt(attributedCount), change: `${formatInt(attributeKeys.length)} keys` }} />
+        <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
+        <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Attributes</span>
+          <strong>{formatInt(attributeKeys.length)} known keys</strong>
+          <p>{attributeKeys.length ? attributeKeys.slice(0, 8).join(', ') : 'Import or edit contacts to expose attributes for audience rules.'}</p>
+          <a href="#audience">Open audience</a>
+        </article>
+        <article className="workflow-card">
+          <span>Data</span>
+          <strong>{sourceRows[0]?.source || 'No source data'}</strong>
+          <p>{sourceRows.length ? `${formatInt(sourceRows[0].count)} contacts from the top source.` : 'Source distribution appears after contacts are loaded.'}</p>
+          <a href="#data">Open data import</a>
+        </article>
+        <article className="workflow-card">
+          <span>Templates</span>
+          <strong>Native variables</strong>
+          <p>Contact fields and attributes can become sample data for Jinja previews and campaign sends.</p>
+          <a href="#templates">Open templates</a>
+        </article>
+        <article className={`workflow-card ${unsubscribedCount ? 'warn' : ''}`}>
+          <span>Compliance</span>
+          <strong>{formatInt(unsubscribedCount)} unsubscribed</strong>
+          <p>Unsubscribed contacts should be excluded by delivery and suppression checks.</p>
+          <a href="#compliance">Open compliance</a>
+        </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Contact Operations</h2>
+          <a href="/admin/audiences">Advanced audience tools</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Existing contact
+            <select value={selectedContactId} onChange={(event) => {
+              const contact = contacts.find((item) => item.id === event.target.value);
+              if (contact) loadContact(contact);
+              else setSelectedContactId('');
+            }}>
+              <option value="">Create new contact</option>
+              {contacts.map((contact) => <option value={contact.id} key={contact.id}>{contact.email}</option>)}
+            </select>
+          </label>
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+          <label>
+            First name
+            <input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+          </label>
+          <label>
+            Last name
+            <input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+          </label>
+          <label>
+            Source
+            <input value={source} onChange={(event) => setSource(event.target.value)} />
+          </label>
+          <label>
+            Unsubscribed
+            <select value={isUnsubscribed ? 'true' : 'false'} onChange={(event) => setIsUnsubscribed(event.target.value === 'true')}>
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </label>
+          <label className="wide-field">
+            Attributes JSON
+            <textarea value={attributesJson} onChange={(event) => setAttributesJson(event.target.value)} rows={8} />
+          </label>
+          <label>
+            Unsubscribe token
+            <textarea value={unsubscribeToken || 'Not generated'} readOnly rows={8} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={saveContact} disabled={busy}>Save Contact</button>
+          <button className="ghost" onClick={newContact} disabled={busy}>New Contact</button>
+          <button className="ghost" onClick={loadUnsubscribeToken} disabled={busy || !selectedContactId}>Unsubscribe Token</button>
+          <button className="ghost" onClick={deleteContact} disabled={busy || !selectedContactId}>Delete Contact</button>
+          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
+      {attributeKeys.length ? (
+        <section className="panel full-span">
+          <div className="panel-head"><h2>Attribute Fields</h2><span className="muted">{formatInt(attributeKeys.length)} keys</span></div>
+          <div className="button-row">
+            {attributeKeys.slice(0, 24).map((key) => <button className="ghost" key={key} onClick={() => setAttributesJson(JSON.stringify({ ...parseAttributes(), [key]: `sample ${key}` }, null, 2))}>{key}</button>)}
+          </div>
+        </section>
+      ) : null}
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Contacts</h2><span className="muted">{formatInt(contacts.length)} visible</span></div>
+        {contacts.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th></tr></thead>
+            <tbody>
+              {contacts.map((contact) => (
+                <tr key={contact.id}>
+                  <td>{contact.email}</td>
+                  <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
+                  <td>{contact.source || '-'}</td>
+                  <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
+                  <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No contacts" detail="Import contacts from the Data page or create one here." actionHref="#data" actionLabel="Open Data" />}
+      </section>
+    </section>
+  );
+}
+
 function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
@@ -3280,6 +3539,8 @@ function App() {
     dataSources: [],
     dataMappings: [],
     importJobs: [],
+    contacts: [],
+    contactMeta: null,
     audiences: [],
     audienceItems: [],
     templates: [],
@@ -3304,7 +3565,7 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, dataSourceData, dataMappingData, importJobData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, dataSourceData, dataMappingData, importJobData, contactData, contactMeta, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
@@ -3314,6 +3575,8 @@ function App() {
           fetchJson<ListResponse<DataSourceRead>>('/api/v1/data-sources/list?limit=25&offset=0'),
           fetchJson<ListResponse<DataSourceMappingRead>>('/api/v1/data-source-mappings/list?limit=25&offset=0'),
           fetchJson<ListResponse<DataSourceImportJobRead>>('/api/v1/data-source-import-jobs/list?limit=25&offset=0'),
+          fetchJson<ListResponse<ContactRead>>('/api/v1/audiences/contacts/list?limit=25&offset=0'),
+          fetchJson<ContactMetadata>('/api/v1/audiences/contacts/meta?sample_limit=10&scan_limit=500'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
           fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
@@ -3353,6 +3616,8 @@ function App() {
             dataSources: dataSourceData.items || [],
             dataMappings: dataMappingData.items || [],
             importJobs: importJobData.items || [],
+            contacts: contactData.items || [],
+            contactMeta,
             audiences: audienceData.items || [],
             audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
@@ -3376,6 +3641,8 @@ function App() {
             dataSources: [],
             dataMappings: [],
             importJobs: [],
+            contacts: [],
+            contactMeta: null,
             audiences: [],
             audienceItems: [],
             templates: [],
@@ -3496,6 +3763,25 @@ function App() {
               dataSources: dataSourceData.items || [],
               dataMappings: dataMappingData.items || [],
               importJobs: importJobData.items || [],
+            }));
+          }}
+        />
+      );
+    }
+    if (activePage === 'contacts') {
+      return (
+        <ContactsPage
+          contacts={dashboard.contacts}
+          metadata={dashboard.contactMeta}
+          onRefresh={async () => {
+            const [contactData, contactMeta] = await Promise.all([
+              fetchJson<ListResponse<ContactRead>>('/api/v1/audiences/contacts/list?limit=25&offset=0'),
+              fetchJson<ContactMetadata>('/api/v1/audiences/contacts/meta?sample_limit=10&scan_limit=500'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              contacts: contactData.items || [],
+              contactMeta,
             }));
           }}
         />
