@@ -3309,36 +3309,72 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
         <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
         <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Attributes</span>
-          <strong>{formatInt(attributeKeys.length)} known keys</strong>
-          <p>{attributeKeys.length ? attributeKeys.slice(0, 8).join(', ') : 'Import or edit contacts to expose attributes for audience rules.'}</p>
-          <a href="#audience">Open audience</a>
-        </article>
-        <article className="workflow-card">
-          <span>Data</span>
-          <strong>{sourceRows[0]?.source || 'No source data'}</strong>
-          <p>{sourceRows.length ? `${formatInt(sourceRows[0].count)} contacts from the top source.` : 'Source distribution appears after contacts are loaded.'}</p>
-          <a href="#data">Open data import</a>
-        </article>
-        <article className="workflow-card">
-          <span>Templates</span>
-          <strong>Native variables</strong>
-          <p>Contact fields and attributes can become sample data for Jinja previews and campaign sends.</p>
-          <a href="#templates">Open templates</a>
-        </article>
-        <article className={`workflow-card ${unsubscribedCount ? 'warn' : ''}`}>
-          <span>Compliance</span>
-          <strong>{formatInt(unsubscribedCount)} unsubscribed</strong>
-          <p>Unsubscribed contacts should be excluded by delivery and suppression checks.</p>
-          <a href="#compliance">Open compliance</a>
-        </article>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Contacts</h2>
+            <span className="muted">Select a contact to inspect attributes, edit profile data, or manage unsubscribe state.</span>
+          </div>
+          <a href="#data">Import contacts</a>
+        </div>
+        {contacts.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th></tr></thead>
+            <tbody>
+              {contacts.map((contact) => (
+                <tr
+                  className={`selectable-row ${contact.id === selectedContactId ? 'selected-row' : ''}`}
+                  key={contact.id}
+                  onClick={() => loadContact(contact)}
+                >
+                  <td>{contact.email}</td>
+                  <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
+                  <td>{contact.source || '-'}</td>
+                  <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
+                  <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No contacts" detail="Import contacts from the Data page or create one here." actionHref="#data" actionLabel="Open Data" />}
       </section>
+      {selectedContact ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedContact.email}</h2>
+              <span className="muted">Selected contact summary</span>
+            </div>
+            <a href="#audience">Open audience</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Name</span><strong>{[selectedContact.first_name, selectedContact.last_name].filter(Boolean).join(' ') || '-'}</strong></div>
+            <div><span>Source</span><strong>{selectedContact.source || '-'}</strong></div>
+            <div><span>Status</span><strong>{selectedContact.is_unsubscribed ? 'Unsubscribed' : 'Subscribed'}</strong></div>
+            <div><span>Attributes</span><strong>{formatInt(Object.keys(selectedContact.attributes || {}).length)}</strong></div>
+            <div><span>Top source</span><strong>{sourceRows[0]?.source || '-'}</strong></div>
+            <div><span>Known keys</span><strong>{formatInt(attributeKeys.length)}</strong></div>
+          </div>
+        </section>
+      ) : null}
+      {attributeKeys.length ? (
+        <section className="panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Attribute Fields</h2>
+              <span className="muted">{formatInt(attributeKeys.length)} keys available for audience rules and template variables.</span>
+            </div>
+            <a href="#templates">Open templates</a>
+          </div>
+          <div className="button-row">
+            {attributeKeys.slice(0, 24).map((key) => <button className="ghost" key={key} onClick={() => setAttributesJson(JSON.stringify({ ...parseAttributes(), [key]: `sample ${key}` }, null, 2))}>{key}</button>)}
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Contact Operations</h2>
-          <a href="#audience">Open audiences</a>
+          <h2>Contact Operations</h2>
+          <a href="#compliance">Open compliance</a>
         </div>
         <div className="form-grid">
           <label>
@@ -3395,33 +3431,6 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
         </div>
-      </section>
-      {attributeKeys.length ? (
-        <section className="panel full-span">
-          <div className="panel-head"><h2>Attribute Fields</h2><span className="muted">{formatInt(attributeKeys.length)} keys</span></div>
-          <div className="button-row">
-            {attributeKeys.slice(0, 24).map((key) => <button className="ghost" key={key} onClick={() => setAttributesJson(JSON.stringify({ ...parseAttributes(), [key]: `sample ${key}` }, null, 2))}>{key}</button>)}
-          </div>
-        </section>
-      ) : null}
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Contacts</h2><span className="muted">{formatInt(contacts.length)} visible</span></div>
-        {contacts.length ? (
-          <table>
-            <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th></tr></thead>
-            <tbody>
-              {contacts.map((contact) => (
-                <tr key={contact.id}>
-                  <td>{contact.email}</td>
-                  <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
-                  <td>{contact.source || '-'}</td>
-                  <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
-                  <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No contacts" detail="Import contacts from the Data page or create one here." actionHref="#data" actionLabel="Open Data" />}
       </section>
     </section>
   );
