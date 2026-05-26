@@ -1411,15 +1411,8 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   const queued = journeys.reduce((sum, item) => sum + Number(item.queued_send_count || 0), 0);
   const active = journeys.reduce((sum, item) => sum + Number(item.active_count || 0), 0);
   const completed = journeys.reduce((sum, item) => sum + Number(item.completed_count || 0), 0);
-  const mostActive = journeys.reduce<JourneyPerformance | null>((best, item) =>
-    !best || Number(item.active_count || 0) > Number(best.active_count || 0) ? item : best, null);
-  const riskiest = journeys.reduce<JourneyPerformance | null>((worst, item) => {
-    const itemFailures = Number(item.failed_count || 0) + Number(item.step_failed_count || 0);
-    const worstFailures = Number(worst?.failed_count || 0) + Number(worst?.step_failed_count || 0);
-    return !worst || itemFailures > worstFailures ? item : worst;
-  }, null);
-
   const selectedJourney = journeyItems.find((item) => item.id === selectedJourneyId);
+  const selectedJourneyPerformance = journeys.find((item) => item.journey_id === selectedJourneyId);
   const selectedContact = contacts.find((item) => item.id === contactId);
   const visibleEnrollments = selectedJourneyId
     ? enrollments.filter((item) => item.journey_id === selectedJourneyId)
@@ -1542,36 +1535,85 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
         <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Build</span>
-          <strong>Journey builder</strong>
-          <p>Create trigger, wait, branch, and send steps with the admin journey graph.</p>
-          <a href="#automations">Open Journey Manager</a>
-        </article>
-        <article className="workflow-card">
-          <span>Health</span>
-          <strong>{mostActive ? mostActive.name : 'No active journey'}</strong>
-          <p>{mostActive ? `${formatInt(mostActive.active_count)} active enrollments are currently moving through this journey.` : 'Create or activate a journey to start tracking enrollments.'}</p>
-          <a href="#automations">Review active journeys</a>
-        </article>
-        <article className={`workflow-card ${failures ? 'warn' : ''}`}>
-          <span>Risk</span>
-          <strong>{failures ? `${formatInt(failures)} failures` : 'No failures visible'}</strong>
-          <p>{failures && riskiest ? `${riskiest.name} has the highest visible failure count.` : 'No journey execution failures are visible in this page of results.'}</p>
-          <a href="#automations">Inspect executions</a>
-        </article>
-        <article className={`workflow-card ${queued ? 'warn' : ''}`}>
-          <span>Queue</span>
-          <strong>{formatInt(queued)} queued sends</strong>
-          <p>{queued ? 'Process queued journey messages and review delivery status before scaling.' : 'Journey send queue is clear for the visible journey set.'}</p>
-          <a href="#delivery">Open Delivery Manager</a>
-        </article>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Automation Journeys</h2>
+            <span className="muted">Select a journey to inspect enrollments, executions, and builder controls.</span>
+          </div>
+          <button className="link-button" onClick={() => {
+            setSelectedJourneyId('');
+            setName('ESP Journey Draft');
+            setDescription('Created from the ESP automation workflow.');
+            setEntryRuleJson('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
+            setExitRuleJson('{}');
+            setStatus('Ready to create a new journey.');
+          }}>New journey</button>
+        </div>
+        {journeys.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Journey</th>
+                <th>Status</th>
+                <th>Enrollments</th>
+                <th>Active</th>
+                <th>Completed</th>
+                <th>Failures</th>
+                <th>Queued sends</th>
+              </tr>
+            </thead>
+            <tbody>
+              {journeys.map((journey) => {
+                const journeyItem = journeyItems.find((item) => item.id === journey.journey_id);
+                return (
+                  <tr
+                    className={`selectable-row ${journey.journey_id === selectedJourneyId ? 'selected-row' : ''}`}
+                    key={journey.journey_id}
+                    onClick={() => {
+                      if (journeyItem) loadJourneyIntoEditor(journeyItem);
+                      else setSelectedJourneyId(journey.journey_id);
+                    }}
+                  >
+                    <td>{journey.name}</td>
+                    <td><span className="pill">{journey.status}</span></td>
+                    <td>{formatInt(journey.enrollment_count)}</td>
+                    <td>{formatInt(journey.active_count)}</td>
+                    <td>{formatInt(journey.completed_count)}</td>
+                    <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
+                    <td>{formatInt(journey.queued_send_count)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No journeys yet" detail="Create a journey and add send steps to start automation testing." actionHref="#automations" actionLabel="Create journey" />
+        )}
       </section>
+      {(selectedJourney || selectedJourneyPerformance) ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedJourney?.name || selectedJourneyPerformance?.name || 'Selected journey'}</h2>
+              <span className="muted">Selected journey summary</span>
+            </div>
+            <a href="#delivery">Open delivery</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Status</span><strong>{selectedJourney?.status || selectedJourneyPerformance?.status || '-'}</strong></div>
+            <div><span>Steps</span><strong>{formatInt(selectedJourney?.steps?.length || 0)}</strong></div>
+            <div><span>Enrollments</span><strong>{formatInt(selectedJourneyPerformance?.enrollment_count)}</strong></div>
+            <div><span>Active</span><strong>{formatInt(selectedJourneyPerformance?.active_count)}</strong></div>
+            <div><span>Failures</span><strong>{formatInt(Number(selectedJourneyPerformance?.failed_count || 0) + Number(selectedJourneyPerformance?.step_failed_count || 0))}</strong></div>
+            <div><span>Queued sends</span><strong>{formatInt(selectedJourneyPerformance?.queued_send_count)}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Journey Workflow</h2>
-          <a href="#automations">Open builder</a>
+          <h2>Journey Builder</h2>
+          <a href="#delivery">Open delivery</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1695,42 +1737,6 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           </table>
         ) : (
           <EmptyState title="No step executions visible" detail="Process due journey enrollments to create execution history." actionHref="#delivery" actionLabel="Open Delivery" />
-        )}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <h2>Automation Journeys</h2>
-          <a href="#automations">Open journey builder</a>
-        </div>
-        {journeys.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Journey</th>
-                <th>Status</th>
-                <th>Enrollments</th>
-                <th>Active</th>
-                <th>Completed</th>
-                <th>Failures</th>
-                <th>Queued sends</th>
-              </tr>
-            </thead>
-            <tbody>
-              {journeys.map((journey) => (
-                <tr key={journey.journey_id}>
-                  <td>{journey.name}</td>
-                  <td><span className="pill">{journey.status}</span></td>
-                  <td>{formatInt(journey.enrollment_count)}</td>
-                  <td>{formatInt(journey.active_count)}</td>
-                  <td>{formatInt(journey.completed_count)}</td>
-                  <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
-                  <td>{formatInt(journey.queued_send_count)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No journeys yet" detail="Build an automation journey and AI review it from Journey Manager." actionHref="/admin/journeys" actionLabel="Open Journey Manager" />
         )}
       </section>
     </section>
