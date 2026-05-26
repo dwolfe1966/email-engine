@@ -18,6 +18,14 @@ You can also call the API directly:
 curl http://localhost:8000/api/v1/system/schema-status
 ```
 
+For a fuller local/remote sanity check, use:
+
+```bash
+curl http://localhost:8000/api/v1/system/diagnostics
+```
+
+That response includes schema status, provider configuration booleans, AI configuration booleans, and core entity counts without exposing secrets.
+
 ## Fix A Stale Local Database
 
 From the `email-engine` repository:

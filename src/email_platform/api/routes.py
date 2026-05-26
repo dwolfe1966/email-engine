@@ -141,7 +141,7 @@ from email_platform.services.journeys import JourneyService
 from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
-from email_platform.services.system import schema_status
+from email_platform.services.system import schema_status, system_diagnostics
 from email_platform.services.templates import TemplateService
 from email_platform.services.tracking import TrackingService
 from email_platform.services.webhook_security import SendGridWebhookVerifier, WebhookSignatureError
@@ -162,6 +162,11 @@ TRANSPARENT_GIF = (
 @router.get('/system/schema-status')
 def read_schema_status(db: DbSession) -> JsonObject:
     return schema_status(db)
+
+
+@router.get('/system/diagnostics')
+def read_system_diagnostics(db: DbSession, settings: SettingsDep) -> JsonObject:
+    return system_diagnostics(db, settings)
 
 
 def _deterministic_template_draft(payload: AITemplateDraftRequest) -> dict[str, object]:

@@ -122,6 +122,20 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
     }
+    .system-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .system-meta span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+    }
     a {
       display: grid;
       gap: 8px;
@@ -215,13 +229,18 @@ ADMIN_HOME_HTML = r"""<!doctype html>
     async function loadSchemaStatus() {
       const el = document.getElementById("schemaStatus");
       try {
-        const response = await fetch("/api/v1/system/schema-status");
+        const response = await fetch("/api/v1/system/diagnostics");
         const data = await response.json();
-        el.classList.toggle("ok", Boolean(data.ok));
-        el.classList.toggle("warn", !data.ok);
-        el.innerHTML = data.ok
-          ? `<strong>Schema status</strong><span>Database schema is current at revision <code>${data.current_revision || "none"}</code>.</span>`
-          : `<strong>Schema migration needed</strong><span>Current revision <code>${data.current_revision || "none"}</code>, expected <code>${data.expected_revision || "unknown"}</code>. Run <code>${data.migration_command}</code>.</span>`;
+        const schema = data.schema || {};
+        const counts = data.entity_counts || {};
+        const countText = Object.entries(counts)
+          .map(([key, value]) => `<span>${key}: ${value}</span>`)
+          .join("");
+        el.classList.toggle("ok", Boolean(schema.ok));
+        el.classList.toggle("warn", !schema.ok);
+        el.innerHTML = schema.ok
+          ? `<strong>System status</strong><span>Database schema is current at revision <code>${schema.current_revision || "none"}</code>.</span><div class="system-meta">${countText}</div>`
+          : `<strong>Schema migration needed</strong><span>Current revision <code>${schema.current_revision || "none"}</code>, expected <code>${schema.expected_revision || "unknown"}</code>. Run <code>${schema.migration_command}</code>.</span>`;
       } catch (error) {
         el.classList.add("error");
         el.innerHTML = `<strong>Schema status unavailable</strong><span>${error.message}</span>`;

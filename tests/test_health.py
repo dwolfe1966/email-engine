@@ -19,3 +19,15 @@ def test_schema_status_endpoint() -> None:
     assert 'current_revision' in data
     assert 'expected_revision' in data
     assert data['migration_command'] == 'alembic upgrade head'
+
+
+def test_system_diagnostics_endpoint() -> None:
+    client = TestClient(app)
+    response = client.get('/api/v1/system/diagnostics')
+    assert response.status_code == 200
+    data = response.json()
+    assert 'schema' in data
+    assert data['email_provider']['provider']
+    assert 'sendgrid_configured' in data['email_provider']
+    assert 'openai_configured' in data['ai']
+    assert 'entity_counts' in data

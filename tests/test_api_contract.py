@@ -16,6 +16,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/templates/draft',
         '/api/v1/ai/templates/edit',
         '/api/v1/ai/templates/recommend',
+        '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
         '/api/v1/templates',
         '/api/v1/templates/lint',
@@ -279,7 +280,7 @@ def test_template_editor_page() -> None:
     admin = client.get('/admin')
     assert admin.status_code == 200
     assert 'Schema status' in admin.text
-    assert '/api/v1/system/schema-status' in admin.text
+    assert '/api/v1/system/diagnostics' in admin.text
     assert 'mergeRanges' in response.text
     assert 'html (raw Jinja)' in response.text
     assert 'htmlToDesignBlocks(template.html_body || "")' in response.text
