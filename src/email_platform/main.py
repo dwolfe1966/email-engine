@@ -42,7 +42,7 @@ if (ESP_DIST_DIR / 'assets').exists():
 def esp_app() -> FileResponse:
     if not ESP_INDEX.exists():
         raise HTTPException(status_code=503, detail='ESP frontend has not been built')
-    return FileResponse(ESP_INDEX)
+    return FileResponse(ESP_INDEX, headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/esp/{path:path}', include_in_schema=False)
@@ -51,7 +51,7 @@ def esp_app_fallback(path: str) -> FileResponse:
         raise HTTPException(status_code=404, detail='ESP asset not found')
     if not ESP_INDEX.exists():
         raise HTTPException(status_code=503, detail='ESP frontend has not been built')
-    return FileResponse(ESP_INDEX)
+    return FileResponse(ESP_INDEX, headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/health')
