@@ -750,6 +750,9 @@ def test_admin_pages() -> None:
     assert 'Audience Performance' in analytics.text
     assert 'Campaign Performance' in analytics.text
     assert 'Campaign Rate Comparison' in analytics.text
+    assert 'Performance Summary' in analytics.text
+    assert 'performanceSummary' in analytics.text
+    assert 'Recommended next action' in analytics.text
     assert 'Domain Deliverability' in analytics.text
     assert 'Journey Performance' in analytics.text
     assert 'Event Timeline' in analytics.text

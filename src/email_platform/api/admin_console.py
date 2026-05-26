@@ -4440,6 +4440,44 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .performance-summary {
+      border: 1px solid #c7d7fe;
+      border-radius: 8px;
+      background: #f7f9ff;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .performance-summary h3 { margin: 0; font-size: 13px; }
+    .performance-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+    .performance-summary-card {
+      border: 1px solid #dbe4ff;
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+      min-width: 0;
+    }
+    .performance-summary-card.warn {
+      border-color: #f1d09a;
+      background: #fffaf0;
+    }
+    .performance-summary-card strong,
+    .performance-summary-card span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .performance-summary-card strong { font-size: 13px; }
+    .performance-summary-card span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .focused-campaign-panel {
       display: grid;
       grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) auto;
@@ -4884,6 +4922,96 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       ]);
     }
 
+    function performanceSummary(kind, items) {
+      const rows = items || [];
+      if (!rows.length) return "";
+      let cards = [];
+      if (kind === "campaign") {
+        const bestOpen = maxBy(rows, (row) => row.open_rate);
+        const bestClick = maxBy(rows, (row) => row.click_rate);
+        const highestBounce = maxBy(rows, (row) => row.bounce_rate);
+        const totalFailed = rows.reduce((sum, row) => sum + Number(row.failed_count || 0), 0);
+        cards = [
+          {
+            label: "Best open rate",
+            value: bestOpen ? `${pct(bestOpen.open_rate)} ${bestOpen.name || shortId(bestOpen.campaign_id)}` : "-",
+            detail: "Use this as a subject/content benchmark.",
+          },
+          {
+            label: "Best click rate",
+            value: bestClick ? `${pct(bestClick.click_rate)} ${bestClick.name || shortId(bestClick.campaign_id)}` : "-",
+            detail: "Review CTA and offer structure.",
+          },
+          {
+            label: "Delivery risk",
+            value: totalFailed ? `${int(totalFailed)} failed records` : "No failures in this page",
+            detail: highestBounce ? `Highest bounce: ${pct(highestBounce.bounce_rate)}` : "No bounce signal.",
+            warn: totalFailed > 0 || Number(highestBounce?.bounce_rate || 0) > 0,
+          },
+          {
+            label: "Recommended next action",
+            value: totalFailed ? "Open Delivery Manager" : "Compare top templates",
+            detail: totalFailed ? "Triage failed records before scaling." : "Apply winning copy patterns.",
+          },
+        ];
+      } else if (kind === "domain") {
+        const highestBounce = maxBy(rows, (row) => row.bounce_rate);
+        const highestFailure = maxBy(rows, (row) => row.failed_count);
+        cards = [
+          {
+            label: "Highest bounce domain",
+            value: highestBounce ? `${highestBounce.domain} ${pct(highestBounce.bounce_rate)}` : "-",
+            detail: "Watch domain-specific deliverability.",
+            warn: Number(highestBounce?.bounce_rate || 0) > 0,
+          },
+          {
+            label: "Highest failure domain",
+            value: highestFailure ? `${highestFailure.domain} ${int(highestFailure.failed_count)} failed` : "-",
+            detail: "Review provider responses and suppression rules.",
+            warn: Number(highestFailure?.failed_count || 0) > 0,
+          },
+          {
+            label: "Recommended next action",
+            value: Number(highestBounce?.bounce_rate || 0) > 0 ? "Review suppressions" : "Keep monitoring",
+            detail: "Use domain view before increasing volume.",
+          },
+        ];
+      } else if (kind === "audience") {
+        const bestOpen = maxBy(rows, (row) => row.open_rate);
+        const bestClick = maxBy(rows, (row) => row.click_rate);
+        cards = [
+          {
+            label: "Most engaged audience",
+            value: bestOpen ? `${bestOpen.name || shortId(bestOpen.audience_id)} ${pct(bestOpen.open_rate)}` : "-",
+            detail: "Use this segment as a targeting benchmark.",
+          },
+          {
+            label: "Best click audience",
+            value: bestClick ? `${bestClick.name || shortId(bestClick.audience_id)} ${pct(bestClick.click_rate)}` : "-",
+            detail: "Consider similar constraints for future campaigns.",
+          },
+          {
+            label: "Recommended next action",
+            value: "Refine audience builder",
+            detail: "Preview contacts and test constraints before launch.",
+          },
+        ];
+      }
+      if (!cards.length) return "";
+      return `<div class="performance-summary">
+        <h3>Performance Summary</h3>
+        <div class="performance-summary-grid">
+          ${cards.map((card) => `
+            <div class="performance-summary-card ${card.warn ? "warn" : ""}">
+              <strong>${escapeHtml(card.label)}</strong>
+              <span>${escapeHtml(card.value)}</span>
+              <span>${escapeHtml(card.detail)}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+    }
+
     function metricBars(title, rows, color = "") {
       const filtered = rows.filter((row) => Number(row.count || 0) > 0);
       if (!filtered.length) return "";
@@ -5079,6 +5207,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       if (data.campaign_id && data.status_counts && data.event_counts) {
         renderFocusedCampaign(data);
         report.innerHTML = [
+          performanceSummary("campaign", [data]),
           kpis([
             { label: "Requested", value: int(data.requested_count) },
             { label: "Sent", value: int(data.sent_count) },
@@ -5105,7 +5234,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     function renderListReport(items) {
       const first = items[0] || {};
       if ("campaign_id" in first && "open_rate" in first) {
-        report.innerHTML = campaignInsights(items) + campaignRateComparison(items) + table("Campaign Performance", items, [
+        report.innerHTML = performanceSummary("campaign", items) + campaignInsights(items) + campaignRateComparison(items) + table("Campaign Performance", items, [
           { label: "Campaign", value: (row) => row.name || shortId(row.campaign_id) },
           { label: "Status", value: (row) => row.status },
           { label: "Requested", value: (row) => int(row.requested_count) },
@@ -5120,7 +5249,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       if ("audience_id" in first && "estimated_count" in first) {
-        report.innerHTML = table("Audience Performance", items, [
+        report.innerHTML = performanceSummary("audience", items) + table("Audience Performance", items, [
           { label: "Audience", value: (row) => row.name || shortId(row.audience_id) },
           { label: "Estimated", value: (row) => int(row.estimated_count) },
           { label: "Jobs", value: (row) => int(row.send_job_count) },
@@ -5131,7 +5260,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       if ("domain" in first && "send_record_count" in first) {
-        report.innerHTML = domainInsights(items) + table("Domain Deliverability", items, [
+        report.innerHTML = performanceSummary("domain", items) + domainInsights(items) + table("Domain Deliverability", items, [
           { label: "Domain", value: (row) => row.domain },
           { label: "Provider", value: (row) => row.provider || "-" },
           { label: "Records", value: (row) => int(row.send_record_count) },
