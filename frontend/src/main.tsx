@@ -134,6 +134,7 @@ type DashboardState = {
   audienceItems: AudienceRead[];
   templates: TemplateRead[];
   journeys: JourneyPerformance[];
+  journeyItems: JourneyRead[];
   diagnostics: SystemDiagnostics | null;
   aiInsights: Insight[];
   loading: boolean;
@@ -186,6 +187,26 @@ type TemplateVariable = {
   native: boolean;
   sources: string[];
   sample_value: unknown;
+};
+
+type JourneyStepRead = {
+  id: string;
+  journey_id: string;
+  name: string;
+  step_type: string;
+  position: number;
+  config: Record<string, unknown>;
+};
+
+type JourneyRead = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  entry_rule_tree: Record<string, unknown>;
+  exit_rule_tree: Record<string, unknown>;
+  metadata_json: Record<string, unknown>;
+  steps: JourneyStepRead[];
 };
 
 type JourneyPerformance = {
@@ -809,7 +830,27 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   );
 }
 
-function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
+function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
+  journeys: JourneyPerformance[];
+  journeyItems: JourneyRead[];
+  templates: TemplateRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedJourneyId, setSelectedJourneyId] = useState('');
+  const [name, setName] = useState('ESP Journey Draft');
+  const [description, setDescription] = useState('Created from the ESP automation workflow.');
+  const [entryRuleJson, setEntryRuleJson] = useState('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
+  const [exitRuleJson, setExitRuleJson] = useState('{}');
+  const [templateId, setTemplateId] = useState('');
+  const [stepName, setStepName] = useState('Send welcome email');
+  const [status, setStatus] = useState('Ready to create or update a journey.');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!selectedJourneyId && journeyItems.length) loadJourneyIntoEditor(journeyItems[0]);
+    if (!templateId && templates.length) setTemplateId(templates[0].id);
+  }, [journeyItems, selectedJourneyId, templateId, templates]);
+
   const failures = journeys.reduce((sum, item) =>
     sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
   const queued = journeys.reduce((sum, item) => sum + Number(item.queued_send_count || 0), 0);
@@ -822,6 +863,96 @@ function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
     const worstFailures = Number(worst?.failed_count || 0) + Number(worst?.step_failed_count || 0);
     return !worst || itemFailures > worstFailures ? item : worst;
   }, null);
+
+  const selectedJourney = journeyItems.find((item) => item.id === selectedJourneyId);
+
+  function loadJourneyIntoEditor(journey: JourneyRead) {
+    setSelectedJourneyId(journey.id);
+    setName(journey.name);
+    setDescription(journey.description || '');
+    setEntryRuleJson(JSON.stringify(journey.entry_rule_tree || {}, null, 2));
+    setExitRuleJson(JSON.stringify(journey.exit_rule_tree || {}, null, 2));
+    setStatus(`Loaded journey: ${journey.name}`);
+  }
+
+  function parseJsonObject(value: string, label: string) {
+    try {
+      const parsed = JSON.parse(value || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error(`${label} must be a JSON object.`);
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : `Invalid ${label}.`);
+    }
+  }
+
+  async function runJourneyOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      const message = await operation();
+      setStatus(message);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveJourney() {
+    await runJourneyOperation(selectedJourneyId ? 'Saving journey' : 'Creating journey', async () => {
+      const payload = {
+        name: name.trim() || 'Untitled ESP Journey',
+        description: description || null,
+        entry_rule_tree: parseJsonObject(entryRuleJson, 'entry rule'),
+        exit_rule_tree: parseJsonObject(exitRuleJson, 'exit rule'),
+        metadata_json: { source: 'esp_automation_workflow' },
+      };
+      const saved = selectedJourneyId
+        ? await fetchJson<JourneyRead>(`/api/v1/journeys/${selectedJourneyId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        : await fetchJson<JourneyRead>('/api/v1/journeys', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      setSelectedJourneyId(saved.id);
+      await onRefresh();
+      return `Saved journey: ${saved.name}`;
+    });
+  }
+
+  async function addSendStep() {
+    await runJourneyOperation('Adding send step', async () => {
+      if (!selectedJourneyId) throw new Error('Save or select a journey first.');
+      if (!templateId) throw new Error('Select a template.');
+      const step = await fetchJson<JourneyStepRead>(`/api/v1/journeys/${selectedJourneyId}/steps`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: stepName.trim() || 'Send email',
+          step_type: 'send_email',
+          position: selectedJourney?.steps?.length || 0,
+          config: { template_id: templateId },
+        }),
+      });
+      await onRefresh();
+      return `Added step: ${step.name}`;
+    });
+  }
+
+  async function processDue() {
+    await runJourneyOperation('Processing due enrollments', async () => {
+      const suffix = selectedJourneyId ? `&journey_id=${encodeURIComponent(selectedJourneyId)}` : '';
+      const data = await fetchJson<{ claimed_count: number; completed_count: number; failed_count: number; queued_send_count: number }>(`/api/v1/journeys/process?limit=25${suffix}`, {
+        method: 'POST',
+      });
+      await onRefresh();
+      return `Processed ${formatInt(data.claimed_count)} enrollment(s), queued ${formatInt(data.queued_send_count)} send(s), failed ${formatInt(data.failed_count)}.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -856,6 +987,64 @@ function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
           <p>{queued ? 'Process queued journey messages and review delivery status before scaling.' : 'Journey send queue is clear for the visible journey set.'}</p>
           <a href="/admin/delivery">Open Delivery Manager</a>
         </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Journey Workflow</h2>
+          <a href="/admin/journeys">Advanced builder</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Existing journey
+            <select value={selectedJourneyId} onChange={(event) => {
+              const journey = journeyItems.find((item) => item.id === event.target.value);
+              if (journey) loadJourneyIntoEditor(journey);
+              else setSelectedJourneyId('');
+            }}>
+              <option value="">Create new journey</option>
+              {journeyItems.map((journey) => (
+                <option value={journey.id} key={journey.id}>{journey.name} ({journey.status})</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Journey name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Send-step template
+            <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+              <option value="">Select template</option>
+              {templates.map((template) => <option value={template.id} key={template.id}>{template.name}</option>)}
+            </select>
+          </label>
+          <label className="wide-field">
+            Description
+            <input value={description} onChange={(event) => setDescription(event.target.value)} />
+          </label>
+          <label>
+            Step name
+            <input value={stepName} onChange={(event) => setStepName(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            Entry rule JSON
+            <textarea value={entryRuleJson} onChange={(event) => setEntryRuleJson(event.target.value)} rows={8} />
+          </label>
+          <label>
+            Exit rule JSON
+            <textarea value={exitRuleJson} onChange={(event) => setExitRuleJson(event.target.value)} rows={8} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={saveJourney} disabled={busy}>Save Journey</button>
+          <button className="ghost" onClick={addSendStep} disabled={busy || !selectedJourneyId || !templateId}>Add Send Step</button>
+          <button className="ghost" onClick={processDue} disabled={busy}>Process Due</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+          {selectedJourney?.steps?.length ? <small>{selectedJourney.steps.map((step) => `${step.position + 1}. ${step.name}`).join(' | ')}</small> : null}
+        </div>
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
@@ -1716,6 +1905,7 @@ function App() {
     audienceItems: [],
     templates: [],
     journeys: [],
+    journeyItems: [],
     diagnostics: null,
     aiInsights: fallbackInsights,
     loading: true,
@@ -1735,7 +1925,7 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, audienceData, audienceItems, templateData, journeyData, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
@@ -1743,6 +1933,7 @@ function App() {
           fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
           fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
+          fetchJson<ListResponse<JourneyRead>>('/api/v1/journeys/list?limit=25&offset=0'),
           fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics'),
         ]);
         let aiInsights = fallbackInsights;
@@ -1775,6 +1966,7 @@ function App() {
             audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
             journeys: journeyData.items || [],
+            journeyItems: journeyItems.items || [],
             diagnostics,
             aiInsights,
             loading: false,
@@ -1791,6 +1983,7 @@ function App() {
             audienceItems: [],
             templates: [],
             journeys: [],
+            journeyItems: [],
             diagnostics: null,
             aiInsights: fallbackInsights,
             loading: false,
@@ -1834,7 +2027,26 @@ function App() {
         />
       );
     }
-    if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
+    if (activePage === 'automations') {
+      return (
+        <AutomationsPage
+          journeys={dashboard.journeys}
+          journeyItems={dashboard.journeyItems}
+          templates={dashboard.templates}
+          onRefresh={async () => {
+            const [journeyData, journeyItems] = await Promise.all([
+              fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
+              fetchJson<ListResponse<JourneyRead>>('/api/v1/journeys/list?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              journeys: journeyData.items || [],
+              journeyItems: journeyItems.items || [],
+            }));
+          }}
+        />
+      );
+    }
     if (activePage === 'audience') {
       return (
         <AudiencePage
