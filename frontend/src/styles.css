@@ -550,10 +550,25 @@ th {
   margin-bottom: 0;
 }
 
+.compact-metrics .metric-card {
+  align-items: center;
+  min-height: 76px;
+  padding: 12px 14px;
+}
+
+.compact-metrics .metric-card strong {
+  margin-top: 5px;
+  font-size: 21px;
+}
+
+.compact-metrics .metric-card small {
+  font-size: 12px;
+}
+
 .page-grid > .metric-grid.full-span,
 .page-grid > .campaign-flow.full-span,
 .page-grid > .workflow-grid.full-span {
-  padding-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
 
