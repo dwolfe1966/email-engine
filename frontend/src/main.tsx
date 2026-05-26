@@ -1153,6 +1153,47 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
         <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
         <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
       </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Campaigns</h2>
+            <span className="muted">Select a campaign to review details, test content, and manage launch readiness.</span>
+          </div>
+          <a href="#analytics">View reports</a>
+        </div>
+        {campaigns.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th>Requested</th>
+                <th>Sent</th>
+                <th>Open rate</th>
+                <th>Click rate</th>
+                <th>Failures</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaigns.map((campaign) => (
+                <tr className={campaign.campaign_id === selectedCampaignId ? 'selected-row' : ''} key={campaign.campaign_id}>
+                  <td>{campaign.name}</td>
+                  <td><span className="pill">{campaign.status}</span></td>
+                  <td>{formatInt(campaign.requested_count)}</td>
+                  <td>{formatInt(campaign.sent_count)}</td>
+                  <td>{formatPct(campaign.open_rate)}</td>
+                  <td>{formatPct(campaign.click_rate)}</td>
+                  <td>{formatInt(campaign.failed_count)}</td>
+                  <td><button className="link-button" onClick={() => setSelectedCampaignId(campaign.campaign_id)}>Select</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No campaigns yet" detail="Create a campaign in the detail panel below, then it will appear here." actionHref="#campaigns" actionLabel="Create campaign" />
+        )}
+      </section>
       <section className="campaign-flow full-span">
         {workflowSteps.map((step, index) => (
           <article className={step.ready ? 'ready' : ''} key={step.label}>
@@ -1167,8 +1208,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <div>
-            <h2>Create and Test Campaign</h2>
-            <span className="muted">Choose content, audience, and sample data before sending a test or dry-run launch.</span>
+            <h2>{selectedCampaign ? 'Campaign Details and Actions' : 'Create Campaign'}</h2>
+            <span className="muted">Use this selected-item workspace for setup, test sends, preview, and dry-run launch.</span>
           </div>
           <a href="#templates">Edit templates</a>
         </div>
@@ -1237,45 +1278,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
         {previewHtml ? (
           <iframe className="email-preview" title="Campaign test preview" srcDoc={previewHtml} />
         ) : null}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Campaigns</h2>
-            <span className="muted">Recent campaign performance and delivery health.</span>
-          </div>
-          <a href="#analytics">View reports</a>
-        </div>
-        {campaigns.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Status</th>
-                <th>Requested</th>
-                <th>Sent</th>
-                <th>Open rate</th>
-                <th>Click rate</th>
-                <th>Failures</th>
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((campaign) => (
-                <tr key={campaign.campaign_id}>
-                  <td>{campaign.name}</td>
-                  <td><span className="pill">{campaign.status}</span></td>
-                  <td>{formatInt(campaign.requested_count)}</td>
-                  <td>{formatInt(campaign.sent_count)}</td>
-                  <td>{formatPct(campaign.open_rate)}</td>
-                  <td>{formatPct(campaign.click_rate)}</td>
-                  <td>{formatInt(campaign.failed_count)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No campaigns yet" detail="Create a campaign in the workflow above, then it will appear here." actionHref="#campaigns" actionLabel="Create campaign" />
-        )}
       </section>
     </section>
   );

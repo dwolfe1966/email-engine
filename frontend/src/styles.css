@@ -501,6 +501,10 @@ td {
   white-space: nowrap;
 }
 
+tr.selected-row td {
+  background: #eef5ff;
+}
+
 th {
   color: var(--muted);
   font-size: 11px;
