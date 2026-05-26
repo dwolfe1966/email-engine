@@ -273,6 +273,12 @@ def test_template_editor_page() -> None:
     assert 'formatTemplateSource' in response.text
     assert 'CSS Builder' in response.text
     assert 'Insert Block' in response.text
+    assert 'Body background' in response.text
+    assert 'Container padding' in response.text
+    assert 'Insert If/Else' in response.text
+    assert 'Insert Loop' in response.text
+    assert 'conditionalHtml' in response.text
+    assert 'loopHtml' in response.text
     assert 'Design Blocks' in response.text
     assert 'Source -> Blocks' in response.text
     assert 'Blocks -> Source' in response.text

@@ -716,6 +716,18 @@ li {
               <label>Accent color
                 <input id="cssAccentColor" type="color" value="#16a34a" />
               </label>
+              <label>Body background
+                <input id="cssBodyBackground" type="color" value="#f6f7f9" />
+              </label>
+              <label>Container background
+                <input id="cssContainerBackground" type="color" value="#ffffff" />
+              </label>
+              <label>Text color
+                <input id="cssTextColor" type="color" value="#17202a" />
+              </label>
+              <label>Heading color
+                <input id="cssHeadingColor" type="color" value="#17202a" />
+              </label>
               <label>Max width
                 <select id="cssMaxWidth">
                   <option value="600">600px</option>
@@ -728,6 +740,20 @@ li {
                   <option value="4">4px</option>
                   <option value="8">8px</option>
                   <option value="999">Pill</option>
+                </select>
+              </label>
+              <label>Container padding
+                <select id="cssContainerPadding">
+                  <option value="20">20px</option>
+                  <option value="24" selected>24px</option>
+                  <option value="32">32px</option>
+                </select>
+              </label>
+              <label>Paragraph spacing
+                <select id="cssParagraphSpacing">
+                  <option value="12">12px</option>
+                  <option value="14" selected>14px</option>
+                  <option value="18">18px</option>
                 </select>
               </label>
               <label>Block
@@ -747,6 +773,8 @@ li {
               <button class="secondary" type="button" id="formatSource">Format Source</button>
               <button class="secondary" type="button" id="insertButtonHtml">Insert Button</button>
               <button class="secondary" type="button" id="insertBlockHtml">Insert Block</button>
+              <button class="secondary" type="button" id="insertConditionalHtml">Insert If/Else</button>
+              <button class="secondary" type="button" id="insertLoopHtml">Insert Loop</button>
             </div>
           </div>
         </div>
@@ -1425,8 +1453,14 @@ li {
       const font = value("cssFont");
       const brand = value("cssBrandColor");
       const accent = value("cssAccentColor");
+      const bodyBackground = value("cssBodyBackground");
+      const containerBackground = value("cssContainerBackground");
+      const textColor = value("cssTextColor");
+      const headingColor = value("cssHeadingColor");
       const maxWidth = value("cssMaxWidth");
       const radius = value("cssButtonRadius");
+      const containerPadding = value("cssContainerPadding");
+      const paragraphSpacing = value("cssParagraphSpacing");
       const presetRules = {
         newsletter: `
 .eyebrow { color: ${accent}; font-size: 12px; font-weight: 700; text-transform: uppercase; }
@@ -1443,27 +1477,27 @@ li {
       };
       return `body {
   margin: 0;
-  background: #f6f7f9;
-  color: #17202a;
+  background: ${bodyBackground};
+  color: ${textColor};
   font-family: ${font};
 }
 .email-shell {
   width: 100%;
-  background: #f6f7f9;
+  background: ${bodyBackground};
   padding: 24px 0;
 }
 .email-container {
   max-width: ${maxWidth}px;
   margin: 0 auto;
-  background: #ffffff;
-  padding: 24px;
+  background: ${containerBackground};
+  padding: ${containerPadding}px;
 }
 h1, h2, h3 {
-  color: #17202a;
+  color: ${headingColor};
   margin: 0 0 12px;
 }
 p {
-  margin: 0 0 14px;
+  margin: 0 0 ${paragraphSpacing}px;
   line-height: 1.55;
 }
 a {
@@ -1528,6 +1562,22 @@ ${presetRules[preset] || ""}`;
 </p>`,
       };
       return blocks[block] || "";
+    }
+
+    function conditionalHtml() {
+      return `{% if plan == "trial" %}
+  <p>Your trial is active, {{ first_name }}.</p>
+{% else %}
+  <p>Your plan is {{ plan }}.</p>
+{% endif %}`;
+    }
+
+    function loopHtml() {
+      return `<ul class="article-list">
+{% for item in recommendations %}
+  <li>{{ loop.index }}. {{ item }}</li>
+{% endfor %}
+</ul>`;
     }
 
     function newBlock(type) {
@@ -2483,6 +2533,12 @@ ${presetRules[preset] || ""}`;
     });
     document.getElementById("insertBlockHtml").addEventListener("click", () => {
       runCommand("insertHTML", blockHtml());
+    });
+    document.getElementById("insertConditionalHtml").addEventListener("click", () => {
+      insertIntoTarget(conditionalHtml());
+    });
+    document.getElementById("insertLoopHtml").addEventListener("click", () => {
+      insertIntoTarget(loopHtml());
     });
     document.querySelectorAll("[data-block]").forEach((button) => {
       button.addEventListener("click", () => {
