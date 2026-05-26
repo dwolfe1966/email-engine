@@ -41,6 +41,9 @@ from email_platform.schemas.contracts import (
     AICampaignAnalysisRead,
     AICampaignAnalysisRequest,
     AICampaignRecommendationRead,
+    AIDeliveryAnalysisRead,
+    AIDeliveryAnalysisRequest,
+    AIDeliveryRecommendationRead,
     AITemplateDraftRead,
     AITemplateDraftRequest,
     AITemplateEditRequest,
@@ -1348,6 +1351,156 @@ def _deterministic_audience_analysis(
     return AIAudienceAnalysisRead(summary=summary, recommendations=recommendations)
 
 
+def _deterministic_delivery_analysis(
+    payload: AIDeliveryAnalysisRequest,
+) -> AIDeliveryAnalysisRead:
+    context = payload.delivery_context or {}
+    jobs = [
+        item for item in _list(_mapping(context.get('jobs')).get('items'))
+        if isinstance(item, Mapping)
+    ]
+    records = [
+        item for item in _list(_mapping(context.get('records')).get('items'))
+        if isinstance(item, Mapping)
+    ]
+    run = _mapping(context.get('last_run'))
+    recommendations: list[AIDeliveryRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_action: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AIDeliveryRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_action=suggested_action,
+                confidence=confidence,
+            )
+        )
+
+    status_counts: dict[str, int] = {}
+    provider_counts: dict[str, int] = {}
+    failed_errors: dict[str, int] = {}
+    retry_exhausted = 0
+    for record in records:
+        status = str(record.get('status') or 'unknown')
+        status_counts[status] = status_counts.get(status, 0) + 1
+        provider = str(record.get('provider') or 'unknown')
+        provider_counts[provider] = provider_counts.get(provider, 0) + 1
+        if status == 'failed':
+            error = str(record.get('error_message') or 'unknown error')[:120]
+            failed_errors[error] = failed_errors.get(error, 0) + 1
+        if _number(record.get('attempt_count')) >= _number(record.get('max_attempts') or 3):
+            retry_exhausted += 1
+    queued_records = status_counts.get('queued', 0)
+    sending_records = status_counts.get('sending', 0)
+    failed_records = status_counts.get('failed', 0)
+    suppressed_records = status_counts.get('suppressed', 0)
+    stuck_jobs = [
+        job for job in jobs
+        if str(job.get('status')) in {'queued', 'sending'} and _number(job.get('queued_count')) > 0
+    ]
+
+    if queued_records or stuck_jobs:
+        add(
+            'process_queued_delivery',
+            'queue',
+            'high',
+            'Process queued delivery',
+            f'{queued_records} queued record(s) and {len(stuck_jobs)} active queued job(s) are visible.',
+            'Run Process Queued for this campaign or send job, then reload records and verify progress.',
+            0.94,
+        )
+    if sending_records:
+        add(
+            'watch_sending_records',
+            'queue',
+            'medium',
+            'Watch in-flight records',
+            f'{sending_records} record(s) are currently marked sending.',
+            'Continue polling delivery progress before requeueing to avoid duplicate send attempts.',
+            0.76,
+        )
+    if failed_records:
+        top_error = max(failed_errors.items(), key=lambda item: item[1])[0] if failed_errors else 'unknown error'
+        add(
+            'triage_failed_records',
+            'failure',
+            'high',
+            'Triage failed records',
+            f'{failed_records} failed record(s) are visible. Most common error: {top_error}.',
+            'Inspect provider error messages, fix configuration or recipient data, then requeue only records that are safe to retry.',
+            0.95,
+        )
+    if retry_exhausted:
+        add(
+            'avoid_blind_retries',
+            'failure',
+            'high',
+            'Avoid blind retries',
+            f'{retry_exhausted} record(s) have reached max attempts.',
+            'Review and fix root cause before requeueing max-attempt records.',
+            0.9,
+        )
+    if suppressed_records:
+        add(
+            'review_suppression_volume',
+            'suppression',
+            'medium',
+            'Review suppression volume',
+            f'{suppressed_records} suppressed record(s) are visible.',
+            'Open Suppressions and confirm unsubscribes, bounces, and manual suppressions are expected.',
+            0.82,
+        )
+    if _number(run.get('failed_count')) > 0:
+        add(
+            'inspect_latest_delivery_run',
+            'delivery_run',
+            'medium',
+            'Inspect latest delivery run failures',
+            f'Last delivery run reported {int(_number(run.get("failed_count")))} failed record(s).',
+            'Reload records, filter failed statuses, and inspect provider errors before the next run.',
+            0.8,
+        )
+    if not recommendations:
+        add(
+            'delivery_state_clear',
+            'readiness',
+            'low',
+            'Delivery state looks clear',
+            'No major queue, retry, suppression, or failure risk is visible in the selected context.',
+            'Continue monitoring send records and analytics after each campaign launch.',
+            0.68,
+        )
+
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    recommendations = sorted(
+        recommendations,
+        key=lambda item: (priority_order.get(item.priority, 9), -item.confidence, item.code),
+    )[:8]
+    provider_summary = ', '.join(
+        f'{provider}: {count}' for provider, count in sorted(provider_counts.items())
+    ) or 'none'
+    summary = [
+        f'Analyzed {len(jobs)} job(s) and {len(records)} send record(s).',
+        f'Status counts: {status_counts or {}}.',
+        f'Provider counts: {provider_summary}.',
+        f'{len(recommendations)} recommendation(s) generated.',
+    ]
+    if payload.goals:
+        summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
+    return AIDeliveryAnalysisRead(summary=summary, recommendations=recommendations)
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -1491,6 +1644,13 @@ def analyze_audience_with_ai(
     payload: AIAudienceAnalysisRequest,
 ) -> AIAudienceAnalysisRead:
     return _deterministic_audience_analysis(payload)
+
+
+@router.post('/ai/delivery/analyze', response_model=AIDeliveryAnalysisRead)
+def analyze_delivery_with_ai(
+    payload: AIDeliveryAnalysisRequest,
+) -> AIDeliveryAnalysisRead:
+    return _deterministic_delivery_analysis(payload)
 
 
 def _tracking_request_metadata(request: Request) -> JsonObject:

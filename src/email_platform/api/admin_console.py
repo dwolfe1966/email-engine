@@ -4109,6 +4109,54 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
+    .ai-delivery-panel {
+      border: 1px solid #c7d7fe;
+      border-radius: 8px;
+      background: #f7f9ff;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .ai-delivery-panel[hidden] { display: none; }
+    .ai-delivery-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .ai-delivery-head strong { font-size: 13px; }
+    .ai-delivery-head span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .ai-delivery-summary {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .ai-delivery-list {
+      display: grid;
+      gap: 7px;
+    }
+    .ai-delivery-card {
+      border: 1px solid #dbe4ff;
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+      display: grid;
+      gap: 4px;
+    }
+    .ai-delivery-card.high { border-color: #f3c8c5; background: #fff7f7; }
+    .ai-delivery-card.medium { border-color: #f1d09a; background: #fffaf0; }
+    .ai-delivery-card strong { font-size: 13px; }
+    .ai-delivery-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
     pre {
       margin: 0;
       min-height: calc(100vh - 180px);
@@ -4190,7 +4238,16 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
           <button class="secondary" id="recordOpen">Record Open</button>
           <button class="secondary" id="recordClick">Record Click</button>
+          <button class="secondary" id="aiDeliveryReview">AI Review</button>
           <button class="secondary" id="clear">Clear</button>
+        </div>
+        <div class="ai-delivery-panel" id="aiDeliveryPanel" hidden>
+          <div class="ai-delivery-head">
+            <strong>AI Delivery Review</strong>
+            <span id="aiDeliveryMeta"></span>
+          </div>
+          <ul class="ai-delivery-summary" id="aiDeliverySummary"></ul>
+          <div class="ai-delivery-list" id="aiDeliveryList"></div>
         </div>
       </div>
     </section>
@@ -4206,6 +4263,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     const campaigns = [];
     const jobs = [];
     const records = [];
+    let lastDeliveryRun = null;
     const initialParams = new URLSearchParams(location.search);
 
     function writeResult(data, ok = true) {
@@ -4295,7 +4353,7 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
       await request(`/api/v1/delivery/process-queued?${params.toString()}`, {
         method: "POST"
-      });
+      }).then((data) => { lastDeliveryRun = data; return data; });
     }
 
     async function loadCampaigns() {
@@ -4308,11 +4366,67 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
       const data = await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
       renderJobs(data.items || []);
+      return data;
     }
 
     async function loadRecords() {
       const data = await request(`/api/v1/email-send-records/list?${scopedQuery()}`);
       renderRecords(data.items || []);
+      return data;
+    }
+
+    function renderDeliveryAiReview(data) {
+      const panel = document.getElementById("aiDeliveryPanel");
+      const meta = document.getElementById("aiDeliveryMeta");
+      const summary = document.getElementById("aiDeliverySummary");
+      const list = document.getElementById("aiDeliveryList");
+      panel.hidden = false;
+      meta.textContent = `${data.provider || "email-engine"} - ${data.model || "delivery-analysis"}`;
+      summary.innerHTML = (data.summary || [])
+        .map((item) => `<li>${String(item).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]))}</li>`)
+        .join("");
+      list.innerHTML = (data.recommendations || []).map((item) => `
+        <div class="ai-delivery-card ${String(item.priority || "").replace(/[&<>"']/g, "")}">
+          <strong>${String(item.title || item.code || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]))}</strong>
+          <p>${String(item.detail || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]))}</p>
+          <p>${String(item.suggested_action || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]))}</p>
+        </div>
+      `).join("") || '<div>No recommendations returned.</div>';
+    }
+
+    async function reviewDeliveryWithAi() {
+      const button = document.getElementById("aiDeliveryReview");
+      button.disabled = true;
+      button.textContent = "Reviewing...";
+      try {
+        const jobsData = await loadJobs();
+        const recordsData = await loadRecords();
+        const data = await request("/api/v1/ai/delivery/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            delivery_context: {
+              filters: {
+                campaign_id: value("campaignId") || null,
+                send_job_id: value("sendJobId") || null,
+                send_record_id: value("sendRecordId") || null,
+              },
+              jobs: jobsData,
+              records: recordsData,
+              last_run: lastDeliveryRun,
+            },
+            goals: [
+              "Assess delivery queue health.",
+              "Identify failed, stuck, suppressed, and retry-risk records.",
+              "Recommend concrete next steps for delivery operations.",
+            ],
+          })
+        });
+        renderDeliveryAiReview(data);
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI Review";
+      }
     }
 
     async function recordAction(action, method = "POST") {
@@ -4396,8 +4510,12 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     document.getElementById("recordClick").addEventListener("click", () => {
       recordClick().catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("aiDeliveryReview").addEventListener("click", () => {
+      reviewDeliveryWithAi().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";
+      document.getElementById("aiDeliveryPanel").hidden = true;
     });
 
     loadCampaigns()

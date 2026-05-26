@@ -19,6 +19,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/analytics/analyze',
         '/api/v1/ai/audiences/analyze',
         '/api/v1/ai/campaigns/analyze',
+        '/api/v1/ai/delivery/analyze',
         '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
         '/api/v1/templates',
@@ -350,6 +351,54 @@ def test_ai_audience_analysis_contract() -> None:
     codes = {item['code'] for item in data['recommendations']}
     assert 'fix_unknown_fields' in codes
     assert 'broaden_zero_match_audience' in codes
+
+
+def test_ai_delivery_analysis_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/delivery/analyze',
+        json={
+            'delivery_context': {
+                'jobs': {
+                    'items': [
+                        {
+                            'id': 'job-a',
+                            'status': 'queued',
+                            'queued_count': 5,
+                        }
+                    ]
+                },
+                'records': {
+                    'items': [
+                        {
+                            'id': 'record-a',
+                            'status': 'failed',
+                            'provider': 'SG',
+                            'error_message': 'Mailbox unavailable',
+                            'attempt_count': 3,
+                            'max_attempts': 3,
+                        },
+                        {
+                            'id': 'record-b',
+                            'status': 'queued',
+                            'provider': 'SG',
+                        },
+                    ]
+                },
+            },
+            'goals': ['Fix delivery failures'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-delivery-analysis-v1'
+    assert data['summary']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'process_queued_delivery' in codes
+    assert 'triage_failed_records' in codes
+    assert 'avoid_blind_retries' in codes
 
 
 def test_template_editor_page() -> None:
@@ -852,6 +901,9 @@ def test_admin_pages() -> None:
     assert 'Select send record' in delivery.text
     assert 'Requeue Record' in delivery.text
     assert 'Delete Record' in delivery.text
+    assert 'AI Delivery Review' in delivery.text
+    assert 'reviewDeliveryWithAi' in delivery.text
+    assert '/api/v1/ai/delivery/analyze' in delivery.text
     assert 'Email Engine Suppressions' in suppressions.text
     assert 'Save Suppression' in suppressions.text
     assert 'Email Engine Analytics' in analytics.text

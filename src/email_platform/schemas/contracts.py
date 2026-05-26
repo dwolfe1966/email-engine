@@ -316,6 +316,28 @@ class AIAudienceAnalysisRead(BaseModel):
     model: str = 'deterministic-audience-analysis-v1'
 
 
+class AIDeliveryAnalysisRequest(BaseModel):
+    delivery_context: JsonObject = Field(default_factory=dict)
+    goals: list[str] = Field(default_factory=list)
+
+
+class AIDeliveryRecommendationRead(BaseModel):
+    code: str
+    category: str
+    priority: str
+    title: str
+    detail: str
+    suggested_action: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class AIDeliveryAnalysisRead(BaseModel):
+    summary: list[str] = Field(default_factory=list)
+    recommendations: list[AIDeliveryRecommendationRead] = Field(default_factory=list)
+    provider: str = 'email-engine'
+    model: str = 'deterministic-delivery-analysis-v1'
+
+
 class CampaignCreate(BaseModel):
     name: str
     template_id: UUID
