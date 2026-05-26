@@ -16,6 +16,12 @@ type Insight = {
   tone?: 'good' | 'warn';
 };
 
+type OperationNotice = {
+  label: string;
+  message: string;
+  tone?: 'working' | 'success' | 'warn';
+};
+
 type Campaign = {
   name: string;
   status: string;
@@ -704,12 +710,16 @@ function Sidebar({ activePage }: { activePage: PageKey }) {
   );
 }
 
-function Header({ title, status }: { title: string; status: string }) {
+function Header({ title, status, operation }: { title: string; status: string; operation: OperationNotice }) {
   return (
     <header className="topbar">
       <div>
         <h1>{title}</h1>
         <p>{status}</p>
+        <div className={`global-operation ${operation.tone || 'success'}`}>
+          <strong>{operation.label}</strong>
+          <span>{operation.message}</span>
+        </div>
       </div>
       <div className="topbar-actions">
         <label className="search">
@@ -720,6 +730,39 @@ function Header({ title, status }: { title: string; status: string }) {
         <button className="primary" onClick={() => { window.location.hash = '#campaigns'; }}>Create Campaign</button>
       </div>
     </header>
+  );
+}
+
+function WorkflowRail({ activePage }: { activePage: PageKey }) {
+  const workflows = [
+    {
+      label: 'Campaign creation',
+      detail: 'Audience + template + test send',
+      href: '#campaigns',
+      pages: ['campaigns', 'audience', 'templates', 'contacts', 'data'] as PageKey[],
+    },
+    {
+      label: 'Campaign optimization',
+      detail: 'Analytics + AI + delivery health',
+      href: '#analytics',
+      pages: ['analytics', 'ai-studio', 'delivery', 'campaigns'] as PageKey[],
+    },
+    {
+      label: 'Template development',
+      detail: 'Design + variables + preview',
+      href: '#templates',
+      pages: ['templates', 'ai-studio'] as PageKey[],
+    },
+  ];
+  return (
+    <section className="workflow-rail" aria-label="Key workflows">
+      {workflows.map((workflow) => (
+        <a className={workflow.pages.includes(activePage) ? 'active' : ''} href={workflow.href} key={workflow.label}>
+          <strong>{workflow.label}</strong>
+          <span>{workflow.detail}</span>
+        </a>
+      ))}
+    </section>
   );
 }
 
@@ -967,12 +1010,13 @@ function EmptyState({ title, detail, actionHref, actionLabel }: {
   );
 }
 
-function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefresh }: {
+function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefresh, onOperation }: {
   campaigns: CampaignPerformance[];
   campaignItems: CampaignRead[];
   templates: TemplateRead[];
   audiences: AudienceRead[];
   onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
 }) {
   const [campaignName, setCampaignName] = useState('ESP Test Campaign');
   const [templateId, setTemplateId] = useState('');
@@ -1019,12 +1063,16 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   async function runOperation(label: string, operation: () => Promise<string>) {
     setOperationBusy(true);
     setOperationStatus(`${label}...`);
+    onOperation({ label: 'Campaign workflow', message: `${label}...`, tone: 'working' });
     try {
       const message = await operation();
       setOperationStatus(message);
+      onOperation({ label: 'Campaign workflow', message, tone: 'success' });
       await onRefresh();
     } catch (error) {
-      setOperationStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setOperationStatus(message);
+      onOperation({ label: 'Campaign workflow', message, tone: 'warn' });
     } finally {
       setOperationBusy(false);
     }
@@ -1833,7 +1881,11 @@ function AudiencePage({ audiences, audienceItems, onRefresh }: {
   );
 }
 
-function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; onRefresh: () => Promise<void> }) {
+function TemplatesPage({ templates, onRefresh, onOperation }: {
+  templates: TemplateRead[];
+  onRefresh: () => Promise<void>;
+  onOperation: (notice: OperationNotice) => void;
+}) {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [name, setName] = useState('ESP Template Draft');
   const [subject, setSubject] = useState('Hello {{ first_name }}');
@@ -1876,11 +1928,15 @@ function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; on
   async function runTemplateOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
+    onOperation({ label: 'Template workflow', message: `${label}...`, tone: 'working' });
     try {
       const message = await operation();
       setStatus(message);
+      onOperation({ label: 'Template workflow', message, tone: 'success' });
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setStatus(message);
+      onOperation({ label: 'Template workflow', message, tone: 'warn' });
     } finally {
       setBusy(false);
     }
@@ -4241,6 +4297,11 @@ function SimpleModulePage({ title, detail, links }: {
 
 function App() {
   const [activePage, setActivePage] = useState<PageKey>(pageFromHash);
+  const [operationNotice, setOperationNotice] = useState<OperationNotice>({
+    label: 'Workspace',
+    message: 'Ready for campaign, template, and optimization workflows.',
+    tone: 'success',
+  });
   const [dashboard, setDashboard] = useState<DashboardState>({
     overview: null,
     campaigns: [],
@@ -4397,7 +4458,7 @@ function App() {
           campaignItems={dashboard.campaignItems}
           templates={dashboard.templates}
           audiences={dashboard.audienceItems}
-          onRefresh={async () => {
+	          onRefresh={async () => {
             const [campaignData, campaignItems] = await Promise.all([
               fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
               fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
@@ -4407,8 +4468,9 @@ function App() {
               campaigns: campaignData.items || [],
               campaignItems: campaignItems.items || [],
             }));
-          }}
-        />
+	          }}
+          onOperation={setOperationNotice}
+	        />
       );
     }
     if (activePage === 'automations') {
@@ -4537,16 +4599,17 @@ function App() {
     }
     if (activePage === 'templates') {
       return (
-        <TemplatesPage
-          templates={dashboard.templates}
-          onRefresh={async () => {
+	        <TemplatesPage
+	          templates={dashboard.templates}
+	          onRefresh={async () => {
             const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
             setDashboard((current) => ({
               ...current,
               templates: templateData.items || [],
             }));
-          }}
-        />
+	          }}
+          onOperation={setOperationNotice}
+	        />
       );
     }
     if (activePage === 'ai-studio') {
@@ -4621,10 +4684,11 @@ function App() {
   return (
     <div className="app-shell">
       <Sidebar activePage={activePage} />
-      <main className="workspace">
-        <Header title={pageTitle(activePage)} status={status} />
-        {content}
-      </main>
+	      <main className="workspace">
+	        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} />
+	        <WorkflowRail activePage={activePage} />
+	        {content}
+	      </main>
     </div>
   );
 }

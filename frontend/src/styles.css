@@ -147,6 +147,40 @@ nav a.active {
   vertical-align: 1px;
 }
 
+.global-operation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  max-width: 680px;
+  margin-top: 9px;
+  border: 1px solid #bad7ff;
+  border-radius: 8px;
+  background: #eef6ff;
+  padding: 8px 10px;
+  color: #29405f;
+  font-size: 12px;
+}
+
+.global-operation.working {
+  border-color: #f3d08a;
+  background: #fffbeb;
+}
+
+.global-operation.warn {
+  border-color: #f3c8c5;
+  background: #fff7f7;
+}
+
+.global-operation strong {
+  color: var(--text);
+}
+
+.global-operation span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
 .assistant-card button,
 .primary {
   border: 0;
@@ -249,6 +283,40 @@ h2 {
   color: var(--text);
   padding: 0 14px;
   outline: none;
+}
+
+.workflow-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.workflow-rail a {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .82);
+  color: #29405f;
+  padding: 12px 14px;
+  text-decoration: none;
+  box-shadow: 0 8px 30px rgba(33, 68, 125, .07);
+}
+
+.workflow-rail a.active {
+  border-color: #b8ccff;
+  background: #eef5ff;
+}
+
+.workflow-rail strong {
+  font-size: 13px;
+}
+
+.workflow-rail span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .ghost {
@@ -838,6 +906,7 @@ th {
     align-items: stretch;
     flex-direction: column;
   }
+  .workflow-rail { grid-template-columns: 1fr; }
   .search input { width: 100%; }
   .metric-grid { grid-template-columns: 1fr; }
 }
