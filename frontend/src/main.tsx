@@ -73,6 +73,16 @@ type AudienceRead = {
   estimated_count: number;
 };
 
+type ContactRead = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  source: string | null;
+  attributes: Record<string, unknown>;
+  is_unsubscribed: boolean;
+};
+
 type ListResponse<T> = {
   items: T[];
   total: number;
@@ -887,11 +897,112 @@ function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
   );
 }
 
-function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
+function AudiencePage({ audiences, audienceItems, onRefresh }: {
+  audiences: AudiencePerformance[];
+  audienceItems: AudienceRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedAudienceId, setSelectedAudienceId] = useState('');
+  const [name, setName] = useState('ESP Audience Draft');
+  const [description, setDescription] = useState('Created from the ESP audience workflow.');
+  const [ruleJson, setRuleJson] = useState('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
+  const [status, setStatus] = useState('Ready to create or preview an audience.');
+  const [busy, setBusy] = useState(false);
+  const [matchedCount, setMatchedCount] = useState<number | null>(null);
+  const [sampleContacts, setSampleContacts] = useState<ContactRead[]>([]);
+
+  useEffect(() => {
+    if (!selectedAudienceId && audienceItems.length) {
+      loadAudienceIntoEditor(audienceItems[0]);
+    }
+  }, [audienceItems, selectedAudienceId]);
+
   const estimated = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
   const sent = audiences.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
   const bestAudience = audiences.reduce<AudiencePerformance | null>((best, item) =>
     !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
+
+  function loadAudienceIntoEditor(audience: AudienceRead) {
+    setSelectedAudienceId(audience.id);
+    setName(audience.name);
+    setDescription(audience.description || '');
+    setRuleJson(JSON.stringify(audience.rule_tree || {}, null, 2));
+    setMatchedCount(audience.estimated_count);
+    setSampleContacts([]);
+    setStatus(`Loaded audience: ${audience.name}`);
+  }
+
+  function parsedRuleTree() {
+    try {
+      const parsed = JSON.parse(ruleJson || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Rule tree must be a JSON object.');
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid audience rule JSON.');
+    }
+  }
+
+  async function runAudienceOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      const message = await operation();
+      setStatus(message);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAudience() {
+    await runAudienceOperation(selectedAudienceId ? 'Saving audience' : 'Creating audience', async () => {
+      const payload = {
+        name: name.trim() || 'Untitled ESP Audience',
+        description: description || null,
+        rule_tree: parsedRuleTree(),
+      };
+      const saved = selectedAudienceId
+        ? await fetchJson<AudienceRead>(`/api/v1/audiences/${selectedAudienceId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        : await fetchJson<AudienceRead>('/api/v1/audiences', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      setSelectedAudienceId(saved.id);
+      setMatchedCount(saved.estimated_count);
+      await onRefresh();
+      return `Saved audience: ${saved.name} (${formatInt(saved.estimated_count)} matched).`;
+    });
+  }
+
+  async function previewAudience() {
+    await runAudienceOperation('Previewing audience', async () => {
+      const data = await fetchJson<{ estimated_count: number; sample_contacts: ContactRead[] }>('/api/v1/audiences/preview', {
+        method: 'POST',
+        body: JSON.stringify({ rule_tree: parsedRuleTree(), limit: 10 }),
+      });
+      setMatchedCount(data.estimated_count);
+      setSampleContacts(data.sample_contacts || []);
+      return `Preview matched ${formatInt(data.estimated_count)} contact(s).`;
+    });
+  }
+
+  async function snapshotAudience() {
+    await runAudienceOperation('Creating snapshot', async () => {
+      if (!selectedAudienceId) throw new Error('Save or select an audience first.');
+      const data = await fetchJson<{ version_number: number; estimated_count: number }>(`/api/v1/audiences/${selectedAudienceId}/snapshots`, {
+        method: 'POST',
+        body: JSON.stringify({ metadata_json: { source: 'esp_audience_workflow' } }),
+      });
+      return `Created snapshot v${data.version_number} with ${formatInt(data.estimated_count)} contacts.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -925,6 +1036,70 @@ function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
           <p>Create audience snapshots before larger sends so launch targeting is auditable.</p>
           <a href="/admin/audiences">Create snapshot</a>
         </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Audience Workflow</h2>
+          <a href="/admin/audiences">Advanced builder</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Existing audience
+            <select value={selectedAudienceId} onChange={(event) => {
+              const audience = audienceItems.find((item) => item.id === event.target.value);
+              if (audience) loadAudienceIntoEditor(audience);
+              else setSelectedAudienceId('');
+            }}>
+              <option value="">Create new audience</option>
+              {audienceItems.map((audience) => (
+                <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Audience name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Matched contacts
+            <input value={matchedCount === null ? 'Not previewed' : formatInt(matchedCount)} readOnly />
+          </label>
+          <label className="wide-field">
+            Description
+            <input value={description} onChange={(event) => setDescription(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            Rule JSON
+            <textarea value={ruleJson} onChange={(event) => setRuleJson(event.target.value)} rows={10} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={saveAudience} disabled={busy}>Save Audience</button>
+          <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
+          <button className="ghost" onClick={snapshotAudience} disabled={busy || !selectedAudienceId}>Create Snapshot</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+        {sampleContacts.length ? (
+          <section className="panel table-panel nested-panel">
+            <div className="panel-head"><h2>Matched Contacts Preview</h2></div>
+            <table>
+              <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th></tr></thead>
+              <tbody>
+                {sampleContacts.map((contact) => (
+                  <tr key={contact.id}>
+                    <td>{contact.email}</td>
+                    <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
+                    <td>{contact.source || '-'}</td>
+                    <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
@@ -1660,7 +1835,25 @@ function App() {
       );
     }
     if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
-    if (activePage === 'audience') return <AudiencePage audiences={dashboard.audiences} />;
+    if (activePage === 'audience') {
+      return (
+        <AudiencePage
+          audiences={dashboard.audiences}
+          audienceItems={dashboard.audienceItems}
+          onRefresh={async () => {
+            const [audienceData, audienceItems] = await Promise.all([
+              fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
+              fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              audiences: audienceData.items || [],
+              audienceItems: audienceItems.items || [],
+            }));
+          }}
+        />
+      );
+    }
     if (activePage === 'templates') {
       return (
         <TemplatesPage
