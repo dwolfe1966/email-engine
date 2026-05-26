@@ -288,6 +288,31 @@ type AITemplateRecommendation = {
   confidence: number;
 };
 
+type AIWorkflowRecommendation = {
+  area: string;
+  code: string;
+  category: string;
+  priority: string;
+  title: string;
+  detail: string;
+  suggested_action: string;
+  confidence: number;
+};
+
+type AIWorkflowAnalysis = {
+  summary?: string[];
+  recommendations?: Array<{
+    code: string;
+    category: string;
+    priority: string;
+    title: string;
+    detail: string;
+    suggested_action?: string;
+    suggested_instruction?: string;
+    confidence: number;
+  }>;
+};
+
 type SystemDiagnostics = {
   ok: boolean;
   environment: string;
@@ -3345,9 +3370,10 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   );
 }
 
-function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
+function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: {
   insights: Insight[];
   diagnostics: SystemDiagnostics | null;
+  dashboard: DashboardState;
   onTemplatesRefresh: () => Promise<void>;
 }) {
   const openAiReady = Boolean(diagnostics?.ai.openai_configured);
@@ -3363,6 +3389,8 @@ function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<AITemplateRecommendation[]>([]);
+  const [workflowRecommendations, setWorkflowRecommendations] = useState<AIWorkflowRecommendation[]>([]);
+  const [workflowSummary, setWorkflowSummary] = useState<string[]>([]);
   const [previewHtml, setPreviewHtml] = useState('');
 
   function parsedSample() {
@@ -3475,6 +3503,92 @@ function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
     });
   }
 
+  function workflowContext() {
+    return {
+      overview: dashboard.overview,
+      campaigns: dashboard.campaigns.slice(0, 10),
+      campaign_items: dashboard.campaignItems.slice(0, 10),
+      audiences: dashboard.audiences.slice(0, 10),
+      audience_items: dashboard.audienceItems.slice(0, 10),
+      templates: dashboard.templates.slice(0, 10),
+      send_jobs: dashboard.sendJobs.slice(0, 10),
+      send_records: dashboard.sendRecords.slice(0, 10),
+      suppressions: dashboard.suppressions.slice(0, 10),
+      journeys: dashboard.journeys.slice(0, 10),
+      journey_items: dashboard.journeyItems.slice(0, 10),
+      journey_enrollments: dashboard.journeyEnrollments.slice(0, 10),
+      journey_executions: dashboard.journeyExecutions.slice(0, 10),
+      contacts: dashboard.contacts.slice(0, 10),
+      contact_meta: dashboard.contactMeta,
+      diagnostics,
+    };
+  }
+
+  function normalizeWorkflowRecommendations(area: string, data: AIWorkflowAnalysis) {
+    return (data.recommendations || []).map((item) => ({
+      area,
+      code: item.code,
+      category: item.category,
+      priority: item.priority,
+      title: item.title,
+      detail: item.detail,
+      suggested_action: item.suggested_action || item.suggested_instruction || 'Review recommendation.',
+      confidence: item.confidence,
+    }));
+  }
+
+  async function reviewWorkflow() {
+    await runAiOperation('Reviewing ESP workflow', async () => {
+      const context = workflowContext();
+      const goals = [
+        'Identify launch blockers',
+        'Find delivery and compliance risks',
+        'Recommend the next best operator action',
+      ];
+      const [analytics, campaign, audience, delivery, journey] = await Promise.all([
+        fetchJson<AIWorkflowAnalysis>('/api/v1/ai/analytics/analyze', {
+          method: 'POST',
+          body: JSON.stringify({ report_type: 'esp_workflow', report_context: context, goals }),
+        }),
+        fetchJson<AIWorkflowAnalysis>('/api/v1/ai/campaigns/analyze', {
+          method: 'POST',
+          body: JSON.stringify({ campaign_context: context, goals }),
+        }),
+        fetchJson<AIWorkflowAnalysis>('/api/v1/ai/audiences/analyze', {
+          method: 'POST',
+          body: JSON.stringify({ audience_context: context, goals }),
+        }),
+        fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
+          method: 'POST',
+          body: JSON.stringify({ delivery_context: context, goals }),
+        }),
+        fetchJson<AIWorkflowAnalysis>('/api/v1/ai/journeys/analyze', {
+          method: 'POST',
+          body: JSON.stringify({ journey_context: context, goals }),
+        }),
+      ]);
+      const allRecommendations = [
+        ...normalizeWorkflowRecommendations('Analytics', analytics),
+        ...normalizeWorkflowRecommendations('Campaign', campaign),
+        ...normalizeWorkflowRecommendations('Audience', audience),
+        ...normalizeWorkflowRecommendations('Delivery', delivery),
+        ...normalizeWorkflowRecommendations('Journey', journey),
+      ].sort((a, b) => {
+        const weight = { high: 3, medium: 2, low: 1 } as Record<string, number>;
+        return (weight[b.priority] || 0) - (weight[a.priority] || 0);
+      });
+      setWorkflowSummary([
+        ...(analytics.summary || []),
+        ...(campaign.summary || []),
+        ...(audience.summary || []),
+        ...(delivery.summary || []),
+        ...(journey.summary || []),
+      ].slice(0, 6));
+      setWorkflowRecommendations(allRecommendations);
+      return `Workflow review loaded ${formatInt(allRecommendations.length)} recommendation(s).`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -3542,6 +3656,7 @@ function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
           <button className="ghost" onClick={recommendTemplate} disabled={busy}>Recommendations</button>
           <button className="ghost" onClick={previewTemplate} disabled={busy}>Preview</button>
           <button className="ghost" onClick={saveAsTemplate} disabled={busy}>Save as Template</button>
+          <button className="ghost" onClick={reviewWorkflow} disabled={busy}>Review Workflow</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
@@ -3562,6 +3677,35 @@ function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
                   <td>{item.title}</td>
                   <td>{item.detail}</td>
                   <td>{item.suggested_instruction}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+      {workflowRecommendations.length ? (
+        <section className="panel table-panel full-span">
+          <div className="panel-head"><h2>AI Workflow Review</h2><span className="muted">{formatInt(workflowRecommendations.length)} recommendations</span></div>
+          {workflowSummary.length ? (
+            <div className="insights">
+              {workflowSummary.slice(0, 3).map((item) => (
+                <article className="insight" key={item}>
+                  <Icon label="Summary" />
+                  <div><strong>Summary</strong><p>{item}</p></div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          <table>
+            <thead><tr><th>Area</th><th>Priority</th><th>Title</th><th>Detail</th><th>Suggested action</th></tr></thead>
+            <tbody>
+              {workflowRecommendations.map((item) => (
+                <tr key={`${item.area}-${item.code}`}>
+                  <td>{item.area}</td>
+                  <td><span className="pill">{item.priority}</span></td>
+                  <td>{item.title}</td>
+                  <td>{item.detail}</td>
+                  <td>{item.suggested_action}</td>
                 </tr>
               ))}
             </tbody>
@@ -4160,6 +4304,7 @@ function App() {
         <AiStudioPage
           insights={dashboard.aiInsights}
           diagnostics={dashboard.diagnostics}
+          dashboard={dashboard}
           onTemplatesRefresh={async () => {
             const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
             setDashboard((current) => ({ ...current, templates: templateData.items || [] }));
