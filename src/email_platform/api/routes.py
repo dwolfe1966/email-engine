@@ -44,6 +44,9 @@ from email_platform.schemas.contracts import (
     AIDeliveryAnalysisRead,
     AIDeliveryAnalysisRequest,
     AIDeliveryRecommendationRead,
+    AIJourneyAnalysisRead,
+    AIJourneyAnalysisRequest,
+    AIJourneyRecommendationRead,
     AITemplateDraftRead,
     AITemplateDraftRequest,
     AITemplateEditRequest,
@@ -1501,6 +1504,212 @@ def _deterministic_delivery_analysis(
     return AIDeliveryAnalysisRead(summary=summary, recommendations=recommendations)
 
 
+def _deterministic_journey_analysis(
+    payload: AIJourneyAnalysisRequest,
+) -> AIJourneyAnalysisRead:
+    context = payload.journey_context or {}
+    journey = _mapping(context.get('journey'))
+    graph = _mapping(context.get('graph'))
+    enrollments = _mapping(context.get('enrollments'))
+    executions = _mapping(context.get('executions'))
+    nodes = [item for item in _list(graph.get('nodes')) if isinstance(item, Mapping)]
+    edges = [item for item in _list(graph.get('edges')) if isinstance(item, Mapping)]
+    enrollment_items = [
+        item for item in _list(enrollments.get('items')) if isinstance(item, Mapping)
+    ]
+    execution_items = [
+        item for item in _list(executions.get('items')) if isinstance(item, Mapping)
+    ]
+    recommendations: list[AIJourneyRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_action: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AIJourneyRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_action=suggested_action,
+                confidence=confidence,
+            )
+        )
+
+    status = str(journey.get('status') or 'draft')
+    step_count = len(_list(journey.get('steps'))) or len(nodes)
+    failed_nodes = [node for node in nodes if str(node.get('state')) == 'failed']
+    active_nodes = [node for node in nodes if str(node.get('state')) == 'active']
+    queued_send_nodes = [
+        node for node in nodes
+        if _number(_mapping(node.get('counts')).get('queued_send_count')) > 0
+    ]
+    send_email_nodes = [
+        node for node in nodes
+        if str(node.get('step_type')) == 'send_email'
+    ]
+    branch_nodes = [
+        node for node in nodes
+        if str(node.get('step_type')) == 'branch'
+    ]
+    source_ids = {str(edge.get('source')) for edge in edges}
+    target_ids = {str(edge.get('target')) for edge in edges}
+    node_ids = {str(node.get('id')) for node in nodes}
+    dangling_edges = [
+        edge for edge in edges
+        if str(edge.get('source')) not in node_ids or str(edge.get('target')) not in node_ids
+    ]
+    terminal_non_action_nodes = [
+        node for node in nodes
+        if str(node.get('id')) not in source_ids and str(node.get('step_type')) in {'branch', 'wait'}
+    ]
+    unreachable_nodes = [
+        node for node in nodes[1:]
+        if str(node.get('id')) not in target_ids
+    ]
+    failed_executions = [
+        item for item in execution_items
+        if str(item.get('status')) == 'failed' or item.get('error_message')
+    ]
+    active_enrollments = [
+        item for item in enrollment_items
+        if str(item.get('status')) == 'active'
+    ]
+
+    if step_count == 0:
+        add(
+            'add_journey_steps',
+            'structure',
+            'high',
+            'Add journey steps',
+            'The journey has no steps, so contacts cannot progress.',
+            'Add at least one send, wait, branch, update, or webhook step before activation.',
+            0.98,
+        )
+    if status == 'active' and step_count == 0:
+        add(
+            'pause_empty_active_journey',
+            'readiness',
+            'high',
+            'Pause empty active journey',
+            'The journey is active but has no steps.',
+            'Pause the journey until the path is built and reviewed.',
+            0.96,
+        )
+    if send_email_nodes and any(not _mapping(node.get('config')).get('template_id') for node in send_email_nodes):
+        add(
+            'configure_send_templates',
+            'content',
+            'high',
+            'Configure send-email templates',
+            'One or more send_email steps do not expose a template_id in their config.',
+            'Select each send_email step and set a template_id before enrolling contacts.',
+            0.9,
+        )
+    if branch_nodes and not any(str(edge.get('edge_type')) == 'branch' for edge in edges):
+        add(
+            'connect_branch_outcomes',
+            'structure',
+            'high',
+            'Connect branch outcomes',
+            'A branch step exists but no branch edges are visible in the graph.',
+            'Configure branch next_step_id values for matched/default outcomes and reload the graph.',
+            0.88,
+        )
+    if dangling_edges:
+        add(
+            'fix_dangling_edges',
+            'structure',
+            'high',
+            'Fix dangling graph edges',
+            f'{len(dangling_edges)} edge(s) reference missing source or target nodes.',
+            'Open affected step configs and replace stale next_step_id values.',
+            0.86,
+        )
+    if terminal_non_action_nodes:
+        add(
+            'review_terminal_steps',
+            'structure',
+            'medium',
+            'Review terminal wait or branch steps',
+            f'{len(terminal_non_action_nodes)} wait/branch step(s) end the path.',
+            'Confirm those are intentional exits, or connect them to a next step.',
+            0.74,
+        )
+    if unreachable_nodes:
+        add(
+            'review_unreachable_steps',
+            'structure',
+            'medium',
+            'Review unreachable steps',
+            f'{len(unreachable_nodes)} step(s) are not targeted by another graph edge.',
+            'Confirm they are entry steps or wire them into the journey path.',
+            0.72,
+        )
+    if failed_nodes or failed_executions:
+        add(
+            'triage_failed_journey_steps',
+            'execution',
+            'high',
+            'Triage failed journey steps',
+            f'{len(failed_nodes)} failed graph node(s) and {len(failed_executions)} failed execution(s) are visible.',
+            'Inspect recent errors, fix step config, then process due work after confirming retry behavior.',
+            0.92,
+        )
+    if queued_send_nodes:
+        add(
+            'process_queued_journey_sends',
+            'delivery',
+            'medium',
+            'Process queued journey sends',
+            f'{len(queued_send_nodes)} step node(s) have queued send records.',
+            'Open Delivery Manager or run delivery processing for queued sends generated by this journey.',
+            0.8,
+        )
+    if active_enrollments and not active_nodes:
+        add(
+            'process_due_enrollments',
+            'execution',
+            'medium',
+            'Process due enrollments',
+            f'{len(active_enrollments)} active enrollment(s) exist but no active graph node is shown.',
+            'Run Process Due and reload graph/enrollments to verify current state.',
+            0.76,
+        )
+    if not recommendations:
+        add(
+            'journey_ready_for_testing',
+            'readiness',
+            'low',
+            'Journey ready for controlled testing',
+            'No major structural or execution risk is visible in the selected context.',
+            'Enroll one test contact, process due steps, and verify sends/events before production activation.',
+            0.68,
+        )
+
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    recommendations = sorted(
+        recommendations,
+        key=lambda item: (priority_order.get(item.priority, 9), -item.confidence, item.code),
+    )[:8]
+    summary = [
+        f'Journey: {journey.get("name") or journey.get("id") or "selected journey"}.',
+        f'Status {status}, {step_count} step(s), {len(edges)} edge(s).',
+        f'{len(enrollment_items)} enrollment row(s), {len(execution_items)} execution row(s) in context.',
+        f'{len(recommendations)} recommendation(s) generated.',
+    ]
+    if payload.goals:
+        summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
+    return AIJourneyAnalysisRead(summary=summary, recommendations=recommendations)
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -1651,6 +1860,13 @@ def analyze_delivery_with_ai(
     payload: AIDeliveryAnalysisRequest,
 ) -> AIDeliveryAnalysisRead:
     return _deterministic_delivery_analysis(payload)
+
+
+@router.post('/ai/journeys/analyze', response_model=AIJourneyAnalysisRead)
+def analyze_journey_with_ai(
+    payload: AIJourneyAnalysisRequest,
+) -> AIJourneyAnalysisRead:
+    return _deterministic_journey_analysis(payload)
 
 
 def _tracking_request_metadata(request: Request) -> JsonObject:

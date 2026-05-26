@@ -338,6 +338,28 @@ class AIDeliveryAnalysisRead(BaseModel):
     model: str = 'deterministic-delivery-analysis-v1'
 
 
+class AIJourneyAnalysisRequest(BaseModel):
+    journey_context: JsonObject = Field(default_factory=dict)
+    goals: list[str] = Field(default_factory=list)
+
+
+class AIJourneyRecommendationRead(BaseModel):
+    code: str
+    category: str
+    priority: str
+    title: str
+    detail: str
+    suggested_action: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class AIJourneyAnalysisRead(BaseModel):
+    summary: list[str] = Field(default_factory=list)
+    recommendations: list[AIJourneyRecommendationRead] = Field(default_factory=list)
+    provider: str = 'email-engine'
+    model: str = 'deterministic-journey-analysis-v1'
+
+
 class CampaignCreate(BaseModel):
     name: str
     template_id: UUID

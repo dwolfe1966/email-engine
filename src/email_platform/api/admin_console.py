@@ -3450,31 +3450,89 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       width: 100%;
       height: 100%;
       pointer-events: none;
+      z-index: 1;
     }
-    .graph-node {
+    .graph-edge-label {
       position: absolute;
-      width: 220px;
-      min-height: 112px;
-      display: grid;
-      gap: 6px;
-      align-content: start;
-      border: 1px solid var(--line);
-      border-left: 5px solid var(--muted);
-      border-radius: 8px;
-      background: #fff;
-      padding: 10px;
+      z-index: 3;
+      width: 190px;
+      max-height: 74px;
+      overflow: auto;
+      padding: 5px 7px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .94);
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.3;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      pointer-events: none;
       box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
     }
-    .graph-node.active { border-left-color: var(--blue); }
-    .graph-node.failed { border-left-color: var(--red); }
-    .graph-node.visited { border-left-color: #047857; }
-    .graph-title { font-weight: 750; }
+	    .graph-node {
+	      position: absolute;
+	      z-index: 2;
+	      width: 220px;
+	      min-height: 112px;
+	      display: grid;
+	      gap: 6px;
+	      align-content: start;
+	      border: 1px solid var(--line);
+	      border-left: 5px solid var(--muted);
+	      border-radius: 8px;
+	      background: #fff;
+	      padding: 10px;
+	      box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+	      white-space: normal;
+	    }
+	    .graph-node.active { border-left-color: var(--blue); }
+	    .graph-node.failed { border-left-color: var(--red); }
+	    .graph-node.visited { border-left-color: #047857; }
+    .graph-title { font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
     .graph-meta {
       color: var(--muted);
       font-family: var(--mono);
       font-size: 11px;
       line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
+    .ai-journey-panel {
+      display: grid;
+      gap: 10px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px;
+      background: #eff6ff;
+    }
+    .ai-journey-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .ai-journey-head strong { display: block; }
+    .ai-journey-head small { color: var(--muted); }
+    .ai-journey-summary {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+    .ai-journey-list { display: grid; gap: 8px; }
+    .ai-journey-card {
+      display: grid;
+      gap: 5px;
+      border: 1px solid var(--line);
+      border-left: 5px solid #64748b;
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+    }
+    .ai-journey-card.high { border-left-color: var(--red); }
+    .ai-journey-card.medium { border-left-color: #d97706; }
+    .ai-journey-card.low { border-left-color: #047857; }
+    .ai-journey-card p { margin: 0; color: var(--muted); line-height: 1.4; }
     @media (max-width: 1280px) {
       header { align-items: flex-start; flex-direction: column; }
       main { grid-template-columns: 1fr; }
@@ -3597,9 +3655,22 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
     <section>
       <div class="head">
         <h2>Journey Graph</h2>
-        <button class="secondary" id="refreshGraph">Refresh</button>
+        <div class="actions">
+          <button class="secondary" id="refreshGraph">Refresh</button>
+          <button class="secondary" id="aiJourneyReview">AI Review</button>
+        </div>
       </div>
       <div class="body">
+        <div class="ai-journey-panel" id="aiJourneyPanel" hidden>
+          <div class="ai-journey-head">
+            <div>
+              <strong>AI Journey Review</strong>
+              <small id="aiJourneyMeta">Review the selected journey path and execution state.</small>
+            </div>
+          </div>
+          <ul class="ai-journey-summary" id="aiJourneySummary"></ul>
+          <div class="ai-journey-list" id="aiJourneyList"></div>
+        </div>
         <div class="graph" id="graph"></div>
         <div class="head"><h2>Response</h2><button class="secondary" id="clear">Clear</button></div>
         <pre id="result"></pre>
@@ -3610,6 +3681,7 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
     let selectedJourneyId = "";
     let selectedStepId = "";
     let selectedJourney = null;
+    let lastJourneyGraph = null;
     const result = document.getElementById("result");
 
     function writeResult(data, ok = true) {
@@ -3643,9 +3715,17 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       return raw ? JSON.parse(raw) : fallback;
     }
 
+    function hideJourneyAiReview() {
+      document.getElementById("aiJourneyPanel").hidden = true;
+      document.getElementById("aiJourneySummary").textContent = "";
+      document.getElementById("aiJourneyList").textContent = "";
+    }
+
     function resetJourney() {
       selectedJourneyId = "";
       selectedJourney = null;
+      lastJourneyGraph = null;
+      hideJourneyAiReview();
       document.getElementById("journeyName").value = `journey-${Date.now()}`;
       document.getElementById("journeyStatus").value = "draft";
       document.getElementById("journeyDescription").value = "";
@@ -3693,6 +3773,8 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       selectedJourneyId = item.id;
       selectedJourney = item;
       selectedStepId = "";
+      lastJourneyGraph = null;
+      hideJourneyAiReview();
       markSelected("journeys", selectedJourneyId);
       document.getElementById("journeyName").value = item.name || "";
       document.getElementById("journeyStatus").value = item.status || "draft";
@@ -3781,29 +3863,28 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
       svg.appendChild(defs);
 
       const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+      const edgeLabels = [];
       graph.edges.forEach((edge) => {
         const source = byId.get(edge.source);
         const target = byId.get(edge.target);
         if (!source || !target) return;
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", String(source.x + 220));
-        line.setAttribute("y1", String(source.y + 56));
-        line.setAttribute("x2", String(target.x));
-        line.setAttribute("y2", String(target.y + 56));
-        line.setAttribute("stroke", edge.edge_type === "branch" ? "#2563eb" : "#64748b");
-        line.setAttribute("stroke-width", "2");
+	        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+	        line.setAttribute("x1", String(source.x + 220));
+	        line.setAttribute("y1", String(source.y + 56));
+	        line.setAttribute("x2", String(target.x));
+	        line.setAttribute("y2", String(target.y + 56));
+	        line.setAttribute("stroke", edge.edge_type === "branch" ? "#2563eb" : "#64748b");
+	        line.setAttribute("stroke-width", "2");
         line.setAttribute("marker-end", "url(#arrow)");
         svg.appendChild(line);
         if (edge.label || edge.condition) {
-          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          label.setAttribute("x", String((source.x + target.x + 220) / 2));
-          label.setAttribute("y", String((source.y + target.y) / 2 + 42));
-          label.setAttribute("fill", "#475569");
-          label.setAttribute("font-size", "12");
-          label.textContent = edge.condition
-            ? `${edge.label || edge.edge_type}: ${JSON.stringify(edge.condition)}`
-            : edge.label;
-          svg.appendChild(label);
+	          edgeLabels.push({
+	            x: Math.max(8, ((source.x + target.x + 220) / 2) - 95),
+	            y: Math.max(8, ((source.y + target.y) / 2) + 22),
+	            text: edge.condition
+	              ? `${edge.label || edge.edge_type}: ${JSON.stringify(edge.condition)}`
+	              : edge.label
+	          });
         }
       });
       canvas.appendChild(svg);
@@ -3839,6 +3920,15 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
           writeResult(node);
         });
         canvas.appendChild(card);
+      });
+
+      edgeLabels.forEach((item) => {
+        const label = document.createElement("div");
+        label.className = "graph-edge-label";
+        label.style.left = `${item.x}px`;
+        label.style.top = `${item.y}px`;
+        label.textContent = item.text;
+        canvas.appendChild(label);
       });
 
       container.appendChild(canvas);
@@ -3950,22 +4040,88 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
     async function loadEnrollments() {
       const params = new URLSearchParams({ limit: "100", offset: "0" });
       if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
-      await request(`/api/v1/journey-enrollments/list?${params.toString()}`);
+      return request(`/api/v1/journey-enrollments/list?${params.toString()}`);
     }
 
     async function loadExecutions() {
       const params = new URLSearchParams({ limit: "100", offset: "0" });
       if (selectedJourneyId) params.set("journey_id", selectedJourneyId);
-      await request(`/api/v1/journey-step-executions/list?${params.toString()}`);
+      return request(`/api/v1/journey-step-executions/list?${params.toString()}`);
     }
 
     async function loadGraph() {
       if (!selectedJourneyId) {
         writeResult("Select or save a journey first.", false);
-        return;
+        return null;
       }
       const graph = await request(`/api/v1/journeys/${selectedJourneyId}/graph`);
+      lastJourneyGraph = graph;
       renderGraph(graph);
+      return graph;
+    }
+
+    function renderJourneyAiReview(data) {
+      const panel = document.getElementById("aiJourneyPanel");
+      const summary = document.getElementById("aiJourneySummary");
+      const list = document.getElementById("aiJourneyList");
+      document.getElementById("aiJourneyMeta").textContent = `${data.provider} / ${data.model}`;
+      summary.textContent = "";
+      list.textContent = "";
+      (data.summary || []).forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        summary.appendChild(li);
+      });
+      (data.recommendations || []).forEach((item) => {
+        const card = document.createElement("div");
+        card.className = `ai-journey-card ${item.priority || "low"}`;
+        const title = document.createElement("strong");
+        title.textContent = `${(item.priority || "low").toUpperCase()} - ${item.title}`;
+        const detail = document.createElement("p");
+        detail.textContent = item.detail;
+        const action = document.createElement("p");
+        action.textContent = item.suggested_action;
+        card.appendChild(title);
+        card.appendChild(detail);
+        card.appendChild(action);
+        list.appendChild(card);
+      });
+      panel.hidden = false;
+    }
+
+    async function reviewJourneyWithAi() {
+      if (!selectedJourneyId) {
+        writeResult("Select or save a journey first.", false);
+        return;
+      }
+      const button = document.getElementById("aiJourneyReview");
+      button.disabled = true;
+      button.textContent = "Reviewing...";
+      try {
+        const graph = lastJourneyGraph || await loadGraph();
+        const enrollmentParams = new URLSearchParams({ limit: "100", offset: "0", journey_id: selectedJourneyId });
+        const executionParams = new URLSearchParams({ limit: "100", offset: "0", journey_id: selectedJourneyId });
+        const [enrollments, executions] = await Promise.all([
+          request(`/api/v1/journey-enrollments/list?${enrollmentParams.toString()}`),
+          request(`/api/v1/journey-step-executions/list?${executionParams.toString()}`)
+        ]);
+        const data = await request("/api/v1/ai/journeys/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            journey_context: {
+              journey: selectedJourney,
+              graph,
+              enrollments,
+              executions
+            },
+            goals: ["Assess journey structure and execution readiness"]
+          })
+        });
+        renderJourneyAiReview(data);
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI Review";
+      }
     }
 
     async function processDue() {
@@ -3993,6 +4149,9 @@ ADMIN_JOURNEYS_HTML = r"""<!doctype html>
     });
     document.getElementById("refreshGraph").addEventListener("click", () => {
       loadGraph().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("aiJourneyReview").addEventListener("click", () => {
+      reviewJourneyWithAi().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("saveStep").addEventListener("click", () => {
       saveStep().catch((error) => writeResult(error.message, false));

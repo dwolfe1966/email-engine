@@ -20,6 +20,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/audiences/analyze',
         '/api/v1/ai/campaigns/analyze',
         '/api/v1/ai/delivery/analyze',
+        '/api/v1/ai/journeys/analyze',
         '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
         '/api/v1/templates',
@@ -399,6 +400,64 @@ def test_ai_delivery_analysis_contract() -> None:
     assert 'process_queued_delivery' in codes
     assert 'triage_failed_records' in codes
     assert 'avoid_blind_retries' in codes
+
+
+def test_ai_journey_analysis_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/journeys/analyze',
+        json={
+            'journey_context': {
+                'journey': {
+                    'id': 'journey-a',
+                    'name': 'Trial activation',
+                    'status': 'active',
+                    'steps': [
+                        {'id': 'step-a', 'step_type': 'branch'},
+                        {'id': 'step-b', 'step_type': 'send_email'},
+                    ],
+                },
+                'graph': {
+                    'nodes': [
+                        {
+                            'id': 'node-a',
+                            'step_id': 'step-a',
+                            'step_type': 'branch',
+                            'state': 'failed',
+                            'counts': {'failed_count': 1, 'queued_send_count': 0},
+                            'recent_error': 'Missing branch target',
+                        },
+                        {
+                            'id': 'node-b',
+                            'step_id': 'step-b',
+                            'step_type': 'send_email',
+                            'state': 'visited',
+                            'config': {},
+                            'counts': {'failed_count': 0, 'queued_send_count': 2},
+                        },
+                    ],
+                    'edges': [],
+                },
+                'enrollments': {'items': [{'status': 'active'}]},
+                'executions': {
+                    'items': [
+                        {'status': 'failed', 'error_message': 'Template missing'},
+                    ]
+                },
+            },
+            'goals': ['Improve journey reliability'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-journey-analysis-v1'
+    assert data['summary']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'connect_branch_outcomes' in codes
+    assert 'triage_failed_journey_steps' in codes
+    assert 'process_queued_journey_sends' in codes
 
 
 def test_template_editor_page() -> None:
@@ -893,6 +952,10 @@ def test_admin_pages() -> None:
     assert 'Enroll Contact' in journeys.text
     assert 'Process Due' in journeys.text
     assert 'Journey Graph' in journeys.text
+    assert 'AI Journey Review' in journeys.text
+    assert 'reviewJourneyWithAi' in journeys.text
+    assert '/api/v1/ai/journeys/analyze' in journeys.text
+    assert 'graph-edge-label' in journeys.text
     assert 'default_next_step_id' in journeys.text
     assert 'Email Engine Delivery Manager' in delivery.text
     assert 'Process Queued' in delivery.text
