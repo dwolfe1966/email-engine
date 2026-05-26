@@ -717,7 +717,7 @@ function Header({ title, status }: { title: string; status: string }) {
           <input placeholder="Search campaigns, contacts, templates..." />
         </label>
         <button className="ghost">May 1 - May 31, 2026</button>
-        <button className="primary" onClick={() => { window.location.href = '/admin/campaigns'; }}>Create Campaign</button>
+        <button className="primary" onClick={() => { window.location.hash = '#campaigns'; }}>Create Campaign</button>
       </div>
     </header>
   );
@@ -740,7 +740,7 @@ function PerformanceChart() {
     <section className="panel chart-panel">
       <div className="panel-head">
         <h2>Performance over time</h2>
-        <a href="/admin/analytics">Open analytics</a>
+        <a href="#analytics">Open analytics</a>
       </div>
       <div className="legend">
         <span><i className="dot purple" />Sends</span>
@@ -765,7 +765,7 @@ function InsightsPanel({ insights }: { insights: Insight[] }) {
     <section className="panel">
       <div className="panel-head">
         <h2>AI Insights</h2>
-        <a href="/admin/analytics">View all</a>
+        <a href="#analytics">View all</a>
       </div>
       <div className="insights">
         {insights.map((item) => (
@@ -788,7 +788,7 @@ function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
     <section className="panel table-panel">
       <div className="panel-head">
         <h2>Recent campaigns</h2>
-        <a href="/admin/campaigns">Manage campaigns</a>
+        <a href="#campaigns">Manage campaigns</a>
       </div>
       <table>
         <thead>
@@ -822,10 +822,10 @@ function QuickCreate() {
   return (
     <section className="panel quick-create">
       <h2>Quick create</h2>
-      <a href="/admin/campaigns">Email Campaign</a>
-      <a href="/admin/journeys">Automation</a>
-      <a href="/admin/audiences">Segment</a>
-      <a href="/template-editor">Template</a>
+      <a href="#campaigns">Email Campaign</a>
+      <a href="#automations">Automation</a>
+      <a href="#audience">Segment</a>
+      <a href="#templates">Template</a>
     </section>
   );
 }
@@ -1104,31 +1104,31 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
           <span>Next action</span>
           <strong>Create campaign</strong>
           <p>Use the workbench to attach template, audience, test variables, and launch readiness checks.</p>
-          <a href="/admin/campaigns">Open Campaign Manager</a>
+          <a href="#campaigns">Open Campaign Manager</a>
         </article>
         <article className="workflow-card">
           <span>Content</span>
           <strong>Template builder</strong>
           <p>Generate or edit dynamic Jinja templates before pairing them with campaign audiences.</p>
-          <a href="/template-editor">Open Template Editor</a>
+          <a href="#templates">Open Template Editor</a>
         </article>
         <article className={`workflow-card ${totalFailures ? 'warn' : ''}`}>
           <span>Health</span>
           <strong>{totalFailures ? 'Delivery review needed' : 'No failures visible'}</strong>
           <p>{totalFailures ? 'Review failed records before scaling sends.' : 'No campaign failures are visible in this page of results.'}</p>
-          <a href="/admin/delivery">Open Delivery Manager</a>
+          <a href="#delivery">Open Delivery Manager</a>
         </article>
         <article className="workflow-card">
           <span>Benchmark</span>
           <strong>{bestOpen ? `${formatPct(bestOpen.open_rate)} open rate` : 'No benchmark yet'}</strong>
           <p>{bestOpen ? `${bestOpen.name} is the current open-rate benchmark.` : 'Send a test campaign to establish a benchmark.'}</p>
-          <a href="/admin/analytics">Open Analytics</a>
+          <a href="#analytics">Open Analytics</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Campaign Workflow</h2>
-          <a href="/admin/campaigns">Advanced workbench</a>
+          <a href="#campaigns">Open campaigns</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1190,7 +1190,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <h2>Campaign Manager</h2>
-          <a href="/admin/campaigns">Open workbench</a>
+          <a href="#campaigns">Open workbench</a>
         </div>
         {campaigns.length ? (
           <table>
@@ -1395,31 +1395,31 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           <span>Build</span>
           <strong>Journey builder</strong>
           <p>Create trigger, wait, branch, and send steps with the admin journey graph.</p>
-          <a href="/admin/journeys">Open Journey Manager</a>
+          <a href="#automations">Open Journey Manager</a>
         </article>
         <article className="workflow-card">
           <span>Health</span>
           <strong>{mostActive ? mostActive.name : 'No active journey'}</strong>
           <p>{mostActive ? `${formatInt(mostActive.active_count)} active enrollments are currently moving through this journey.` : 'Create or activate a journey to start tracking enrollments.'}</p>
-          <a href="/admin/journeys">Review active journeys</a>
+          <a href="#automations">Review active journeys</a>
         </article>
         <article className={`workflow-card ${failures ? 'warn' : ''}`}>
           <span>Risk</span>
           <strong>{failures ? `${formatInt(failures)} failures` : 'No failures visible'}</strong>
           <p>{failures && riskiest ? `${riskiest.name} has the highest visible failure count.` : 'No journey execution failures are visible in this page of results.'}</p>
-          <a href="/admin/journeys">Inspect executions</a>
+          <a href="#automations">Inspect executions</a>
         </article>
         <article className={`workflow-card ${queued ? 'warn' : ''}`}>
           <span>Queue</span>
           <strong>{formatInt(queued)} queued sends</strong>
           <p>{queued ? 'Process queued journey messages and review delivery status before scaling.' : 'Journey send queue is clear for the visible journey set.'}</p>
-          <a href="/admin/delivery">Open Delivery Manager</a>
+          <a href="#delivery">Open Delivery Manager</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Journey Workflow</h2>
-          <a href="/admin/journeys">Advanced builder</a>
+          <a href="#automations">Open builder</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1548,7 +1548,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <h2>Automation Journeys</h2>
-          <a href="/admin/journeys">Open journey builder</a>
+          <a href="#automations">Open journey builder</a>
         </div>
         {journeys.length ? (
           <table>
@@ -1704,31 +1704,31 @@ function AudiencePage({ audiences, audienceItems, onRefresh }: {
           <span>Import</span>
           <strong>Audience import</strong>
           <p>Upload CSV contacts, preview mappings, and create contacts for segmentation.</p>
-          <a href="/admin/audience-import">Import contacts</a>
+          <a href="#data">Import contacts</a>
         </article>
         <article className="workflow-card">
           <span>Segment</span>
           <strong>Audience builder</strong>
           <p>Preview matching contacts and tune field constraints before campaign launch.</p>
-          <a href="/admin/audiences">Open builder</a>
+          <a href="#audience">Open builder</a>
         </article>
         <article className="workflow-card">
           <span>AI</span>
           <strong>Audience review</strong>
           <p>Use AI recommendations to find unknown fields, zero-match rules, and targeting risks.</p>
-          <a href="/admin/audiences">Review audience</a>
+          <a href="#audience">Review audience</a>
         </article>
         <article className="workflow-card">
           <span>Snapshots</span>
           <strong>Save launch state</strong>
           <p>Create audience snapshots before larger sends so launch targeting is auditable.</p>
-          <a href="/admin/audiences">Create snapshot</a>
+          <a href="#audience">Create snapshot</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Audience Workflow</h2>
-          <a href="/admin/audiences">Advanced builder</a>
+          <a href="#audience">Open builder</a>
         </div>
         <div className="form-grid">
           <label>
@@ -1792,7 +1792,7 @@ function AudiencePage({ audiences, audienceItems, onRefresh }: {
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <h2>Audiences</h2>
-          <a href="/admin/audiences">Open audience builder</a>
+          <a href="#audience">Open audience builder</a>
         </div>
         {audiences.length ? (
           <table>
@@ -1955,31 +1955,31 @@ function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; on
           <span>Create</span>
           <strong>Template editor</strong>
           <p>Edit Jinja/HTML, sample variables, preview rendering, and send test emails.</p>
-          <a href="/template-editor">Open editor</a>
+          <a href="#templates">Open editor</a>
         </article>
         <article className="workflow-card">
           <span>AI</span>
           <strong>Generate content</strong>
           <p>Use AI to draft, modify, and improve templates while preserving dynamic variables.</p>
-          <a href="/template-editor">Open AI tools</a>
+          <a href="#templates">Open AI tools</a>
         </article>
         <article className="workflow-card">
           <span>Design</span>
           <strong>WYSIWYG blocks</strong>
           <p>Use design blocks for headings, paragraphs, buttons, images, dividers, and raw HTML.</p>
-          <a href="/template-editor">Open design tab</a>
+          <a href="#templates">Open design tab</a>
         </article>
         <article className="workflow-card">
           <span>Samples</span>
           <strong>Seed examples</strong>
           <p>Load ecommerce, subscription, and social templates to validate dynamic language support.</p>
-          <a href="/template-editor">Seed samples</a>
+          <a href="#templates">Seed samples</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Template Workflow</h2>
-          <a href="/template-editor">Advanced editor</a>
+          <a href="#templates">Open editor</a>
         </div>
         <div className="form-grid">
           <label>
@@ -2040,7 +2040,7 @@ function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; on
             <button className="link-button" onClick={() => loadTemplateIntoEditor(template)}>Load in ESP editor</button>
           </article>
         )) : (
-          <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="/template-editor" actionLabel="Open Template Editor" />
+          <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="#templates" actionLabel="Open Template Editor" />
         )}
       </section>
     </section>
@@ -2148,13 +2148,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
           <span>Queue</span>
           <strong>{formatInt(queuedRecords)} queued</strong>
           <p>Process campaign and journey send records in controlled batches from this workspace.</p>
-          <a href="/admin/delivery">Open Delivery Manager</a>
+          <a href="#delivery">Open Delivery Manager</a>
         </article>
         <article className={`workflow-card ${failedRecords ? 'warn' : ''}`}>
           <span>Recovery</span>
           <strong>{formatInt(failedRecords)} failed</strong>
           <p>Review failed records, requeue recoverable sends, or skip records that should not retry.</p>
-          <a href="/admin/delivery">Inspect records</a>
+          <a href="#delivery">Inspect records</a>
         </article>
         <article className="workflow-card">
           <span>Campaign</span>
@@ -2172,7 +2172,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Delivery Operations</h2>
-          <a href="/admin/delivery">Advanced delivery</a>
+          <a href="#delivery">Open delivery</a>
         </div>
         <div className="form-grid">
           <label className="wide-field">
@@ -2378,7 +2378,7 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
           <span>Operations</span>
           <strong>Manual controls</strong>
           <p>Add manual suppressions for test recipients, internal exclusions, or known bad addresses.</p>
-          <a href="/admin/suppressions">Advanced suppressions</a>
+          <a href="#compliance">Open suppressions</a>
         </article>
         <article className="workflow-card">
           <span>Delivery</span>
@@ -2390,7 +2390,7 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Compliance Operations</h2>
-          <a href="/admin/suppressions">Advanced suppressions</a>
+          <a href="#compliance">Open suppressions</a>
         </div>
         <div className="form-grid">
           <label>
@@ -2641,7 +2641,7 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
           <span>Source</span>
           <strong>{selectedSource?.name || 'No source selected'}</strong>
           <p>Configure source type, schema fields, and sample rows for future heterogeneous-store integrations.</p>
-          <a href="/admin/data-sources">Advanced data sources</a>
+          <a href="#data">Open data sources</a>
         </article>
         <article className="workflow-card">
           <span>Mapping</span>
@@ -2653,7 +2653,7 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
           <span>Validation</span>
           <strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong>
           <p>{validation ? [...validation.checks, ...validation.errors].slice(0, 2).join(' ') : 'Validate source configuration before running imports.'}</p>
-          <a href="/admin/data-sources">Open diagnostics</a>
+          <a href="#data">Open diagnostics</a>
         </article>
         <article className="workflow-card">
           <span>Schema</span>
@@ -2665,7 +2665,7 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh }: {
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Data Operations</h2>
-          <a href="/admin/data-sources">Advanced data sources</a>
+          <a href="#data">Open data sources</a>
         </div>
         <div className="form-grid">
           <label>
@@ -2941,7 +2941,7 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Contact Operations</h2>
-          <a href="/admin/audiences">Advanced audience tools</a>
+          <a href="#audience">Open audiences</a>
         </div>
         <div className="form-grid">
           <label>
@@ -3111,31 +3111,31 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
           <span>Engagement</span>
           <strong>{formatPct(totalOpens / Math.max(totalSent, 1))} open rate</strong>
           <p>{formatInt(totalOpens)} opens from {formatInt(totalSent)} campaign sends in the current result set.</p>
-          <a href="/admin/analytics">Open engagement report</a>
+          <a href="#analytics">Open engagement report</a>
         </article>
         <article className="workflow-card">
           <span>Conversion</span>
           <strong>{formatPct(totalClicks / Math.max(totalSent, 1))} click rate</strong>
           <p>{formatInt(totalClicks)} clicks are visible across the loaded campaign performance data.</p>
-          <a href="/admin/analytics">Open click report</a>
+          <a href="#analytics">Open click report</a>
         </article>
         <article className="workflow-card">
           <span>Audience</span>
           <strong>{formatInt(totalAudienceReach)} reachable</strong>
           <p>Saved audiences are ready for campaign comparison and targeting analysis.</p>
-          <a href="/admin/audiences">Compare audiences</a>
+          <a href="#audience">Compare audiences</a>
         </article>
         <article className="workflow-card">
           <span>Automation</span>
           <strong>{formatInt(activeEnrollments)} active enrollments</strong>
           <p>Journey health can be reviewed beside campaign and audience performance.</p>
-          <a href="/admin/journeys">Open journeys</a>
+          <a href="#automations">Open journeys</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>ESP Reporting Controls</h2>
-          <a href="/admin/analytics">Advanced reports</a>
+          <a href="#analytics">Open reports</a>
         </div>
         <div className="form-grid">
           <label>
@@ -3251,7 +3251,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       ) : null}
       {domains.length ? (
         <section className="panel table-panel full-span">
-          <div className="panel-head"><h2>Domain Deliverability</h2><a href="/admin/analytics">Open analytics</a></div>
+          <div className="panel-head"><h2>Domain Deliverability</h2><a href="#analytics">Open analytics</a></div>
           <table>
             <thead><tr><th>Domain</th><th>Provider</th><th>Sends</th><th>Open</th><th>Click</th><th>Bounce</th></tr></thead>
             <tbody>
@@ -3270,22 +3270,22 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         </section>
       ) : null}
       <section className="panel summary-panel">
-        <div className="panel-head"><h2>Campaign Performance</h2><a href="/admin/analytics">Open analytics</a></div>
+        <div className="panel-head"><h2>Campaign Performance</h2><a href="#analytics">Open analytics</a></div>
         <p className="large-number">{formatInt(totalSent)}</p>
         <span className="muted">sent across {formatInt(campaigns.length)} campaigns</span>
       </section>
       <section className="panel summary-panel">
-        <div className="panel-head"><h2>Audience Reach</h2><a href="/admin/audiences">Open audiences</a></div>
+        <div className="panel-head"><h2>Audience Reach</h2><a href="#audience">Open audiences</a></div>
         <p className="large-number">{formatInt(totalAudienceReach)}</p>
         <span className="muted">estimated contacts across saved audiences</span>
       </section>
       <section className="panel summary-panel">
-        <div className="panel-head"><h2>Journey Health</h2><a href="/admin/journeys">Open journeys</a></div>
+        <div className="panel-head"><h2>Journey Health</h2><a href="#automations">Open journeys</a></div>
         <p className="large-number">{formatInt(activeEnrollments)}</p>
         <span className="muted">active journey enrollments</span>
       </section>
       <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Top Campaigns</h2><a href="/admin/campaigns">Manage campaigns</a></div>
+        <div className="panel-head"><h2>Top Campaigns</h2><a href="#campaigns">Manage campaigns</a></div>
         {topCampaigns.length ? (
           <table>
             <thead>
@@ -3316,7 +3316,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         )}
       </section>
       <section className="panel table-panel">
-        <div className="panel-head"><h2>Audience Comparison</h2><a href="/admin/audiences">Open audiences</a></div>
+        <div className="panel-head"><h2>Audience Comparison</h2><a href="#audience">Open audiences</a></div>
         {topAudiences.length ? (
           <table>
             <thead>
@@ -3343,7 +3343,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         )}
       </section>
       <section className="panel table-panel">
-        <div className="panel-head"><h2>Journey Risk</h2><a href="/admin/journeys">Open journeys</a></div>
+        <div className="panel-head"><h2>Journey Risk</h2><a href="#automations">Open journeys</a></div>
         {journeyRisks.length ? (
           <table>
             <thead>
@@ -3604,29 +3604,29 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: 
           <span>Content</span>
           <strong>Template builder</strong>
           <p>Draft templates from a prompt, modify existing HTML/Jinja, and preserve variables for preview and sending.</p>
-          <a href="/template-editor">Open Template AI</a>
+          <a href="#templates">Open Template AI</a>
         </article>
         <article className="workflow-card">
           <span>Campaigns</span>
           <strong>Launch review</strong>
           <p>Assess template, audience, delivery, and readiness risks before sending a campaign.</p>
-          <a href="/admin/campaigns">Review campaigns</a>
+          <a href="#campaigns">Review campaigns</a>
         </article>
         <article className="workflow-card">
           <span>Audience</span>
           <strong>Targeting recommendations</strong>
           <p>Find missing fields, narrow segments, and targeting opportunities from audience data.</p>
-          <a href="/admin/audiences">Review audiences</a>
+          <a href="#audience">Review audiences</a>
         </article>
         <article className="workflow-card">
           <span>Performance</span>
           <strong>Analytics analysis</strong>
           <p>Generate next-best actions from campaign, audience, journey, and delivery signals.</p>
-          <a href="/admin/analytics">Analyze performance</a>
+          <a href="#analytics">Analyze performance</a>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
-        <div className="panel-head"><h2>AI Template Builder</h2><a href="/template-editor">Advanced editor</a></div>
+        <div className="panel-head"><h2>AI Template Builder</h2><a href="#templates">Open editor</a></div>
         <div className="form-grid">
           <label className="wide-field">
             Prompt
@@ -3716,7 +3716,7 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: 
         </section>
       ) : null}
       <section className="panel full-span">
-        <div className="panel-head"><h2>AI Insights</h2><a href="/admin/analytics">Open analytics</a></div>
+        <div className="panel-head"><h2>AI Insights</h2><a href="#analytics">Open analytics</a></div>
         <div className="insights">
           {insights.map((item) => (
             <article className={`insight ${item.tone || ''}`} key={item.title}>
@@ -3733,12 +3733,12 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh }: 
             <tr><th>Capability</th><th>Endpoint</th><th>Workbench</th></tr>
           </thead>
           <tbody>
-            <tr><td>Draft template</td><td>/api/v1/ai/templates/draft</td><td><a href="/template-editor">Template Editor</a></td></tr>
-            <tr><td>Edit template</td><td>/api/v1/ai/templates/edit</td><td><a href="/template-editor">Template Editor</a></td></tr>
-            <tr><td>Campaign review</td><td>/api/v1/ai/campaigns/analyze</td><td><a href="/admin/campaigns">Campaign Manager</a></td></tr>
-            <tr><td>Audience review</td><td>/api/v1/ai/audiences/analyze</td><td><a href="/admin/audiences">Audience Builder</a></td></tr>
-            <tr><td>Journey review</td><td>/api/v1/ai/journeys/analyze</td><td><a href="/admin/journeys">Journey Manager</a></td></tr>
-            <tr><td>Delivery review</td><td>/api/v1/ai/delivery/analyze</td><td><a href="/admin/delivery">Delivery Manager</a></td></tr>
+            <tr><td>Draft template</td><td>/api/v1/ai/templates/draft</td><td><a href="#templates">Template Editor</a></td></tr>
+            <tr><td>Edit template</td><td>/api/v1/ai/templates/edit</td><td><a href="#templates">Template Editor</a></td></tr>
+            <tr><td>Campaign review</td><td>/api/v1/ai/campaigns/analyze</td><td><a href="#campaigns">Campaign Manager</a></td></tr>
+            <tr><td>Audience review</td><td>/api/v1/ai/audiences/analyze</td><td><a href="#audience">Audience Builder</a></td></tr>
+            <tr><td>Journey review</td><td>/api/v1/ai/journeys/analyze</td><td><a href="#automations">Journey Manager</a></td></tr>
+            <tr><td>Delivery review</td><td>/api/v1/ai/delivery/analyze</td><td><a href="#delivery">Delivery Manager</a></td></tr>
           </tbody>
         </table>
       </section>
@@ -3784,19 +3784,19 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           <span>Data</span>
           <strong>Data sources</strong>
           <p>Configure heterogeneous imports, preview mappings, and ingest source rows into contacts.</p>
-          <a href="/admin/data-sources">Open Data Sources</a>
+          <a href="#data">Open Data Sources</a>
         </article>
         <article className="workflow-card">
           <span>Email</span>
           <strong>Provider readiness</strong>
           <p>Track SMTP and SG readiness without coupling the product workflow to one outbound provider.</p>
-          <a href="/admin/system">Open diagnostics</a>
+          <a href="#settings">Open diagnostics</a>
         </article>
         <article className="workflow-card">
           <span>Tracking</span>
           <strong>Domains and events</strong>
           <p>Review domain deliverability, opens, clicks, unsubscribes, and webhook event ingestion.</p>
-          <a href="/admin/analytics">Open reports</a>
+          <a href="#analytics">Open reports</a>
         </article>
         <article className="workflow-card">
           <span>Developer</span>
@@ -3806,10 +3806,10 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
-        <div className="panel-head"><h2>Integration Operations</h2><a href="/admin/system">System console</a></div>
+        <div className="panel-head"><h2>Integration Operations</h2><a href="#settings">System console</a></div>
         <div className="button-row">
           <button className="primary" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
-          <button className="ghost" onClick={() => { window.location.href = '/admin/data-sources'; }}>Data Sources</button>
+          <button className="ghost" onClick={() => { window.location.hash = '#data'; }}>Data Sources</button>
           <button className="ghost" onClick={() => { window.location.href = '/docs'; }}>OpenAPI Docs</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -4060,10 +4060,10 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
           <a href="/api/v1/system/diagnostics">Raw diagnostics</a>
         </article>
         <article className="workflow-card">
-          <span>Admin</span>
-          <strong>Legacy consoles</strong>
-          <p>Keep the old admin pages available while `/esp` evolves into the primary GUI.</p>
-          <a href="/admin">Open admin</a>
+          <span>Developer</span>
+          <strong>Technical console</strong>
+          <p>Use the legacy admin only for debugging while the ESP workspace remains the primary product UI.</p>
+          <a href="/admin">Open console</a>
         </article>
       </section>
       {contractGroups.map((group) => (
@@ -4131,13 +4131,13 @@ function SettingsPage({ diagnostics, onRefresh }: {
           <span>System</span>
           <strong>Diagnostics</strong>
           <p>Inspect schema status, provider configuration, entity counts, tables, and columns.</p>
-          <a href="/admin/system">Open diagnostics</a>
+          <a href="#settings">Open diagnostics</a>
         </article>
         <article className="workflow-card">
           <span>Compliance</span>
           <strong>Suppressions</strong>
           <p>Manage unsubscribes, bounces, complaints, and suppression rules before campaign launch.</p>
-          <a href="/admin/suppressions">Open suppressions</a>
+          <a href="#compliance">Open suppressions</a>
         </article>
         <article className="workflow-card">
           <span>Testing</span>
@@ -4153,7 +4153,7 @@ function SettingsPage({ diagnostics, onRefresh }: {
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
-        <div className="panel-head"><h2>System Operations</h2><a href="/admin/system">Advanced diagnostics</a></div>
+        <div className="panel-head"><h2>System Operations</h2><a href="#settings">Open diagnostics</a></div>
         <div className="form-grid">
           <label>
             Table inspector
@@ -4172,7 +4172,7 @@ function SettingsPage({ diagnostics, onRefresh }: {
         </div>
         <div className="button-row">
           <button className="primary" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
-          <button className="ghost" onClick={() => { window.location.href = '/admin/suppressions'; }}>Suppressions</button>
+          <button className="ghost" onClick={() => { window.location.hash = '#compliance'; }}>Suppressions</button>
           <button className="ghost" onClick={() => { window.location.href = '/tester'; }}>Tester</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
