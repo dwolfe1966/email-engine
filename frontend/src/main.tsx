@@ -612,8 +612,44 @@ function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
 }
 
 function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
+  const estimated = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
+  const sent = audiences.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
+  const bestAudience = audiences.reduce<AudiencePerformance | null>((best, item) =>
+    !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
   return (
     <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Audiences', value: formatInt(audiences.length), change: 'saved segments' }} />
+        <MetricCard metric={{ label: 'Estimated reach', value: formatInt(estimated), change: 'matched contacts' }} />
+        <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
+        <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Import</span>
+          <strong>Audience import</strong>
+          <p>Upload CSV contacts, preview mappings, and create contacts for segmentation.</p>
+          <a href="/admin/audience-import">Import contacts</a>
+        </article>
+        <article className="workflow-card">
+          <span>Segment</span>
+          <strong>Audience builder</strong>
+          <p>Preview matching contacts and tune field constraints before campaign launch.</p>
+          <a href="/admin/audiences">Open builder</a>
+        </article>
+        <article className="workflow-card">
+          <span>AI</span>
+          <strong>Audience review</strong>
+          <p>Use AI recommendations to find unknown fields, zero-match rules, and targeting risks.</p>
+          <a href="/admin/audiences">Review audience</a>
+        </article>
+        <article className="workflow-card">
+          <span>Snapshots</span>
+          <strong>Save launch state</strong>
+          <p>Create audience snapshots before larger sends so launch targeting is auditable.</p>
+          <a href="/admin/audiences">Create snapshot</a>
+        </article>
+      </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <h2>Audiences</h2>
@@ -654,17 +690,45 @@ function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
 
 function TemplatesPage({ templates }: { templates: TemplateRead[] }) {
   return (
-    <section className="page-grid cards-grid">
-      {templates.length ? templates.map((template) => (
-        <article className="panel entity-card" key={template.id}>
-          <span>{template.category || 'template'}</span>
-          <strong>{template.name}</strong>
-          <p>{template.subject}</p>
-          <a href={`/template-editor?template_id=${encodeURIComponent(template.id)}`}>Open editor</a>
+    <section className="page-grid">
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Create</span>
+          <strong>Template editor</strong>
+          <p>Edit Jinja/HTML, sample variables, preview rendering, and send test emails.</p>
+          <a href="/template-editor">Open editor</a>
         </article>
-      )) : (
-        <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="/template-editor" actionLabel="Open Template Editor" />
-      )}
+        <article className="workflow-card">
+          <span>AI</span>
+          <strong>Generate content</strong>
+          <p>Use AI to draft, modify, and improve templates while preserving dynamic variables.</p>
+          <a href="/template-editor">Open AI tools</a>
+        </article>
+        <article className="workflow-card">
+          <span>Design</span>
+          <strong>WYSIWYG blocks</strong>
+          <p>Use design blocks for headings, paragraphs, buttons, images, dividers, and raw HTML.</p>
+          <a href="/template-editor">Open design tab</a>
+        </article>
+        <article className="workflow-card">
+          <span>Samples</span>
+          <strong>Seed examples</strong>
+          <p>Load ecommerce, subscription, and social templates to validate dynamic language support.</p>
+          <a href="/template-editor">Seed samples</a>
+        </article>
+      </section>
+      <section className="cards-grid full-span">
+        {templates.length ? templates.map((template) => (
+          <article className="panel entity-card" key={template.id}>
+            <span>{template.category || 'template'}</span>
+            <strong>{template.name}</strong>
+            <p>{template.subject}</p>
+            <a href={`/template-editor?template_id=${encodeURIComponent(template.id)}`}>Open editor</a>
+          </article>
+        )) : (
+          <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="/template-editor" actionLabel="Open Template Editor" />
+        )}
+      </section>
     </section>
   );
 }
