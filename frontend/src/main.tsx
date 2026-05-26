@@ -190,6 +190,12 @@ type SystemDiagnostics = {
   };
   entity_counts: Record<string, number>;
   database_tables: string[];
+  database_table_columns: Record<string, Array<{
+    name: string;
+    type: string;
+    nullable: boolean;
+    primary_key: boolean;
+  }>>;
   errors: string[];
 };
 
@@ -2146,11 +2152,32 @@ function AiStudioPage({ insights, diagnostics, onTemplatesRefresh }: {
   );
 }
 
-function IntegrationsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+function IntegrationsPage({ diagnostics, onRefresh }: {
+  diagnostics: SystemDiagnostics | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [status, setStatus] = useState('Diagnostics loaded from system API.');
+  const [busy, setBusy] = useState(false);
   const emailProvider = diagnostics?.email_provider.provider || 'unknown';
   const smtpReady = Boolean(diagnostics?.email_provider.smtp_configured);
   const sgReady = Boolean(diagnostics?.email_provider.sendgrid_configured);
   const baseUrl = diagnostics?.public_base_url || 'not configured';
+  const tables = diagnostics?.database_tables || [];
+  const counts = Object.entries(diagnostics?.entity_counts || {}).sort((a, b) => b[1] - a[1]);
+
+  async function refreshDiagnostics() {
+    setBusy(true);
+    setStatus('Refreshing diagnostics...');
+    try {
+      await onRefresh();
+      setStatus('Diagnostics refreshed.');
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -2184,6 +2211,18 @@ function IntegrationsPage({ diagnostics }: { diagnostics: SystemDiagnostics | nu
           <a href="/docs">Open API docs</a>
         </article>
       </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head"><h2>Integration Operations</h2><a href="/admin/system">System console</a></div>
+        <div className="button-row">
+          <button className="primary" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
+          <button className="ghost" onClick={() => { window.location.href = '/admin/data-sources'; }}>Data Sources</button>
+          <button className="ghost" onClick={() => { window.location.href = '/docs'; }}>OpenAPI Docs</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
       <section className="panel table-panel full-span">
         <div className="panel-head"><h2>Integration Readiness</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
         <table>
@@ -2196,14 +2235,55 @@ function IntegrationsPage({ diagnostics }: { diagnostics: SystemDiagnostics | nu
           </tbody>
         </table>
       </section>
+      <section className="panel table-panel">
+        <div className="panel-head"><h2>Entity Inventory</h2><span className="muted">{formatInt(counts.length)} entities</span></div>
+        {counts.length ? (
+          <table>
+            <thead><tr><th>Entity</th><th>Rows</th></tr></thead>
+            <tbody>{counts.slice(0, 10).map(([name, count]) => <tr key={name}><td>{name}</td><td>{formatInt(count)}</td></tr>)}</tbody>
+          </table>
+        ) : <EmptyState title="No entity counts" detail="Diagnostics did not include entity counts." />}
+      </section>
+      <section className="panel table-panel">
+        <div className="panel-head"><h2>Database Tables</h2><span className="muted">{formatInt(tables.length)} tables</span></div>
+        {tables.length ? (
+          <table>
+            <thead><tr><th>Table</th><th>Columns</th></tr></thead>
+            <tbody>{tables.slice(0, 12).map((table) => <tr key={table}><td>{table}</td><td>{formatInt(diagnostics?.database_table_columns?.[table]?.length || 0)}</td></tr>)}</tbody>
+          </table>
+        ) : <EmptyState title="No table metadata" detail="Diagnostics did not include database table data." />}
+      </section>
     </section>
   );
 }
 
-function SettingsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+function SettingsPage({ diagnostics, onRefresh }: {
+  diagnostics: SystemDiagnostics | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [selectedTable, setSelectedTable] = useState('');
+  const [status, setStatus] = useState('System settings view loaded.');
+  const [busy, setBusy] = useState(false);
   const counts = Object.entries(diagnostics?.entity_counts || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
+  const tables = diagnostics?.database_tables || [];
+  const tableName = selectedTable || tables[0] || '';
+  const columns = tableName ? diagnostics?.database_table_columns?.[tableName] || [] : [];
+
+  async function refreshDiagnostics() {
+    setBusy(true);
+    setStatus('Refreshing system diagnostics...');
+    try {
+      await onRefresh();
+      setStatus('System diagnostics refreshed.');
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -2237,6 +2317,34 @@ function SettingsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }
           <a href="/docs">Open docs</a>
         </article>
       </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head"><h2>System Operations</h2><a href="/admin/system">Advanced diagnostics</a></div>
+        <div className="form-grid">
+          <label>
+            Table inspector
+            <select value={tableName} onChange={(event) => setSelectedTable(event.target.value)}>
+              {tables.map((table) => <option value={table} key={table}>{table}</option>)}
+            </select>
+          </label>
+          <label>
+            Current revision
+            <input value={diagnostics?.schema.current_revision || 'none'} readOnly />
+          </label>
+          <label>
+            Expected revision
+            <input value={diagnostics?.schema.expected_revision || 'unknown'} readOnly />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
+          <button className="ghost" onClick={() => { window.location.href = '/admin/suppressions'; }}>Suppressions</button>
+          <button className="ghost" onClick={() => { window.location.href = '/tester'; }}>Tester</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
       <section className="panel table-panel full-span">
         <div className="panel-head"><h2>Entity Counts</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
         {counts.length ? (
@@ -2249,6 +2357,24 @@ function SettingsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }
         ) : (
           <EmptyState title="No diagnostics loaded" detail="System diagnostics were not available to this page." actionHref="/admin/system" actionLabel="Open diagnostics" />
         )}
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Table Columns</h2><span className="muted">{tableName || 'No table selected'}</span></div>
+        {columns.length ? (
+          <table>
+            <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Primary key</th></tr></thead>
+            <tbody>
+              {columns.map((column) => (
+                <tr key={column.name}>
+                  <td>{column.name}</td>
+                  <td>{column.type}</td>
+                  <td>{column.nullable ? 'yes' : 'no'}</td>
+                  <td>{column.primary_key ? 'yes' : 'no'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No columns loaded" detail="Select a table with column metadata." />}
       </section>
     </section>
   );
@@ -2495,8 +2621,28 @@ function App() {
         />
       );
     }
-    if (activePage === 'integrations') return <IntegrationsPage diagnostics={dashboard.diagnostics} />;
-    if (activePage === 'settings') return <SettingsPage diagnostics={dashboard.diagnostics} />;
+    if (activePage === 'integrations') {
+      return (
+        <IntegrationsPage
+          diagnostics={dashboard.diagnostics}
+          onRefresh={async () => {
+            const diagnostics = await fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics');
+            setDashboard((current) => ({ ...current, diagnostics }));
+          }}
+        />
+      );
+    }
+    if (activePage === 'settings') {
+      return (
+        <SettingsPage
+          diagnostics={dashboard.diagnostics}
+          onRefresh={async () => {
+            const diagnostics = await fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics');
+            setDashboard((current) => ({ ...current, diagnostics }));
+          }}
+        />
+      );
+    }
     return (
       <>
         <section className="metric-grid">
