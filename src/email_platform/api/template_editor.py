@@ -399,6 +399,61 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
       font-weight: 650;
     }
     .ai-status[hidden] { display: none; }
+    .version-panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #f9fafb;
+      display: grid;
+      gap: 10px;
+    }
+    .version-panel[hidden] { display: none; }
+    .version-panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+    .version-list {
+      display: grid;
+      gap: 7px;
+      max-height: 230px;
+      overflow: auto;
+    }
+    .version-row {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      display: grid;
+      gap: 7px;
+    }
+    .version-row.current {
+      border-color: var(--blue);
+      background: #eff6ff;
+    }
+    .version-row-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: start;
+    }
+    .version-row-title strong {
+      overflow-wrap: anywhere;
+    }
+    .version-row small {
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+    .version-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .version-actions button {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
     .template-list { display: grid; gap: 6px; max-height: calc(100vh - 160px); overflow: auto; }
     .template-item {
       border: 1px solid var(--line);
@@ -595,6 +650,16 @@ TEMPLATE_EDITOR_HTML = r"""<!doctype html>
           <div class="ai-recommendations" id="aiRecommendations"></div>
           <div class="ai-status" id="aiStatus" hidden></div>
           <pre class="ai-sample-json" id="aiSampleJson">Generate a draft to see sample variables.</pre>
+        </div>
+        <div class="version-panel" id="versionPanel" hidden>
+          <div class="version-panel-head">
+            <strong>Version History</strong>
+            <div class="actions">
+              <button class="secondary" type="button" id="refreshVersions">Refresh Versions</button>
+              <button class="secondary" type="button" id="saveVersionSnapshot">Save Snapshot</button>
+            </div>
+          </div>
+          <div class="version-list" id="versionList"></div>
         </div>
         <div class="editor-tabs" role="tablist" aria-label="Template editor modes">
           <button class="secondary active" type="button" data-editor-tab="source">Source</button>
@@ -833,6 +898,7 @@ li {
       sendingTest: false,
       visualRenderSeq: 0,
       initialQueryApplied: false,
+      versions: [],
     };
 
     function value(id) { return document.getElementById(id).value; }
@@ -2027,6 +2093,119 @@ ${presetRules[preset] || ""}`;
       });
     }
 
+    function renderVersionPanel(versions = []) {
+      state.versions = versions;
+      const panel = document.getElementById("versionPanel");
+      const list = document.getElementById("versionList");
+      list.textContent = "";
+      panel.hidden = !state.templateId;
+      if (!state.templateId) return;
+      if (!versions.length) {
+        const empty = document.createElement("small");
+        empty.textContent = "No versions yet. Save a snapshot to capture the current editor state.";
+        list.appendChild(empty);
+        return;
+      }
+      versions.forEach((version) => {
+        const row = document.createElement("div");
+        row.className = `version-row${version.is_current ? " current" : ""}`;
+        const title = document.createElement("div");
+        title.className = "version-row-title";
+        const label = document.createElement("strong");
+        const status = document.createElement("small");
+        const subject = document.createElement("small");
+        const actions = document.createElement("div");
+        const preview = document.createElement("button");
+        const restore = document.createElement("button");
+        label.textContent = `Version ${version.version_number}`;
+        status.textContent = version.is_current ? "Current" : "";
+        subject.textContent = version.subject || "(no subject)";
+        actions.className = "version-actions";
+        preview.className = "secondary";
+        preview.type = "button";
+        preview.textContent = "Preview";
+        preview.addEventListener("click", () => {
+          previewVersion(version).catch((error) => log({ version: version.id, error: error.message }));
+        });
+        restore.className = "secondary";
+        restore.type = "button";
+        restore.textContent = "Restore to Editor";
+        restore.addEventListener("click", () => {
+          restoreVersionToEditor(version).catch((error) => log({ version: version.id, error: error.message }));
+        });
+        title.append(label, status);
+        actions.append(preview, restore);
+        row.append(title, subject, actions);
+        list.appendChild(row);
+      });
+    }
+
+    async function loadVersions(templateId = state.templateId) {
+      if (!templateId) {
+        renderVersionPanel([]);
+        return [];
+      }
+      const versions = await request(`/api/v1/templates/${templateId}/versions`);
+      renderVersionPanel(versions);
+      return versions;
+    }
+
+    async function previewVersion(version) {
+      const data = await request("/api/v1/templates/preview", {
+        method: "POST",
+        body: JSON.stringify({
+          name: value("templateName") || "version-preview",
+          subject: version.subject,
+          html_body: version.html_body,
+          css_body: version.css_body || null,
+          text_body: version.text_body || null,
+          variables: await renderVariablesContext(true),
+        }),
+      });
+      document.getElementById("htmlPreview").srcdoc = data.ok ? data.html_body : "";
+      log({ previewed_version: version.version_number, ok: data.ok, subject: data.subject });
+      return data;
+    }
+
+    async function restoreVersionToEditor(version) {
+      document.getElementById("subject").value = version.subject || "";
+      document.getElementById("htmlBody").value = formatTemplateSource(version.html_body || "");
+      document.getElementById("cssBody").value = version.css_body || "";
+      document.getElementById("textBody").value = version.text_body || "";
+      state.designDoc = version.document_json?.blocks?.length
+        ? version.document_json
+        : { blocks: htmlToDesignBlocks(version.html_body || "") };
+      renderDesignBlocks();
+      loadVisualFromSource();
+      await refreshVariablesAndPreview({ applySample: true, silent: true });
+      log({ restored_version_to_editor: version.version_number, next: "Save the template to make this the live version." });
+    }
+
+    async function saveVersionSnapshot() {
+      if (!state.templateId) {
+        log({ error: "Save the template before creating a version snapshot." });
+        return;
+      }
+      if (state.editorTab === "blocks") {
+        await renderDesignDocumentToSource({ silent: true });
+      }
+      const version = await request(`/api/v1/templates/${state.templateId}/versions`, {
+        method: "POST",
+        body: JSON.stringify({
+          subject: value("subject"),
+          html_body: value("htmlBody"),
+          css_body: value("cssBody") || null,
+          text_body: value("textBody") || null,
+          document_json: state.designDoc.blocks.length ? state.designDoc : {},
+          set_current: true,
+        }),
+      });
+      log({ saved_version_snapshot: version.version_number, template_id: state.templateId });
+      await loadVersions();
+      await loadTemplates();
+      return version;
+    }
+
     async function templateForEditor(template) {
       if (template.html_body != null) return template;
       return request(`/api/v1/templates/${template.id}`);
@@ -2046,6 +2225,8 @@ ${presetRules[preset] || ""}`;
       renderDesignBlocks();
       loadVisualFromSource();
       log({ selected: fullTemplate.id });
+      loadVersions(fullTemplate.id)
+        .catch((error) => log({ selected: fullTemplate.id, versions_error: error.message }));
       refreshVariablesAndPreview({ applySample: true, silent: true })
         .then(() => log({ selected: fullTemplate.id, preview: "updated" }))
         .catch((error) => log({ selected: fullTemplate.id, error: error.message }));
@@ -2141,6 +2322,7 @@ ${presetRules[preset] || ""}`;
       state.templateId = saved.id;
       log(saved);
       await loadTemplates();
+      await loadVersions(saved.id).catch((error) => log({ template: saved.id, versions_error: error.message }));
       scheduleVariableRefresh();
       return saved;
     }
@@ -2238,6 +2420,12 @@ ${presetRules[preset] || ""}`;
     document.getElementById("validateTemplate").addEventListener("click", validateTemplate);
     document.getElementById("previewTemplate").addEventListener("click", previewTemplate);
     document.getElementById("saveTemplate").addEventListener("click", saveTemplate);
+    document.getElementById("refreshVersions").addEventListener("click", () => {
+      loadVersions().catch((error) => log({ error: error.message }));
+    });
+    document.getElementById("saveVersionSnapshot").addEventListener("click", () => {
+      saveVersionSnapshot().catch((error) => log({ error: error.message }));
+    });
     document.getElementById("testSendTemplate").addEventListener("click", () => {
       testSendTemplate().catch((error) => log({ error: error.message }));
     });
@@ -2332,6 +2520,8 @@ ${presetRules[preset] || ""}`;
     });
     document.getElementById("newTemplate").addEventListener("click", () => {
       state.templateId = "";
+      state.versions = [];
+      renderVersionPanel([]);
       document.getElementById("templateName").value = `template-${Date.now()}`;
       state.designDoc = { blocks: [] };
       renderDesignBlocks();

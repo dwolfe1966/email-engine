@@ -260,6 +260,12 @@ def test_template_editor_page() -> None:
     assert 'ai_prompt_loaded' in response.text
     assert 'Campaign recommendation loaded' in response.text
     assert 'aiPromptModify' in response.text
+    assert 'Version History' in response.text
+    assert 'Refresh Versions' in response.text
+    assert 'Save Snapshot' in response.text
+    assert 'restoreVersionToEditor' in response.text
+    assert 'previewVersion' in response.text
+    assert '/api/v1/templates/${templateId}/versions' in response.text
     assert 'Insert into' in response.text
     assert 'Seed Samples' in response.text
     assert 'Format Source' in response.text
