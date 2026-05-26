@@ -30,7 +30,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -588,6 +590,89 @@ th {
   text-decoration: none;
 }
 
+.campaign-workbench {
+  display: grid;
+  gap: 14px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: var(--text);
+  padding: 10px 11px;
+  outline: none;
+}
+
+.form-grid textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.wide-field {
+  grid-column: span 2;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-row button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.operation-banner {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #bad7ff;
+  border-radius: 8px;
+  background: #eef6ff;
+  padding: 12px;
+  color: #29405f;
+}
+
+.operation-banner.warn {
+  border-color: #f3c8c5;
+  background: #fff7f7;
+}
+
+.operation-banner span,
+.operation-banner small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.email-preview {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
 @media (max-width: 1180px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar {
@@ -601,8 +686,10 @@ th {
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid,
   .lower-grid,
+  .form-grid,
   .workflow-grid,
   .page-grid { grid-template-columns: 1fr; }
+  .wide-field { grid-column: auto; }
 }
 
 @media (max-width: 760px) {

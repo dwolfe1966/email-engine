@@ -55,6 +55,24 @@ type CampaignPerformance = {
   bounce_rate: number;
 };
 
+type CampaignRead = {
+  id: string;
+  name: string;
+  status: string;
+  template_id: string;
+  audience_query: Record<string, unknown>;
+  scheduled_at: string | null;
+};
+
+type AudienceRead = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  rule_tree: Record<string, unknown>;
+  estimated_count: number;
+};
+
 type ListResponse<T> = {
   items: T[];
   total: number;
@@ -101,7 +119,9 @@ type SystemDiagnostics = {
 type DashboardState = {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
+  campaignItems: CampaignRead[];
   audiences: AudiencePerformance[];
+  audienceItems: AudienceRead[];
   templates: TemplateRead[];
   journeys: JourneyPerformance[];
   diagnostics: SystemDiagnostics | null;
@@ -507,12 +527,130 @@ function EmptyState({ title, detail, actionHref, actionLabel }: {
   );
 }
 
-function CampaignsPage({ campaigns }: { campaigns: CampaignPerformance[] }) {
+function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefresh }: {
+  campaigns: CampaignPerformance[];
+  campaignItems: CampaignRead[];
+  templates: TemplateRead[];
+  audiences: AudienceRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [campaignName, setCampaignName] = useState('ESP Test Campaign');
+  const [templateId, setTemplateId] = useState('');
+  const [audienceId, setAudienceId] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [variablesJson, setVariablesJson] = useState('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
+  const [operationStatus, setOperationStatus] = useState('Ready to create a draft campaign.');
+  const [operationBusy, setOperationBusy] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
+
+  useEffect(() => {
+    if (!templateId && templates.length) setTemplateId(templates[0].id);
+    if (!audienceId && audiences.length) setAudienceId(audiences[0].id);
+    if (!selectedCampaignId && campaignItems.length) setSelectedCampaignId(campaignItems[0].id);
+  }, [audienceId, audiences, campaignItems, selectedCampaignId, templateId, templates]);
+
   const totalRequested = campaigns.reduce((sum, item) => sum + Number(item.requested_count || 0), 0);
   const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
   const totalFailures = campaigns.reduce((sum, item) => sum + Number(item.failed_count || 0), 0);
   const bestOpen = campaigns.reduce<CampaignPerformance | null>((best, item) =>
     !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
+  const selectedAudience = audiences.find((item) => item.id === audienceId);
+  const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
+
+  function parsedVariables() {
+    try {
+      const parsed = JSON.parse(variablesJson || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Variables must be a JSON object.');
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid variables JSON.');
+    }
+  }
+
+  async function runOperation(label: string, operation: () => Promise<string>) {
+    setOperationBusy(true);
+    setOperationStatus(`${label}...`);
+    try {
+      const message = await operation();
+      setOperationStatus(message);
+      await onRefresh();
+    } catch (error) {
+      setOperationStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setOperationBusy(false);
+    }
+  }
+
+  async function createDraftCampaign() {
+    await runOperation('Creating draft campaign', async () => {
+      if (!templateId) throw new Error('Select a template.');
+      const payload = {
+        name: campaignName.trim() || `ESP Campaign ${new Date().toISOString()}`,
+        template_id: templateId,
+        audience_query: selectedAudience?.rule_tree || {},
+      };
+      const created = await fetchJson<CampaignRead>('/api/v1/campaigns', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setSelectedCampaignId(created.id);
+      return `Created draft campaign: ${created.name}`;
+    });
+  }
+
+  async function validateCampaign() {
+    await runOperation('Validating campaign', async () => {
+      const campaignId = selectedCampaignId || selectedCampaign?.id;
+      if (!campaignId) throw new Error('Create or select a campaign first.');
+      const data = await fetchJson<{ ok: boolean; requested_count: number; errors: string[]; warnings: string[] }>(`/api/v1/campaigns/${campaignId}/validate`, {
+        method: 'POST',
+        body: JSON.stringify({ audience_id: audienceId || null, variables: parsedVariables(), dry_run: true }),
+      });
+      const issueCount = (data.errors?.length || 0) + (data.warnings?.length || 0);
+      return data.ok
+        ? `Validation passed. ${formatInt(data.requested_count)} contacts matched.`
+        : `Validation found ${formatInt(issueCount)} issue(s): ${(data.errors || data.warnings || []).join('; ')}`;
+    });
+  }
+
+  async function previewTestEmail() {
+    await runOperation('Rendering test preview', async () => {
+      if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      const data = await fetchJson<{ subject: string; html_body: string }>(`/api/v1/campaigns/${selectedCampaignId}/test-preview`, {
+        method: 'POST',
+        body: JSON.stringify({ variables: parsedVariables() }),
+      });
+      setPreviewHtml(data.html_body || '');
+      return `Rendered preview: ${data.subject}`;
+    });
+  }
+
+  async function sendTestEmail() {
+    await runOperation('Sending test email', async () => {
+      if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      if (!testEmail.trim()) throw new Error('Enter a test recipient email.');
+      const data = await fetchJson<{ status: string; provider_message_id?: string }>(`/api/v1/campaigns/${selectedCampaignId}/test-send`, {
+        method: 'POST',
+        body: JSON.stringify({ to_email: testEmail.trim(), variables: parsedVariables() }),
+      });
+      return `Test send ${data.status}${data.provider_message_id ? ` (${data.provider_message_id})` : ''}.`;
+    });
+  }
+
+  async function dryRunLaunch() {
+    await runOperation('Running dry-run launch', async () => {
+      if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      const data = await fetchJson<{ requested_count: number; queued_count: number; suppressed_count: number }>(`/api/v1/campaigns/${selectedCampaignId}/launch`, {
+        method: 'POST',
+        body: JSON.stringify({ audience_id: audienceId || null, variables: parsedVariables(), dry_run: true }),
+      });
+      return `Dry run complete. ${formatInt(data.requested_count)} requested, ${formatInt(data.queued_count)} queued, ${formatInt(data.suppressed_count)} suppressed.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -546,6 +684,68 @@ function CampaignsPage({ campaigns }: { campaigns: CampaignPerformance[] }) {
           <p>{bestOpen ? `${bestOpen.name} is the current open-rate benchmark.` : 'Send a test campaign to establish a benchmark.'}</p>
           <a href="/admin/analytics">Open Analytics</a>
         </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Campaign Workflow</h2>
+          <a href="/admin/campaigns">Advanced workbench</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Campaign name
+            <input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} />
+          </label>
+          <label>
+            Existing campaign
+            <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)}>
+              <option value="">Create new draft</option>
+              {campaignItems.map((campaign) => (
+                <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Template
+            <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+              <option value="">Select template</option>
+              {templates.map((template) => (
+                <option value={template.id} key={template.id}>{template.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Audience
+            <select value={audienceId} onChange={(event) => setAudienceId(event.target.value)}>
+              <option value="">Select audience</option>
+              {audiences.map((audience) => (
+                <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Test recipient
+            <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="you@example.com" />
+          </label>
+          <label className="wide-field">
+            Test variables JSON
+            <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={8} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>Create Draft</button>
+          <button className="ghost" onClick={validateCampaign} disabled={operationBusy || !selectedCampaignId}>Validate</button>
+          <button className="ghost" onClick={previewTestEmail} disabled={operationBusy || !selectedCampaignId}>Preview Test</button>
+          <button className="ghost" onClick={sendTestEmail} disabled={operationBusy || !selectedCampaignId}>Send Test Email</button>
+          <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy || !selectedCampaignId}>Dry-Run Launch</button>
+        </div>
+        <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{operationBusy ? 'Working' : 'Status'}</strong>
+          <span>{operationStatus}</span>
+          {selectedCampaign ? <small>Selected: {selectedCampaign.name}</small> : null}
+        </div>
+        {previewHtml ? (
+          <iframe className="email-preview" title="Campaign test preview" srcDoc={previewHtml} />
+        ) : null}
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
@@ -1149,7 +1349,9 @@ function App() {
   const [dashboard, setDashboard] = useState<DashboardState>({
     overview: null,
     campaigns: [],
+    campaignItems: [],
     audiences: [],
+    audienceItems: [],
     templates: [],
     journeys: [],
     diagnostics: null,
@@ -1171,10 +1373,12 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, audienceData, templateData, journeyData, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, audienceData, audienceItems, templateData, journeyData, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
+          fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
+          fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
           fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
           fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics'),
@@ -1204,7 +1408,9 @@ function App() {
           setDashboard({
             overview,
             campaigns: campaignData.items || [],
+            campaignItems: campaignItems.items || [],
             audiences: audienceData.items || [],
+            audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
             journeys: journeyData.items || [],
             diagnostics,
@@ -1218,7 +1424,9 @@ function App() {
           setDashboard({
             overview: null,
             campaigns: [],
+            campaignItems: [],
             audiences: [],
+            audienceItems: [],
             templates: [],
             journeys: [],
             diagnostics: null,
@@ -1243,7 +1451,27 @@ function App() {
   );
   const status = pageSubtitle(activePage, dashboard);
   const content = (() => {
-    if (activePage === 'campaigns') return <CampaignsPage campaigns={dashboard.campaigns} />;
+    if (activePage === 'campaigns') {
+      return (
+        <CampaignsPage
+          campaigns={dashboard.campaigns}
+          campaignItems={dashboard.campaignItems}
+          templates={dashboard.templates}
+          audiences={dashboard.audienceItems}
+          onRefresh={async () => {
+            const [campaignData, campaignItems] = await Promise.all([
+              fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
+              fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              campaigns: campaignData.items || [],
+              campaignItems: campaignItems.items || [],
+            }));
+          }}
+        />
+      );
+    }
     if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
     if (activePage === 'audience') return <AudiencePage audiences={dashboard.audiences} />;
     if (activePage === 'templates') return <TemplatesPage templates={dashboard.templates} />;
