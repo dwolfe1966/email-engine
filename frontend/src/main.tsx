@@ -55,6 +55,50 @@ type CampaignPerformance = {
   bounce_rate: number;
 };
 
+type CampaignAnalytics = {
+  campaign_id: string;
+  requested_count: number;
+  queued_count: number;
+  sent_count: number;
+  failed_count: number;
+  suppressed_count: number;
+  delivered_count: number;
+  opened_count: number;
+  clicked_count: number;
+  bounced_count: number;
+  complained_count: number;
+  unsubscribed_count: number;
+  open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+  status_counts: CountRow[];
+  event_counts: CountRow[];
+};
+
+type CampaignTimelinePoint = {
+  date: string;
+  sent_count: number;
+  opened_count: number;
+  clicked_count: number;
+  failed_count: number;
+  open_rate: number;
+  click_rate: number;
+};
+
+type DomainDeliverability = {
+  domain: string;
+  provider: string | null;
+  send_record_count: number;
+  sent_count: number;
+  failed_count: number;
+  opened_count: number;
+  clicked_count: number;
+  bounced_count: number;
+  open_rate: number;
+  click_rate: number;
+  bounce_rate: number;
+};
+
 type CampaignRead = {
   id: string;
   name: string;
@@ -1548,12 +1592,26 @@ function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; on
   );
 }
 
-function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
+function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
+  campaignItems: CampaignRead[];
   audiences: AudiencePerformance[];
   journeys: JourneyPerformance[];
+  onRefresh: () => Promise<void>;
 }) {
+  const [selectedCampaignId, setSelectedCampaignId] = useState('');
+  const [days, setDays] = useState(30);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('Select a campaign to load detailed reporting.');
+  const [campaignDetail, setCampaignDetail] = useState<CampaignAnalytics | null>(null);
+  const [timeline, setTimeline] = useState<CampaignTimelinePoint[]>([]);
+  const [domains, setDomains] = useState<DomainDeliverability[]>([]);
+
+  useEffect(() => {
+    if (!selectedCampaignId && campaignItems.length) setSelectedCampaignId(campaignItems[0].id);
+  }, [campaignItems, selectedCampaignId]);
+
   const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
   const totalOpens = campaigns.reduce((sum, item) => sum + Number(item.opened_count || 0), 0);
   const totalClicks = campaigns.reduce((sum, item) => sum + Number(item.clicked_count || 0), 0);
@@ -1566,6 +1624,34 @@ function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
     const aFailures = Number(a.failed_count || 0) + Number(a.step_failed_count || 0);
     return bFailures - aFailures;
   }).slice(0, 5);
+  const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
+  const maxTimelineSent = Math.max(...timeline.map((point) => Number(point.sent_count || 0)), 1);
+
+  async function loadReport() {
+    setBusy(true);
+    setStatus('Loading report...');
+    try {
+      await onRefresh();
+      if (!selectedCampaignId) {
+        setStatus('No campaign selected.');
+        return;
+      }
+      const [detail, timelineData, domainData] = await Promise.all([
+        fetchJson<CampaignAnalytics>(`/api/v1/campaigns/${selectedCampaignId}/analytics`),
+        fetchJson<{ points: CampaignTimelinePoint[] }>(`/api/v1/campaigns/${selectedCampaignId}/analytics/timeline?days=${days}`),
+        fetchJson<ListResponse<DomainDeliverability>>(`/api/v1/analytics/domains?limit=10&offset=0&campaign_id=${selectedCampaignId}`),
+      ]);
+      setCampaignDetail(detail);
+      setTimeline(timelineData.points || []);
+      setDomains(domainData.items || []);
+      setStatus(`Loaded report for ${selectedCampaign?.name || selectedCampaignId}.`);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -1597,6 +1683,88 @@ function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
           <a href="/admin/journeys">Open journeys</a>
         </article>
       </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Reporting Controls</h2>
+          <a href="/admin/analytics">Advanced reports</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Campaign
+            <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)}>
+              <option value="">Select campaign</option>
+              {campaignItems.map((campaign) => (
+                <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Timeline days
+            <select value={days} onChange={(event) => setDays(Number(event.target.value))}>
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          </label>
+          <label>
+            Campaign status
+            <input value={selectedCampaign?.status || 'No campaign selected'} readOnly />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={loadReport} disabled={busy || !selectedCampaignId}>Load Report</button>
+          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Summary</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+      </section>
+      {campaignDetail ? (
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Selected sent', value: formatInt(campaignDetail.sent_count), change: `${formatInt(campaignDetail.delivered_count)} delivered` }} />
+          <MetricCard metric={{ label: 'Selected open rate', value: formatPct(campaignDetail.open_rate), change: `${formatInt(campaignDetail.opened_count)} opens` }} />
+          <MetricCard metric={{ label: 'Selected click rate', value: formatPct(campaignDetail.click_rate), change: `${formatInt(campaignDetail.clicked_count)} clicks` }} />
+          <MetricCard metric={{ label: 'Selected bounces', value: formatInt(campaignDetail.bounced_count), change: formatPct(campaignDetail.bounce_rate), tone: campaignDetail.bounced_count ? 'warn' : 'good' }} />
+        </section>
+      ) : null}
+      {timeline.length ? (
+        <section className="panel full-span">
+          <div className="panel-head"><h2>Campaign Timeline</h2><span className="muted">{formatInt(timeline.length)} points</span></div>
+          <div className="timeline-bars">
+            {timeline.map((point) => (
+              <article className="timeline-row" key={point.date}>
+                <span>{point.date}</span>
+                <div className="timeline-track">
+                  <i style={{ width: `${Math.max(4, (Number(point.sent_count || 0) / maxTimelineSent) * 100)}%` }} />
+                </div>
+                <strong>{formatInt(point.sent_count)}</strong>
+                <small>{formatPct(point.open_rate)} open / {formatPct(point.click_rate)} click</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {domains.length ? (
+        <section className="panel table-panel full-span">
+          <div className="panel-head"><h2>Domain Deliverability</h2><a href="/admin/analytics">Open analytics</a></div>
+          <table>
+            <thead><tr><th>Domain</th><th>Provider</th><th>Sends</th><th>Open</th><th>Click</th><th>Bounce</th></tr></thead>
+            <tbody>
+              {domains.map((domain) => (
+                <tr key={`${domain.domain}-${domain.provider || 'provider'}`}>
+                  <td>{domain.domain}</td>
+                  <td>{domain.provider || '-'}</td>
+                  <td>{formatInt(domain.send_record_count)}</td>
+                  <td>{formatPct(domain.open_rate)}</td>
+                  <td>{formatPct(domain.click_rate)}</td>
+                  <td>{formatPct(domain.bounce_rate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
       <section className="panel summary-panel">
         <div className="panel-head"><h2>Campaign Performance</h2><a href="/admin/analytics">Open analytics</a></div>
         <p className="large-number">{formatInt(totalSent)}</p>
@@ -2086,8 +2254,24 @@ function App() {
         <AnalyticsPage
           overview={dashboard.overview}
           campaigns={dashboard.campaigns}
+          campaignItems={dashboard.campaignItems}
           audiences={dashboard.audiences}
           journeys={dashboard.journeys}
+          onRefresh={async () => {
+            const [overview, campaignData, audienceData, journeyData] = await Promise.all([
+              fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
+              fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
+              fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
+              fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
+            ]);
+            setDashboard((current) => ({
+              ...current,
+              overview,
+              campaigns: campaignData.items || [],
+              audiences: audienceData.items || [],
+              journeys: journeyData.items || [],
+            }));
+          }}
         />
       );
     }
