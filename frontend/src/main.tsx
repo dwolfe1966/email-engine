@@ -164,6 +164,18 @@ type TemplateRead = {
   name: string;
   subject: string;
   category: string | null;
+  html_body: string;
+  css_body: string | null;
+  text_body: string | null;
+  document_json: Record<string, unknown>;
+};
+
+type TemplateVariable = {
+  name: string;
+  required: boolean;
+  native: boolean;
+  sources: string[];
+  sample_value: unknown;
 };
 
 type JourneyPerformance = {
@@ -952,7 +964,127 @@ function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
   );
 }
 
-function TemplatesPage({ templates }: { templates: TemplateRead[] }) {
+function TemplatesPage({ templates, onRefresh }: { templates: TemplateRead[]; onRefresh: () => Promise<void> }) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [name, setName] = useState('ESP Template Draft');
+  const [subject, setSubject] = useState('Hello {{ first_name }}');
+  const [htmlBody, setHtmlBody] = useState('<p>Hello {{ first_name }},</p>\n<p>Welcome to Email Engine.</p>');
+  const [cssBody, setCssBody] = useState('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
+  const [variablesJson, setVariablesJson] = useState('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
+  const [status, setStatus] = useState('Ready to edit or preview a template.');
+  const [busy, setBusy] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [variables, setVariables] = useState<TemplateVariable[]>([]);
+
+  useEffect(() => {
+    if (!selectedTemplateId && templates.length) {
+      loadTemplateIntoEditor(templates[0]);
+    }
+  }, [selectedTemplateId, templates]);
+
+  function loadTemplateIntoEditor(template: TemplateRead) {
+    setSelectedTemplateId(template.id);
+    setName(template.name);
+    setSubject(template.subject);
+    setHtmlBody(template.html_body || '');
+    setCssBody(template.css_body || '');
+    setPreviewHtml('');
+    setStatus(`Loaded template: ${template.name}`);
+  }
+
+  function parsedVariables() {
+    try {
+      const parsed = JSON.parse(variablesJson || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Variables must be a JSON object.');
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Invalid variables JSON.');
+    }
+  }
+
+  async function runTemplateOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      const message = await operation();
+      setStatus(message);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTemplate() {
+    await runTemplateOperation(selectedTemplateId ? 'Saving template' : 'Creating template', async () => {
+      const payload = {
+        name: name.trim() || 'Untitled ESP Template',
+        subject,
+        html_body: htmlBody,
+        css_body: cssBody || null,
+        text_body: null,
+      };
+      const saved = selectedTemplateId
+        ? await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
+        : await fetchJson<TemplateRead>('/api/v1/templates', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      setSelectedTemplateId(saved.id);
+      await onRefresh();
+      return `Saved template: ${saved.name}`;
+    });
+  }
+
+  async function previewTemplate() {
+    await runTemplateOperation('Rendering preview', async () => {
+      const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject,
+          html_body: htmlBody,
+          css_body: cssBody || null,
+          variables: parsedVariables(),
+        }),
+      });
+      setPreviewHtml(data.html_body || '');
+      const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
+      return `Rendered preview: ${data.subject}.${issueText}`;
+    });
+  }
+
+  async function inspectVariables() {
+    await runTemplateOperation('Inspecting variables', async () => {
+      const data = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject,
+          html_body: htmlBody,
+          css_body: cssBody || null,
+          variables: parsedVariables(),
+        }),
+      });
+      setVariables(data.variables || []);
+      if (data.sample_variables && Object.keys(data.sample_variables).length) {
+        setVariablesJson(JSON.stringify(data.sample_variables, null, 2));
+      }
+      return `Detected ${formatInt(data.variables?.length || 0)} variable(s).`;
+    });
+  }
+
+  async function seedSamples() {
+    await runTemplateOperation('Seeding sample templates', async () => {
+      const data = await fetchJson<TemplateRead[]>('/api/v1/templates/samples', { method: 'POST' });
+      await onRefresh();
+      return `Sample templates ready: ${formatInt(data.length)} templates.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="workflow-grid full-span">
@@ -981,13 +1113,68 @@ function TemplatesPage({ templates }: { templates: TemplateRead[] }) {
           <a href="/template-editor">Seed samples</a>
         </article>
       </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Template Workflow</h2>
+          <a href="/template-editor">Advanced editor</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Existing template
+            <select value={selectedTemplateId} onChange={(event) => {
+              const template = templates.find((item) => item.id === event.target.value);
+              if (template) loadTemplateIntoEditor(template);
+              else setSelectedTemplateId('');
+            }}>
+              <option value="">Create new template</option>
+              {templates.map((template) => (
+                <option value={template.id} key={template.id}>{template.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Template name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Subject
+            <input value={subject} onChange={(event) => setSubject(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            HTML / Jinja
+            <textarea value={htmlBody} onChange={(event) => setHtmlBody(event.target.value)} rows={12} />
+          </label>
+          <label>
+            Sample variables JSON
+            <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={12} />
+          </label>
+          <label className="wide-field">
+            CSS
+            <textarea value={cssBody} onChange={(event) => setCssBody(event.target.value)} rows={7} />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
+          <button className="ghost" onClick={previewTemplate} disabled={busy}>Preview</button>
+          <button className="ghost" onClick={inspectVariables} disabled={busy}>Inspect Variables</button>
+          <button className="ghost" onClick={seedSamples} disabled={busy}>Seed Samples</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+          {variables.length ? <small>{variables.map((item) => item.name).join(', ')}</small> : null}
+        </div>
+        {previewHtml ? (
+          <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
+        ) : null}
+      </section>
       <section className="cards-grid full-span">
         {templates.length ? templates.map((template) => (
           <article className="panel entity-card" key={template.id}>
             <span>{template.category || 'template'}</span>
             <strong>{template.name}</strong>
             <p>{template.subject}</p>
-            <a href={`/template-editor?template_id=${encodeURIComponent(template.id)}`}>Open editor</a>
+            <button className="link-button" onClick={() => loadTemplateIntoEditor(template)}>Load in ESP editor</button>
           </article>
         )) : (
           <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="/template-editor" actionLabel="Open Template Editor" />
@@ -1474,7 +1661,20 @@ function App() {
     }
     if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
     if (activePage === 'audience') return <AudiencePage audiences={dashboard.audiences} />;
-    if (activePage === 'templates') return <TemplatesPage templates={dashboard.templates} />;
+    if (activePage === 'templates') {
+      return (
+        <TemplatesPage
+          templates={dashboard.templates}
+          onRefresh={async () => {
+            const templateData = await fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0');
+            setDashboard((current) => ({
+              ...current,
+              templates: templateData.items || [],
+            }));
+          }}
+        />
+      );
+    }
     if (activePage === 'ai-studio') return <AiStudioPage insights={dashboard.aiInsights} diagnostics={dashboard.diagnostics} />;
     if (activePage === 'analytics') {
       return (
