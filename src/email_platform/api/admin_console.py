@@ -1824,6 +1824,38 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       transition: width 180ms ease;
     }
     .launch-progress-banner.active .launch-progress-track span { background: #cf8a26; }
+    .launch-progress-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .launch-progress-actions button {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+    .launch-activity {
+      display: grid;
+      gap: 4px;
+      max-height: 130px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 7px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .launch-activity:empty { display: none; }
+    .launch-activity div {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 6px;
+      align-items: start;
+    }
+    .launch-activity strong {
+      color: var(--text);
+      font-weight: 700;
+    }
     .test-send-events {
       max-height: 180px;
       overflow: auto;
@@ -2059,6 +2091,12 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           </div>
           <div class="launch-progress-track"><span id="launchProgressBar" style="width:0%"></span></div>
           <div class="launch-progress-counts" id="launchProgressCounts"></div>
+          <div class="launch-progress-actions">
+            <button class="secondary" type="button" id="continueLaunchPolling">Continue Polling</button>
+            <button class="secondary" type="button" id="processLaunchQueue">Process Queue Now</button>
+            <button class="secondary" type="button" id="viewLaunchDelivery">Open Delivery</button>
+          </div>
+          <div class="launch-activity" id="launchActivity"></div>
         </div>
         <div class="readiness-panel" id="readinessPanel" hidden>
           <div class="head">
@@ -2135,6 +2173,8 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     let lastTestSend = null;
     let templateItems = [];
     let audienceItems = [];
+    let activeLaunchJobId = "";
+    let launchPollStartedAt = 0;
     const result = document.getElementById("result");
 
     function writeResult(data, ok = true) {
@@ -2508,13 +2548,17 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       const bar = document.getElementById("launchProgressBar");
       const counts = document.getElementById("launchProgressCounts");
       const percent = Math.max(0, Math.min(100, Number(data.percent_complete || 0) * 100));
+      const elapsed = launchPollStartedAt
+        ? Math.floor((Date.now() - launchPollStartedAt) / 1000)
+        : 0;
       panel.hidden = false;
       panel.className = `launch-progress-banner ${tone}`;
-      status.textContent = `${label} - ${data.status || "queued"}`;
+      status.textContent = `${label} - ${data.status || "queued"} - ${percent.toFixed(0)}%${elapsed ? ` - ${elapsed}s` : ""}`;
       bar.style.width = `${Math.max(2, percent)}%`;
       counts.innerHTML = [
         ["requested", data.requested_count],
         ["queued", data.queued_count],
+        ["sending", data.sending_count],
         ["active", data.active_count],
         ["processed", data.processed_count],
         ["sent", data.sent_count],
@@ -2526,15 +2570,59 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       )).join("");
     }
 
-    async function pollLaunchProgress(sendJobId) {
-      for (let index = 0; index < 8; index += 1) {
+    function appendLaunchActivity(message, data = null) {
+      const container = document.getElementById("launchActivity");
+      const row = document.createElement("div");
+      const time = document.createElement("strong");
+      const detail = document.createElement("span");
+      time.textContent = new Date().toLocaleTimeString();
+      detail.textContent = data ? `${message}: ${JSON.stringify(data)}` : message;
+      row.append(time, detail);
+      container.prepend(row);
+      while (container.children.length > 12) container.removeChild(container.lastElementChild);
+    }
+
+    async function pollLaunchProgress(sendJobId, maxAttempts = 24) {
+      activeLaunchJobId = sendJobId;
+      if (!launchPollStartedAt) launchPollStartedAt = Date.now();
+      appendLaunchActivity("Polling send job", { send_job_id: sendJobId, max_attempts: maxAttempts });
+      for (let index = 0; index < maxAttempts; index += 1) {
         const data = await request(`/api/v1/campaign-send-jobs/${sendJobId}/progress`);
         const active = Number(data.active_count || 0) > 0 || Number(data.remaining_count || 0) > 0;
         setLaunchProgress(data, active ? "active" : "success", active ? "Processing" : "Complete");
-        if (!active) return data;
+        appendLaunchActivity(active ? "Progress update" : "Launch complete", {
+          active: data.active_count,
+          remaining: data.remaining_count,
+          sent: data.sent_count,
+          failed: data.failed_count,
+          suppressed: data.suppressed_count,
+        });
+        if (!active) {
+          launchPollStartedAt = 0;
+          return data;
+        }
         await new Promise((resolve) => setTimeout(resolve, 1200));
       }
+      appendLaunchActivity("Polling paused. Use Continue Polling to keep watching this send job.");
       return null;
+    }
+
+    async function processLaunchQueue() {
+      if (!activeLaunchJobId) {
+        writeResult("Launch a campaign or continue a selected send job first.", false);
+        return;
+      }
+      const params = new URLSearchParams({ limit: "50", send_job_id: activeLaunchJobId });
+      const data = await request(`/api/v1/delivery/process-queued?${params.toString()}`, { method: "POST" });
+      appendLaunchActivity("Processed queued delivery", data);
+      await pollLaunchProgress(activeLaunchJobId, 8);
+    }
+
+    function openLaunchDelivery() {
+      const params = new URLSearchParams();
+      if (selectedId) params.set("campaign_id", selectedId);
+      if (activeLaunchJobId) params.set("send_job_id", activeLaunchJobId);
+      location.href = `/admin/delivery${params.toString() ? `?${params.toString()}` : ""}`;
     }
 
     function resetForm() {
@@ -2548,6 +2636,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("aiReviewPanel").hidden = true;
       document.getElementById("testSendPanel").hidden = true;
       document.getElementById("launchProgress").hidden = true;
+      document.getElementById("launchActivity").textContent = "";
+      activeLaunchJobId = "";
+      launchPollStartedAt = 0;
       renderWorkflowSteps();
       renderTestSendMetrics(null);
       renderTestSendEvents(null);
@@ -2567,6 +2658,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("readinessPanel").hidden = true;
       document.getElementById("aiReviewPanel").hidden = true;
       document.getElementById("launchProgress").hidden = true;
+      document.getElementById("launchActivity").textContent = "";
+      activeLaunchJobId = "";
+      launchPollStartedAt = 0;
       renderWorkflowSteps();
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
@@ -2707,6 +2801,9 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         method: "POST",
         body: JSON.stringify(payload)
       });
+      activeLaunchJobId = launch.job_id || "";
+      launchPollStartedAt = Date.now();
+      appendLaunchActivity(launch.dry_run ? "Dry run complete" : "Campaign queued", launch);
       setLaunchProgress({
         ...launch,
         active_count: launch.queued_count,
@@ -3060,6 +3157,17 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     document.getElementById("launch").addEventListener("click", () => {
       launchCampaign(false).catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("continueLaunchPolling").addEventListener("click", () => {
+      if (!activeLaunchJobId) {
+        writeResult("Launch a campaign first.", false);
+        return;
+      }
+      pollLaunchProgress(activeLaunchJobId, 24).catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("processLaunchQueue").addEventListener("click", () => {
+      processLaunchQueue().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("viewLaunchDelivery").addEventListener("click", openLaunchDelivery);
     document.getElementById("analytics").addEventListener("click", () => {
       loadAnalytics().catch((error) => writeResult(error.message, false));
     });

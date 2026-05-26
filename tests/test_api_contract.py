@@ -713,6 +713,11 @@ def test_admin_pages() -> None:
     assert 'campaignSummary' in campaigns.text
     assert 'launchProgress' in campaigns.text
     assert 'pollLaunchProgress' in campaigns.text
+    assert 'launchActivity' in campaigns.text
+    assert 'Continue Polling' in campaigns.text
+    assert 'Process Queue Now' in campaigns.text
+    assert 'Open Delivery' in campaigns.text
+    assert 'processLaunchQueue' in campaigns.text
     assert 'Test Preview' in campaigns.text
     assert 'Test Send' in campaigns.text
     assert 'Approve' in campaigns.text
