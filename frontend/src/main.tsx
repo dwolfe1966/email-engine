@@ -3036,6 +3036,17 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   }).slice(0, 5);
   const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
   const maxTimelineSent = Math.max(...timeline.map((point) => Number(point.sent_count || 0)), 1);
+  const statusRows = overview?.status_counts || [];
+  const eventRows = overview?.event_counts || [];
+  const maxStatusCount = Math.max(...statusRows.map((row) => Number(row.count || 0)), 1);
+  const maxEventCount = Math.max(...eventRows.map((row) => Number(row.count || 0)), 1);
+  const rateRows = topCampaigns.map((campaign) => ({
+    name: campaign.name,
+    openRate: Number(campaign.open_rate || 0),
+    clickRate: Number(campaign.click_rate || 0),
+    failureRate: Number(campaign.failed_count || 0) / Math.max(Number(campaign.requested_count || campaign.sent_count || 0), 1),
+  }));
+  const maxRate = Math.max(...rateRows.flatMap((row) => [row.openRate, row.clickRate, row.failureRate]), 0.01);
 
   async function loadReport() {
     setBusy(true);
@@ -3130,6 +3141,61 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
           <span>{status}</span>
         </div>
       </section>
+      <section className="panel full-span">
+        <div className="panel-head"><h2>Pipeline Status</h2><span className="muted">{formatInt(statusRows.length)} statuses</span></div>
+        {statusRows.length ? (
+          <div className="timeline-bars">
+            {statusRows.map((row) => (
+              <article className="timeline-row" key={row.name}>
+                <span>{row.name}</span>
+                <div className="timeline-track">
+                  <i style={{ width: `${Math.max(4, (Number(row.count || 0) / maxStatusCount) * 100)}%` }} />
+                </div>
+                <strong>{formatInt(row.count)}</strong>
+                <small>{formatPct(Number(row.count || 0) / Math.max(overview?.send_record_count || 0, 1))} of records</small>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No send statuses yet" detail="Launch a campaign or process queued delivery records to populate pipeline status." actionHref="#campaigns" actionLabel="Open Campaigns" />
+        )}
+      </section>
+      <section className="panel full-span">
+        <div className="panel-head"><h2>Event Mix</h2><span className="muted">{formatInt(overview?.event_count || 0)} events</span></div>
+        {eventRows.length ? (
+          <div className="timeline-bars">
+            {eventRows.map((row) => (
+              <article className="timeline-row" key={row.name}>
+                <span>{row.name}</span>
+                <div className="timeline-track">
+                  <i style={{ width: `${Math.max(4, (Number(row.count || 0) / maxEventCount) * 100)}%` }} />
+                </div>
+                <strong>{formatInt(row.count)}</strong>
+                <small>{formatPct(Number(row.count || 0) / Math.max(overview?.event_count || 0, 1))} of events</small>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No events yet" detail="Open and click tracking events appear here after messages are sent and interacted with." actionHref="#delivery" actionLabel="Open Delivery" />
+        )}
+      </section>
+      {rateRows.length ? (
+        <section className="panel full-span">
+          <div className="panel-head"><h2>Campaign Rate Comparison</h2><a href="#campaigns">Manage campaigns</a></div>
+          <div className="timeline-bars">
+            {rateRows.map((row) => (
+              <article className="timeline-row" key={row.name}>
+                <span>{row.name}</span>
+                <div className="timeline-track">
+                  <i style={{ width: `${Math.max(4, (row.openRate / maxRate) * 100)}%` }} />
+                </div>
+                <strong>{formatPct(row.openRate)}</strong>
+                <small>{formatPct(row.clickRate)} click / {formatPct(row.failureRate)} failed</small>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {campaignDetail ? (
         <section className="metric-grid full-span compact-metrics">
           <MetricCard metric={{ label: 'Selected sent', value: formatInt(campaignDetail.sent_count), change: `${formatInt(campaignDetail.delivered_count)} delivered` }} />
@@ -3164,7 +3230,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
               {domains.map((domain) => (
                 <tr key={`${domain.domain}-${domain.provider || 'provider'}`}>
                   <td>{domain.domain}</td>
-                  <td>{domain.provider || '-'}</td>
+                  <td>{providerLabel(domain.provider)}</td>
                   <td>{formatInt(domain.send_record_count)}</td>
                   <td>{formatPct(domain.open_rate)}</td>
                   <td>{formatPct(domain.click_rate)}</td>
