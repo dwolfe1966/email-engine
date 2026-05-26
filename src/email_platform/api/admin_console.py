@@ -5059,12 +5059,89 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       border-radius: 999px;
       background: var(--blue);
     }
-    .rate-fill.open { background: #2563eb; }
-    .rate-fill.click { background: #15803d; }
-    .rate-fill.bounce { background: #b42318; }
-    .table-wrap {
-      overflow: auto;
-      border: 1px solid var(--line);
+	    .rate-fill.open { background: #2563eb; }
+	    .rate-fill.click { background: #15803d; }
+	    .rate-fill.bounce { background: #b42318; }
+	    .journey-dashboard {
+	      display: grid;
+	      gap: 12px;
+	    }
+	    .journey-status-grid {
+	      display: grid;
+	      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+	      gap: 10px;
+	    }
+	    .journey-status-card {
+	      border: 1px solid var(--line);
+	      border-radius: 8px;
+	      background: #fff;
+	      padding: 10px;
+	      display: grid;
+	      gap: 8px;
+	      min-width: 0;
+	    }
+	    .journey-status-card strong,
+	    .journey-status-card small {
+	      display: block;
+	      overflow: hidden;
+	      text-overflow: ellipsis;
+	      white-space: nowrap;
+	    }
+	    .journey-status-card small { color: var(--muted); }
+	    .stacked-bar {
+	      display: flex;
+	      width: 100%;
+	      height: 12px;
+	      overflow: hidden;
+	      border-radius: 999px;
+	      background: #eef2f7;
+	    }
+	    .stacked-segment { min-width: 2px; height: 100%; }
+	    .stacked-segment.active { background: #2563eb; }
+	    .stacked-segment.completed { background: #15803d; }
+	    .stacked-segment.failed { background: #b42318; }
+	    .stacked-segment.exited { background: #b45309; }
+	    .stacked-segment.paused { background: #64748b; }
+	    .stacked-segment.skipped { background: #94a3b8; }
+	    .journey-legend {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 8px 12px;
+	      color: var(--muted);
+	      font-size: 11px;
+	    }
+	    .legend-dot {
+	      display: inline-block;
+	      width: 8px;
+	      height: 8px;
+	      margin-right: 4px;
+	      border-radius: 999px;
+	      vertical-align: middle;
+	    }
+	    .journey-step-grid {
+	      display: grid;
+	      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+	      gap: 8px;
+	    }
+	    .journey-step-card {
+	      border: 1px solid var(--line);
+	      border-radius: 8px;
+	      background: #fbfcfe;
+	      padding: 9px;
+	      display: grid;
+	      gap: 5px;
+	      min-width: 0;
+	    }
+	    .journey-step-card.warn { border-color: #f3c8c5; background: #fff7f7; }
+	    .journey-step-card strong,
+	    .journey-step-card span {
+	      display: block;
+	      overflow-wrap: anywhere;
+	    }
+	    .journey-step-card span { color: var(--muted); font-size: 12px; }
+	    .table-wrap {
+	      overflow: auto;
+	      border: 1px solid var(--line);
       border-radius: 8px;
     }
     table {
@@ -5368,10 +5445,10 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       ]);
     }
 
-    function domainInsights(items) {
-      const rows = items || [];
-      const highestBounce = maxBy(rows, (row) => row.bounce_rate);
-      const failed = rows.reduce((sum, row) => sum + Number(row.failed_count || 0), 0);
+	    function domainInsights(items) {
+	      const rows = items || [];
+	      const highestBounce = maxBy(rows, (row) => row.bounce_rate);
+	      const failed = rows.reduce((sum, row) => sum + Number(row.failed_count || 0), 0);
       return insights([
         {
           label: "Highest bounce domain",
@@ -5384,9 +5461,42 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
           value: int(failed),
           sub: failed ? "Review provider errors" : "No failures in this page",
           tone: failed ? "warn" : "",
-        },
-      ]);
-    }
+	        },
+	      ]);
+	    }
+
+	    function journeyInsights(items) {
+	      const rows = items || [];
+	      const active = rows.reduce((sum, row) => sum + Number(row.active_count || 0), 0);
+	      const completed = rows.reduce((sum, row) => sum + Number(row.completed_count || 0), 0);
+	      const failed = rows.reduce((sum, row) =>
+	        sum + Number(row.failed_count || 0) + Number(row.step_failed_count || 0), 0);
+	      const queued = rows.reduce((sum, row) => sum + Number(row.queued_send_count || 0), 0);
+	      return insights([
+	        {
+	          label: "Active enrollments",
+	          value: int(active),
+	          sub: active ? "Contacts still moving through journeys" : "No active enrollments in this page",
+	        },
+	        {
+	          label: "Completed enrollments",
+	          value: int(completed),
+	          sub: "Completed journey exits",
+	        },
+	        {
+	          label: "Journey failures",
+	          value: int(failed),
+	          sub: failed ? "Review step history and graph state" : "No failures in this page",
+	          tone: failed ? "warn" : "",
+	        },
+	        {
+	          label: "Queued journey sends",
+	          value: int(queued),
+	          sub: queued ? "Process delivery queue" : "No queued sends in this page",
+	          tone: queued ? "warn" : "",
+	        },
+	      ]);
+	    }
 
     function performanceSummary(kind, items) {
       const rows = items || [];
@@ -5442,9 +5552,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             detail: "Use domain view before increasing volume.",
           },
         ];
-      } else if (kind === "audience") {
-        const bestOpen = maxBy(rows, (row) => row.open_rate);
-        const bestClick = maxBy(rows, (row) => row.click_rate);
+	      } else if (kind === "audience") {
+	        const bestOpen = maxBy(rows, (row) => row.open_rate);
+	        const bestClick = maxBy(rows, (row) => row.click_rate);
         cards = [
           {
             label: "Most engaged audience",
@@ -5460,9 +5570,37 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             label: "Recommended next action",
             value: "Refine audience builder",
             detail: "Preview contacts and test constraints before launch.",
-          },
-        ];
-      }
+	          },
+	        ];
+	      } else if (kind === "journey") {
+	        const mostActive = maxBy(rows, (row) => row.active_count);
+	        const mostFailed = maxBy(rows, (row) => row.step_failed_count + row.failed_count);
+	        const queued = rows.reduce((sum, row) => sum + Number(row.queued_send_count || 0), 0);
+	        cards = [
+	          {
+	            label: "Most active journey",
+	            value: mostActive ? `${mostActive.name || shortId(mostActive.journey_id)} ${int(mostActive.active_count)} active` : "-",
+	            detail: "Watch active enrollment volume and due work.",
+	          },
+	          {
+	            label: "Highest failure risk",
+	            value: mostFailed ? `${mostFailed.name || shortId(mostFailed.journey_id)} ${int(Number(mostFailed.step_failed_count || 0) + Number(mostFailed.failed_count || 0))} failures` : "-",
+	            detail: "Review failed enrollments and step executions.",
+	            warn: mostFailed && (Number(mostFailed.step_failed_count || 0) + Number(mostFailed.failed_count || 0)) > 0,
+	          },
+	          {
+	            label: "Queued sends",
+	            value: queued ? `${int(queued)} queued` : "No queued journey sends",
+	            detail: queued ? "Open Delivery Manager or process queued sends." : "No delivery backlog visible.",
+	            warn: queued > 0,
+	          },
+	          {
+	            label: "Recommended next action",
+	            value: queued || Number(mostFailed?.step_failed_count || 0) ? "Review journey execution" : "Enroll a test contact",
+	            detail: "Use Journey Manager graph plus AI Review for path-level diagnosis.",
+	          },
+	        ];
+	      }
       if (!cards.length) return "";
       return `<div class="performance-summary">
         <h3>Performance Summary</h3>
@@ -5533,9 +5671,9 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       </div>`;
     }
 
-    function campaignRateComparison(items) {
-      const rows = (items || [])
-        .filter((row) =>
+	    function campaignRateComparison(items) {
+	      const rows = (items || [])
+	        .filter((row) =>
           Number(row.sent_count || 0) > 0 ||
           Number(row.opened_count || 0) > 0 ||
           Number(row.clicked_count || 0) > 0 ||
@@ -5555,11 +5693,113 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
             ${rateTrack("Click", row.click_rate, "click")}
             ${rateTrack("Bounce", row.bounce_rate, "bounce")}
           </div>
-        `).join("")}
-      </div>`;
-    }
+	        `).join("")}
+	      </div>`;
+	    }
 
-    function renderFocusedCampaign(data = null) {
+	    function journeyStackedBar(parts) {
+	      const total = parts.reduce((sum, item) => sum + Number(item.count || 0), 0);
+	      if (!total) return '<div class="stacked-bar"></div>';
+	      return `<div class="stacked-bar">${parts
+	        .filter((item) => Number(item.count || 0) > 0)
+	        .map((item) => `<span class="stacked-segment ${escapeHtml(item.className)}" style="width:${Math.max(2, (Number(item.count || 0) / total) * 100)}%" title="${escapeHtml(item.label)}: ${int(item.count)}"></span>`)
+	        .join("")}</div>`;
+	    }
+
+	    function journeyLegend(parts) {
+	      return `<div class="journey-legend">${parts.map((item) => `
+	        <span><i class="legend-dot stacked-segment ${escapeHtml(item.className)}"></i>${escapeHtml(item.label)} ${int(item.count)}</span>
+	      `).join("")}</div>`;
+	    }
+
+	    function journeyStatusCharts(items) {
+	      const rows = (items || []).slice(0, 8);
+	      if (!rows.length) return "";
+	      return `<div class="chart">
+	        <h3>Journey State Comparison</h3>
+	        <div class="journey-status-grid">
+	          ${rows.map((row) => {
+	            const enrollmentParts = [
+	              { label: "Active", count: row.active_count, className: "active" },
+	              { label: "Completed", count: row.completed_count, className: "completed" },
+	              { label: "Exited", count: row.exited_count, className: "exited" },
+	              { label: "Paused", count: row.paused_count, className: "paused" },
+	              { label: "Failed", count: row.failed_count, className: "failed" },
+	            ];
+	            const executionParts = [
+	              { label: "Step completed", count: row.step_completed_count, className: "completed" },
+	              { label: "Step failed", count: row.step_failed_count, className: "failed" },
+	              { label: "Step skipped", count: row.step_skipped_count, className: "skipped" },
+	              { label: "Queued sends", count: row.queued_send_count, className: "active" },
+	            ];
+	            return `<div class="journey-status-card">
+	              <strong>${escapeHtml(row.name || shortId(row.journey_id))}</strong>
+	              <small>${escapeHtml(row.status || "")} - ${int(row.enrollment_count)} enrollments - ${int(row.execution_count)} executions</small>
+	              ${journeyStackedBar(enrollmentParts)}
+	              ${journeyLegend(enrollmentParts)}
+	              ${journeyStackedBar(executionParts)}
+	              ${journeyLegend(executionParts)}
+	            </div>`;
+	          }).join("")}
+	        </div>
+	      </div>`;
+	    }
+
+	    function journeyStepBreakdown(items) {
+	      const steps = (items || [])
+	        .flatMap((journey) => (journey.steps || []).map((step) => ({ ...step, journey_name: journey.name, journey_id: journey.journey_id })))
+	        .filter((step) =>
+	          Number(step.execution_count || 0) > 0 ||
+	          Number(step.failed_count || 0) > 0 ||
+	          Number(step.queued_send_count || 0) > 0
+	        )
+	        .slice(0, 12);
+	      if (!steps.length) {
+	        return `<div class="chart"><h3>Journey Step Breakdown</h3><div class="empty-state">No step execution activity yet.</div></div>`;
+	      }
+	      return `<div class="chart">
+	        <h3>Journey Step Breakdown</h3>
+	        <div class="journey-step-grid">
+	          ${steps.map((step) => `
+	            <div class="journey-step-card ${Number(step.failed_count || 0) ? "warn" : ""}">
+	              <strong>${escapeHtml(step.name || shortId(step.step_id))}</strong>
+	              <span>${escapeHtml(step.journey_name || shortId(step.journey_id))} - ${escapeHtml(step.step_type || "")}</span>
+	              <span>${int(step.execution_count)} executions - ${int(step.completed_count)} done - ${int(step.failed_count)} failed - ${int(step.queued_send_count)} queued sends</span>
+	            </div>
+	          `).join("")}
+	        </div>
+	      </div>`;
+	    }
+
+	    function journeyDashboard(items) {
+	      const rows = items || [];
+	      const totals = rows.reduce((acc, row) => {
+	        acc.enrollments += Number(row.enrollment_count || 0);
+	        acc.active += Number(row.active_count || 0);
+	        acc.completed += Number(row.completed_count || 0);
+	        acc.failed += Number(row.failed_count || 0) + Number(row.step_failed_count || 0);
+	        acc.queued += Number(row.queued_send_count || 0);
+	        acc.executions += Number(row.execution_count || 0);
+	        return acc;
+	      }, { enrollments: 0, active: 0, completed: 0, failed: 0, queued: 0, executions: 0 });
+	      return `<div class="journey-dashboard">
+	        ${performanceSummary("journey", rows)}
+	        ${kpis([
+	          { label: "Journeys", value: int(rows.length) },
+	          { label: "Enrollments", value: int(totals.enrollments) },
+	          { label: "Active", value: int(totals.active) },
+	          { label: "Completed", value: int(totals.completed) },
+	          { label: "Failures", value: int(totals.failed) },
+	          { label: "Queued sends", value: int(totals.queued) },
+	          { label: "Step executions", value: int(totals.executions) },
+	        ])}
+	        ${journeyInsights(rows)}
+	        ${journeyStatusCharts(rows)}
+	        ${journeyStepBreakdown(rows)}
+	      </div>`;
+	    }
+
+	    function renderFocusedCampaign(data = null) {
       const container = document.getElementById("focusedCampaign");
       const campaignId = value("campaignId") || data?.campaign_id || "";
       if (!campaignId) {
@@ -5765,18 +6005,24 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
           { label: "Bounce rate", value: (row) => pct(row.bounce_rate) },
         ]);
         return;
-      }
-      if ("journey_id" in first && "enrollment_count" in first) {
-        report.innerHTML = table("Journey Performance", items, [
-          { label: "Journey", value: (row) => row.name || shortId(row.journey_id) },
-          { label: "Status", value: (row) => row.status },
-          { label: "Enrollments", value: (row) => int(row.enrollment_count) },
-          { label: "Active", value: (row) => int(row.active_count) },
-          { label: "Completed", value: (row) => int(row.completed_count) },
-          { label: "Step failures", value: (row) => int(row.step_failed_count) },
-        ]);
-        return;
-      }
+	      }
+	      if ("journey_id" in first && "enrollment_count" in first) {
+	        report.innerHTML = journeyDashboard(items) + table("Journey Performance", items, [
+	          { label: "Journey", value: (row) => row.name || shortId(row.journey_id) },
+	          { label: "Status", value: (row) => row.status },
+	          { label: "Enrollments", value: (row) => int(row.enrollment_count) },
+	          { label: "Active", value: (row) => int(row.active_count) },
+	          { label: "Completed", value: (row) => int(row.completed_count) },
+	          { label: "Exited", value: (row) => int(row.exited_count) },
+	          { label: "Paused", value: (row) => int(row.paused_count) },
+	          { label: "Failed", value: (row) => int(row.failed_count) },
+	          { label: "Executions", value: (row) => int(row.execution_count) },
+	          { label: "Step done", value: (row) => int(row.step_completed_count) },
+	          { label: "Step failures", value: (row) => int(row.step_failed_count) },
+	          { label: "Queued sends", value: (row) => int(row.queued_send_count) },
+	        ]);
+	        return;
+	      }
       if ("event_type" in first) {
         report.innerHTML = table("Events", items, [
           { label: "Type", value: (row) => row.event_type },

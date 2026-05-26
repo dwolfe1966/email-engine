@@ -986,6 +986,10 @@ def test_admin_pages() -> None:
     assert '/api/v1/ai/analytics/analyze' in analytics.text
     assert 'Domain Deliverability' in analytics.text
     assert 'Journey Performance' in analytics.text
+    assert 'journeyDashboard' in analytics.text
+    assert 'Journey State Comparison' in analytics.text
+    assert 'Journey Step Breakdown' in analytics.text
+    assert 'journeyStatusCharts' in analytics.text
     assert 'Event Timeline' in analytics.text
     assert 'Email Engine Data Sources' in data_sources.text
     assert 'Save Source' in data_sources.text
