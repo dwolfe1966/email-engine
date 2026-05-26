@@ -248,6 +248,29 @@ class AITemplateDraftRead(BaseModel):
     model: str = 'deterministic-template-draft-v1'
 
 
+class AIAnalyticsAnalysisRequest(BaseModel):
+    report_type: str = 'analytics'
+    report_context: JsonObject = Field(default_factory=dict)
+    goals: list[str] = Field(default_factory=list)
+
+
+class AIAnalyticsRecommendationRead(BaseModel):
+    code: str
+    category: str
+    priority: str
+    title: str
+    detail: str
+    suggested_action: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class AIAnalyticsAnalysisRead(BaseModel):
+    summary: list[str] = Field(default_factory=list)
+    recommendations: list[AIAnalyticsRecommendationRead] = Field(default_factory=list)
+    provider: str = 'email-engine'
+    model: str = 'deterministic-analytics-analysis-v1'
+
+
 class CampaignCreate(BaseModel):
     name: str
     template_id: UUID

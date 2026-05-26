@@ -32,6 +32,9 @@ from email_platform.models.entities import (
     Suppression,
 )
 from email_platform.schemas.contracts import (
+    AIAnalyticsAnalysisRead,
+    AIAnalyticsAnalysisRequest,
+    AIAnalyticsRecommendationRead,
     AITemplateDraftRead,
     AITemplateDraftRequest,
     AITemplateEditRequest,
@@ -922,6 +925,117 @@ def _template_recommendation_summary(
     return summary
 
 
+def _number(value: object) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _analytics_rows(context: Mapping[str, object]) -> list[Mapping[str, object]]:
+    items = context.get('items')
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, Mapping)]
+    return [context]
+
+
+def _deterministic_analytics_analysis(
+    payload: AIAnalyticsAnalysisRequest,
+) -> AIAnalyticsAnalysisRead:
+    context = payload.report_context or {}
+    rows = _analytics_rows(context)
+    sent = sum(_number(row.get('sent_count')) for row in rows)
+    opened = sum(_number(row.get('opened_count')) for row in rows)
+    clicked = sum(_number(row.get('clicked_count')) for row in rows)
+    failed = sum(_number(row.get('failed_count')) for row in rows)
+    bounced = sum(_number(row.get('bounced_count')) for row in rows)
+    open_rate = opened / sent if sent else max((_number(row.get('open_rate')) for row in rows), default=0)
+    click_rate = clicked / sent if sent else max((_number(row.get('click_rate')) for row in rows), default=0)
+    bounce_rate = bounced / sent if sent else max((_number(row.get('bounce_rate')) for row in rows), default=0)
+    recommendations: list[AIAnalyticsRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_action: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AIAnalyticsRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_action=suggested_action,
+                confidence=confidence,
+            )
+        )
+
+    if failed > 0:
+        add(
+            'review_failed_delivery',
+            'delivery',
+            'high',
+            'Review failed send records',
+            f'{int(failed)} failed send record(s) appear in the selected report context.',
+            'Open Delivery Manager filtered to the campaign or send job and inspect provider errors before scaling volume.',
+            0.94,
+        )
+    if bounce_rate > 0:
+        add(
+            'tighten_domain_hygiene',
+            'deliverability',
+            'high' if bounce_rate >= 0.03 else 'medium',
+            'Investigate bounce concentration',
+            f'Bounce rate is {round(bounce_rate * 100, 1)}% in this report context.',
+            'Run Domain Deliverability, suppress recurring bad addresses, and verify domain/authentication health.',
+            0.9,
+        )
+    if sent > 0 and open_rate < 0.15:
+        add(
+            'improve_subject_and_segment',
+            'engagement',
+            'medium',
+            'Improve opens with subject and audience tests',
+            f'Open rate is {round(open_rate * 100, 1)}%, below a healthy test benchmark.',
+            'Create a subject-line variant and compare performance by audience segment before broad launch.',
+            0.78,
+        )
+    if sent > 0 and click_rate < 0.03:
+        add(
+            'strengthen_cta',
+            'engagement',
+            'medium',
+            'Strengthen CTA clarity',
+            f'Click rate is {round(click_rate * 100, 1)}% in this report context.',
+            'Use Template Editor AI to make the primary CTA clearer, higher on the page, and tied to one offer.',
+            0.8,
+        )
+    if not recommendations:
+        add(
+            'continue_controlled_testing',
+            'optimization',
+            'low',
+            'Continue controlled testing',
+            'No major risk signal is visible in the selected report context.',
+            'Compare campaign variants and audience constraints while monitoring open, click, bounce, and failure trends.',
+            0.7,
+        )
+
+    summary = [
+        f'Analyzed {len(rows)} row(s) for {payload.report_type or "analytics"} context.',
+        f'Sent {int(sent)}, opened {int(opened)}, clicked {int(clicked)}, failed {int(failed)}.',
+        f'Open rate {round(open_rate * 100, 1)}%, click rate {round(click_rate * 100, 1)}%, bounce rate {round(bounce_rate * 100, 1)}%.',
+    ]
+    if payload.goals:
+        summary.append(f'User goal focus: {"; ".join(payload.goals[:3])}.')
+    return AIAnalyticsAnalysisRead(summary=summary, recommendations=recommendations)
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -1044,6 +1158,13 @@ def recommend_template_improvements(
         provider=provider,
         model=model,
     )
+
+
+@router.post('/ai/analytics/analyze', response_model=AIAnalyticsAnalysisRead)
+def analyze_analytics_with_ai(
+    payload: AIAnalyticsAnalysisRequest,
+) -> AIAnalyticsAnalysisRead:
+    return _deterministic_analytics_analysis(payload)
 
 
 def _tracking_request_metadata(request: Request) -> JsonObject:

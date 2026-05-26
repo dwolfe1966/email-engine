@@ -4478,6 +4478,48 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 12px;
     }
+    .ai-analysis-panel {
+      border: 1px solid #c7d7fe;
+      border-radius: 8px;
+      background: #f7f9ff;
+      padding: 10px;
+      display: grid;
+      gap: 9px;
+    }
+    .ai-analysis-panel[hidden] { display: none; }
+    .ai-analysis-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .ai-analysis-head strong { font-size: 13px; }
+    .ai-analysis-head span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .ai-analysis-list {
+      display: grid;
+      gap: 7px;
+    }
+    .ai-analysis-card {
+      border: 1px solid #dbe4ff;
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+      display: grid;
+      gap: 4px;
+    }
+    .ai-analysis-card.high { border-color: #f3c8c5; background: #fff7f7; }
+    .ai-analysis-card.medium { border-color: #f1d09a; background: #fffaf0; }
+    .ai-analysis-card strong { font-size: 13px; }
+    .ai-analysis-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
     .focused-campaign-panel {
       display: grid;
       grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) auto;
@@ -4755,6 +4797,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
           <button class="secondary" id="jobs">Send Jobs</button>
           <button class="secondary" id="records">Send Records</button>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
+          <button class="secondary" id="aiAnalyze">AI Analysis</button>
           <button class="secondary" id="clear">Clear</button>
         </div>
       </div>
@@ -4763,6 +4806,14 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       <div class="head"><h2>Report</h2></div>
       <div class="body">
         <div id="focusedCampaign"></div>
+        <div class="ai-analysis-panel" id="aiAnalysisPanel" hidden>
+          <div class="ai-analysis-head">
+            <strong>AI Analysis</strong>
+            <span id="aiAnalysisMeta"></span>
+          </div>
+          <div id="aiAnalysisSummary"></div>
+          <div class="ai-analysis-list" id="aiAnalysisList"></div>
+        </div>
         <div id="report" class="report">
           <div class="empty-state">Run a report to view charts and tables.</div>
         </div>
@@ -4779,9 +4830,12 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     const sendJobs = [];
     const sendRecords = [];
     const initialParams = new URLSearchParams(location.search);
+    let lastReportData = null;
+    let lastReportType = "analytics";
 
     function writeResult(data, ok = true) {
       result.textContent = JSON.stringify({ ok, data }, null, 2);
+      if (ok) lastReportData = data;
       renderReport(data, ok);
     }
 
@@ -4794,6 +4848,18 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       const response = await fetch(path);
       const data = await readResponse(response);
       writeResult(data, response.ok);
+      if (!response.ok) throw new Error(data.detail || `${path} failed`);
+      return data;
+    }
+
+    async function postJson(path, body) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await readResponse(response);
+      result.textContent = JSON.stringify({ ok: response.ok, data }, null, 2);
       if (!response.ok) throw new Error(data.detail || `${path} failed`);
       return data;
     }
@@ -5010,6 +5076,34 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
           `).join("")}
         </div>
       </div>`;
+    }
+
+    function renderAiAnalysis(data) {
+      const panel = document.getElementById("aiAnalysisPanel");
+      const meta = document.getElementById("aiAnalysisMeta");
+      const summary = document.getElementById("aiAnalysisSummary");
+      const list = document.getElementById("aiAnalysisList");
+      panel.hidden = false;
+      meta.textContent = `${data.provider || "email-engine"} - ${data.model || "analytics-analysis"}`;
+      summary.innerHTML = insights((data.summary || []).map((item, index) => ({
+        label: index === 0 ? "Summary" : "Context",
+        value: item,
+        sub: "",
+      })));
+      list.textContent = "";
+      (data.recommendations || []).forEach((item) => {
+        const card = document.createElement("div");
+        card.className = `ai-analysis-card ${item.priority || ""}`;
+        card.innerHTML = `
+          <strong>${escapeHtml(item.title || item.code)}</strong>
+          <p>${escapeHtml(item.detail || "")}</p>
+          <p>${escapeHtml(item.suggested_action || "")}</p>
+        `;
+        list.appendChild(card);
+      });
+      if (!list.children.length) {
+        list.innerHTML = '<div class="empty-state">No recommendations returned.</div>';
+      }
     }
 
     function metricBars(title, rows, color = "") {
@@ -5385,6 +5479,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         writeResult("Enter a campaign ID first.", false);
         return;
       }
+      lastReportType = "campaign_analytics";
       const params = new URLSearchParams();
       if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
       const suffix = params.toString() ? `?${params.toString()}` : "";
@@ -5396,6 +5491,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         writeResult("Enter a campaign ID first.", false);
         return;
       }
+      lastReportType = "campaign_timeline";
       const params = new URLSearchParams();
       params.set("days", value("days") || "30");
       if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
@@ -5403,22 +5499,26 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     }
 
     async function analyticsOverview() {
+      lastReportType = "analytics_overview";
       const params = new URLSearchParams();
       params.set("recent_event_limit", value("limit") || "25");
       await request(`/api/v1/analytics/overview?${params.toString()}`);
     }
 
     async function campaignPerformance() {
+      lastReportType = "campaign_performance";
       await request(`/api/v1/analytics/campaigns?${pageQuery().toString()}`);
     }
 
     async function audiencePerformance() {
+      lastReportType = "audience_performance";
       const params = pageQuery();
       if (value("audienceId")) params.set("audience_id", value("audienceId"));
       await request(`/api/v1/analytics/audiences?${params.toString()}`);
     }
 
     async function domainDeliverability() {
+      lastReportType = "domain_deliverability";
       const params = pageQuery();
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
       if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
@@ -5427,26 +5527,31 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     }
 
     async function journeyPerformance() {
+      lastReportType = "journey_performance";
       const params = pageQuery();
       if (value("journeyId")) params.set("journey_id", value("journeyId"));
       await request(`/api/v1/analytics/journeys?${params.toString()}`);
     }
 
     async function eventTimeline() {
+      lastReportType = "event_timeline";
       await request(`/api/v1/events/timeline?${eventQuery().toString()}`);
     }
 
     async function loadEvents() {
+      lastReportType = "events";
       await request(`/api/v1/events/list?${eventQuery().toString()}`);
     }
 
     async function loadJobs() {
+      lastReportType = "send_jobs";
       const params = pageQuery();
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
       await request(`/api/v1/campaign-send-jobs/list?${params.toString()}`);
     }
 
     async function loadRecords() {
+      lastReportType = "send_records";
       const params = pageQuery();
       if (value("campaignId")) params.set("campaign_id", value("campaignId"));
       if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
@@ -5459,6 +5564,31 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       await request(`/api/v1/email-send-records/${value("sendRecordId")}/tracking-links`);
+    }
+
+    async function aiAnalyzeReport() {
+      if (!lastReportData) {
+        writeResult("Run a report before requesting AI Analysis.", false);
+        return;
+      }
+      const button = document.getElementById("aiAnalyze");
+      button.disabled = true;
+      button.textContent = "Analyzing...";
+      try {
+        const data = await postJson("/api/v1/ai/analytics/analyze", {
+          report_type: lastReportType,
+          report_context: lastReportData,
+          goals: [
+            "Identify performance risks",
+            "Recommend next action",
+            "Improve campaign workflow decisions",
+          ],
+        });
+        renderAiAnalysis(data);
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI Analysis";
+      }
     }
 
     document.getElementById("campaignAnalytics").addEventListener("click", () => {
@@ -5497,8 +5627,13 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     document.getElementById("trackingLinks").addEventListener("click", () => {
       trackingLinks().catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("aiAnalyze").addEventListener("click", () => {
+      aiAnalyzeReport().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("clear").addEventListener("click", () => {
       result.textContent = "";
+      lastReportData = null;
+      document.getElementById("aiAnalysisPanel").hidden = true;
     });
     document.getElementById("campaignId").addEventListener("change", () => {
       renderFocusedCampaign(null);

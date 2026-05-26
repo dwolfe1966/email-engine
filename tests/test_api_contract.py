@@ -244,6 +244,39 @@ def test_ai_template_recommend_contract() -> None:
     assert data['template_variables']['variables'][0]['name'] == 'first_name'
 
 
+def test_ai_analytics_analysis_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/analytics/analyze',
+        json={
+            'report_type': 'campaign_performance',
+            'report_context': {
+                'items': [
+                    {
+                        'campaign_id': 'campaign-a',
+                        'sent_count': 100,
+                        'opened_count': 10,
+                        'clicked_count': 1,
+                        'failed_count': 4,
+                        'bounced_count': 2,
+                    }
+                ]
+            },
+            'goals': ['Improve campaign performance'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-analytics-analysis-v1'
+    assert data['summary']
+    assert data['recommendations']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'review_failed_delivery' in codes
+    assert 'strengthen_cta' in codes
+
+
 def test_template_editor_page() -> None:
     client = TestClient(app)
     response = client.get('/template-editor')
@@ -753,6 +786,9 @@ def test_admin_pages() -> None:
     assert 'Performance Summary' in analytics.text
     assert 'performanceSummary' in analytics.text
     assert 'Recommended next action' in analytics.text
+    assert 'AI Analysis' in analytics.text
+    assert 'aiAnalyzeReport' in analytics.text
+    assert '/api/v1/ai/analytics/analyze' in analytics.text
     assert 'Domain Deliverability' in analytics.text
     assert 'Journey Performance' in analytics.text
     assert 'Event Timeline' in analytics.text
