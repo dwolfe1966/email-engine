@@ -564,12 +564,49 @@ function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
   const failures = journeys.reduce((sum, item) =>
     sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
   const queued = journeys.reduce((sum, item) => sum + Number(item.queued_send_count || 0), 0);
+  const active = journeys.reduce((sum, item) => sum + Number(item.active_count || 0), 0);
+  const completed = journeys.reduce((sum, item) => sum + Number(item.completed_count || 0), 0);
+  const mostActive = journeys.reduce<JourneyPerformance | null>((best, item) =>
+    !best || Number(item.active_count || 0) > Number(best.active_count || 0) ? item : best, null);
+  const riskiest = journeys.reduce<JourneyPerformance | null>((worst, item) => {
+    const itemFailures = Number(item.failed_count || 0) + Number(item.step_failed_count || 0);
+    const worstFailures = Number(worst?.failed_count || 0) + Number(worst?.step_failed_count || 0);
+    return !worst || itemFailures > worstFailures ? item : worst;
+  }, null);
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
         <MetricCard metric={{ label: 'Journeys', value: formatInt(journeys.length), change: 'total' }} />
+        <MetricCard metric={{ label: 'Active', value: formatInt(active), change: 'active enrollments' }} />
+        <MetricCard metric={{ label: 'Completed', value: formatInt(completed), change: 'finished enrollments' }} />
         <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Build</span>
+          <strong>Journey builder</strong>
+          <p>Create trigger, wait, branch, and send steps with the admin journey graph.</p>
+          <a href="/admin/journeys">Open Journey Manager</a>
+        </article>
+        <article className="workflow-card">
+          <span>Health</span>
+          <strong>{mostActive ? mostActive.name : 'No active journey'}</strong>
+          <p>{mostActive ? `${formatInt(mostActive.active_count)} active enrollments are currently moving through this journey.` : 'Create or activate a journey to start tracking enrollments.'}</p>
+          <a href="/admin/journeys">Review active journeys</a>
+        </article>
+        <article className={`workflow-card ${failures ? 'warn' : ''}`}>
+          <span>Risk</span>
+          <strong>{failures ? `${formatInt(failures)} failures` : 'No failures visible'}</strong>
+          <p>{failures && riskiest ? `${riskiest.name} has the highest visible failure count.` : 'No journey execution failures are visible in this page of results.'}</p>
+          <a href="/admin/journeys">Inspect executions</a>
+        </article>
+        <article className={`workflow-card ${queued ? 'warn' : ''}`}>
+          <span>Queue</span>
+          <strong>{formatInt(queued)} queued sends</strong>
+          <p>{queued ? 'Process queued journey messages and review delivery status before scaling.' : 'Journey send queue is clear for the visible journey set.'}</p>
+          <a href="/admin/delivery">Open Delivery Manager</a>
+        </article>
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
@@ -739,25 +776,148 @@ function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
   audiences: AudiencePerformance[];
   journeys: JourneyPerformance[];
 }) {
+  const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
+  const totalOpens = campaigns.reduce((sum, item) => sum + Number(item.opened_count || 0), 0);
+  const totalClicks = campaigns.reduce((sum, item) => sum + Number(item.clicked_count || 0), 0);
+  const totalAudienceReach = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
+  const activeEnrollments = journeys.reduce((sum, item) => sum + Number(item.active_count || 0), 0);
+  const topCampaigns = [...campaigns].sort((a, b) => Number(b.open_rate || 0) - Number(a.open_rate || 0)).slice(0, 5);
+  const topAudiences = [...audiences].sort((a, b) => Number(b.open_rate || 0) - Number(a.open_rate || 0)).slice(0, 5);
+  const journeyRisks = [...journeys].sort((a, b) => {
+    const bFailures = Number(b.failed_count || 0) + Number(b.step_failed_count || 0);
+    const aFailures = Number(a.failed_count || 0) + Number(a.step_failed_count || 0);
+    return bFailures - aFailures;
+  }).slice(0, 5);
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
         {metricsFromOverview(overview).map((metric) => <MetricCard metric={metric} key={metric.label} />)}
       </section>
-      <section className="panel">
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Engagement</span>
+          <strong>{formatPct(totalOpens / Math.max(totalSent, 1))} open rate</strong>
+          <p>{formatInt(totalOpens)} opens from {formatInt(totalSent)} campaign sends in the current result set.</p>
+          <a href="/admin/analytics">Open engagement report</a>
+        </article>
+        <article className="workflow-card">
+          <span>Conversion</span>
+          <strong>{formatPct(totalClicks / Math.max(totalSent, 1))} click rate</strong>
+          <p>{formatInt(totalClicks)} clicks are visible across the loaded campaign performance data.</p>
+          <a href="/admin/analytics">Open click report</a>
+        </article>
+        <article className="workflow-card">
+          <span>Audience</span>
+          <strong>{formatInt(totalAudienceReach)} reachable</strong>
+          <p>Saved audiences are ready for campaign comparison and targeting analysis.</p>
+          <a href="/admin/audiences">Compare audiences</a>
+        </article>
+        <article className="workflow-card">
+          <span>Automation</span>
+          <strong>{formatInt(activeEnrollments)} active enrollments</strong>
+          <p>Journey health can be reviewed beside campaign and audience performance.</p>
+          <a href="/admin/journeys">Open journeys</a>
+        </article>
+      </section>
+      <section className="panel summary-panel">
         <div className="panel-head"><h2>Campaign Performance</h2><a href="/admin/analytics">Open analytics</a></div>
-        <p className="large-number">{formatInt(campaigns.reduce((sum, item) => sum + item.sent_count, 0))}</p>
+        <p className="large-number">{formatInt(totalSent)}</p>
         <span className="muted">sent across {formatInt(campaigns.length)} campaigns</span>
       </section>
-      <section className="panel">
+      <section className="panel summary-panel">
         <div className="panel-head"><h2>Audience Reach</h2><a href="/admin/audiences">Open audiences</a></div>
-        <p className="large-number">{formatInt(audiences.reduce((sum, item) => sum + item.estimated_count, 0))}</p>
+        <p className="large-number">{formatInt(totalAudienceReach)}</p>
         <span className="muted">estimated contacts across saved audiences</span>
       </section>
-      <section className="panel">
+      <section className="panel summary-panel">
         <div className="panel-head"><h2>Journey Health</h2><a href="/admin/journeys">Open journeys</a></div>
-        <p className="large-number">{formatInt(journeys.reduce((sum, item) => sum + item.active_count, 0))}</p>
+        <p className="large-number">{formatInt(activeEnrollments)}</p>
         <span className="muted">active journey enrollments</span>
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Top Campaigns</h2><a href="/admin/campaigns">Manage campaigns</a></div>
+        {topCampaigns.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Open rate</th>
+                <th>Click rate</th>
+                <th>Failures</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topCampaigns.map((campaign) => (
+                <tr key={campaign.campaign_id}>
+                  <td>{campaign.name}</td>
+                  <td><span className="pill">{campaign.status}</span></td>
+                  <td>{formatInt(campaign.sent_count)}</td>
+                  <td>{formatPct(campaign.open_rate)}</td>
+                  <td>{formatPct(campaign.click_rate)}</td>
+                  <td>{formatInt(campaign.failed_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No campaign analytics yet" detail="Launch a test campaign to populate campaign comparison reports." actionHref="/admin/campaigns" actionLabel="Open Campaign Manager" />
+        )}
+      </section>
+      <section className="panel table-panel">
+        <div className="panel-head"><h2>Audience Comparison</h2><a href="/admin/audiences">Open audiences</a></div>
+        {topAudiences.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Audience</th>
+                <th>Reach</th>
+                <th>Open</th>
+                <th>Click</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topAudiences.map((audience) => (
+                <tr key={audience.audience_id}>
+                  <td>{audience.name}</td>
+                  <td>{formatInt(audience.estimated_count)}</td>
+                  <td>{formatPct(audience.open_rate)}</td>
+                  <td>{formatPct(audience.click_rate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No audience data yet" detail="Create audiences to compare reach and engagement." actionHref="/admin/audiences" actionLabel="Open Audience Builder" />
+        )}
+      </section>
+      <section className="panel table-panel">
+        <div className="panel-head"><h2>Journey Risk</h2><a href="/admin/journeys">Open journeys</a></div>
+        {journeyRisks.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Journey</th>
+                <th>Active</th>
+                <th>Failures</th>
+                <th>Queued</th>
+              </tr>
+            </thead>
+            <tbody>
+              {journeyRisks.map((journey) => (
+                <tr key={journey.journey_id}>
+                  <td>{journey.name}</td>
+                  <td>{formatInt(journey.active_count)}</td>
+                  <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
+                  <td>{formatInt(journey.queued_send_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No journey data yet" detail="Build a journey to add automation reporting." actionHref="/admin/journeys" actionLabel="Open Journey Manager" />
+        )}
       </section>
     </section>
   );
