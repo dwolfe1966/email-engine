@@ -2963,36 +2963,129 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
         <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
         <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Source</span>
-          <strong>{selectedSource?.name || 'No source selected'}</strong>
-          <p>Configure source type, schema fields, and sample rows for future heterogeneous-store integrations.</p>
-          <a href="#data">Open data sources</a>
-        </article>
-        <article className="workflow-card">
-          <span>Mapping</span>
-          <strong>{selectedMapping?.name || 'No mapping selected'}</strong>
-          <p>Map incoming rows into contact fields and attributes before importing contacts.</p>
-          <a href="#audience">Open audience</a>
-        </article>
-        <article className={`workflow-card ${validation && !validation.ok ? 'warn' : ''}`}>
-          <span>Validation</span>
-          <strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong>
-          <p>{validation ? [...validation.checks, ...validation.errors].slice(0, 2).join(' ') : 'Validate source configuration before running imports.'}</p>
-          <a href="#data">Open diagnostics</a>
-        </article>
-        <article className="workflow-card">
-          <span>Schema</span>
-          <strong>{schema ? `${formatInt(schema.fields.length)} fields` : 'Unknown'}</strong>
-          <p>{schema?.fields?.length ? schema.fields.slice(0, 5).map((field) => field.name).join(', ') : 'Discover schema to expose usable fields and sample rows.'}</p>
-          <a href="#templates">Use attributes in templates</a>
-        </article>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Data Sources</h2>
+            <span className="muted">Select a source before editing mappings or importing rows.</span>
+          </div>
+          <button className="link-button" onClick={() => {
+            setSelectedSourceId('');
+            setName('ESP Manual Contact Source');
+            setSourceType('manual');
+            setStatusValue('draft');
+            setConfigJson('{\n  "fields": ["email", "first_name", "last_name", "plan"],\n  "sample_rows": [\n    { "email": "sample@example.com", "first_name": "Sample", "last_name": "Contact", "plan": "trial" }\n  ]\n}');
+            setValidation(null);
+            setSchema(null);
+            setStatus('Ready to create a new data source.');
+          }}>New source</button>
+        </div>
+        {dataSources.length ? (
+          <table>
+            <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Mappings</th><th>Secret</th></tr></thead>
+            <tbody>
+              {dataSources.map((source) => (
+                <tr
+                  className={`selectable-row ${source.id === selectedSourceId ? 'selected-row' : ''}`}
+                  key={source.id}
+                  onClick={() => loadSource(source)}
+                >
+                  <td>{source.name}</td>
+                  <td><span className="pill">{source.source_type}</span></td>
+                  <td>{source.status}</td>
+                  <td>{formatInt(mappings.filter((mapping) => mapping.data_source_id === source.id).length)}</td>
+                  <td>{source.secret_ref || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No data sources" detail="Create a source to start importing contacts from CSV, manual rows, or external systems." actionHref="#data" actionLabel="Create source" />}
       </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Mappings</h2>
+            <span className="muted">{selectedSource ? `Mappings for ${selectedSource.name}` : 'Select a source to filter mappings.'}</span>
+          </div>
+          <button className="link-button" onClick={() => {
+            setSelectedMappingId('');
+            setMappingName('Contact import mapping');
+            setMappingJson('{\n  "email": "email",\n  "first_name": "first_name",\n  "last_name": "last_name",\n  "source": "source",\n  "attributes": {\n    "plan": "plan"\n  }\n}');
+            setStatus('Ready to create a new mapping.');
+          }} disabled={!selectedSourceId}>New mapping</button>
+        </div>
+        {sourceMappings.length ? (
+          <table>
+            <thead><tr><th>Mapping</th><th>Object</th><th>Fields</th><th>Source</th></tr></thead>
+            <tbody>
+              {sourceMappings.map((mapping) => (
+                <tr
+                  className={`selectable-row ${mapping.id === selectedMappingId ? 'selected-row' : ''}`}
+                  key={mapping.id}
+                  onClick={() => loadMapping(mapping)}
+                >
+                  <td>{mapping.name}</td>
+                  <td>{mapping.object_type}</td>
+                  <td>{formatInt(Object.keys(mapping.mapping || {}).length)}</td>
+                  <td>{selectedSource?.name || mapping.data_source_id.slice(0, 8)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No mappings for selected source" detail="Create a mapping to transform source rows into contacts." actionHref="#data" actionLabel="Create mapping" />}
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Import Jobs</h2>
+            <span className="muted">{formatInt(importJobs.length)} visible</span>
+          </div>
+          <a href="#contacts">Open contacts</a>
+        </div>
+        {importJobs.length ? (
+          <table>
+            <thead><tr><th>Created</th><th>Status</th><th>Object</th><th>Received</th><th>Imported</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Errors</th></tr></thead>
+            <tbody>
+              {importJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>{job.created_at}</td>
+                  <td><span className="pill">{job.status}</span></td>
+                  <td>{job.object_type}</td>
+                  <td>{formatInt(job.received_count)}</td>
+                  <td>{formatInt(job.imported_count)}</td>
+                  <td>{formatInt(job.created_count)}</td>
+                  <td>{formatInt(job.updated_count)}</td>
+                  <td>{formatInt(job.skipped_count)}</td>
+                  <td>{formatInt(job.errors?.length || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No import jobs" detail="Save a source and mapping, then run a dry run or import rows." actionHref="#data" actionLabel="Run import" />}
+      </section>
+      {(selectedSource || selectedMapping || validation || schema) ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedSource?.name || 'Selected Data Context'}</h2>
+              <span className="muted">Selected source and mapping summary</span>
+            </div>
+            <a href="#audience">Open audience</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Source type</span><strong>{selectedSource?.source_type || '-'}</strong></div>
+            <div><span>Source status</span><strong>{selectedSource?.status || '-'}</strong></div>
+            <div><span>Mapping</span><strong>{selectedMapping?.name || '-'}</strong></div>
+            <div><span>Validation</span><strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong></div>
+            <div><span>Schema fields</span><strong>{schema ? formatInt(schema.fields.length) : 'Unknown'}</strong></div>
+            <div><span>Sample rows</span><strong>{schema ? formatInt(schema.sample_rows.length) : 'Unknown'}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Data Operations</h2>
-          <a href="#data">Open data sources</a>
+          <h2>Data Operations</h2>
+          <a href="#contacts">Open contacts</a>
         </div>
         <div className="form-grid">
           <label>
@@ -3085,29 +3178,6 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
           </table>
         </section>
       ) : null}
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Import Jobs</h2><span className="muted">{formatInt(importJobs.length)} visible</span></div>
-        {importJobs.length ? (
-          <table>
-            <thead><tr><th>Created</th><th>Status</th><th>Object</th><th>Received</th><th>Imported</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Errors</th></tr></thead>
-            <tbody>
-              {importJobs.map((job) => (
-                <tr key={job.id}>
-                  <td>{job.created_at}</td>
-                  <td><span className="pill">{job.status}</span></td>
-                  <td>{job.object_type}</td>
-                  <td>{formatInt(job.received_count)}</td>
-                  <td>{formatInt(job.imported_count)}</td>
-                  <td>{formatInt(job.created_count)}</td>
-                  <td>{formatInt(job.updated_count)}</td>
-                  <td>{formatInt(job.skipped_count)}</td>
-                  <td>{formatInt(job.errors?.length || 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No import jobs" detail="Save a source and mapping, then run a dry run or import rows." actionHref="/admin/data-sources" actionLabel="Open Data Sources" />}
-      </section>
     </section>
   );
 }
