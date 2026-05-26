@@ -16,6 +16,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/templates/draft',
         '/api/v1/ai/templates/edit',
         '/api/v1/ai/templates/recommend',
+        '/api/v1/ai/analytics/analyze',
+        '/api/v1/ai/campaigns/analyze',
         '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
         '/api/v1/templates',
@@ -275,6 +277,47 @@ def test_ai_analytics_analysis_contract() -> None:
     codes = {item['code'] for item in data['recommendations']}
     assert 'review_failed_delivery' in codes
     assert 'strengthen_cta' in codes
+
+
+def test_ai_campaign_analysis_contract() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/campaigns/analyze',
+        json={
+            'campaign_context': {
+                'campaign': {'id': 'campaign-a', 'name': 'Launch test', 'status': 'draft'},
+                'template': {'id': 'template-a', 'name': 'Trial template'},
+                'validation': {
+                    'ok': False,
+                    'errors': ['Template is missing required field'],
+                    'warnings': [],
+                    'missing_variables': ['first_name'],
+                },
+                'audience_preview': {'estimated_count': 0, 'sample_contacts': []},
+                'analytics': {
+                    'sent_count': 100,
+                    'opened_count': 10,
+                    'clicked_count': 1,
+                    'failed_count': 3,
+                    'open_rate': 0.1,
+                    'click_rate': 0.01,
+                    'bounce_rate': 0.02,
+                },
+                'latest_send_record': None,
+            },
+            'goals': ['Assess launch readiness'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['provider'] == 'email-engine'
+    assert data['model'] == 'deterministic-campaign-analysis-v1'
+    assert data['summary']
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'fix_launch_validation' in codes
+    assert 'repair_audience_targeting' in codes
+    assert 'triage_delivery_risk' in codes
 
 
 def test_template_editor_page() -> None:
@@ -756,6 +799,8 @@ def test_admin_pages() -> None:
     assert 'Approve' in campaigns.text
     assert 'AI Campaign Review' in campaigns.text
     assert 'AI Review' in campaigns.text
+    assert '/api/v1/ai/campaigns/analyze' in campaigns.text
+    assert 'Assess campaign workflow readiness' in campaigns.text
     assert 'Use in Template Editor' in campaigns.text
     assert 'templateEditorAiUrl' in campaigns.text
     assert 'Process Due' in campaigns.text

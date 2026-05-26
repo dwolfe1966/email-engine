@@ -2864,35 +2864,34 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
     }
 
     async function reviewCampaignWithAi() {
-      const template = selectedTemplate();
-      if (!template) {
-        writeResult("Select a template first.", false);
+      if (!selectedId) {
+        writeResult("Save or select a campaign first.", false);
         return;
       }
-      const sampleVariables = await sampleVariablesForTemplate(template.id);
-      const variables = { ...sampleVariables, ...parseJson("variables", {}) };
-      const audience = selectedAudience();
+      const button = document.getElementById("aiReview");
+      button.disabled = true;
+      button.textContent = "Reviewing...";
       const goals = [
-        "Improve this campaign template for test-mode launch readiness.",
-        "Preserve Jinja variables, loops, tracking links, and unsubscribe behavior.",
-        "Look for subject, CTA, personalization, rendering, and compliance improvements."
+        "Assess campaign workflow readiness.",
+        "Recommend next steps for test send, launch, delivery, and analytics.",
+        "Identify audience, template, validation, and performance risks."
       ];
-      const data = await request("/api/v1/ai/templates/recommend", {
-        method: "POST",
-        body: JSON.stringify({
-          current_subject: template.subject,
-          current_html: template.html_body,
-          current_css: template.css_body,
-          current_text: template.text_body,
-          sample_variables: variables,
-          goals,
-          audience_summary: [
-            `Campaign: ${document.getElementById("name").value.trim() || selectedId || "unsaved"}`,
-            audience ? `Audience: ${audience.name}` : "Audience: rule query",
-          ].join(" - ")
-        })
-      });
-      renderAiReview(data);
+      try {
+        const workflow = await request(`/api/v1/campaigns/${selectedId}/workflow-status`);
+        renderWorkflowSteps(workflow);
+        renderReadiness(workflow);
+        const data = await request("/api/v1/ai/campaigns/analyze", {
+          method: "POST",
+          body: JSON.stringify({
+            campaign_context: workflow,
+            goals,
+          })
+        });
+        renderAiReview(data);
+      } finally {
+        button.disabled = false;
+        button.textContent = "AI Review";
+      }
     }
 
     async function testSendCampaign() {

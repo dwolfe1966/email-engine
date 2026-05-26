@@ -35,6 +35,9 @@ from email_platform.schemas.contracts import (
     AIAnalyticsAnalysisRead,
     AIAnalyticsAnalysisRequest,
     AIAnalyticsRecommendationRead,
+    AICampaignAnalysisRead,
+    AICampaignAnalysisRequest,
+    AICampaignRecommendationRead,
     AITemplateDraftRead,
     AITemplateDraftRequest,
     AITemplateEditRequest,
@@ -1036,6 +1039,171 @@ def _deterministic_analytics_analysis(
     return AIAnalyticsAnalysisRead(summary=summary, recommendations=recommendations)
 
 
+def _mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _deterministic_campaign_analysis(
+    payload: AICampaignAnalysisRequest,
+) -> AICampaignAnalysisRead:
+    context = payload.campaign_context or {}
+    campaign = _mapping(context.get('campaign'))
+    template = _mapping(context.get('template'))
+    validation = _mapping(context.get('validation'))
+    audience = _mapping(context.get('audience_preview'))
+    analytics = _mapping(context.get('analytics'))
+    latest_send_record = _mapping(context.get('latest_send_record'))
+    recommendations: list[AICampaignRecommendationRead] = []
+
+    def add(
+        code: str,
+        category: str,
+        priority: str,
+        title: str,
+        detail: str,
+        suggested_instruction: str,
+        confidence: float,
+    ) -> None:
+        recommendations.append(
+            AICampaignRecommendationRead(
+                code=code,
+                category=category,
+                priority=priority,
+                title=title,
+                detail=detail,
+                suggested_instruction=suggested_instruction,
+                confidence=confidence,
+            )
+        )
+
+    errors = [str(item) for item in _list(validation.get('errors'))]
+    warnings = [str(item) for item in _list(validation.get('warnings'))]
+    missing_variables = [str(item) for item in _list(validation.get('missing_variables'))]
+    estimated_count = int(_number(audience.get('estimated_count')))
+    sent_count = int(_number(analytics.get('sent_count')))
+    opened_count = int(_number(analytics.get('opened_count')))
+    clicked_count = int(_number(analytics.get('clicked_count')))
+    failed_count = int(_number(analytics.get('failed_count')))
+    open_rate = _number(analytics.get('open_rate'))
+    click_rate = _number(analytics.get('click_rate'))
+    bounce_rate = _number(analytics.get('bounce_rate'))
+
+    if not template:
+        add(
+            'select_template',
+            'setup',
+            'high',
+            'Select a campaign template',
+            'The campaign context does not include a usable template.',
+            'Choose a template before previewing, testing, or launching this campaign.',
+            0.98,
+        )
+    if errors or missing_variables:
+        add(
+            'fix_launch_validation',
+            'readiness',
+            'high',
+            'Fix launch validation blockers',
+            '; '.join([*errors, *[f'Missing variable: {name}' for name in missing_variables]][:4])
+            or 'Campaign validation is not ready.',
+            'Resolve validation errors and provide missing launch variables before approving or launching.',
+            0.96,
+        )
+    if estimated_count <= 0:
+        add(
+            'repair_audience_targeting',
+            'audience',
+            'high',
+            'Repair audience targeting',
+            'The campaign audience preview returned no matched contacts.',
+            'Open Audience Builder, preview contacts, and adjust constraints until matched contacts are visible.',
+            0.94,
+        )
+    if not latest_send_record:
+        add(
+            'send_test_email',
+            'testing',
+            'medium',
+            'Send a real test email',
+            'No latest send record is present for this campaign workflow.',
+            'Use Test Send with a controlled recipient and inspect delivery, rendered variables, open, and click tracking.',
+            0.86,
+        )
+    if warnings:
+        add(
+            'review_validation_warnings',
+            'readiness',
+            'medium',
+            'Review validation warnings',
+            '; '.join(warnings[:4]),
+            'Address warnings where practical before scaling beyond test mode.',
+            0.78,
+        )
+    if failed_count > 0 or bounce_rate > 0:
+        add(
+            'triage_delivery_risk',
+            'delivery',
+            'high' if failed_count > 0 else 'medium',
+            'Triage delivery risk',
+            f'Analytics show {failed_count} failed send(s) and {round(bounce_rate * 100, 1)}% bounce rate.',
+            'Open Delivery Manager and Domain Deliverability to inspect failed records and suppression opportunities.',
+            0.9,
+        )
+    if sent_count > 0 and open_rate < 0.15:
+        add(
+            'test_subject_variant',
+            'optimization',
+            'medium',
+            'Test a stronger subject line',
+            f'Open rate is {round(open_rate * 100, 1)}% for this campaign context.',
+            'Use Template Editor AI to create a subject/body variant and compare it with this campaign baseline.',
+            0.74,
+        )
+    if sent_count > 0 and click_rate < 0.03:
+        add(
+            'improve_campaign_cta',
+            'optimization',
+            'medium',
+            'Improve the primary CTA',
+            f'Click rate is {round(click_rate * 100, 1)}% for this campaign context.',
+            'Use Template Editor AI to clarify the offer, move the CTA higher, and keep one primary action.',
+            0.78,
+        )
+    if not recommendations:
+        add(
+            'ready_for_controlled_launch',
+            'readiness',
+            'low',
+            'Ready for controlled launch',
+            'No major campaign workflow blocker is visible in the selected context.',
+            'Approve the campaign, run a dry run, then launch to a controlled audience before broad rollout.',
+            0.7,
+        )
+
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    recommendations = sorted(
+        recommendations,
+        key=lambda item: (priority_order.get(item.priority, 9), -item.confidence, item.code),
+    )[:8]
+    summary = [
+        f'Campaign: {campaign.get("name") or campaign.get("id") or "selected campaign"}.',
+        f'Audience matched contacts: {estimated_count}.',
+        f'Analytics: {sent_count} sent, {opened_count} opened, {clicked_count} clicked, {failed_count} failed.',
+        f'{len(recommendations)} recommendation(s) generated.',
+    ]
+    if payload.goals:
+        summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
+    return AICampaignAnalysisRead(
+        summary=summary,
+        recommendations=recommendations,
+        validation=dict(validation),
+    )
+
+
 @router.post('/ai/templates/draft', response_model=AITemplateDraftRead)
 def draft_template_with_ai(
     payload: AITemplateDraftRequest,
@@ -1165,6 +1333,13 @@ def analyze_analytics_with_ai(
     payload: AIAnalyticsAnalysisRequest,
 ) -> AIAnalyticsAnalysisRead:
     return _deterministic_analytics_analysis(payload)
+
+
+@router.post('/ai/campaigns/analyze', response_model=AICampaignAnalysisRead)
+def analyze_campaign_with_ai(
+    payload: AICampaignAnalysisRequest,
+) -> AICampaignAnalysisRead:
+    return _deterministic_campaign_analysis(payload)
 
 
 def _tracking_request_metadata(request: Request) -> JsonObject:
