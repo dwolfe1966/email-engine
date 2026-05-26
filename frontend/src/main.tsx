@@ -802,6 +802,128 @@ function QuickCreate() {
   );
 }
 
+function OverviewPage({ dashboard, metrics, campaigns }: {
+  dashboard: DashboardState;
+  metrics: Metric[];
+  campaigns: Campaign[];
+}) {
+  const queuedRecords = dashboard.sendRecords.filter((record) => record.status === 'queued').length;
+  const failedRecords = dashboard.sendRecords.filter((record) => record.status === 'failed').length;
+  const activeJobs = dashboard.sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
+  const failedImports = dashboard.importJobs.filter((job) => job.status === 'failed').length;
+  const importedRows = dashboard.importJobs.reduce((sum, job) => sum + Number(job.imported_count || 0), 0);
+  const activeEnrollments = dashboard.journeyEnrollments.filter((enrollment) => enrollment.status === 'active').length;
+  const failedExecutions = dashboard.journeyExecutions.filter((execution) => execution.status === 'failed').length;
+  const attributeKeys = dashboard.contactMeta?.attribute_keys || [];
+  const topSource = dashboard.contactMeta?.sources?.[0];
+  const provider = dashboard.diagnostics?.email_provider.provider || 'unknown';
+  const providerReady = Boolean(
+    dashboard.diagnostics?.email_provider.smtp_configured ||
+    dashboard.diagnostics?.email_provider.sendgrid_configured ||
+    provider === 'console',
+  );
+  const schemaOk = Boolean(dashboard.diagnostics?.schema.ok);
+  const riskItems = [
+    {
+      title: queuedRecords ? 'Delivery queue needs processing' : 'Delivery queue is clear',
+      detail: queuedRecords ? `${formatInt(queuedRecords)} queued records are visible.` : 'No queued records in the current result set.',
+      href: '#delivery',
+      tone: queuedRecords ? 'warn' : 'good',
+    },
+    {
+      title: failedRecords ? 'Failed send records visible' : 'No failed sends visible',
+      detail: failedRecords ? `${formatInt(failedRecords)} records can be reviewed or requeued.` : 'No failed send records in the current result set.',
+      href: '#delivery',
+      tone: failedRecords ? 'warn' : 'good',
+    },
+    {
+      title: dashboard.suppressions.length ? 'Suppressions active' : 'No suppressions visible',
+      detail: `${formatInt(dashboard.suppressions.length)} suppression rows loaded for compliance review.`,
+      href: '#compliance',
+      tone: dashboard.suppressions.length ? 'warn' : 'good',
+    },
+    {
+      title: failedExecutions ? 'Journey execution failures' : 'Journey executions healthy',
+      detail: failedExecutions ? `${formatInt(failedExecutions)} failed executions require review.` : `${formatInt(activeEnrollments)} active enrollments visible.`,
+      href: '#automations',
+      tone: failedExecutions ? 'warn' : 'good',
+    },
+  ];
+
+  return (
+    <>
+      <section className="metric-grid">
+        {metrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
+      </section>
+      <section className="workflow-grid full-span">
+        <article className={`workflow-card ${providerReady ? '' : 'warn'}`}>
+          <span>Provider</span>
+          <strong>{providerLabel(provider)}</strong>
+          <p>{providerReady ? 'Outbound provider path is configured for sends.' : 'Outbound provider configuration needs review before live sends.'}</p>
+          <a href="#integrations">Open integrations</a>
+        </article>
+        <article className={`workflow-card ${schemaOk ? '' : 'warn'}`}>
+          <span>System</span>
+          <strong>{schemaOk ? 'Schema ready' : 'Schema review'}</strong>
+          <p>{dashboard.diagnostics?.schema.current_revision || 'No schema revision reported.'}</p>
+          <a href="#settings">Open diagnostics</a>
+        </article>
+        <article className={`workflow-card ${activeJobs || queuedRecords ? 'warn' : ''}`}>
+          <span>Delivery</span>
+          <strong>{formatInt(activeJobs)} active jobs</strong>
+          <p>{formatInt(queuedRecords)} queued and {formatInt(failedRecords)} failed records visible.</p>
+          <a href="#delivery">Open delivery</a>
+        </article>
+        <article className={`workflow-card ${failedImports ? 'warn' : ''}`}>
+          <span>Data</span>
+          <strong>{formatInt(importedRows)} imported</strong>
+          <p>{formatInt(dashboard.dataSources.length)} sources, {formatInt(dashboard.dataMappings.length)} mappings, {formatInt(failedImports)} failed jobs.</p>
+          <a href="#data">Open data</a>
+        </article>
+      </section>
+      <section className="dashboard-grid">
+        <section className="panel">
+          <div className="panel-head"><h2>Operations Radar</h2><a href="#analytics">Reports</a></div>
+          <div className="insights">
+            {riskItems.map((item) => (
+              <article className={`insight ${item.tone === 'warn' ? 'warn' : 'good'}`} key={item.title}>
+                <Icon label={item.title} />
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                  <a className="link-button" href={item.href}>Review</a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-head"><h2>Audience Readiness</h2><a href="#contacts">Contacts</a></div>
+          <p className="large-number">{formatInt(dashboard.contactMeta?.total || dashboard.contacts.length)}</p>
+          <span className="muted">contacts across {formatInt(dashboard.contactMeta?.sources.length || 0)} sources</span>
+          <div className="module-links">
+            <a href="#contacts">{formatInt(attributeKeys.length)} attribute keys</a>
+            <a href="#audience">{formatInt(dashboard.audienceItems.length)} audiences</a>
+            <a href="#data">{topSource ? `${topSource.source}: ${formatInt(topSource.count)}` : 'No top source'}</a>
+          </div>
+        </section>
+      </section>
+      <section className="lower-grid">
+        <CampaignTable campaigns={campaigns} />
+        <section className="panel quick-create">
+          <h2>Run Workflow</h2>
+          <a href="#data">Import contacts</a>
+          <a href="#templates">Create template</a>
+          <a href="#audience">Build audience</a>
+          <a href="#campaigns">Launch campaign</a>
+          <a href="#automations">Enroll journey</a>
+          <a href="#analytics">Review reports</a>
+        </section>
+      </section>
+    </>
+  );
+}
+
 function EmptyState({ title, detail, actionHref, actionLabel }: {
   title: string;
   detail: string;
@@ -4028,19 +4150,7 @@ function App() {
       );
     }
     return (
-      <>
-        <section className="metric-grid">
-          {liveMetrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
-        </section>
-        <section className="dashboard-grid">
-          <PerformanceChart />
-          <InsightsPanel insights={dashboard.aiInsights} />
-        </section>
-        <section className="lower-grid">
-          <CampaignTable campaigns={liveCampaigns} />
-          <QuickCreate />
-        </section>
-      </>
+      <OverviewPage dashboard={dashboard} metrics={liveMetrics} campaigns={liveCampaigns} />
     );
   })();
 
