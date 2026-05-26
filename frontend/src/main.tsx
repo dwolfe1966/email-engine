@@ -481,8 +481,45 @@ function EmptyState({ title, detail, actionHref, actionLabel }: {
 }
 
 function CampaignsPage({ campaigns }: { campaigns: CampaignPerformance[] }) {
+  const totalRequested = campaigns.reduce((sum, item) => sum + Number(item.requested_count || 0), 0);
+  const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
+  const totalFailures = campaigns.reduce((sum, item) => sum + Number(item.failed_count || 0), 0);
+  const bestOpen = campaigns.reduce<CampaignPerformance | null>((best, item) =>
+    !best || Number(item.open_rate || 0) > Number(best.open_rate || 0) ? item : best, null);
   return (
     <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Campaigns', value: formatInt(campaigns.length), change: 'live rows' }} />
+        <MetricCard metric={{ label: 'Requested', value: formatInt(totalRequested), change: 'targeted sends' }} />
+        <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
+        <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Next action</span>
+          <strong>Create campaign</strong>
+          <p>Use the workbench to attach template, audience, test variables, and launch readiness checks.</p>
+          <a href="/admin/campaigns">Open Campaign Manager</a>
+        </article>
+        <article className="workflow-card">
+          <span>Content</span>
+          <strong>Template builder</strong>
+          <p>Generate or edit dynamic Jinja templates before pairing them with campaign audiences.</p>
+          <a href="/template-editor">Open Template Editor</a>
+        </article>
+        <article className={`workflow-card ${totalFailures ? 'warn' : ''}`}>
+          <span>Health</span>
+          <strong>{totalFailures ? 'Delivery review needed' : 'No failures visible'}</strong>
+          <p>{totalFailures ? 'Review failed records before scaling sends.' : 'No campaign failures are visible in this page of results.'}</p>
+          <a href="/admin/delivery">Open Delivery Manager</a>
+        </article>
+        <article className="workflow-card">
+          <span>Benchmark</span>
+          <strong>{bestOpen ? `${formatPct(bestOpen.open_rate)} open rate` : 'No benchmark yet'}</strong>
+          <p>{bestOpen ? `${bestOpen.name} is the current open-rate benchmark.` : 'Send a test campaign to establish a benchmark.'}</p>
+          <a href="/admin/analytics">Open Analytics</a>
+        </article>
+      </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <h2>Campaign Manager</h2>
