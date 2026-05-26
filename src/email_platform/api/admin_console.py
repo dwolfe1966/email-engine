@@ -56,6 +56,11 @@ def admin_suppressions() -> str:
     return with_operation_feedback(ADMIN_SUPPRESSIONS_HTML)
 
 
+@router.get('/admin/system', response_class=HTMLResponse, include_in_schema=False)
+def admin_system() -> str:
+    return with_operation_feedback(ADMIN_SYSTEM_HTML)
+
+
 ADMIN_HOME_HTML = r"""<!doctype html>
 <html lang="en">
 <head>
@@ -168,6 +173,7 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <a href="/admin/suppressions">Suppressions</a>
       <a href="/admin/analytics">Analytics</a>
       <a href="/admin/data-sources">Data Sources</a>
+      <a href="/admin/system">System</a>
       <a href="/docs">Docs</a>
     </nav>
   </header>
@@ -216,6 +222,10 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       <strong>Data Sources</strong>
       <span>Manage source definitions, credentials references, mappings, and plans.</span>
     </a>
+    <a href="/admin/system">
+      <strong>System Diagnostics</strong>
+      <span>Check schema status, provider configuration, AI configuration, and entity counts.</span>
+    </a>
     <a href="/tester">
       <strong>Workflow Tester</strong>
       <span>Run manual send, campaign, delivery, suppression, and tracking workflows.</span>
@@ -247,6 +257,305 @@ ADMIN_HOME_HTML = r"""<!doctype html>
       }
     }
     loadSchemaStatus();
+  </script>
+</body>
+</html>"""
+
+
+ADMIN_SYSTEM_HTML = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Engine System Diagnostics</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #fff;
+      --text: #17202a;
+      --muted: #5b6673;
+      --line: #d8dee6;
+      --blue: #2563eb;
+      --green: #067647;
+      --red: #b42318;
+      --amber: #b54708;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 22px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; }
+    nav a, button {
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--blue);
+      cursor: pointer;
+      font-weight: 650;
+      padding: 8px 10px;
+      text-decoration: none;
+    }
+    button.primary { background: var(--blue); color: #fff; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1.2fr);
+      gap: 14px;
+      max-width: 1280px;
+      padding: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      min-width: 0;
+    }
+    .span-2 { grid-column: 1 / -1; }
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-left: 5px solid var(--line);
+    }
+    .status.ok { border-left-color: var(--green); }
+    .status.warn { border-left-color: var(--amber); }
+    .status.error { border-left-color: var(--red); }
+    .status strong { display: block; font-size: 18px; margin-bottom: 4px; }
+    .muted { color: var(--muted); line-height: 1.45; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .metric strong { font-size: 22px; }
+    .kv {
+      display: grid;
+      grid-template-columns: minmax(140px, 0.45fr) minmax(180px, 1fr);
+      gap: 8px 12px;
+      align-items: center;
+    }
+    .kv div {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .kv div:nth-child(odd) { color: var(--muted); }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .pill.ok { border-color: var(--green); color: var(--green); }
+    .pill.warn { border-color: var(--amber); color: var(--amber); }
+    .pill.error { border-color: var(--red); color: var(--red); }
+    code, pre { font-family: var(--mono); }
+    pre {
+      margin: 0;
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #111827;
+      color: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    @media (max-width: 860px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { grid-template-columns: 1fr; }
+      .span-2 { grid-column: auto; }
+      .kv { grid-template-columns: 1fr; }
+      .kv div:nth-child(odd) { border-bottom: 0; padding-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Engine System Diagnostics</h1>
+    <nav>
+      <a href="/admin">Admin</a>
+      <a href="/tester">Tester</a>
+      <a href="/template-editor">Template Editor</a>
+      <a href="/admin/entities">Entity Workbench</a>
+      <a href="/admin/audience-import">Audience Import</a>
+      <a href="/admin/audiences">Audience Builder</a>
+      <a href="/admin/campaigns">Campaign Manager</a>
+      <a href="/admin/journeys">Journey Manager</a>
+      <a href="/admin/delivery">Delivery Manager</a>
+      <a href="/admin/suppressions">Suppressions</a>
+      <a href="/admin/analytics">Analytics</a>
+      <a href="/admin/data-sources">Data Sources</a>
+      <a href="/admin/system">System</a>
+      <a href="/docs">Docs</a>
+    </nav>
+  </header>
+  <main>
+    <section class="panel status span-2" id="statusPanel">
+      <div>
+        <strong>Loading diagnostics</strong>
+        <div class="muted">Checking schema, providers, AI configuration, and entity counts.</div>
+      </div>
+      <button class="primary" onclick="loadDiagnostics()">Refresh</button>
+    </section>
+
+    <section class="panel">
+      <h2>Schema</h2>
+      <div class="kv" id="schemaDetails"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Configuration</h2>
+      <div class="kv" id="configDetails"></div>
+    </section>
+
+    <section class="panel span-2">
+      <h2>Entity Counts</h2>
+      <div class="grid" id="entityCounts"></div>
+    </section>
+
+    <section class="panel span-2">
+      <h2>Raw Diagnostics</h2>
+      <pre id="rawJson">{}</pre>
+    </section>
+  </main>
+
+  <script>
+    function pill(ok, text) {
+      const cls = ok ? "ok" : "warn";
+      return `<span class="pill ${cls}">${text}</span>`;
+    }
+
+    function row(label, value) {
+      return `<div>${label}</div><div>${value ?? ""}</div>`;
+    }
+
+    function renderStatus(data) {
+      const panel = document.getElementById("statusPanel");
+      const schema = data.schema || {};
+      panel.classList.toggle("ok", Boolean(data.ok));
+      panel.classList.toggle("warn", !data.ok);
+      panel.classList.remove("error");
+      panel.innerHTML = `
+        <div>
+          <strong>${data.ok ? "System diagnostics healthy" : "System attention needed"}</strong>
+          <div class="muted">
+            Schema ${schema.current_revision || "none"} / ${schema.expected_revision || "unknown"}.
+            DB ${schema.db_reachable ? "reachable" : "not reachable"}.
+          </div>
+        </div>
+        <button class="primary" onclick="loadDiagnostics()">Refresh</button>
+      `;
+    }
+
+    function renderSchema(schema) {
+      document.getElementById("schemaDetails").innerHTML = [
+        row("Status", pill(schema.ok, schema.ok ? "Current" : "Needs migration")),
+        row("DB Reachable", pill(schema.db_reachable, schema.db_reachable ? "Yes" : "No")),
+        row("Current Revision", `<code>${schema.current_revision || "none"}</code>`),
+        row("Expected Revision", `<code>${schema.expected_revision || "unknown"}</code>`),
+        row("Migration Command", `<code>${schema.migration_command || "alembic upgrade head"}</code>`),
+      ].join("");
+    }
+
+    function renderConfig(data) {
+      const email = data.email_provider || {};
+      const ai = data.ai || {};
+      document.getElementById("configDetails").innerHTML = [
+        row("Environment", data.environment || ""),
+        row("Public Base URL", `<code>${data.public_base_url || ""}</code>`),
+        row("Email Provider", email.provider || ""),
+        row("Default From", email.default_from_email || ""),
+        row("SG Configured", pill(email.sendgrid_configured, email.sendgrid_configured ? "Yes" : "No")),
+        row("SMTP Configured", pill(email.smtp_configured, email.smtp_configured ? "Yes" : "No")),
+        row("AI Provider", ai.provider || ""),
+        row("AI Model", ai.model || ""),
+        row("OpenAI Configured", pill(ai.openai_configured, ai.openai_configured ? "Yes" : "No")),
+      ].join("");
+    }
+
+    function renderCounts(counts) {
+      const entries = Object.entries(counts || {});
+      document.getElementById("entityCounts").innerHTML = entries.length
+        ? entries.map(([key, value]) => `
+            <div class="metric">
+              <span>${key.replaceAll("_", " ")}</span>
+              <strong>${value}</strong>
+            </div>
+          `).join("")
+        : `<div class="muted">No entity counts available.</div>`;
+    }
+
+    async function loadDiagnostics() {
+      const statusPanel = document.getElementById("statusPanel");
+      statusPanel.classList.remove("ok", "warn", "error");
+      statusPanel.innerHTML = `
+        <div>
+          <strong>Loading diagnostics</strong>
+          <div class="muted">Checking current system status...</div>
+        </div>
+        <button class="primary" onclick="loadDiagnostics()">Refresh</button>
+      `;
+      try {
+        const response = await fetch("/api/v1/system/diagnostics");
+        const data = await response.json();
+        if (!response.ok) throw new Error(JSON.stringify(data));
+        renderStatus(data);
+        renderSchema(data.schema || {});
+        renderConfig(data);
+        renderCounts(data.entity_counts || {});
+        document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        statusPanel.classList.add("error");
+        statusPanel.innerHTML = `
+          <div>
+            <strong>Diagnostics unavailable</strong>
+            <div class="muted">${error.message}</div>
+          </div>
+          <button class="primary" onclick="loadDiagnostics()">Retry</button>
+        `;
+      }
+    }
+
+    loadDiagnostics();
   </script>
 </body>
 </html>"""

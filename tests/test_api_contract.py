@@ -281,6 +281,13 @@ def test_template_editor_page() -> None:
     assert admin.status_code == 200
     assert 'Schema status' in admin.text
     assert '/api/v1/system/diagnostics' in admin.text
+    assert '/admin/system' in admin.text
+    system = client.get('/admin/system')
+    assert system.status_code == 200
+    assert 'Email Engine System Diagnostics' in system.text
+    assert '/api/v1/system/diagnostics' in system.text
+    assert 'Entity Counts' in system.text
+    assert 'Raw Diagnostics' in system.text
     assert 'mergeRanges' in response.text
     assert 'html (raw Jinja)' in response.text
     assert 'htmlToDesignBlocks(template.html_body || "")' in response.text
