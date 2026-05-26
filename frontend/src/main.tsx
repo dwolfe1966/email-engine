@@ -2437,36 +2437,96 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         <MetricCard metric={{ label: 'Failed records', value: formatInt(failedRecords), change: 'needs review', tone: failedRecords ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Progress', value: progress ? formatPct(progress.percent_complete) : 'n/a', change: progress ? `${formatInt(progress.active_count)} active` : 'select a job' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className={`workflow-card ${queuedRecords ? 'warn' : ''}`}>
-          <span>Queue</span>
-          <strong>{formatInt(queuedRecords)} queued</strong>
-          <p>Process campaign and journey send records in controlled batches from this workspace.</p>
-          <a href="#delivery">Open Delivery Manager</a>
-        </article>
-        <article className={`workflow-card ${failedRecords ? 'warn' : ''}`}>
-          <span>Recovery</span>
-          <strong>{formatInt(failedRecords)} failed</strong>
-          <p>Review failed records, requeue recoverable sends, or skip records that should not retry.</p>
-          <a href="#delivery">Inspect records</a>
-        </article>
-        <article className="workflow-card">
-          <span>Campaign</span>
-          <strong>{selectedCampaign?.name || 'No campaign selected'}</strong>
-          <p>Send job and record selectors are connected to campaign IDs for launch follow-up.</p>
-          <a href="#campaigns">Open campaigns</a>
-        </article>
-        <article className="workflow-card">
-          <span>Tracking</span>
-          <strong>Links and events</strong>
-          <p>Inspect generated tracking links on individual records before reviewing analytics.</p>
-          <a href="#analytics">Open analytics</a>
-        </article>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Send Jobs</h2>
+            <span className="muted">Select a job to review queue progress and process records.</span>
+          </div>
+          <button className="link-button" onClick={loadProgress} disabled={busy || !selectedJobId}>Load progress</button>
+        </div>
+        {sendJobs.length ? (
+          <table>
+            <thead><tr><th>Job</th><th>Campaign</th><th>Status</th><th>Requested</th><th>Queued</th><th>Suppressed</th></tr></thead>
+            <tbody>
+              {sendJobs.map((job) => (
+                <tr
+                  className={`selectable-row ${job.id === selectedJobId ? 'selected-row' : ''}`}
+                  key={job.id}
+                  onClick={() => {
+                    setSelectedJobId(job.id);
+                    setProgress(null);
+                  }}
+                >
+                  <td>{job.id.slice(0, 8)}</td>
+                  <td>{campaigns.find((campaign) => campaign.id === job.campaign_id)?.name || job.campaign_id.slice(0, 8)}</td>
+                  <td><span className="pill">{job.status}</span></td>
+                  <td>{formatInt(job.requested_count)}</td>
+                  <td>{formatInt(job.queued_count)}</td>
+                  <td>{formatInt(job.suppressed_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No send jobs" detail="Launch or dry-run a campaign to create send jobs for delivery review." actionHref="#campaigns" actionLabel="Open Campaigns" />}
       </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Send Records</h2>
+            <span className="muted">Select a record to requeue, skip, inspect attempts, or load tracking links.</span>
+          </div>
+          <button className="link-button" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking links</button>
+        </div>
+        {sendRecords.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Status</th><th>Campaign</th><th>Job</th><th>Provider</th><th>Attempts</th><th>Next retry</th></tr></thead>
+            <tbody>
+              {sendRecords.map((record) => (
+                <tr
+                  className={`selectable-row ${record.id === selectedRecordId ? 'selected-row' : ''}`}
+                  key={record.id}
+                  onClick={() => {
+                    setSelectedRecordId(record.id);
+                    setTrackingLinks(null);
+                  }}
+                >
+                  <td>{record.to_email}</td>
+                  <td><span className="pill">{record.status}</span></td>
+                  <td>{campaigns.find((campaign) => campaign.id === record.campaign_id)?.name || record.campaign_id.slice(0, 8)}</td>
+                  <td>{record.send_job_id ? record.send_job_id.slice(0, 8) : '-'}</td>
+                  <td>{providerLabel(record.provider)}</td>
+                  <td>{record.attempt_count} / {record.max_attempts}</td>
+                  <td>{record.next_attempt_at || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No send records" detail="Launch a test campaign or process a journey to create send records." actionHref="#campaigns" actionLabel="Open Campaigns" />}
+      </section>
+      {(selectedJob || selectedRecord) ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>Selected Delivery Item</h2>
+              <span className="muted">{selectedCampaign?.name || 'No campaign context'}</span>
+            </div>
+            <a href="#campaigns">Open campaigns</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Job</span><strong>{selectedJob ? selectedJob.id.slice(0, 8) : '-'}</strong></div>
+            <div><span>Job status</span><strong>{selectedJob?.status || '-'}</strong></div>
+            <div><span>Requested</span><strong>{formatInt(selectedJob?.requested_count)}</strong></div>
+            <div><span>Record</span><strong>{selectedRecord ? selectedRecord.id.slice(0, 8) : '-'}</strong></div>
+            <div><span>Recipient</span><strong>{selectedRecord?.to_email || '-'}</strong></div>
+            <div><span>Record status</span><strong>{selectedRecord?.status || '-'}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Delivery Operations</h2>
-          <a href="#delivery">Open delivery</a>
+          <h2>Delivery Operations</h2>
+          <a href="#analytics">Open analytics</a>
         </div>
         <div className="form-grid">
           <label className="wide-field">
@@ -2537,47 +2597,6 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <pre className="json-preview">{JSON.stringify(trackingLinks, null, 2)}</pre>
         </section>
       ) : null}
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Send Jobs</h2><span className="muted">{formatInt(sendJobs.length)} visible</span></div>
-        {sendJobs.length ? (
-          <table>
-            <thead><tr><th>Job</th><th>Campaign</th><th>Status</th><th>Requested</th><th>Queued</th><th>Suppressed</th></tr></thead>
-            <tbody>
-              {sendJobs.map((job) => (
-                <tr key={job.id}>
-                  <td>{job.id.slice(0, 8)}</td>
-                  <td>{campaigns.find((campaign) => campaign.id === job.campaign_id)?.name || job.campaign_id.slice(0, 8)}</td>
-                  <td><span className="pill">{job.status}</span></td>
-                  <td>{formatInt(job.requested_count)}</td>
-                  <td>{formatInt(job.queued_count)}</td>
-                  <td>{formatInt(job.suppressed_count)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No send jobs" detail="Launch or dry-run a campaign to create send jobs for delivery review." actionHref="#campaigns" actionLabel="Open Campaigns" />}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Send Records</h2><span className="muted">{formatInt(sendRecords.length)} visible</span></div>
-        {sendRecords.length ? (
-          <table>
-            <thead><tr><th>Email</th><th>Status</th><th>Campaign</th><th>Job</th><th>Provider</th><th>Attempts</th><th>Next retry</th></tr></thead>
-            <tbody>
-              {sendRecords.map((record) => (
-                <tr key={record.id}>
-                  <td>{record.to_email}</td>
-                  <td><span className="pill">{record.status}</span></td>
-                  <td>{campaigns.find((campaign) => campaign.id === record.campaign_id)?.name || record.campaign_id.slice(0, 8)}</td>
-                  <td>{record.send_job_id ? record.send_job_id.slice(0, 8) : '-'}</td>
-                  <td>{providerLabel(record.provider)}</td>
-                  <td>{record.attempt_count} / {record.max_attempts}</td>
-                  <td>{record.next_attempt_at || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No send records" detail="Launch a test campaign or process a journey to create send records." actionHref="#campaigns" actionLabel="Open Campaigns" />}
-      </section>
     </section>
   );
 }
