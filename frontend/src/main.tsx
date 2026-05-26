@@ -2674,36 +2674,63 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
         <MetricCard metric={{ label: 'Unsubscribes', value: formatInt(unsubscribeCount), change: 'contact opt-outs', tone: unsubscribeCount ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Bounces', value: formatInt(bounceCount), change: `${formatInt(complaintCount)} complaints`, tone: bounceCount || complaintCount ? 'warn' : 'good' }} />
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Launch guard</span>
-          <strong>Suppress before send</strong>
-          <p>Campaign delivery checks suppression rows before queued records are sent.</p>
-          <a href="#campaigns">Open campaigns</a>
-        </article>
-        <article className={`workflow-card ${bounceCount || complaintCount ? 'warn' : ''}`}>
-          <span>Provider feedback</span>
-          <strong>{formatInt(bounceCount + complaintCount)} risk signals</strong>
-          <p>Hard bounces and complaints should be reviewed before audience expansion.</p>
-          <a href="#analytics">Open analytics</a>
-        </article>
-        <article className="workflow-card">
-          <span>Operations</span>
-          <strong>Manual controls</strong>
-          <p>Add manual suppressions for test recipients, internal exclusions, or known bad addresses.</p>
-          <a href="#compliance">Open suppressions</a>
-        </article>
-        <article className="workflow-card">
-          <span>Delivery</span>
-          <strong>{formatInt(failedWithEmail.length)} failed samples</strong>
-          <p>Use recent failed record emails as candidates for manual suppression review.</p>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <div>
+            <h2>Suppressions</h2>
+            <span className="muted">Select a suppression to inspect source, provider message, and delete controls.</span>
+          </div>
           <a href="#delivery">Open delivery</a>
-        </article>
+        </div>
+        {suppressions.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th></tr></thead>
+            <tbody>
+              {suppressions.map((item) => (
+                <tr
+                  className={`selectable-row ${item.id === selectedSuppressionId ? 'selected-row' : ''}`}
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedSuppressionId(item.id);
+                    setEmail(item.email);
+                    setReason(item.reason);
+                    setSource(item.source);
+                  }}
+                >
+                  <td>{item.email}</td>
+                  <td><span className="pill">{item.reason}</span></td>
+                  <td>{item.source}</td>
+                  <td>{item.provider_message_id || '-'}</td>
+                  <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No suppressions" detail="Create manual suppressions here or ingest provider feedback to populate compliance records." actionHref="#compliance" actionLabel="Add suppression" />}
       </section>
+      {selectedSuppression ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedSuppression.email}</h2>
+              <span className="muted">Selected suppression summary</span>
+            </div>
+            <a href="#campaigns">Open campaigns</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Reason</span><strong>{selectedSuppression.reason}</strong></div>
+            <div><span>Source</span><strong>{selectedSuppression.source}</strong></div>
+            <div><span>Provider message</span><strong>{selectedSuppression.provider_message_id || '-'}</strong></div>
+            <div><span>Contact</span><strong>{selectedSuppression.contact_id ? selectedSuppression.contact_id.slice(0, 8) : '-'}</strong></div>
+            <div><span>Metadata</span><strong>{Object.keys(selectedSuppression.metadata_json || {}).length ? 'Present' : 'None'}</strong></div>
+            <div><span>State</span><strong>Suppressed</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Compliance Operations</h2>
-          <a href="#compliance">Open suppressions</a>
+          <h2>Compliance Operations</h2>
+          <a href="#analytics">Open analytics</a>
         </div>
         <div className="form-grid">
           <label>
@@ -2755,25 +2782,6 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
             ))}
           </div>
         ) : null}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Suppressions</h2><span className="muted">{formatInt(suppressions.length)} visible</span></div>
-        {suppressions.length ? (
-          <table>
-            <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th></tr></thead>
-            <tbody>
-              {suppressions.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.email}</td>
-                  <td><span className="pill">{item.reason}</span></td>
-                  <td>{item.source}</td>
-                  <td>{item.provider_message_id || '-'}</td>
-                  <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No suppressions" detail="Create manual suppressions here or ingest provider feedback to populate compliance records." actionHref="/admin/suppressions" actionLabel="Open Suppressions" />}
       </section>
     </section>
   );
