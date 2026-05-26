@@ -337,6 +337,8 @@ type DashboardState = {
   templates: TemplateRead[];
   journeys: JourneyPerformance[];
   journeyItems: JourneyRead[];
+  journeyEnrollments: JourneyEnrollmentRead[];
+  journeyExecutions: JourneyStepExecutionRead[];
   diagnostics: SystemDiagnostics | null;
   aiInsights: Insight[];
   loading: boolean;
@@ -413,6 +415,32 @@ type JourneyRead = {
   exit_rule_tree: Record<string, unknown>;
   metadata_json: Record<string, unknown>;
   steps: JourneyStepRead[];
+};
+
+type JourneyEnrollmentRead = {
+  id: string;
+  journey_id: string;
+  contact_id: string;
+  current_step_id: string | null;
+  status: 'active' | 'completed' | 'exited' | 'paused' | 'failed';
+  variables: Record<string, unknown>;
+  due_at: string | null;
+  entered_at: string;
+  exited_at: string | null;
+  last_error: string | null;
+};
+
+type JourneyStepExecutionRead = {
+  id: string;
+  enrollment_id: string;
+  journey_id: string;
+  step_id: string;
+  contact_id: string;
+  status: 'completed' | 'failed' | 'skipped';
+  send_record_id: string | null;
+  metadata_json: Record<string, unknown>;
+  error_message: string | null;
+  executed_at: string;
 };
 
 type JourneyPerformance = {
@@ -1049,10 +1077,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, onRefre
   );
 }
 
-function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
+function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollments, executions, onRefresh }: {
   journeys: JourneyPerformance[];
   journeyItems: JourneyRead[];
   templates: TemplateRead[];
+  contacts: ContactRead[];
+  enrollments: JourneyEnrollmentRead[];
+  executions: JourneyStepExecutionRead[];
   onRefresh: () => Promise<void>;
 }) {
   const [selectedJourneyId, setSelectedJourneyId] = useState('');
@@ -1062,13 +1093,16 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
   const [exitRuleJson, setExitRuleJson] = useState('{}');
   const [templateId, setTemplateId] = useState('');
   const [stepName, setStepName] = useState('Send welcome email');
+  const [contactId, setContactId] = useState('');
+  const [enrollmentVariablesJson, setEnrollmentVariablesJson] = useState('{\n  "source": "esp_automation",\n  "plan": "trial"\n}');
   const [status, setStatus] = useState('Ready to create or update a journey.');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!selectedJourneyId && journeyItems.length) loadJourneyIntoEditor(journeyItems[0]);
     if (!templateId && templates.length) setTemplateId(templates[0].id);
-  }, [journeyItems, selectedJourneyId, templateId, templates]);
+    if (!contactId && contacts.length) setContactId(contacts[0].id);
+  }, [contactId, contacts, journeyItems, selectedJourneyId, templateId, templates]);
 
   const failures = journeys.reduce((sum, item) =>
     sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
@@ -1084,6 +1118,14 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
   }, null);
 
   const selectedJourney = journeyItems.find((item) => item.id === selectedJourneyId);
+  const selectedContact = contacts.find((item) => item.id === contactId);
+  const visibleEnrollments = selectedJourneyId
+    ? enrollments.filter((item) => item.journey_id === selectedJourneyId)
+    : enrollments;
+  const visibleExecutions = selectedJourneyId
+    ? executions.filter((item) => item.journey_id === selectedJourneyId)
+    : executions;
+  const failedExecutions = visibleExecutions.filter((item) => item.status === 'failed').length;
 
   function loadJourneyIntoEditor(journey: JourneyRead) {
     setSelectedJourneyId(journey.id);
@@ -1172,6 +1214,22 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
     });
   }
 
+  async function enrollContact() {
+    await runJourneyOperation('Enrolling contact', async () => {
+      if (!selectedJourneyId) throw new Error('Save or select a journey first.');
+      if (!contactId) throw new Error('Select a contact.');
+      const enrollment = await fetchJson<JourneyEnrollmentRead>(`/api/v1/journeys/${selectedJourneyId}/enrollments`, {
+        method: 'POST',
+        body: JSON.stringify({
+          contact_id: contactId,
+          variables: parseJsonObject(enrollmentVariablesJson, 'enrollment variables'),
+        }),
+      });
+      await onRefresh();
+      return `Enrolled ${selectedContact?.email || contactId}; status is ${enrollment.status}.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -1180,6 +1238,7 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
         <MetricCard metric={{ label: 'Completed', value: formatInt(completed), change: 'finished enrollments' }} />
         <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
@@ -1245,6 +1304,13 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
             Step name
             <input value={stepName} onChange={(event) => setStepName(event.target.value)} />
           </label>
+          <label>
+            Enrollment contact
+            <select value={contactId} onChange={(event) => setContactId(event.target.value)}>
+              <option value="">Select contact</option>
+              {contacts.map((contact) => <option value={contact.id} key={contact.id}>{contact.email}</option>)}
+            </select>
+          </label>
           <label className="wide-field">
             Entry rule JSON
             <textarea value={entryRuleJson} onChange={(event) => setEntryRuleJson(event.target.value)} rows={8} />
@@ -1253,17 +1319,81 @@ function AutomationsPage({ journeys, journeyItems, templates, onRefresh }: {
             Exit rule JSON
             <textarea value={exitRuleJson} onChange={(event) => setExitRuleJson(event.target.value)} rows={8} />
           </label>
+          <label className="wide-field">
+            Enrollment variables JSON
+            <textarea value={enrollmentVariablesJson} onChange={(event) => setEnrollmentVariablesJson(event.target.value)} rows={6} />
+          </label>
         </div>
         <div className="button-row">
           <button className="primary" onClick={saveJourney} disabled={busy}>Save Journey</button>
           <button className="ghost" onClick={addSendStep} disabled={busy || !selectedJourneyId || !templateId}>Add Send Step</button>
+          <button className="ghost" onClick={enrollContact} disabled={busy || !selectedJourneyId || !contactId}>Enroll Contact</button>
           <button className="ghost" onClick={processDue} disabled={busy}>Process Due</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
           {selectedJourney?.steps?.length ? <small>{selectedJourney.steps.map((step) => `${step.position + 1}. ${step.name}`).join(' | ')}</small> : null}
+          {selectedContact ? <small>Selected contact: {selectedContact.email}</small> : null}
         </div>
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <h2>Journey Enrollments</h2>
+          <span className="muted">{formatInt(visibleEnrollments.length)} visible</span>
+        </div>
+        {visibleEnrollments.length ? (
+          <table>
+            <thead><tr><th>Contact</th><th>Status</th><th>Current step</th><th>Due</th><th>Entered</th><th>Error</th></tr></thead>
+            <tbody>
+              {visibleEnrollments.slice(0, 12).map((enrollment) => {
+                const contact = contacts.find((item) => item.id === enrollment.contact_id);
+                const step = journeyItems.flatMap((journey) => journey.steps || []).find((item) => item.id === enrollment.current_step_id);
+                return (
+                  <tr key={enrollment.id}>
+                    <td>{contact?.email || enrollment.contact_id.slice(0, 8)}</td>
+                    <td><span className="pill">{enrollment.status}</span></td>
+                    <td>{step?.name || enrollment.current_step_id?.slice(0, 8) || '-'}</td>
+                    <td>{enrollment.due_at || '-'}</td>
+                    <td>{enrollment.entered_at}</td>
+                    <td>{enrollment.last_error || '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No enrollments visible" detail="Select a journey and contact, then enroll the contact to test journey execution." actionHref="#contacts" actionLabel="Open Contacts" />
+        )}
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <h2>Step Executions</h2>
+          <span className="muted">{formatInt(visibleExecutions.length)} visible / {formatInt(failedExecutions)} failed</span>
+        </div>
+        {visibleExecutions.length ? (
+          <table>
+            <thead><tr><th>Executed</th><th>Status</th><th>Step</th><th>Contact</th><th>Send record</th><th>Error</th></tr></thead>
+            <tbody>
+              {visibleExecutions.slice(0, 12).map((execution) => {
+                const contact = contacts.find((item) => item.id === execution.contact_id);
+                const step = journeyItems.flatMap((journey) => journey.steps || []).find((item) => item.id === execution.step_id);
+                return (
+                  <tr key={execution.id}>
+                    <td>{execution.executed_at}</td>
+                    <td><span className="pill">{execution.status}</span></td>
+                    <td>{step?.name || execution.step_id.slice(0, 8)}</td>
+                    <td>{contact?.email || execution.contact_id.slice(0, 8)}</td>
+                    <td>{execution.send_record_id ? execution.send_record_id.slice(0, 8) : '-'}</td>
+                    <td>{execution.error_message || '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No step executions visible" detail="Process due journey enrollments to create execution history." actionHref="#delivery" actionLabel="Open Delivery" />
+        )}
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
@@ -3546,6 +3676,8 @@ function App() {
     templates: [],
     journeys: [],
     journeyItems: [],
+    journeyEnrollments: [],
+    journeyExecutions: [],
     diagnostics: null,
     aiInsights: fallbackInsights,
     loading: true,
@@ -3565,7 +3697,7 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, dataSourceData, dataMappingData, importJobData, contactData, contactMeta, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, dataSourceData, dataMappingData, importJobData, contactData, contactMeta, audienceData, audienceItems, templateData, journeyData, journeyItems, journeyEnrollmentData, journeyExecutionData, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
@@ -3582,6 +3714,8 @@ function App() {
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
           fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
           fetchJson<ListResponse<JourneyRead>>('/api/v1/journeys/list?limit=25&offset=0'),
+          fetchJson<ListResponse<JourneyEnrollmentRead>>('/api/v1/journey-enrollments/list?limit=25&offset=0'),
+          fetchJson<ListResponse<JourneyStepExecutionRead>>('/api/v1/journey-step-executions/list?limit=25&offset=0'),
           fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics'),
         ]);
         let aiInsights = fallbackInsights;
@@ -3623,6 +3757,8 @@ function App() {
             templates: templateData.items || [],
             journeys: journeyData.items || [],
             journeyItems: journeyItems.items || [],
+            journeyEnrollments: journeyEnrollmentData.items || [],
+            journeyExecutions: journeyExecutionData.items || [],
             diagnostics,
             aiInsights,
             loading: false,
@@ -3648,6 +3784,8 @@ function App() {
             templates: [],
             journeys: [],
             journeyItems: [],
+            journeyEnrollments: [],
+            journeyExecutions: [],
             diagnostics: null,
             aiInsights: fallbackInsights,
             loading: false,
@@ -3697,15 +3835,24 @@ function App() {
           journeys={dashboard.journeys}
           journeyItems={dashboard.journeyItems}
           templates={dashboard.templates}
+          contacts={dashboard.contacts}
+          enrollments={dashboard.journeyEnrollments}
+          executions={dashboard.journeyExecutions}
           onRefresh={async () => {
-            const [journeyData, journeyItems] = await Promise.all([
+            const [journeyData, journeyItems, journeyEnrollmentData, journeyExecutionData, contactData] = await Promise.all([
               fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
               fetchJson<ListResponse<JourneyRead>>('/api/v1/journeys/list?limit=25&offset=0'),
+              fetchJson<ListResponse<JourneyEnrollmentRead>>('/api/v1/journey-enrollments/list?limit=25&offset=0'),
+              fetchJson<ListResponse<JourneyStepExecutionRead>>('/api/v1/journey-step-executions/list?limit=25&offset=0'),
+              fetchJson<ListResponse<ContactRead>>('/api/v1/audiences/contacts/list?limit=25&offset=0'),
             ]);
             setDashboard((current) => ({
               ...current,
               journeys: journeyData.items || [],
               journeyItems: journeyItems.items || [],
+              journeyEnrollments: journeyEnrollmentData.items || [],
+              journeyExecutions: journeyExecutionData.items || [],
+              contacts: contactData.items || [],
             }));
           }}
         />
