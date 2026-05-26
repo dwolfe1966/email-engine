@@ -72,12 +72,39 @@ type AIAnalyticsAnalysis = {
   }>;
 };
 
+type SystemDiagnostics = {
+  ok: boolean;
+  environment: string;
+  public_base_url: string;
+  schema: {
+    ok: boolean;
+    current_revision: string | null;
+    expected_revision: string | null;
+    needs_migration: boolean;
+  };
+  email_provider: {
+    provider: string;
+    default_from_email: string;
+    sendgrid_configured: boolean;
+    smtp_configured: boolean;
+  };
+  ai: {
+    provider: string;
+    model: string;
+    openai_configured: boolean;
+  };
+  entity_counts: Record<string, number>;
+  database_tables: string[];
+  errors: string[];
+};
+
 type DashboardState = {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
   audiences: AudiencePerformance[];
   templates: TemplateRead[];
   journeys: JourneyPerformance[];
+  diagnostics: SystemDiagnostics | null;
   aiInsights: Insight[];
   loading: boolean;
   error: string | null;
@@ -923,11 +950,45 @@ function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
   );
 }
 
-function AiStudioPage({ insights }: { insights: Insight[] }) {
+function AiStudioPage({ insights, diagnostics }: { insights: Insight[]; diagnostics: SystemDiagnostics | null }) {
+  const openAiReady = Boolean(diagnostics?.ai.openai_configured);
+  const provider = diagnostics?.ai.provider || 'auto';
+  const model = diagnostics?.ai.model || 'configured model';
   return (
     <section className="page-grid">
-      <section className="panel">
-        <div className="panel-head"><h2>AI Studio</h2><a href="/template-editor">Template AI</a></div>
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'AI provider', value: provider, change: openAiReady ? 'OpenAI configured' : 'deterministic fallback', tone: openAiReady ? 'good' : 'warn' }} />
+        <MetricCard metric={{ label: 'Model', value: model, change: 'template and analytics AI' }} />
+        <MetricCard metric={{ label: 'Recommendations', value: formatInt(insights.length), change: 'current insights' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Content</span>
+          <strong>Template builder</strong>
+          <p>Draft templates from a prompt, modify existing HTML/Jinja, and preserve variables for preview and sending.</p>
+          <a href="/template-editor">Open Template AI</a>
+        </article>
+        <article className="workflow-card">
+          <span>Campaigns</span>
+          <strong>Launch review</strong>
+          <p>Assess template, audience, delivery, and readiness risks before sending a campaign.</p>
+          <a href="/admin/campaigns">Review campaigns</a>
+        </article>
+        <article className="workflow-card">
+          <span>Audience</span>
+          <strong>Targeting recommendations</strong>
+          <p>Find missing fields, narrow segments, and targeting opportunities from audience data.</p>
+          <a href="/admin/audiences">Review audiences</a>
+        </article>
+        <article className="workflow-card">
+          <span>Performance</span>
+          <strong>Analytics analysis</strong>
+          <p>Generate next-best actions from campaign, audience, journey, and delivery signals.</p>
+          <a href="/admin/analytics">Analyze performance</a>
+        </article>
+      </section>
+      <section className="panel full-span">
+        <div className="panel-head"><h2>AI Insights</h2><a href="/admin/analytics">Open analytics</a></div>
         <div className="insights">
           {insights.map((item) => (
             <article className={`insight ${item.tone || ''}`} key={item.title}>
@@ -937,12 +998,129 @@ function AiStudioPage({ insights }: { insights: Insight[] }) {
           ))}
         </div>
       </section>
-      <section className="panel quick-create">
-        <h2>AI Workflows</h2>
-        <a href="/template-editor">Template builder</a>
-        <a href="/admin/campaigns">Campaign review</a>
-        <a href="/admin/audiences">Audience recommendations</a>
-        <a href="/admin/analytics">Performance analysis</a>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Available AI Endpoints</h2><a href="/docs">API docs</a></div>
+        <table>
+          <thead>
+            <tr><th>Capability</th><th>Endpoint</th><th>Workbench</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Draft template</td><td>/api/v1/ai/templates/draft</td><td><a href="/template-editor">Template Editor</a></td></tr>
+            <tr><td>Edit template</td><td>/api/v1/ai/templates/edit</td><td><a href="/template-editor">Template Editor</a></td></tr>
+            <tr><td>Campaign review</td><td>/api/v1/ai/campaigns/analyze</td><td><a href="/admin/campaigns">Campaign Manager</a></td></tr>
+            <tr><td>Audience review</td><td>/api/v1/ai/audiences/analyze</td><td><a href="/admin/audiences">Audience Builder</a></td></tr>
+            <tr><td>Journey review</td><td>/api/v1/ai/journeys/analyze</td><td><a href="/admin/journeys">Journey Manager</a></td></tr>
+            <tr><td>Delivery review</td><td>/api/v1/ai/delivery/analyze</td><td><a href="/admin/delivery">Delivery Manager</a></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+  );
+}
+
+function IntegrationsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+  const emailProvider = diagnostics?.email_provider.provider || 'unknown';
+  const smtpReady = Boolean(diagnostics?.email_provider.smtp_configured);
+  const sgReady = Boolean(diagnostics?.email_provider.sendgrid_configured);
+  const baseUrl = diagnostics?.public_base_url || 'not configured';
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Email provider', value: emailProvider, change: smtpReady ? 'SMTP configured' : sgReady ? 'SG configured' : 'console or pending', tone: smtpReady || sgReady || emailProvider === 'console' ? 'good' : 'warn' }} />
+        <MetricCard metric={{ label: 'Public URL', value: baseUrl.replace(/^https?:\/\//, ''), change: 'tracking and unsubscribe base' }} />
+        <MetricCard metric={{ label: 'Database tables', value: formatInt(diagnostics?.database_tables.length || 0), change: 'schema inventory' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Data</span>
+          <strong>Data sources</strong>
+          <p>Configure heterogeneous imports, preview mappings, and ingest source rows into contacts.</p>
+          <a href="/admin/data-sources">Open Data Sources</a>
+        </article>
+        <article className="workflow-card">
+          <span>Email</span>
+          <strong>Provider readiness</strong>
+          <p>Track SMTP and SG readiness without coupling the product workflow to one outbound provider.</p>
+          <a href="/admin/system">Open diagnostics</a>
+        </article>
+        <article className="workflow-card">
+          <span>Tracking</span>
+          <strong>Domains and events</strong>
+          <p>Review domain deliverability, opens, clicks, unsubscribes, and webhook event ingestion.</p>
+          <a href="/admin/analytics">Open reports</a>
+        </article>
+        <article className="workflow-card">
+          <span>Developer</span>
+          <strong>API surface</strong>
+          <p>Use OpenAPI docs to align SentientMail and other clients to Email Engine contracts.</p>
+          <a href="/docs">Open API docs</a>
+        </article>
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Integration Readiness</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
+        <table>
+          <thead><tr><th>Area</th><th>Status</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>Schema</td><td><span className="pill">{diagnostics?.schema.ok ? 'ready' : 'review'}</span></td><td>{diagnostics?.schema.needs_migration ? 'Migration required' : 'Current revision is deployed'}</td></tr>
+            <tr><td>SMTP</td><td><span className="pill">{smtpReady ? 'ready' : 'not configured'}</span></td><td>Managed SMTP provider path for future outbound infrastructure.</td></tr>
+            <tr><td>SG</td><td><span className="pill">{sgReady ? 'ready' : 'not configured'}</span></td><td>Current third-party provider readiness, abstracted behind provider interface.</td></tr>
+            <tr><td>AI</td><td><span className="pill">{diagnostics?.ai.openai_configured ? 'ready' : 'fallback'}</span></td><td>{diagnostics?.ai.model || 'Deterministic fallback available'}</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </section>
+  );
+}
+
+function SettingsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+  const counts = Object.entries(diagnostics?.entity_counts || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'System', value: diagnostics?.ok ? 'Healthy' : 'Review', change: diagnostics?.environment || 'environment unknown', tone: diagnostics?.ok ? 'good' : 'warn' }} />
+        <MetricCard metric={{ label: 'Schema', value: diagnostics?.schema.needs_migration ? 'Migration needed' : 'Current', change: diagnostics?.schema.current_revision || 'no revision', tone: diagnostics?.schema.needs_migration ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Errors', value: formatInt(diagnostics?.errors.length || 0), change: 'diagnostic findings', tone: diagnostics?.errors.length ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>System</span>
+          <strong>Diagnostics</strong>
+          <p>Inspect schema status, provider configuration, entity counts, tables, and columns.</p>
+          <a href="/admin/system">Open diagnostics</a>
+        </article>
+        <article className="workflow-card">
+          <span>Compliance</span>
+          <strong>Suppressions</strong>
+          <p>Manage unsubscribes, bounces, complaints, and suppression rules before campaign launch.</p>
+          <a href="/admin/suppressions">Open suppressions</a>
+        </article>
+        <article className="workflow-card">
+          <span>Testing</span>
+          <strong>Tester console</strong>
+          <p>Exercise API workflows, send test emails, and validate template rendering manually.</p>
+          <a href="/tester">Open tester</a>
+        </article>
+        <article className="workflow-card">
+          <span>Contracts</span>
+          <strong>API docs</strong>
+          <p>Review object models and endpoints used by the ESP admin and SentientMail GUI.</p>
+          <a href="/docs">Open docs</a>
+        </article>
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Entity Counts</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
+        {counts.length ? (
+          <table>
+            <thead><tr><th>Entity</th><th>Rows</th></tr></thead>
+            <tbody>
+              {counts.map(([name, count]) => <tr key={name}><td>{name}</td><td>{formatInt(count)}</td></tr>)}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No diagnostics loaded" detail="System diagnostics were not available to this page." actionHref="/admin/system" actionLabel="Open diagnostics" />
+        )}
       </section>
     </section>
   );
@@ -974,6 +1152,7 @@ function App() {
     audiences: [],
     templates: [],
     journeys: [],
+    diagnostics: null,
     aiInsights: fallbackInsights,
     loading: true,
     error: null,
@@ -992,12 +1171,13 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, audienceData, templateData, journeyData] = await Promise.all([
+        const [overview, campaignData, audienceData, templateData, journeyData, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
           fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
+          fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics'),
         ]);
         let aiInsights = fallbackInsights;
         try {
@@ -1027,6 +1207,7 @@ function App() {
             audiences: audienceData.items || [],
             templates: templateData.items || [],
             journeys: journeyData.items || [],
+            diagnostics,
             aiInsights,
             loading: false,
             error: null,
@@ -1040,6 +1221,7 @@ function App() {
             audiences: [],
             templates: [],
             journeys: [],
+            diagnostics: null,
             aiInsights: fallbackInsights,
             loading: false,
             error: error instanceof Error ? error.message : String(error),
@@ -1065,7 +1247,7 @@ function App() {
     if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
     if (activePage === 'audience') return <AudiencePage audiences={dashboard.audiences} />;
     if (activePage === 'templates') return <TemplatesPage templates={dashboard.templates} />;
-    if (activePage === 'ai-studio') return <AiStudioPage insights={dashboard.aiInsights} />;
+    if (activePage === 'ai-studio') return <AiStudioPage insights={dashboard.aiInsights} diagnostics={dashboard.diagnostics} />;
     if (activePage === 'analytics') {
       return (
         <AnalyticsPage
@@ -1076,32 +1258,8 @@ function App() {
         />
       );
     }
-    if (activePage === 'integrations') {
-      return (
-        <SimpleModulePage
-          title="Integrations"
-          detail="Manage data sources, field mappings, imports, and provider configuration from the existing workbench while this product surface matures."
-          links={[
-            { label: 'Data Sources', href: '/admin/data-sources' },
-            { label: 'System Diagnostics', href: '/admin/system' },
-            { label: 'API Docs', href: '/docs' },
-          ]}
-        />
-      );
-    }
-    if (activePage === 'settings') {
-      return (
-        <SimpleModulePage
-          title="Settings"
-          detail="Account, domain, compliance, authentication, and developer settings will move here as dedicated product pages."
-          links={[
-            { label: 'System Diagnostics', href: '/admin/system' },
-            { label: 'Suppressions', href: '/admin/suppressions' },
-            { label: 'API Docs', href: '/docs' },
-          ]}
-        />
-      );
-    }
+    if (activePage === 'integrations') return <IntegrationsPage diagnostics={dashboard.diagnostics} />;
+    if (activePage === 'settings') return <SettingsPage diagnostics={dashboard.diagnostics} />;
     return (
       <>
         <section className="metric-grid">
