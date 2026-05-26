@@ -715,7 +715,23 @@ function Sidebar({ activePage }: { activePage: PageKey }) {
   );
 }
 
-function Header({ title, status, operation }: { title: string; status: string; operation: OperationNotice }) {
+function headerAction(page: PageKey) {
+  const actions: Partial<Record<PageKey, { label: string; href: string }>> = {
+    campaigns: { label: 'Create Campaign', href: '#campaigns/new' },
+    automations: { label: 'Create Journey', href: '#automations' },
+    delivery: { label: 'Process Queue', href: '#delivery' },
+    compliance: { label: 'Add Suppression', href: '#compliance' },
+    data: { label: 'Add Data Source', href: '#data' },
+    contacts: { label: 'Import Contacts', href: '#data' },
+    audience: { label: 'Create Audience', href: '#audience' },
+    templates: { label: 'Create Template', href: '#templates' },
+    'ai-studio': { label: 'Run AI Review', href: '#ai-studio' },
+  };
+  return actions[page] || null;
+}
+
+function Header({ title, status, operation, activePage }: { title: string; status: string; operation: OperationNotice; activePage: PageKey }) {
+  const action = headerAction(activePage);
   return (
     <header className="topbar">
       <div>
@@ -728,7 +744,9 @@ function Header({ title, status, operation }: { title: string; status: string; o
       </div>
       <div className="topbar-actions">
         <button className="ghost">May 1 - May 31, 2026</button>
-        <button className="primary" onClick={() => { window.location.hash = '#campaigns/new'; }}>Create Campaign</button>
+        {action ? (
+          <button className="primary" onClick={() => { window.location.hash = action.href; }}>{action.label}</button>
+        ) : null}
       </div>
     </header>
   );
@@ -1050,6 +1068,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
   const selectedTemplate = templates.find((item) => item.id === templateId);
   const campaignPerformanceById = new Map(campaigns.map((campaign) => [campaign.campaign_id, campaign]));
+  const selectedCampaignPerformance = selectedCampaignId ? campaignPerformanceById.get(selectedCampaignId) : null;
 
   useEffect(() => {
     if (!selectedCampaign) return;
@@ -1200,7 +1219,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 {campaignItems.map((campaign) => {
                   const performance = campaignPerformanceById.get(campaign.id);
                   return (
-                    <tr key={campaign.id}>
+                    <tr
+                      className={`selectable-row ${campaign.id === selectedCampaignId ? 'selected-row' : ''}`}
+                      key={campaign.id}
+                      onClick={() => setSelectedCampaignId(campaign.id)}
+                    >
                       <td>{campaign.name}</td>
                       <td><span className="pill">{campaign.status}</span></td>
                       <td>{formatInt(performance?.requested_count)}</td>
@@ -1208,7 +1231,15 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                       <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
                       <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
                       <td>{formatInt(performance?.failed_count)}</td>
-                      <td><a className="link-button" href={`#campaigns/${campaign.id}`}>Open</a></td>
+                      <td>
+                        <a
+                          className="link-button"
+                          href={`#campaigns/${campaign.id}`}
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          Open
+                        </a>
+                      </td>
                     </tr>
                   );
                 })}
@@ -1218,6 +1249,25 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             <EmptyState title="No campaigns yet" detail="Create a campaign, then it will appear in this list." actionHref="#campaigns/new" actionLabel="Create campaign" />
           )}
         </section>
+        {selectedCampaign ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedCampaign.name}</h2>
+                <span className="muted">Selected campaign summary</span>
+              </div>
+              <a href={`#campaigns/${selectedCampaign.id}`}>Open campaign workspace</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Status</span><strong>{selectedCampaign.status}</strong></div>
+              <div><span>Template</span><strong>{templates.find((template) => template.id === selectedCampaign.template_id)?.name || selectedCampaign.template_id.slice(0, 8)}</strong></div>
+              <div><span>Requested</span><strong>{formatInt(selectedCampaignPerformance?.requested_count)}</strong></div>
+              <div><span>Sent</span><strong>{formatInt(selectedCampaignPerformance?.sent_count)}</strong></div>
+              <div><span>Open rate</span><strong>{selectedCampaignPerformance ? formatPct(selectedCampaignPerformance.open_rate) : '-'}</strong></div>
+              <div><span>Click rate</span><strong>{selectedCampaignPerformance ? formatPct(selectedCampaignPerformance.click_rate) : '-'}</strong></div>
+            </div>
+          </section>
+        ) : null}
       </section>
     );
   }
@@ -4772,7 +4822,7 @@ function App() {
     <div className="app-shell">
       <Sidebar activePage={activePage} />
 		      <main className="workspace">
-		        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} />
+		        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} activePage={activePage} />
 		        {content}
 		      </main>
     </div>
