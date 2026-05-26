@@ -160,6 +160,16 @@ type DeliveryRun = {
   processed_record_ids: string[];
 };
 
+type SuppressionRead = {
+  id: string;
+  email: string;
+  contact_id: string | null;
+  reason: 'hard_bounce' | 'spam_complaint' | 'unsubscribe' | 'manual';
+  source: string;
+  provider_message_id: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
 type AudienceRead = {
   id: string;
   name: string;
@@ -257,6 +267,7 @@ type DashboardState = {
   campaignItems: CampaignRead[];
   sendJobs: CampaignSendJobRead[];
   sendRecords: EmailSendRecordRead[];
+  suppressions: SuppressionRead[];
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
   templates: TemplateRead[];
@@ -273,6 +284,7 @@ type PageKey =
   | 'campaigns'
   | 'automations'
   | 'delivery'
+  | 'compliance'
   | 'audience'
   | 'templates'
   | 'ai-studio'
@@ -354,6 +366,7 @@ const navItems: NavItem[] = [
   { label: 'Campaigns', key: 'campaigns', href: '#campaigns' },
   { label: 'Automations', key: 'automations', href: '#automations' },
   { label: 'Delivery', key: 'delivery', href: '#delivery' },
+  { label: 'Compliance', key: 'compliance', href: '#compliance' },
   { label: 'Audience', key: 'audience', href: '#audience' },
   { label: 'Templates', key: 'templates', href: '#templates' },
   { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
@@ -514,6 +527,7 @@ function pageSubtitle(page: PageKey, dashboard: DashboardState) {
     campaigns: 'Create, inspect, and launch campaigns from the product workspace.',
     automations: 'Monitor journeys, enrollments, queued sends, and execution health.',
     delivery: 'Inspect send jobs, process queued messages, and manage individual send records.',
+    compliance: 'Manage suppressions before campaign launch and delivery processing.',
     audience: 'Manage audiences and segmentation readiness.',
     templates: 'Create, edit, and test dynamic email templates.',
     'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
@@ -1924,6 +1938,184 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh }: {
   );
 }
 
+function CompliancePage({ suppressions, sendRecords, onRefresh }: {
+  suppressions: SuppressionRead[];
+  sendRecords: EmailSendRecordRead[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [email, setEmail] = useState('');
+  const [reason, setReason] = useState<SuppressionRead['reason']>('manual');
+  const [source, setSource] = useState('esp_compliance');
+  const [selectedSuppressionId, setSelectedSuppressionId] = useState('');
+  const [status, setStatus] = useState('Ready to create or remove suppressions.');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!selectedSuppressionId && suppressions.length) setSelectedSuppressionId(suppressions[0].id);
+  }, [selectedSuppressionId, suppressions]);
+
+  const manualCount = suppressions.filter((item) => item.reason === 'manual').length;
+  const unsubscribeCount = suppressions.filter((item) => item.reason === 'unsubscribe').length;
+  const bounceCount = suppressions.filter((item) => item.reason === 'hard_bounce').length;
+  const complaintCount = suppressions.filter((item) => item.reason === 'spam_complaint').length;
+  const failedWithEmail = sendRecords.filter((record) => record.status === 'failed' && record.to_email).slice(0, 10);
+  const selectedSuppression = suppressions.find((item) => item.id === selectedSuppressionId);
+
+  async function runComplianceOperation(label: string, operation: () => Promise<string>) {
+    setBusy(true);
+    setStatus(`${label}...`);
+    try {
+      setStatus(await operation());
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addSuppression() {
+    await runComplianceOperation('Creating suppression', async () => {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) throw new Error('Email is required.');
+      const created = await fetchJson<SuppressionRead>('/api/v1/suppressions', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: trimmedEmail,
+          reason,
+          source: source.trim() || 'esp_compliance',
+          metadata_json: { source_page: 'esp_compliance' },
+        }),
+      });
+      setSelectedSuppressionId(created.id);
+      await onRefresh();
+      return `Created ${created.reason} suppression for ${created.email}.`;
+    });
+  }
+
+  async function deleteSuppression() {
+    await runComplianceOperation('Deleting suppression', async () => {
+      if (!selectedSuppressionId) throw new Error('Select a suppression.');
+      await fetchJson<{ id: string }>(`/api/v1/suppressions/${selectedSuppressionId}`, { method: 'DELETE' });
+      const deletedEmail = selectedSuppression?.email || selectedSuppressionId;
+      setSelectedSuppressionId('');
+      await onRefresh();
+      return `Deleted suppression for ${deletedEmail}.`;
+    });
+  }
+
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Suppressions', value: formatInt(suppressions.length), change: 'visible records', tone: suppressions.length ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Manual', value: formatInt(manualCount), change: 'operator managed' }} />
+        <MetricCard metric={{ label: 'Unsubscribes', value: formatInt(unsubscribeCount), change: 'contact opt-outs', tone: unsubscribeCount ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Bounces', value: formatInt(bounceCount), change: `${formatInt(complaintCount)} complaints`, tone: bounceCount || complaintCount ? 'warn' : 'good' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>Launch guard</span>
+          <strong>Suppress before send</strong>
+          <p>Campaign delivery checks suppression rows before queued records are sent.</p>
+          <a href="#campaigns">Open campaigns</a>
+        </article>
+        <article className={`workflow-card ${bounceCount || complaintCount ? 'warn' : ''}`}>
+          <span>Provider feedback</span>
+          <strong>{formatInt(bounceCount + complaintCount)} risk signals</strong>
+          <p>Hard bounces and complaints should be reviewed before audience expansion.</p>
+          <a href="#analytics">Open analytics</a>
+        </article>
+        <article className="workflow-card">
+          <span>Operations</span>
+          <strong>Manual controls</strong>
+          <p>Add manual suppressions for test recipients, internal exclusions, or known bad addresses.</p>
+          <a href="/admin/suppressions">Advanced suppressions</a>
+        </article>
+        <article className="workflow-card">
+          <span>Delivery</span>
+          <strong>{formatInt(failedWithEmail.length)} failed samples</strong>
+          <p>Use recent failed record emails as candidates for manual suppression review.</p>
+          <a href="#delivery">Open delivery</a>
+        </article>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head">
+          <h2>ESP Compliance Operations</h2>
+          <a href="/admin/suppressions">Advanced suppressions</a>
+        </div>
+        <div className="form-grid">
+          <label>
+            Email
+            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="person@example.com" />
+          </label>
+          <label>
+            Reason
+            <select value={reason} onChange={(event) => setReason(event.target.value as SuppressionRead['reason'])}>
+              <option value="manual">Manual</option>
+              <option value="unsubscribe">Unsubscribe</option>
+              <option value="hard_bounce">Hard bounce</option>
+              <option value="spam_complaint">Spam complaint</option>
+            </select>
+          </label>
+          <label>
+            Source
+            <input value={source} onChange={(event) => setSource(event.target.value)} />
+          </label>
+          <label className="wide-field">
+            Existing suppression
+            <select value={selectedSuppressionId} onChange={(event) => setSelectedSuppressionId(event.target.value)}>
+              <option value="">Select suppression</option>
+              {suppressions.map((item) => (
+                <option value={item.id} key={item.id}>{item.email} | {item.reason} | {item.source}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Selected provider message
+            <input value={selectedSuppression?.provider_message_id || 'none'} readOnly />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="primary" onClick={addSuppression} disabled={busy}>Add Suppression</button>
+          <button className="ghost" onClick={deleteSuppression} disabled={busy || !selectedSuppressionId}>Delete Selected</button>
+          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Suppressions</button>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
+        {failedWithEmail.length ? (
+          <div className="button-row">
+            {failedWithEmail.map((record) => (
+              <button className="ghost" key={record.id} onClick={() => setEmail(record.to_email)} disabled={busy}>
+                Use {record.to_email}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Suppressions</h2><span className="muted">{formatInt(suppressions.length)} visible</span></div>
+        {suppressions.length ? (
+          <table>
+            <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th></tr></thead>
+            <tbody>
+              {suppressions.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.email}</td>
+                  <td><span className="pill">{item.reason}</span></td>
+                  <td>{item.source}</td>
+                  <td>{item.provider_message_id || '-'}</td>
+                  <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No suppressions" detail="Create manual suppressions here or ingest provider feedback to populate compliance records." actionHref="/admin/suppressions" actionLabel="Open Suppressions" />}
+      </section>
+    </section>
+  );
+}
+
 function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys, onRefresh }: {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
@@ -2709,6 +2901,7 @@ function App() {
     campaignItems: [],
     sendJobs: [],
     sendRecords: [],
+    suppressions: [],
     audiences: [],
     audienceItems: [],
     templates: [],
@@ -2733,12 +2926,13 @@ function App() {
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
+        const [overview, campaignData, campaignItems, sendJobData, sendRecordData, suppressionData, audienceData, audienceItems, templateData, journeyData, journeyItems, diagnostics] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
           fetchJson<ListResponse<CampaignRead>>('/api/v1/campaigns/list?limit=25&offset=0'),
           fetchJson<ListResponse<CampaignSendJobRead>>('/api/v1/campaign-send-jobs/list?limit=25&offset=0'),
           fetchJson<ListResponse<EmailSendRecordRead>>('/api/v1/email-send-records/list?limit=25&offset=0'),
+          fetchJson<ListResponse<SuppressionRead>>('/api/v1/suppressions/list?limit=25&offset=0'),
           fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
           fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
           fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
@@ -2774,6 +2968,7 @@ function App() {
             campaignItems: campaignItems.items || [],
             sendJobs: sendJobData.items || [],
             sendRecords: sendRecordData.items || [],
+            suppressions: suppressionData.items || [],
             audiences: audienceData.items || [],
             audienceItems: audienceItems.items || [],
             templates: templateData.items || [],
@@ -2793,6 +2988,7 @@ function App() {
             campaignItems: [],
             sendJobs: [],
             sendRecords: [],
+            suppressions: [],
             audiences: [],
             audienceItems: [],
             templates: [],
@@ -2876,6 +3072,21 @@ function App() {
               ...current,
               sendJobs: sendJobData.items || [],
               sendRecords: sendRecordData.items || [],
+            }));
+          }}
+        />
+      );
+    }
+    if (activePage === 'compliance') {
+      return (
+        <CompliancePage
+          suppressions={dashboard.suppressions}
+          sendRecords={dashboard.sendRecords}
+          onRefresh={async () => {
+            const suppressionData = await fetchJson<ListResponse<SuppressionRead>>('/api/v1/suppressions/list?limit=25&offset=0');
+            setDashboard((current) => ({
+              ...current,
+              suppressions: suppressionData.items || [],
             }));
           }}
         />
