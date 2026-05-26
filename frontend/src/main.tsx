@@ -383,6 +383,7 @@ type PageKey =
   | 'ai-studio'
   | 'analytics'
   | 'integrations'
+  | 'docs'
   | 'settings';
 
 type NavItem = {
@@ -493,6 +494,7 @@ const navItems: NavItem[] = [
   { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
   { label: 'Analytics', key: 'analytics', href: '#analytics' },
   { label: 'Integrations', key: 'integrations', href: '#integrations' },
+  { label: 'Docs', key: 'docs', href: '#docs' },
   { label: 'Settings', key: 'settings', href: '#settings' },
 ];
 
@@ -656,6 +658,7 @@ function pageSubtitle(page: PageKey, dashboard: DashboardState) {
     'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
     analytics: 'Review performance, engagement, and delivery signals.',
     integrations: 'Connect data sources, providers, and external tools.',
+    docs: 'Review ESP workflow contracts and API surfaces for GUI integration.',
     settings: 'Configure account, domains, compliance, and developer surfaces.',
   };
   return subtitles[page];
@@ -3848,6 +3851,137 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
   );
 }
 
+function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
+  const contractGroups = [
+    {
+      area: 'Contacts and Data',
+      purpose: 'Import heterogeneous source data, inspect contacts, and expose attributes for audience/template workflows.',
+      endpoints: [
+        ['GET', '/api/v1/data-sources/list', 'List configured source systems.'],
+        ['POST', '/api/v1/data-sources', 'Create a source definition.'],
+        ['POST', '/api/v1/data-source-mappings', 'Create field mapping into contact objects.'],
+        ['POST', '/api/v1/data-sources/{id}/ingest', 'Dry-run or import source rows.'],
+        ['GET', '/api/v1/audiences/contacts/list', 'List contacts.'],
+        ['GET', '/api/v1/audiences/contacts/meta', 'Discover contact fields and attributes.'],
+      ],
+    },
+    {
+      area: 'Templates and AI',
+      purpose: 'Render Jinja/HTML/CSS templates, inspect variables, and generate or improve content.',
+      endpoints: [
+        ['GET', '/api/v1/templates/list', 'List templates.'],
+        ['POST', '/api/v1/templates/preview', 'Render with sample variables.'],
+        ['POST', '/api/v1/templates/variables', 'Inspect variable requirements.'],
+        ['POST', '/api/v1/ai/templates/draft', 'Draft a template from natural language.'],
+        ['POST', '/api/v1/ai/templates/edit', 'Modify existing HTML/Jinja.'],
+        ['POST', '/api/v1/ai/templates/recommend', 'Recommend template improvements.'],
+      ],
+    },
+    {
+      area: 'Audience and Campaigns',
+      purpose: 'Build audiences, create campaigns, test-send, dry-run, and launch campaign queues.',
+      endpoints: [
+        ['GET', '/api/v1/audiences/list', 'List audiences.'],
+        ['POST', '/api/v1/audiences/preview', 'Preview matched contacts.'],
+        ['POST', '/api/v1/audiences/{id}/snapshots', 'Freeze audience membership.'],
+        ['GET', '/api/v1/campaigns/list', 'List campaigns.'],
+        ['POST', '/api/v1/campaigns/{id}/test-send', 'Send campaign test email.'],
+        ['POST', '/api/v1/campaigns/{id}/launch', 'Create campaign send job.'],
+      ],
+    },
+    {
+      area: 'Delivery and Compliance',
+      purpose: 'Process queued records, inspect send state, track links, and manage suppressions.',
+      endpoints: [
+        ['GET', '/api/v1/campaign-send-jobs/list', 'List send jobs.'],
+        ['GET', '/api/v1/campaign-send-jobs/{id}/progress', 'Load job progress.'],
+        ['GET', '/api/v1/email-send-records/list', 'List send records.'],
+        ['POST', '/api/v1/delivery/process-queued', 'Process queued records.'],
+        ['GET', '/api/v1/email-send-records/{id}/tracking-links', 'Generate tracking URLs.'],
+        ['GET', '/api/v1/suppressions/list', 'List suppressions.'],
+      ],
+    },
+    {
+      area: 'Journeys and Analytics',
+      purpose: 'Manage journey enrollment/execution and report on campaign, audience, journey, and domain performance.',
+      endpoints: [
+        ['GET', '/api/v1/journeys/list', 'List journeys and steps.'],
+        ['POST', '/api/v1/journeys/{id}/enrollments', 'Enroll contact into journey.'],
+        ['POST', '/api/v1/journeys/process', 'Process due enrollments.'],
+        ['GET', '/api/v1/analytics/overview', 'Load global analytics summary.'],
+        ['GET', '/api/v1/analytics/campaigns', 'Compare campaign performance.'],
+        ['GET', '/api/v1/analytics/domains', 'Compare domain deliverability.'],
+      ],
+    },
+  ];
+  const objectRows = [
+    ['Contact', 'Email Engine', 'SentientMail may create/update through contacts or data-source ingest APIs.'],
+    ['Template', 'Email Engine', 'SentientMail should use template list/save/preview APIs and preserve Jinja variables.'],
+    ['Audience', 'Email Engine', 'SentientMail should create rules, preview contacts, and snapshot before launch.'],
+    ['Campaign', 'Email Engine', 'SentientMail should create campaign objects before test-send or launch.'],
+    ['Send job / record', 'Email Engine', 'SentientMail should treat these as delivery-state read/manage objects.'],
+    ['Journey', 'Email Engine', 'SentientMail should use journey/enrollment APIs for automation workflows.'],
+  ];
+
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Contract groups', value: formatInt(contractGroups.length), change: 'workflow surfaces' }} />
+        <MetricCard metric={{ label: 'Tables', value: formatInt(diagnostics?.database_tables.length || 0), change: 'schema inventory' }} />
+        <MetricCard metric={{ label: 'Schema', value: diagnostics?.schema.ok ? 'Ready' : 'Review', change: diagnostics?.schema.current_revision || 'unknown', tone: diagnostics?.schema.ok ? 'good' : 'warn' }} />
+      </section>
+      <section className="workflow-grid full-span">
+        <article className="workflow-card">
+          <span>OpenAPI</span>
+          <strong>Interactive docs</strong>
+          <p>Use FastAPI OpenAPI for request/response details and ad hoc endpoint testing.</p>
+          <a href="/docs">Open API docs</a>
+        </article>
+        <article className="workflow-card">
+          <span>SentientMail</span>
+          <strong>GUI contract</strong>
+          <p>SM should integrate to Email Engine API objects instead of duplicating backend state.</p>
+          <a href="/esp#campaigns">Open campaigns</a>
+        </article>
+        <article className="workflow-card">
+          <span>Diagnostics</span>
+          <strong>System readiness</strong>
+          <p>Schema revision and provider readiness are exposed through diagnostics.</p>
+          <a href="/api/v1/system/diagnostics">Raw diagnostics</a>
+        </article>
+        <article className="workflow-card">
+          <span>Admin</span>
+          <strong>Legacy consoles</strong>
+          <p>Keep the old admin pages available while `/esp` evolves into the primary GUI.</p>
+          <a href="/admin">Open admin</a>
+        </article>
+      </section>
+      {contractGroups.map((group) => (
+        <section className="panel table-panel full-span" key={group.area}>
+          <div className="panel-head"><h2>{group.area}</h2><span className="muted">{group.purpose}</span></div>
+          <table>
+            <thead><tr><th>Method</th><th>Endpoint</th><th>Purpose</th></tr></thead>
+            <tbody>
+              {group.endpoints.map(([method, endpoint, purpose]) => (
+                <tr key={`${method}-${endpoint}`}><td><span className="pill">{method}</span></td><td>{endpoint}</td><td>{purpose}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ))}
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Object Ownership</h2><span className="muted">SM-to-EE integration guidance</span></div>
+        <table>
+          <thead><tr><th>Object</th><th>System of record</th><th>Integration note</th></tr></thead>
+          <tbody>
+            {objectRows.map(([object, owner, note]) => <tr key={object}><td>{object}</td><td>{owner}</td><td>{note}</td></tr>)}
+          </tbody>
+        </table>
+      </section>
+    </section>
+  );
+}
+
 function SettingsPage({ diagnostics, onRefresh }: {
   diagnostics: SystemDiagnostics | null;
   onRefresh: () => Promise<void>;
@@ -4348,6 +4482,9 @@ function App() {
           }}
         />
       );
+    }
+    if (activePage === 'docs') {
+      return <DocsPage diagnostics={dashboard.diagnostics} />;
     }
     if (activePage === 'settings') {
       return (
