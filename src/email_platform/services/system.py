@@ -54,8 +54,11 @@ def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
     schema = schema_status(db)
     counts, count_errors = _entity_counts(db) if schema.get('db_reachable') else ({}, [])
     tables, table_errors = _database_tables(db) if schema.get('db_reachable') else ([], [])
+    table_columns, column_errors = (
+        _database_table_columns(db, tables) if schema.get('db_reachable') else ({}, [])
+    )
     return {
-        'ok': bool(schema.get('ok')) and not count_errors and not table_errors,
+        'ok': bool(schema.get('ok')) and not count_errors and not table_errors and not column_errors,
         'schema': schema,
         'environment': settings.environment,
         'public_base_url': settings.public_base_url,
@@ -72,7 +75,8 @@ def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
         },
         'entity_counts': counts,
         'database_tables': tables,
-        'errors': [*count_errors, *table_errors],
+        'database_table_columns': table_columns,
+        'errors': [*count_errors, *table_errors, *column_errors],
     }
 
 
@@ -117,3 +121,23 @@ def _database_tables(db: Session) -> tuple[list[str], list[str]]:
     except SQLAlchemyError as exc:
         return [], [f'database_tables: {exc}']
     return sorted(tables), []
+
+
+def _database_table_columns(db: Session, tables: list[str]) -> tuple[JsonObject, list[str]]:
+    inspector = inspect(db.connection())
+    schema: JsonObject = {}
+    errors: list[str] = []
+    for table in tables:
+        try:
+            schema[table] = [
+                {
+                    'name': column['name'],
+                    'type': str(column['type']),
+                    'nullable': bool(column['nullable']),
+                    'primary_key': bool(column.get('primary_key')),
+                }
+                for column in inspector.get_columns(table)
+            ]
+        except SQLAlchemyError as exc:
+            errors.append(f'database_table_columns.{table}: {exc}')
+    return schema, errors

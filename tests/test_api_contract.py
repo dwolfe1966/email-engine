@@ -289,6 +289,8 @@ def test_template_editor_page() -> None:
     assert 'Entity Counts' in system.text
     assert 'Database Tables' in system.text
     assert 'renderTables' in system.text
+    assert 'Table Columns' in system.text
+    assert 'renderTableColumns' in system.text
     assert 'Raw Diagnostics' in system.text
     assert 'mergeRanges' in response.text
     assert 'html (raw Jinja)' in response.text
@@ -696,6 +698,9 @@ def test_admin_pages() -> None:
     assert 'Workflow Status' in campaigns.text
     assert 'Workflow Readiness' in campaigns.text
     assert 'workflowSteps' in campaigns.text
+    assert 'campaignSummary' in campaigns.text
+    assert 'launchProgress' in campaigns.text
+    assert 'pollLaunchProgress' in campaigns.text
     assert 'Test Preview' in campaigns.text
     assert 'Test Send' in campaigns.text
     assert 'Approve' in campaigns.text
@@ -722,6 +727,8 @@ def test_admin_pages() -> None:
     assert 'Email Engine Analytics' in analytics.text
     assert 'Campaign Analytics' in analytics.text
     assert 'Campaign Timeline' in analytics.text
+    assert 'focusedCampaign' in analytics.text
+    assert 'renderFocusedCampaign' in analytics.text
     assert 'Analytics Overview' in analytics.text
     assert 'Audience Performance' in analytics.text
     assert 'Campaign Performance' in analytics.text

@@ -360,6 +360,34 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
       text-transform: uppercase;
     }
     .metric strong { font-size: 22px; }
+    details.table-detail {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+    details.table-detail summary {
+      cursor: pointer;
+      font-weight: 700;
+      padding: 10px 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th, td {
+      border-top: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
     .kv {
       display: grid;
       grid-template-columns: minmax(140px, 0.45fr) minmax(180px, 1fr);
@@ -458,6 +486,11 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
     </section>
 
     <section class="panel span-2">
+      <h2>Table Columns</h2>
+      <div class="grid" id="tableColumns"></div>
+    </section>
+
+    <section class="panel span-2">
       <h2>Raw Diagnostics</h2>
       <pre id="rawJson">{}</pre>
     </section>
@@ -540,6 +573,37 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
         : `<div class="muted">No database tables available.</div>`;
     }
 
+    function renderTableColumns(columnsByTable) {
+      const entries = Object.entries(columnsByTable || {});
+      document.getElementById("tableColumns").innerHTML = entries.length
+        ? entries.map(([tableName, columns]) => `
+            <details class="table-detail">
+              <summary>${tableName} (${columns.length})</summary>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Nullable</th>
+                    <th>PK</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${columns.map((column) => `
+                    <tr>
+                      <td><code>${column.name}</code></td>
+                      <td><code>${column.type}</code></td>
+                      <td>${column.nullable ? "Yes" : "No"}</td>
+                      <td>${column.primary_key ? "Yes" : "No"}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </details>
+          `).join("")
+        : `<div class="muted">No table columns available.</div>`;
+    }
+
     async function loadDiagnostics() {
       const statusPanel = document.getElementById("statusPanel");
       statusPanel.classList.remove("ok", "warn", "error");
@@ -559,6 +623,7 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
         renderConfig(data);
         renderCounts(data.entity_counts || {});
         renderTables(data.database_tables || []);
+        renderTableColumns(data.database_table_columns || {});
         document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
       } catch (error) {
         statusPanel.classList.add("error");
@@ -1694,6 +1759,71 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       font-size: 11px;
       margin-top: 2px;
     }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    .summary-stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 9px;
+      min-width: 0;
+    }
+    .summary-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .summary-stat strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 18px;
+    }
+    .launch-progress-banner {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 10px;
+    }
+    .launch-progress-banner[hidden] { display: none; }
+    .launch-progress-banner.active { border-color: #f3d39a; background: #fffaf0; }
+    .launch-progress-banner.success { border-color: #b8e0c6; background: #f2fbf5; }
+    .launch-progress-banner.warning { border-color: #f3d39a; background: #fffaf0; }
+    .launch-progress-head,
+    .launch-progress-counts {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .launch-progress-head strong { font-size: 13px; }
+    .launch-progress-head span,
+    .launch-progress-counts {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .launch-progress-track {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e8eef5;
+    }
+    .launch-progress-track span {
+      display: block;
+      height: 100%;
+      min-width: 4px;
+      border-radius: inherit;
+      background: #186b3f;
+      transition: width 180ms ease;
+    }
+    .launch-progress-banner.active .launch-progress-track span { background: #cf8a26; }
     .test-send-events {
       max-height: 180px;
       overflow: auto;
@@ -1884,6 +2014,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       <div class="head"><h2>Campaigns</h2><button id="refresh">Refresh</button></div>
       <div class="body">
         <button class="secondary" id="new">New</button>
+        <div class="summary-strip" id="campaignSummary"></div>
         <div class="items" id="items"></div>
       </div>
     </section>
@@ -1921,6 +2052,14 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
           <input id="testEmail" type="email" placeholder="you@example.com" />
         </label>
         <div class="workflow-steps" id="workflowSteps"></div>
+        <div class="launch-progress-banner" id="launchProgress" hidden>
+          <div class="launch-progress-head">
+            <strong>Launch progress</strong>
+            <span id="launchProgressStatus">Waiting</span>
+          </div>
+          <div class="launch-progress-track"><span id="launchProgressBar" style="width:0%"></span></div>
+          <div class="launch-progress-counts" id="launchProgressCounts"></div>
+        </div>
         <div class="readiness-panel" id="readinessPanel" hidden>
           <div class="head">
             <h2>Workflow Readiness</h2>
@@ -2343,6 +2482,61 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       `).join("");
     }
 
+    function renderCampaignSummary(items) {
+      const counts = items.reduce((acc, item) => {
+        acc.total += 1;
+        acc[item.status || "unknown"] = (acc[item.status || "unknown"] || 0) + 1;
+        return acc;
+      }, { total: 0 });
+      document.getElementById("campaignSummary").innerHTML = [
+        ["Total", counts.total],
+        ["Draft", counts.draft || 0],
+        ["Scheduled", counts.scheduled || 0],
+        ["Sending", counts.sending || 0],
+        ["Sent", counts.sent || 0]
+      ].map(([label, value]) => `
+        <div class="summary-stat">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join("");
+    }
+
+    function setLaunchProgress(data, tone = "active", label = "Launch progress") {
+      const panel = document.getElementById("launchProgress");
+      const status = document.getElementById("launchProgressStatus");
+      const bar = document.getElementById("launchProgressBar");
+      const counts = document.getElementById("launchProgressCounts");
+      const percent = Math.max(0, Math.min(100, Number(data.percent_complete || 0) * 100));
+      panel.hidden = false;
+      panel.className = `launch-progress-banner ${tone}`;
+      status.textContent = `${label} - ${data.status || "queued"}`;
+      bar.style.width = `${Math.max(2, percent)}%`;
+      counts.innerHTML = [
+        ["requested", data.requested_count],
+        ["queued", data.queued_count],
+        ["active", data.active_count],
+        ["processed", data.processed_count],
+        ["sent", data.sent_count],
+        ["failed", data.failed_count],
+        ["suppressed", data.suppressed_count],
+        ["remaining", data.remaining_count]
+      ].filter(([, value]) => value !== undefined).map(([name, value]) => (
+        `<span><strong>${escapeHtml(value)}</strong> ${escapeHtml(name)}</span>`
+      )).join("");
+    }
+
+    async function pollLaunchProgress(sendJobId) {
+      for (let index = 0; index < 8; index += 1) {
+        const data = await request(`/api/v1/campaign-send-jobs/${sendJobId}/progress`);
+        const active = Number(data.active_count || 0) > 0 || Number(data.remaining_count || 0) > 0;
+        setLaunchProgress(data, active ? "active" : "success", active ? "Processing" : "Complete");
+        if (!active) return data;
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      return null;
+    }
+
     function resetForm() {
       selectedId = "";
       lastTestSend = null;
@@ -2353,6 +2547,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       document.getElementById("readinessPanel").hidden = true;
       document.getElementById("aiReviewPanel").hidden = true;
       document.getElementById("testSendPanel").hidden = true;
+      document.getElementById("launchProgress").hidden = true;
       renderWorkflowSteps();
       renderTestSendMetrics(null);
       renderTestSendEvents(null);
@@ -2371,6 +2566,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       clearLastTestSend();
       document.getElementById("readinessPanel").hidden = true;
       document.getElementById("aiReviewPanel").hidden = true;
+      document.getElementById("launchProgress").hidden = true;
       renderWorkflowSteps();
       document.getElementById("name").value = item.name || "";
       document.getElementById("template").value = item.template_id || "";
@@ -2389,6 +2585,7 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
       const data = await request("/api/v1/campaigns/list?limit=100&offset=0");
       const container = document.getElementById("items");
       container.textContent = "";
+      renderCampaignSummary(data.items || []);
       data.items.forEach((item) => {
         const button = document.createElement("button");
         button.className = `item${selectedId === item.id ? " selected" : ""}`;
@@ -2506,10 +2703,21 @@ ADMIN_CAMPAIGNS_HTML = r"""<!doctype html>
         variables: parseJson("variables", {}),
         dry_run: dryRun
       };
-      await request(`/api/v1/campaigns/${selectedId}/launch`, {
+      const launch = await request(`/api/v1/campaigns/${selectedId}/launch`, {
         method: "POST",
         body: JSON.stringify(payload)
       });
+      setLaunchProgress({
+        ...launch,
+        active_count: launch.queued_count,
+        processed_count: launch.dry_run ? launch.requested_count : 0,
+        remaining_count: launch.dry_run ? 0 : launch.queued_count,
+        percent_complete: launch.dry_run ? 1 : 0
+      }, launch.dry_run ? "success" : "active", launch.dry_run ? "Dry run complete" : "Queued");
+      if (!launch.dry_run && launch.job_id) {
+        await pollLaunchProgress(launch.job_id);
+      }
+      await loadCampaigns();
     }
 
     async function validateCampaign() {
@@ -4124,6 +4332,56 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .focused-campaign-panel {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #b8e0c6;
+      border-radius: 8px;
+      background: #f4fbf6;
+      padding: 10px;
+    }
+    .focused-campaign-panel.warn {
+      grid-template-columns: minmax(180px, 1fr) auto;
+      border-color: #f3d39a;
+      background: #fffaf0;
+    }
+    .focused-campaign-main { min-width: 0; }
+    .focused-campaign-main strong,
+    .focused-campaign-main small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .focused-campaign-main small { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .focused-campaign-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .focused-metric {
+      border: 1px solid #d6eadc;
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px;
+      min-width: 0;
+    }
+    .focused-metric.warn { border-color: #f3c8c5; background: #fff7f7; }
+    .focused-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .focused-metric strong { display: block; margin-top: 2px; }
+    .focused-campaign-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
     .chart {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -4358,6 +4616,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
     <section>
       <div class="head"><h2>Report</h2></div>
       <div class="body">
+        <div id="focusedCampaign"></div>
         <div id="report" class="report">
           <div class="empty-state">Run a report to view charts and tables.</div>
         </div>
@@ -4570,6 +4829,48 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       </div>`;
     }
 
+    function renderFocusedCampaign(data = null) {
+      const container = document.getElementById("focusedCampaign");
+      const campaignId = value("campaignId") || data?.campaign_id || "";
+      if (!campaignId) {
+        container.innerHTML = "";
+        return;
+      }
+      const campaign = campaigns.find((item) => item.id === campaignId);
+      if (!data || !data.status_counts) {
+        container.innerHTML = `
+          <div class="focused-campaign-panel warn">
+            <div class="focused-campaign-main">
+              <strong>${escapeHtml(campaign?.name || shortId(campaignId))}</strong>
+              <small>${escapeHtml(campaign?.status || "Select Campaign Analytics for metrics")}</small>
+            </div>
+            <div class="focused-campaign-actions">
+              <button class="secondary" type="button" onclick="campaignAnalytics().catch((error) => writeResult(error.message, false))">Load Metrics</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+      container.innerHTML = `
+        <div class="focused-campaign-panel">
+          <div class="focused-campaign-main">
+            <strong>${escapeHtml(campaign?.name || shortId(campaignId))}</strong>
+            <small>${escapeHtml(campaign?.status || "")} - ${escapeHtml(campaignId)}</small>
+          </div>
+          <div class="focused-campaign-metrics">
+            <div class="focused-metric"><span>Sent</span><strong>${int(data.sent_count)}</strong></div>
+            <div class="focused-metric"><span>Open rate</span><strong>${pct(data.open_rate)}</strong></div>
+            <div class="focused-metric"><span>Click rate</span><strong>${pct(data.click_rate)}</strong></div>
+            <div class="focused-metric ${Number(data.bounce_rate || 0) ? "warn" : ""}"><span>Bounce rate</span><strong>${pct(data.bounce_rate)}</strong></div>
+          </div>
+          <div class="focused-campaign-actions">
+            <button class="secondary" type="button" onclick="campaignTimeline().catch((error) => writeResult(error.message, false))">Timeline</button>
+            <button class="secondary" type="button" onclick="location.href='/admin/delivery?campaign_id=${encodeURIComponent(campaignId)}'">Delivery</button>
+          </div>
+        </div>
+      `;
+    }
+
     function table(title, rows, columns) {
       if (!rows || !rows.length) {
         return `<div class="chart"><h3>${escapeHtml(title)}</h3><div class="empty-state">No rows returned.</div></div>`;
@@ -4638,6 +4939,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       if (!data) {
+        renderFocusedCampaign(null);
         report.innerHTML = `<div class="empty-state">No report data.</div>`;
         return;
       }
@@ -4667,6 +4969,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       if (data.campaign_id && data.status_counts && data.event_counts) {
+        renderFocusedCampaign(data);
         report.innerHTML = [
           kpis([
             { label: "Requested", value: int(data.requested_count) },
@@ -4683,9 +4986,11 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
         return;
       }
       if (data.items) {
+        renderFocusedCampaign(null);
         renderListReport(data.items);
         return;
       }
+      renderFocusedCampaign(null);
       report.innerHTML = `<div class="empty-state">Raw response only for this request.</div>`;
     }
 
@@ -4959,6 +5264,7 @@ ADMIN_ANALYTICS_HTML = r"""<!doctype html>
       result.textContent = "";
     });
     document.getElementById("campaignId").addEventListener("change", () => {
+      renderFocusedCampaign(null);
       loadJobOptions()
         .then(loadRecordOptions)
         .catch((error) => writeResult(error.message, false));

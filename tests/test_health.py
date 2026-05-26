@@ -33,3 +33,5 @@ def test_system_diagnostics_endpoint() -> None:
     assert 'entity_counts' in data
     assert 'database_tables' in data
     assert isinstance(data['database_tables'], list)
+    assert 'database_table_columns' in data
+    assert isinstance(data['database_table_columns'], dict)
