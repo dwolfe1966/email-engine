@@ -5,7 +5,7 @@ from pathlib import Path
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -53,8 +53,9 @@ def schema_status(db: Session) -> JsonObject:
 def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
     schema = schema_status(db)
     counts, count_errors = _entity_counts(db) if schema.get('db_reachable') else ({}, [])
+    tables, table_errors = _database_tables(db) if schema.get('db_reachable') else ([], [])
     return {
-        'ok': bool(schema.get('ok')) and not count_errors,
+        'ok': bool(schema.get('ok')) and not count_errors and not table_errors,
         'schema': schema,
         'environment': settings.environment,
         'public_base_url': settings.public_base_url,
@@ -70,7 +71,8 @@ def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
             'openai_configured': bool(settings.openai_api_key),
         },
         'entity_counts': counts,
-        'errors': count_errors,
+        'database_tables': tables,
+        'errors': [*count_errors, *table_errors],
     }
 
 
@@ -107,3 +109,11 @@ def _entity_counts(db: Session) -> tuple[JsonObject, list[str]]:
         except SQLAlchemyError as exc:
             errors.append(f'{key}: {exc}')
     return counts, errors
+
+
+def _database_tables(db: Session) -> tuple[list[str], list[str]]:
+    try:
+        tables = inspect(db.connection()).get_table_names()
+    except SQLAlchemyError as exc:
+        return [], [f'database_tables: {exc}']
+    return sorted(tables), []

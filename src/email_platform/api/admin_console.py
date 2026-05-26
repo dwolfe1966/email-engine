@@ -453,6 +453,11 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
     </section>
 
     <section class="panel span-2">
+      <h2>Database Tables</h2>
+      <div class="grid" id="databaseTables"></div>
+    </section>
+
+    <section class="panel span-2">
       <h2>Raw Diagnostics</h2>
       <pre id="rawJson">{}</pre>
     </section>
@@ -524,6 +529,17 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
         : `<div class="muted">No entity counts available.</div>`;
     }
 
+    function renderTables(tables) {
+      document.getElementById("databaseTables").innerHTML = (tables || []).length
+        ? tables.map((table) => `
+            <div class="metric">
+              <span>table</span>
+              <strong style="font-size:14px;">${table}</strong>
+            </div>
+          `).join("")
+        : `<div class="muted">No database tables available.</div>`;
+    }
+
     async function loadDiagnostics() {
       const statusPanel = document.getElementById("statusPanel");
       statusPanel.classList.remove("ok", "warn", "error");
@@ -542,6 +558,7 @@ ADMIN_SYSTEM_HTML = r"""<!doctype html>
         renderSchema(data.schema || {});
         renderConfig(data);
         renderCounts(data.entity_counts || {});
+        renderTables(data.database_tables || []);
         document.getElementById("rawJson").textContent = JSON.stringify(data, null, 2);
       } catch (error) {
         statusPanel.classList.add("error");

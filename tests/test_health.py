@@ -31,3 +31,5 @@ def test_system_diagnostics_endpoint() -> None:
     assert 'sendgrid_configured' in data['email_provider']
     assert 'openai_configured' in data['ai']
     assert 'entity_counts' in data
+    assert 'database_tables' in data
+    assert isinstance(data['database_tables'], list)
