@@ -75,21 +75,72 @@ type AIAnalyticsAnalysis = {
 type DashboardState = {
   overview: AnalyticsOverview | null;
   campaigns: CampaignPerformance[];
+  audiences: AudiencePerformance[];
+  templates: TemplateRead[];
+  journeys: JourneyPerformance[];
   aiInsights: Insight[];
   loading: boolean;
   error: string | null;
 };
 
-const navItems = [
-  'Overview',
-  'Campaigns',
-  'Automations',
-  'Audience',
-  'Templates',
-  'AI Studio',
-  'Analytics',
-  'Integrations',
-  'Settings',
+type PageKey =
+  | 'overview'
+  | 'campaigns'
+  | 'automations'
+  | 'audience'
+  | 'templates'
+  | 'ai-studio'
+  | 'analytics'
+  | 'integrations'
+  | 'settings';
+
+type NavItem = {
+  label: string;
+  key: PageKey;
+  href: string;
+};
+
+type AudiencePerformance = {
+  audience_id: string;
+  name: string;
+  status: string;
+  estimated_count: number;
+  sent_count: number;
+  opened_count: number;
+  clicked_count: number;
+  open_rate: number;
+  click_rate: number;
+};
+
+type TemplateRead = {
+  id: string;
+  name: string;
+  subject: string;
+  category: string | null;
+};
+
+type JourneyPerformance = {
+  journey_id: string;
+  name: string;
+  status: string;
+  enrollment_count: number;
+  active_count: number;
+  completed_count: number;
+  failed_count: number;
+  step_failed_count: number;
+  queued_send_count: number;
+};
+
+const navItems: NavItem[] = [
+  { label: 'Overview', key: 'overview', href: '#overview' },
+  { label: 'Campaigns', key: 'campaigns', href: '#campaigns' },
+  { label: 'Automations', key: 'automations', href: '#automations' },
+  { label: 'Audience', key: 'audience', href: '#audience' },
+  { label: 'Templates', key: 'templates', href: '#templates' },
+  { label: 'AI Studio', key: 'ai-studio', href: '#ai-studio' },
+  { label: 'Analytics', key: 'analytics', href: '#analytics' },
+  { label: 'Integrations', key: 'integrations', href: '#integrations' },
+  { label: 'Settings', key: 'settings', href: '#settings' },
 ];
 
 const fallbackMetrics: Metric[] = [
@@ -222,11 +273,37 @@ function insightsFromAi(data: AIAnalyticsAnalysis | null): Insight[] {
   }));
 }
 
+function pageFromHash(): PageKey {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return navItems.find((item) => item.key === hash)?.key || 'overview';
+}
+
+function pageTitle(page: PageKey) {
+  return navItems.find((item) => item.key === page)?.label || 'Overview';
+}
+
+function pageSubtitle(page: PageKey, dashboard: DashboardState) {
+  if (dashboard.loading) return 'Loading live data from Email Engine APIs...';
+  if (dashboard.error) return `Live API issue: ${dashboard.error}. Showing available data.`;
+  const subtitles: Record<PageKey, string> = {
+    overview: 'Live overview powered by Email Engine analytics APIs.',
+    campaigns: 'Create, inspect, and launch campaigns from the product workspace.',
+    automations: 'Monitor journeys, enrollments, queued sends, and execution health.',
+    audience: 'Manage audiences and segmentation readiness.',
+    templates: 'Create, edit, and test dynamic email templates.',
+    'ai-studio': 'Use AI helpers across templates, campaigns, audiences, and analytics.',
+    analytics: 'Review performance, engagement, and delivery signals.',
+    integrations: 'Connect data sources, providers, and external tools.',
+    settings: 'Configure account, domains, compliance, and developer surfaces.',
+  };
+  return subtitles[page];
+}
+
 function Icon({ label }: { label: string }) {
   return <span className="icon" aria-hidden="true">{label.slice(0, 1)}</span>;
 }
 
-function Sidebar() {
+function Sidebar({ activePage }: { activePage: PageKey }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -235,9 +312,9 @@ function Sidebar() {
       </div>
       <nav>
         {navItems.map((item) => (
-          <a className={item === 'Overview' ? 'active' : ''} href={`#${item.toLowerCase().replaceAll(' ', '-')}`} key={item}>
-            <Icon label={item} />
-            <span>{item}</span>
+          <a className={item.key === activePage ? 'active' : ''} href={item.href} key={item.key}>
+            <Icon label={item.label} />
+            <span>{item.label}</span>
           </a>
         ))}
       </nav>
@@ -262,11 +339,11 @@ function Sidebar() {
   );
 }
 
-function Header({ status }: { status: string }) {
+function Header({ title, status }: { title: string; status: string }) {
   return (
     <header className="topbar">
       <div>
-        <h1>Overview</h1>
+        <h1>{title}</h1>
         <p>{status}</p>
       </div>
       <div className="topbar-actions">
@@ -275,7 +352,7 @@ function Header({ status }: { status: string }) {
           <input placeholder="Search campaigns, contacts, templates..." />
         </label>
         <button className="ghost">May 1 - May 31, 2026</button>
-        <button className="primary">Create Campaign</button>
+        <button className="primary" onClick={() => { window.location.href = '/admin/campaigns'; }}>Create Campaign</button>
       </div>
     </header>
   );
@@ -388,23 +465,278 @@ function QuickCreate() {
   );
 }
 
+function EmptyState({ title, detail, actionHref, actionLabel }: {
+  title: string;
+  detail: string;
+  actionHref?: string;
+  actionLabel?: string;
+}) {
+  return (
+    <div className="empty-state">
+      <strong>{title}</strong>
+      <p>{detail}</p>
+      {actionHref && actionLabel ? <a href={actionHref}>{actionLabel}</a> : null}
+    </div>
+  );
+}
+
+function CampaignsPage({ campaigns }: { campaigns: CampaignPerformance[] }) {
+  return (
+    <section className="page-grid">
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <h2>Campaign Manager</h2>
+          <a href="/admin/campaigns">Open workbench</a>
+        </div>
+        {campaigns.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th>Requested</th>
+                <th>Sent</th>
+                <th>Open rate</th>
+                <th>Click rate</th>
+                <th>Failures</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaigns.map((campaign) => (
+                <tr key={campaign.campaign_id}>
+                  <td>{campaign.name}</td>
+                  <td><span className="pill">{campaign.status}</span></td>
+                  <td>{formatInt(campaign.requested_count)}</td>
+                  <td>{formatInt(campaign.sent_count)}</td>
+                  <td>{formatPct(campaign.open_rate)}</td>
+                  <td>{formatPct(campaign.click_rate)}</td>
+                  <td>{formatInt(campaign.failed_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No campaigns yet" detail="Create a campaign in the workbench, then it will appear here." actionHref="/admin/campaigns" actionLabel="Create campaign" />
+        )}
+      </section>
+    </section>
+  );
+}
+
+function AutomationsPage({ journeys }: { journeys: JourneyPerformance[] }) {
+  const failures = journeys.reduce((sum, item) =>
+    sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
+  const queued = journeys.reduce((sum, item) => sum + Number(item.queued_send_count || 0), 0);
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        <MetricCard metric={{ label: 'Journeys', value: formatInt(journeys.length), change: 'total' }} />
+        <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
+        <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <h2>Automation Journeys</h2>
+          <a href="/admin/journeys">Open journey builder</a>
+        </div>
+        {journeys.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Journey</th>
+                <th>Status</th>
+                <th>Enrollments</th>
+                <th>Active</th>
+                <th>Completed</th>
+                <th>Failures</th>
+                <th>Queued sends</th>
+              </tr>
+            </thead>
+            <tbody>
+              {journeys.map((journey) => (
+                <tr key={journey.journey_id}>
+                  <td>{journey.name}</td>
+                  <td><span className="pill">{journey.status}</span></td>
+                  <td>{formatInt(journey.enrollment_count)}</td>
+                  <td>{formatInt(journey.active_count)}</td>
+                  <td>{formatInt(journey.completed_count)}</td>
+                  <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
+                  <td>{formatInt(journey.queued_send_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No journeys yet" detail="Build an automation journey and AI review it from Journey Manager." actionHref="/admin/journeys" actionLabel="Open Journey Manager" />
+        )}
+      </section>
+    </section>
+  );
+}
+
+function AudiencePage({ audiences }: { audiences: AudiencePerformance[] }) {
+  return (
+    <section className="page-grid">
+      <section className="panel table-panel full-span">
+        <div className="panel-head">
+          <h2>Audiences</h2>
+          <a href="/admin/audiences">Open audience builder</a>
+        </div>
+        {audiences.length ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Audience</th>
+                <th>Status</th>
+                <th>Estimated</th>
+                <th>Sent</th>
+                <th>Open rate</th>
+                <th>Click rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audiences.map((audience) => (
+                <tr key={audience.audience_id}>
+                  <td>{audience.name}</td>
+                  <td><span className="pill">{audience.status}</span></td>
+                  <td>{formatInt(audience.estimated_count)}</td>
+                  <td>{formatInt(audience.sent_count)}</td>
+                  <td>{formatPct(audience.open_rate)}</td>
+                  <td>{formatPct(audience.click_rate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No audiences yet" detail="Import contacts or create a dynamic audience rule set." actionHref="/admin/audience-import" actionLabel="Import audience" />
+        )}
+      </section>
+    </section>
+  );
+}
+
+function TemplatesPage({ templates }: { templates: TemplateRead[] }) {
+  return (
+    <section className="page-grid cards-grid">
+      {templates.length ? templates.map((template) => (
+        <article className="panel entity-card" key={template.id}>
+          <span>{template.category || 'template'}</span>
+          <strong>{template.name}</strong>
+          <p>{template.subject}</p>
+          <a href={`/template-editor?template_id=${encodeURIComponent(template.id)}`}>Open editor</a>
+        </article>
+      )) : (
+        <EmptyState title="No templates yet" detail="Seed sample templates or create one in the editor." actionHref="/template-editor" actionLabel="Open Template Editor" />
+      )}
+    </section>
+  );
+}
+
+function AnalyticsPage({ overview, campaigns, audiences, journeys }: {
+  overview: AnalyticsOverview | null;
+  campaigns: CampaignPerformance[];
+  audiences: AudiencePerformance[];
+  journeys: JourneyPerformance[];
+}) {
+  return (
+    <section className="page-grid">
+      <section className="metric-grid full-span compact-metrics">
+        {metricsFromOverview(overview).map((metric) => <MetricCard metric={metric} key={metric.label} />)}
+      </section>
+      <section className="panel">
+        <div className="panel-head"><h2>Campaign Performance</h2><a href="/admin/analytics">Open analytics</a></div>
+        <p className="large-number">{formatInt(campaigns.reduce((sum, item) => sum + item.sent_count, 0))}</p>
+        <span className="muted">sent across {formatInt(campaigns.length)} campaigns</span>
+      </section>
+      <section className="panel">
+        <div className="panel-head"><h2>Audience Reach</h2><a href="/admin/audiences">Open audiences</a></div>
+        <p className="large-number">{formatInt(audiences.reduce((sum, item) => sum + item.estimated_count, 0))}</p>
+        <span className="muted">estimated contacts across saved audiences</span>
+      </section>
+      <section className="panel">
+        <div className="panel-head"><h2>Journey Health</h2><a href="/admin/journeys">Open journeys</a></div>
+        <p className="large-number">{formatInt(journeys.reduce((sum, item) => sum + item.active_count, 0))}</p>
+        <span className="muted">active journey enrollments</span>
+      </section>
+    </section>
+  );
+}
+
+function AiStudioPage({ insights }: { insights: Insight[] }) {
+  return (
+    <section className="page-grid">
+      <section className="panel">
+        <div className="panel-head"><h2>AI Studio</h2><a href="/template-editor">Template AI</a></div>
+        <div className="insights">
+          {insights.map((item) => (
+            <article className={`insight ${item.tone || ''}`} key={item.title}>
+              <Icon label={item.title} />
+              <div><strong>{item.title}</strong><p>{item.detail}</p><button className="link-button">{item.action}</button></div>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="panel quick-create">
+        <h2>AI Workflows</h2>
+        <a href="/template-editor">Template builder</a>
+        <a href="/admin/campaigns">Campaign review</a>
+        <a href="/admin/audiences">Audience recommendations</a>
+        <a href="/admin/analytics">Performance analysis</a>
+      </section>
+    </section>
+  );
+}
+
+function SimpleModulePage({ title, detail, links }: {
+  title: string;
+  detail: string;
+  links: Array<{ label: string; href: string }>;
+}) {
+  return (
+    <section className="page-grid">
+      <section className="panel">
+        <div className="panel-head"><h2>{title}</h2></div>
+        <p className="module-copy">{detail}</p>
+        <div className="module-links">
+          {links.map((link) => <a href={link.href} key={link.href}>{link.label}</a>)}
+        </div>
+      </section>
+    </section>
+  );
+}
+
 function App() {
+  const [activePage, setActivePage] = useState<PageKey>(pageFromHash);
   const [dashboard, setDashboard] = useState<DashboardState>({
     overview: null,
     campaigns: [],
+    audiences: [],
+    templates: [],
+    journeys: [],
     aiInsights: fallbackInsights,
     loading: true,
     error: null,
   });
 
   useEffect(() => {
+    function syncPage() {
+      setActivePage(pageFromHash());
+    }
+    window.addEventListener('hashchange', syncPage);
+    return () => window.removeEventListener('hashchange', syncPage);
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     async function loadDashboard() {
       try {
-        const [overview, campaignData] = await Promise.all([
+        const [overview, campaignData, audienceData, templateData, journeyData] = await Promise.all([
           fetchJson<AnalyticsOverview>('/api/v1/analytics/overview?recent_event_limit=25'),
           fetchJson<ListResponse<CampaignPerformance>>('/api/v1/analytics/campaigns?limit=10&offset=0'),
+          fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
+          fetchJson<ListResponse<TemplateRead>>('/api/v1/templates/list?limit=25&offset=0'),
+          fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
         ]);
         let aiInsights = fallbackInsights;
         try {
@@ -431,6 +763,9 @@ function App() {
           setDashboard({
             overview,
             campaigns: campaignData.items || [],
+            audiences: audienceData.items || [],
+            templates: templateData.items || [],
+            journeys: journeyData.items || [],
             aiInsights,
             loading: false,
             error: null,
@@ -441,6 +776,9 @@ function App() {
           setDashboard({
             overview: null,
             campaigns: [],
+            audiences: [],
+            templates: [],
+            journeys: [],
             aiInsights: fallbackInsights,
             loading: false,
             error: error instanceof Error ? error.message : String(error),
@@ -460,17 +798,51 @@ function App() {
     () => campaignsFromPerformance(dashboard.campaigns),
     [dashboard.campaigns],
   );
-  const status = dashboard.loading
-    ? 'Loading live metrics from Email Engine APIs...'
-    : dashboard.error
-      ? `Live API unavailable: ${dashboard.error}. Showing design fallback data.`
-      : 'Live overview powered by Email Engine analytics APIs.';
-
-  return (
-    <div className="app-shell">
-      <Sidebar />
-      <main className="workspace">
-        <Header status={status} />
+  const status = pageSubtitle(activePage, dashboard);
+  const content = (() => {
+    if (activePage === 'campaigns') return <CampaignsPage campaigns={dashboard.campaigns} />;
+    if (activePage === 'automations') return <AutomationsPage journeys={dashboard.journeys} />;
+    if (activePage === 'audience') return <AudiencePage audiences={dashboard.audiences} />;
+    if (activePage === 'templates') return <TemplatesPage templates={dashboard.templates} />;
+    if (activePage === 'ai-studio') return <AiStudioPage insights={dashboard.aiInsights} />;
+    if (activePage === 'analytics') {
+      return (
+        <AnalyticsPage
+          overview={dashboard.overview}
+          campaigns={dashboard.campaigns}
+          audiences={dashboard.audiences}
+          journeys={dashboard.journeys}
+        />
+      );
+    }
+    if (activePage === 'integrations') {
+      return (
+        <SimpleModulePage
+          title="Integrations"
+          detail="Manage data sources, field mappings, imports, and provider configuration from the existing workbench while this product surface matures."
+          links={[
+            { label: 'Data Sources', href: '/admin/data-sources' },
+            { label: 'System Diagnostics', href: '/admin/system' },
+            { label: 'API Docs', href: '/docs' },
+          ]}
+        />
+      );
+    }
+    if (activePage === 'settings') {
+      return (
+        <SimpleModulePage
+          title="Settings"
+          detail="Account, domain, compliance, authentication, and developer settings will move here as dedicated product pages."
+          links={[
+            { label: 'System Diagnostics', href: '/admin/system' },
+            { label: 'Suppressions', href: '/admin/suppressions' },
+            { label: 'API Docs', href: '/docs' },
+          ]}
+        />
+      );
+    }
+    return (
+      <>
         <section className="metric-grid">
           {liveMetrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
         </section>
@@ -482,6 +854,16 @@ function App() {
           <CampaignTable campaigns={liveCampaigns} />
           <QuickCreate />
         </section>
+      </>
+    );
+  })();
+
+  return (
+    <div className="app-shell">
+      <Sidebar activePage={activePage} />
+      <main className="workspace">
+        <Header title={pageTitle(activePage)} status={status} />
+        {content}
       </main>
     </div>
   );
