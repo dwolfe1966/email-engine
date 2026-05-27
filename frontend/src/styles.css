@@ -854,7 +854,8 @@ th {
   gap: 12px;
 }
 
-.form-grid label {
+.form-grid label,
+.editor-field {
   display: grid;
   gap: 6px;
   color: var(--muted);
@@ -864,7 +865,8 @@ th {
 
 .form-grid input,
 .form-grid select,
-.form-grid textarea {
+.form-grid textarea,
+.editor-field textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
@@ -875,7 +877,8 @@ th {
   outline: none;
 }
 
-.form-grid textarea {
+.form-grid textarea,
+.editor-field textarea {
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
@@ -1044,6 +1047,7 @@ th {
 .inline-css-helper {
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   align-items: end;
+  margin-top: 4px;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fbfdff;
@@ -1083,6 +1087,7 @@ th {
 
 .inline-block-actions {
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  margin-top: 4px;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fbfdff;
@@ -1150,6 +1155,14 @@ th {
   background: #fbfdff;
   color: var(--text);
   padding: 9px 10px;
+}
+
+.inline-variable-editor {
+  margin-top: 4px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
 }
 
 .compact-status-list > div,

@@ -2859,11 +2859,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   Subject
                   <input value={subject} onChange={(event) => setSubject(event.target.value)} />
                 </label>
-                <label className="wide-field">
+                <div className="wide-field editor-field">
                   <span className="field-title">
                     HTML / Jinja
                     <small>Insert blocks into the editor below</small>
                   </span>
+                  <textarea value={htmlBody} onChange={(event) => {
+                    setHtmlBody(event.target.value);
+                    setPreviewHtml('');
+                    setPreviewSubject('');
+                  }} rows={16} />
                   <div className="block-button-grid inline-block-actions">
                     <button type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
                     <button type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
@@ -2873,25 +2878,46 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <button type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
                     <button type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
                   </div>
-                  <textarea value={htmlBody} onChange={(event) => {
-                    setHtmlBody(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={16} />
-                </label>
-                <label>
-                  Sample variables JSON
+                </div>
+                <div className="editor-field">
+                  <span className="field-title">
+                    Sample variables JSON
+                    <small>Field editor updates this JSON</small>
+                  </span>
                   <textarea value={variablesJson} onChange={(event) => {
                     setVariablesJson(event.target.value);
                     setPreviewHtml('');
                     setPreviewSubject('');
                   }} rows={16} />
-                </label>
-                <label className="wide-field">
+                  {sampleVariableRows.length ? (
+                    <div className="variable-editor-list inline-variable-editor">
+                      {sampleVariableRows.map((item) => (
+                        <label key={item.name}>
+                          <span>
+                            <strong>{item.name}</strong>
+                            <em>{item.source}</em>
+                          </span>
+                          <input
+                            value={formatSampleInput(item.value)}
+                            onChange={(event) => updateSampleVariable(item.name, event.target.value)}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Click Preview to detect variables and create editable sample data.</p>
+                  )}
+                </div>
+                <div className="wide-field editor-field">
                   <span className="field-title">
                     CSS
                     <small>Generate starter CSS, then edit it directly</small>
                   </span>
+                  <textarea value={cssBody} onChange={(event) => {
+                    setCssBody(event.target.value);
+                    setPreviewHtml('');
+                    setPreviewSubject('');
+                  }} rows={7} />
                   <div className="css-helper-grid inline-css-helper">
                     <label>
                       Font
@@ -2928,12 +2954,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>Generate CSS</button>
                   </div>
-                  <textarea value={cssBody} onChange={(event) => {
-                    setCssBody(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={7} />
-                </label>
+                </div>
                 <label className="wide-field">
                   AI instruction
                   <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
@@ -2971,27 +2992,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   </div>
                 ))}
               </div>
-            </section>
-            <section className="workflow-section">
-              <h3>Variables</h3>
-              {sampleVariableRows.length ? (
-                <div className="variable-editor-list">
-                  {sampleVariableRows.map((item) => (
-                    <label key={item.name}>
-                      <span>
-                        <strong>{item.name}</strong>
-                        <em>{item.source}</em>
-                      </span>
-                      <input
-                        value={formatSampleInput(item.value)}
-                        onChange={(event) => updateSampleVariable(item.name, event.target.value)}
-                      />
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted">Click Preview to detect variables and create editable sample data.</p>
-              )}
             </section>
             <section className="workflow-section">
               <h3>AI Draft Review</h3>
