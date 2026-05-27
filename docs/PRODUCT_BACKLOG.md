@@ -119,6 +119,8 @@ model clearer and more operationally complete.
 - Add native sample-data presets per template category and detected variable type.
 - Add variable-aware preview behavior that refreshes sample data when selected templates change.
 - Add richer Jinja helper UI for loops, conditionals, fallback values, and nested objects.
+- Add autocomplete for the HTML/Jinja editor, including HTML tags, CSS classes detected from the
+  template, native variables, sample variables, Jinja blocks, filters, and snippets.
 - Add version history, compare, rollback, and current-version controls in the native EE editor.
 - Add AI-assisted template draft/edit/recommend flows directly in the EE editor, with visible
   progress for long-running AI operations.

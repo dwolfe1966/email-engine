@@ -2469,7 +2469,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
-  const [selectedCssRuleDraft, setSelectedCssRuleDraft] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
   const [cssPreset, setCssPreset] = useState({
     font: 'Arial, Helvetica, sans-serif',
@@ -2536,7 +2535,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSelectedTemplateId('');
     setName('ESP Template Draft');
     setSubject('Hello {{ first_name }}');
-    setHtmlBody('<p>Hello {{ first_name }},</p>\n<p>Welcome to Email Engine.</p>');
+    setHtmlBody('<div class="email-container">\n  <p class="email-copy">Hello {{ first_name }},</p>\n  <p class="email-copy">Welcome to Email Engine.</p>\n</div>');
     setCssBody('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     setPreviewHtml('');
@@ -2610,8 +2609,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     padding: ['container', 'section', 'button'].includes(cssClassKind),
     radius: cssClassKind !== 'text',
   };
-  const selectedCssRule = selectedCssClass ? cssRuleForClass(selectedCssClass) : '';
-
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = rule.match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
@@ -2701,10 +2698,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
   }, [htmlClassNames, selectedCssClass]);
 
-  useEffect(() => {
-    setSelectedCssRuleDraft(selectedCssRule);
-  }, [selectedCssClass, selectedCssRule]);
-
   function generatedCssFromPreset() {
     const width = Number(cssPreset.container) || 640;
     const padding = Number(cssPreset.padding) || 24;
@@ -2757,44 +2750,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
-  function saveSelectedCssRuleDraft() {
-    if (!selectedCssClass) {
-      setStatus('Select an HTML class before saving a CSS rule.');
-      return;
-    }
-    const declarations = selectedCssRuleDraft.trim();
-    if (!declarations) {
-      removeSelectedCssRule();
-      return;
-    }
-    const normalizedDeclarations = declarations
-      .replace(new RegExp(`^\\.${selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`, 'i'), '')
-      .replace(/\}\s*$/, '')
-      .trim();
-    const classRule = `.${selectedCssClass} {\n${normalizedDeclarations}\n}`;
-    const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const classRegex = new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm');
-    setCssBody((current) => classRegex.test(current)
-      ? current.replace(classRegex, classRule)
-      : `${current.trim()}\n\n${classRule}`.trim());
-    setPreviewHtml('');
-    setPreviewSubject('');
-    setStatus(`Saved manual CSS edits for .${selectedCssClass}. Click Preview to render them.`);
-  }
-
-  function removeSelectedCssRule() {
-    if (!selectedCssClass) {
-      setStatus('Select an HTML class before removing a CSS rule.');
-      return;
-    }
-    const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const classRegex = new RegExp(`\\n?\\.${escaped}\\s*\\{[^}]*\\}\\n?`, 'm');
-    setCssBody((current) => current.replace(classRegex, '\n').replace(/\n{3,}/g, '\n\n').trim());
-    setPreviewHtml('');
-    setPreviewSubject('');
-    setStatus(`Removed CSS rule for .${selectedCssClass}. Click Preview to render the change.`);
-  }
-
   function scaffoldMissingCssClasses() {
     if (!missingCssClasses.length) {
       setStatus('All detected HTML classes already have CSS rules.');
@@ -2809,21 +2764,69 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function htmlBlockSnippet(kind: string) {
     const blocks: Record<string, string> = {
-      container: '<div class="email-container">\n  <h1>Hello {{ first_name }}</h1>\n  <p>Add your message here.</p>\n</div>',
-      hero: '<section class="email-container">\n  <h1>Your headline goes here</h1>\n  <p>A short supporting line for {{ first_name }}.</p>\n  <p><a class="button" href="{{ tracking_click }}">Call to action</a></p>\n</section>',
-      heading: '<h2>Section heading</h2>',
-      paragraph: '<p>Hello {{ first_name }},</p>\n<p>Add a concise paragraph with one clear idea.</p>',
-      image: '<img src="{{ hero_image_url }}" alt="Describe this image" style="width: 100%; max-width: 600px; height: auto; display: block;" />',
-      button: '<p><a class="button" href="{{ tracking_click }}">Call to action</a></p>',
-      divider: '<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />',
-      spacer: '<div style="height: 24px; line-height: 24px;">&nbsp;</div>',
-      quote: '<blockquote style="margin: 0; padding: 16px; border-left: 4px solid #2563eb; background: #f8fafc;">\n  <p>{{ testimonial }}</p>\n</blockquote>',
-      twoColumn: '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">\n  <tr>\n    <td style="width: 50%; padding-right: 8px;">Left column content</td>\n    <td style="width: 50%; padding-left: 8px;">Right column content</td>\n  </tr>\n</table>',
-      list: '<ul>\n{% for item in recommendations %}\n  <li>{{ loop.index }}. {{ item }}</li>\n{% endfor %}\n</ul>',
-      conditional: '{% if plan == "trial" %}\n  <p>Your trial plan is active.</p>\n{% else %}\n  <p>Your plan is {{ plan }}.</p>\n{% endif %}',
-      compliance: '<p class="muted">You are receiving this because you opted in. <a href="{{ unsubscribe_url }}">Unsubscribe</a></p>',
+      container: '<div class="email-container">\n  <h1 class="email-title">Hello {{ first_name }}</h1>\n  <p class="email-copy">Add your message here.</p>\n</div>',
+      hero: '<section class="email-hero">\n  <h1 class="email-title">Your headline goes here</h1>\n  <p class="email-copy">A short supporting line for {{ first_name }}.</p>\n  <p class="email-action"><a class="button" href="{{ tracking_click }}">Call to action</a></p>\n</section>',
+      heading: '<h2 class="email-heading">Section heading</h2>',
+      paragraph: '<p class="email-copy">Hello {{ first_name }},</p>\n<p class="email-copy">Add a concise paragraph with one clear idea.</p>',
+      image: '<img class="email-image" src="{{ hero_image_url }}" alt="Describe this image" style="width: 100%; max-width: 600px; height: auto; display: block;" />',
+      button: '<p class="email-action"><a class="button" href="{{ tracking_click }}">Call to action</a></p>',
+      divider: '<hr class="email-divider" style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />',
+      spacer: '<div class="email-spacer" style="height: 24px; line-height: 24px;">&nbsp;</div>',
+      quote: '<blockquote class="email-quote" style="margin: 0; padding: 16px; border-left: 4px solid #2563eb; background: #f8fafc;">\n  <p class="email-copy">{{ testimonial }}</p>\n</blockquote>',
+      twoColumn: '<table class="email-two-column" role="presentation" width="100%" cellspacing="0" cellpadding="0">\n  <tr class="email-row">\n    <td class="email-column" style="width: 50%; padding-right: 8px;">Left column content</td>\n    <td class="email-column" style="width: 50%; padding-left: 8px;">Right column content</td>\n  </tr>\n</table>',
+      list: '<ul class="email-list">\n{% for item in recommendations %}\n  <li class="email-list-item">{{ loop.index }}. {{ item }}</li>\n{% endfor %}\n</ul>',
+      conditional: '{% if plan == "trial" %}\n  <p class="email-copy">Your trial plan is active.</p>\n{% else %}\n  <p class="email-copy">Your plan is {{ plan }}.</p>\n{% endif %}',
+      compliance: '<p class="muted">You are receiving this because you opted in. <a class="unsubscribe-link" href="{{ unsubscribe_url }}">Unsubscribe</a></p>',
     };
     return blocks[kind] || blocks.paragraph;
+  }
+
+  function formatHtmlJinjaSource(source: string) {
+    const tokens = source.replace(/>\s+</g, '>\n<').replace(/\s*({%|{{)/g, '\n$1').replace(/(%}|}})\s*/g, '$1\n').split('\n');
+    let depth = 0;
+    return tokens
+      .map((raw) => raw.trim())
+      .filter(Boolean)
+      .map((line) => {
+        if (/^<\//.test(line) || /^{%\s*(else|elif|endif|endfor|endblock)/.test(line)) depth = Math.max(0, depth - 1);
+        const formatted = `${'  '.repeat(depth)}${line}`;
+        if (/^<[^/!][^>]*[^/]>\s*$/.test(line) && !/^<(br|hr|img|input|meta|link)\b/i.test(line)) depth += 1;
+        if (/^{%\s*(if|for|block|macro)\b/.test(line)) depth += 1;
+        if (/^{%\s*(else|elif)\b/.test(line)) depth += 1;
+        return formatted;
+      })
+      .join('\n');
+  }
+
+  function ensureTemplateContainer(source: string) {
+    const trimmed = source.trim();
+    if (!trimmed) return '<div class="email-container">\n</div>';
+    if (/^<div[^>]+class=["'][^"']*email-container/.test(trimmed)) return trimmed;
+    return `<div class="email-container">\n${formatHtmlJinjaSource(trimmed).split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
+  }
+
+  function formatTemplateSource() {
+    const nextHtml = ensureTemplateContainer(formatHtmlJinjaSource(htmlBody));
+    setHtmlBody(nextHtml);
+    setPreviewHtml('');
+    setPreviewSubject('');
+    setStatus('Formatted HTML/Jinja and ensured an email-container wrapper.');
+  }
+
+  function highlightedHtmlJinja(source: string) {
+    const parts = source.split(/({#[\s\S]*?#}|{%-?[\s\S]*?-?%}|{{[\s\S]*?}}|<\/?[^>]+>)/g).filter(Boolean);
+    return parts.map((part, index) => {
+      const className = part.startsWith('{{')
+        ? 'syntax-variable'
+        : part.startsWith('{%')
+          ? 'syntax-block'
+          : part.startsWith('{#')
+            ? 'syntax-comment'
+            : part.startsWith('<')
+              ? 'syntax-tag'
+              : 'syntax-text';
+      return <span className={className} key={`${className}-${index}`}>{part}</span>;
+    });
   }
 
   function insertHtmlBlock(kind: string) {
@@ -2919,10 +2922,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   async function saveTemplate() {
     await runTemplateOperation(selectedTemplateId ? 'Saving template' : 'Creating template', async () => {
+      const normalizedHtml = ensureTemplateContainer(formatHtmlJinjaSource(htmlBody));
       const payload = {
         name: name.trim() || 'Untitled ESP Template',
         subject,
-        html_body: htmlBody,
+        html_body: normalizedHtml,
         css_body: cssBody || null,
         text_body: null,
       };
@@ -2936,6 +2940,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           body: JSON.stringify(payload),
         });
       setSelectedTemplateId(saved.id);
+      setHtmlBody(normalizedHtml);
       window.location.hash = `#templates/${saved.id}`;
       await onRefresh();
       return `Saved template: ${saved.name}`;
@@ -3230,8 +3235,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                    setPreviewHtml('');
 	                    setPreviewSubject('');
 	                  }} rows={16} />
-                  <div className="block-button-grid inline-block-actions">
-                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+	                  <div className="block-button-grid inline-block-actions">
+	                    <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
+	                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
                     <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
                     <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
                     <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
@@ -3243,9 +3249,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
                     <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
                     <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
-                    <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
-                  </div>
-                </div>
+	                    <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
+	                  </div>
+	                  <pre className="syntax-source" aria-label="Syntax highlighted HTML and Jinja source">{highlightedHtmlJinja(htmlBody)}</pre>
+	                </div>
                 <div className="editor-field">
                   <span className="field-title">
                     Sample variables JSON
@@ -3340,31 +3347,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
                     <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
-                  </div>
-                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
-                  {selectedCssClass ? (
-                    <div className="selected-css-rule">
-                      <div>
-                        <strong>.{selectedCssClass}</strong>
-                        <span>{selectedCssRule ? `${selectedCssRule.split(';').filter(Boolean).length} declarations` : 'No rule yet'}</span>
-                      </div>
-                      <textarea
-                        value={selectedCssRuleDraft}
-                        onChange={(event) => {
-                          setSelectedCssRuleDraft(event.target.value);
-                          setPreviewHtml('');
-                          setPreviewSubject('');
-                        }}
-                        rows={selectedCssRule ? 7 : 3}
-                        placeholder={'Add declarations, for example:\n  color: #111827;\n  padding: 24px;'}
-                      />
-                      <div className="selected-css-actions">
-                        <button className="ghost" type="button" onClick={saveSelectedCssRuleDraft} disabled={busy || !selectedCssClass}>Save Rule Edits</button>
-                        <button className="ghost" type="button" onClick={() => setSelectedCssRuleDraft(selectedCssRule)} disabled={busy || !selectedCssClass}>Revert Rule Draft</button>
-                        <button className="ghost danger" type="button" onClick={removeSelectedCssRule} disabled={busy || !selectedCssRule}>Remove Rule</button>
-                      </div>
-                    </div>
-                  ) : null}
+	                  </div>
+	                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
+	                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to update or create its CSS rule.</p> : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
                       <div className="coverage-summary">
