@@ -1080,6 +1080,75 @@ th {
   padding: 4px;
 }
 
+.css-class-coverage {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.coverage-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #29405f;
+  font-size: 12px;
+}
+
+.coverage-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.coverage-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coverage-chip-list button {
+  min-width: 104px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #29405f;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coverage-chip-list button span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.coverage-chip-list .has-rule {
+  border-color: #b7e8d5;
+  background: #f2fff9;
+  color: #15803d;
+}
+
+.coverage-chip-list .missing-rule {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+  color: #b45309;
+}
+
+.css-coverage-empty {
+  margin-top: 8px;
+}
+
 .block-button-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

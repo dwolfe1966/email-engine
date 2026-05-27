@@ -2466,6 +2466,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return match?.[1] || '';
   }
 
+  const cssClassCoverage = htmlClassNames.map((className) => ({
+    name: className,
+    hasRule: Boolean(cssRuleForClass(className)),
+  }));
+  const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
+
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = rule.match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
@@ -2520,12 +2526,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     ].join('\n');
   }
 
+  function classRuleFromPreset(className: string) {
+    const radius = Number(cssPreset.radius) || 8;
+    const padding = Number(cssPreset.padding) || 24;
+    const width = Number(cssPreset.container) || 640;
+    return `.${className} {\n  max-width: ${width}px;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n  border-color: ${cssPreset.accent};\n}`;
+  }
+
   function applyCssPreset() {
     if (selectedCssClass) {
-      const radius = Number(cssPreset.radius) || 8;
-      const padding = Number(cssPreset.padding) || 24;
-      const width = Number(cssPreset.container) || 640;
-      const classRule = `.${selectedCssClass} {\n  max-width: ${width}px;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n  border-color: ${cssPreset.accent};\n}`;
+      const classRule = classRuleFromPreset(selectedCssClass);
       const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const classRegex = new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm');
       setCssBody((current) => classRegex.test(current)
@@ -2537,6 +2547,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewHtml('');
     setPreviewSubject('');
     setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
+  }
+
+  function scaffoldMissingCssClasses() {
+    if (!missingCssClasses.length) {
+      setStatus('All detected HTML classes already have CSS rules.');
+      return;
+    }
+    const missingRules = missingCssClasses.map(classRuleFromPreset).join('\n\n');
+    setCssBody((current) => `${current.trim()}\n\n${missingRules}`.trim());
+    setPreviewHtml('');
+    setPreviewSubject('');
+    setStatus(`Created CSS rules for ${missingCssClasses.map((className) => `.${className}`).join(', ')}. Click Preview to render them.`);
   }
 
   function htmlBlockSnippet(kind: string) {
@@ -3051,6 +3073,30 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
                   </div>
+                  {cssClassCoverage.length ? (
+                    <div className="css-class-coverage">
+                      <div className="coverage-summary">
+                        <strong>HTML class coverage</strong>
+                        <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rules` : 'All detected classes have rules'}</span>
+                      </div>
+                      <div className="coverage-chip-list">
+                        {cssClassCoverage.map((item) => (
+                          <button
+                            type="button"
+                            className={item.hasRule ? 'has-rule' : 'missing-rule'}
+                            key={item.name}
+                            onClick={() => selectCssClass(item.name)}
+                          >
+                            .{item.name}
+                            <span>{item.hasRule ? 'styled' : 'missing CSS'}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <button className="ghost" type="button" onClick={scaffoldMissingCssClasses} disabled={busy || !missingCssClasses.length}>Create Missing Rules</button>
+                    </div>
+                  ) : (
+                    <p className="muted css-coverage-empty">Add class attributes in HTML to manage class CSS here.</p>
+                  )}
                 </div>
                 <label className="wide-field">
                   AI instruction
