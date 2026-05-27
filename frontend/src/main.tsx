@@ -721,7 +721,7 @@ function headerAction(page: PageKey) {
     automations: { label: 'Create Journey', href: '#automations/new' },
     delivery: { label: 'Process Queue', href: '#delivery' },
     compliance: { label: 'Add Suppression', href: '#compliance' },
-    data: { label: 'Add Data Source', href: '#data' },
+    data: { label: 'Add Data Source', href: '#data/new' },
     contacts: { label: 'Import Contacts', href: '#data' },
     audience: { label: 'Create Audience', href: '#audience/new' },
     templates: { label: 'Create Template', href: '#templates/new' },
@@ -2851,10 +2851,11 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
   );
 }
 
-function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }: {
+function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOperation }: {
   dataSources: DataSourceRead[];
   mappings: DataSourceMappingRead[];
   importJobs: DataSourceImportJobRead[];
+  route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
@@ -2871,10 +2872,20 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
   const [schema, setSchema] = useState<DataSourceSchemaRead | null>(null);
   const [status, setStatus] = useState('Ready to configure a source, map fields, and import contacts.');
   const [busy, setBusy] = useState(false);
+  const routeParts = route.split('/');
+  const routeSourceId = routeParts[0] === 'data' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
+  const isDetailPage = routeParts[0] === 'data' && Boolean(routeParts[1]);
 
   useEffect(() => {
-    if (!selectedSourceId && dataSources.length) loadSource(dataSources[0]);
-  }, [dataSources, selectedSourceId]);
+    if (routeParts[1] === 'new') {
+      resetSourceEditor();
+    } else if (routeSourceId) {
+      const source = dataSources.find((item) => item.id === routeSourceId);
+      if (source && selectedSourceId !== source.id) loadSource(source);
+    } else if (!selectedSourceId && dataSources.length) {
+      loadSource(dataSources[0]);
+    }
+  }, [dataSources, route, routeSourceId, selectedSourceId]);
 
   useEffect(() => {
     const sourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId);
@@ -2920,6 +2931,20 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
     setStatus(`Loaded source: ${source.name}`);
   }
 
+  function resetSourceEditor() {
+    setSelectedSourceId('');
+    setSelectedMappingId('');
+    setName('ESP Manual Contact Source');
+    setSourceType('manual');
+    setStatusValue('draft');
+    setConfigJson('{\n  "fields": ["email", "first_name", "last_name", "plan"],\n  "sample_rows": [\n    { "email": "sample@example.com", "first_name": "Sample", "last_name": "Contact", "plan": "trial" }\n  ]\n}');
+    setMappingName('Contact import mapping');
+    setMappingJson('{\n  "email": "email",\n  "first_name": "first_name",\n  "last_name": "last_name",\n  "source": "source",\n  "attributes": {\n    "plan": "plan"\n  }\n}');
+    setValidation(null);
+    setSchema(null);
+    setStatus('Ready to create a new data source.');
+  }
+
   function loadMapping(mapping: DataSourceMappingRead) {
     setSelectedMappingId(mapping.id);
     setMappingName(mapping.name);
@@ -2957,6 +2982,7 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
         ? await fetchJson<DataSourceRead>(`/api/v1/data-sources/${selectedSourceId}`, { method: 'PATCH', body: JSON.stringify(payload) })
         : await fetchJson<DataSourceRead>('/api/v1/data-sources', { method: 'POST', body: JSON.stringify(payload) });
       setSelectedSourceId(saved.id);
+      window.location.hash = `#data/${saved.id}`;
       await onRefresh();
       return `Saved data source: ${saved.name}.`;
     });
@@ -3018,6 +3044,126 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
     });
   }
 
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid">
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Sources', value: formatInt(dataSources.length), change: 'configured' }} />
+          <MetricCard metric={{ label: 'Mappings', value: formatInt(mappings.length), change: 'field maps' }} />
+          <MetricCard metric={{ label: 'Imported rows', value: formatInt(importedCount), change: `${formatInt(completedJobs)} completed jobs` }} />
+          <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
+          <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Data Sources</h2>
+              <span className="muted">Select a source to review mappings, imports, and schema readiness.</span>
+            </div>
+            <a href="#data/new">New source</a>
+          </div>
+          {dataSources.length ? (
+            <table>
+              <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Mappings</th><th>Secret</th><th>Editor</th></tr></thead>
+              <tbody>
+                {dataSources.map((source) => (
+                  <tr
+                    className={`selectable-row ${source.id === selectedSourceId ? 'selected-row' : ''}`}
+                    key={source.id}
+                    onClick={() => loadSource(source)}
+                  >
+                    <td>{source.name}</td>
+                    <td><span className="pill">{source.source_type}</span></td>
+                    <td>{source.status}</td>
+                    <td>{formatInt(mappings.filter((mapping) => mapping.data_source_id === source.id).length)}</td>
+                    <td>{source.secret_ref || '-'}</td>
+                    <td><a href={`#data/${source.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <EmptyState title="No data sources" detail="Create a source to start importing contacts from CSV, manual rows, or external systems." actionHref="#data/new" actionLabel="Create source" />}
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Mappings</h2>
+              <span className="muted">{selectedSource ? `Mappings for ${selectedSource.name}` : 'Select a source to filter mappings.'}</span>
+            </div>
+            {selectedSourceId ? <a href={`#data/${selectedSourceId}`}>Edit mappings</a> : <span className="muted">Select a source</span>}
+          </div>
+          {sourceMappings.length ? (
+            <table>
+              <thead><tr><th>Mapping</th><th>Object</th><th>Fields</th><th>Source</th></tr></thead>
+              <tbody>
+                {sourceMappings.map((mapping) => (
+                  <tr
+                    className={`selectable-row ${mapping.id === selectedMappingId ? 'selected-row' : ''}`}
+                    key={mapping.id}
+                    onClick={() => loadMapping(mapping)}
+                  >
+                    <td>{mapping.name}</td>
+                    <td>{mapping.object_type}</td>
+                    <td>{formatInt(Object.keys(mapping.mapping || {}).length)}</td>
+                    <td>{selectedSource?.name || mapping.data_source_id.slice(0, 8)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <EmptyState title="No mappings for selected source" detail="Open a data source to create a contact import mapping." actionHref={selectedSourceId ? `#data/${selectedSourceId}` : '#data/new'} actionLabel="Open source" />}
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Import Jobs</h2>
+              <span className="muted">{formatInt(importJobs.length)} visible</span>
+            </div>
+            <a href="#contacts">Open contacts</a>
+          </div>
+          {importJobs.length ? (
+            <table>
+              <thead><tr><th>Created</th><th>Status</th><th>Object</th><th>Received</th><th>Imported</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Errors</th></tr></thead>
+              <tbody>
+                {importJobs.map((job) => (
+                  <tr key={job.id}>
+                    <td>{job.created_at}</td>
+                    <td><span className="pill">{job.status}</span></td>
+                    <td>{job.object_type}</td>
+                    <td>{formatInt(job.received_count)}</td>
+                    <td>{formatInt(job.imported_count)}</td>
+                    <td>{formatInt(job.created_count)}</td>
+                    <td>{formatInt(job.updated_count)}</td>
+                    <td>{formatInt(job.skipped_count)}</td>
+                    <td>{formatInt(job.errors?.length || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <EmptyState title="No import jobs" detail="Open a data source, save a mapping, then run a dry run or import rows." actionHref={selectedSourceId ? `#data/${selectedSourceId}` : '#data/new'} actionLabel="Open source" />}
+        </section>
+        {(selectedSource || selectedMapping || validation || schema) ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedSource?.name || 'Selected Data Context'}</h2>
+                <span className="muted">Selected source and mapping summary</span>
+              </div>
+              <a href={selectedSourceId ? `#data/${selectedSourceId}` : '#data/new'}>Open data source</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Source type</span><strong>{selectedSource?.source_type || '-'}</strong></div>
+              <div><span>Source status</span><strong>{selectedSource?.status || '-'}</strong></div>
+              <div><span>Mapping</span><strong>{selectedMapping?.name || '-'}</strong></div>
+              <div><span>Validation</span><strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong></div>
+              <div><span>Schema fields</span><strong>{schema ? formatInt(schema.fields.length) : 'Unknown'}</strong></div>
+              <div><span>Sample rows</span><strong>{schema ? formatInt(schema.sample_rows.length) : 'Unknown'}</strong></div>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -3027,119 +3173,19 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
         <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
         <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
       </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Data Sources</h2>
-            <span className="muted">Select a source before editing mappings or importing rows.</span>
-          </div>
-          <button className="link-button" onClick={() => {
-            setSelectedSourceId('');
-            setName('ESP Manual Contact Source');
-            setSourceType('manual');
-            setStatusValue('draft');
-            setConfigJson('{\n  "fields": ["email", "first_name", "last_name", "plan"],\n  "sample_rows": [\n    { "email": "sample@example.com", "first_name": "Sample", "last_name": "Contact", "plan": "trial" }\n  ]\n}');
-            setValidation(null);
-            setSchema(null);
-            setStatus('Ready to create a new data source.');
-          }}>New source</button>
-        </div>
-        {dataSources.length ? (
-          <table>
-            <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Mappings</th><th>Secret</th></tr></thead>
-            <tbody>
-              {dataSources.map((source) => (
-                <tr
-                  className={`selectable-row ${source.id === selectedSourceId ? 'selected-row' : ''}`}
-                  key={source.id}
-                  onClick={() => loadSource(source)}
-                >
-                  <td>{source.name}</td>
-                  <td><span className="pill">{source.source_type}</span></td>
-                  <td>{source.status}</td>
-                  <td>{formatInt(mappings.filter((mapping) => mapping.data_source_id === source.id).length)}</td>
-                  <td>{source.secret_ref || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No data sources" detail="Create a source to start importing contacts from CSV, manual rows, or external systems." actionHref="#data" actionLabel="Create source" />}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Mappings</h2>
-            <span className="muted">{selectedSource ? `Mappings for ${selectedSource.name}` : 'Select a source to filter mappings.'}</span>
-          </div>
-          <button className="link-button" onClick={() => {
-            setSelectedMappingId('');
-            setMappingName('Contact import mapping');
-            setMappingJson('{\n  "email": "email",\n  "first_name": "first_name",\n  "last_name": "last_name",\n  "source": "source",\n  "attributes": {\n    "plan": "plan"\n  }\n}');
-            setStatus('Ready to create a new mapping.');
-          }} disabled={!selectedSourceId}>New mapping</button>
-        </div>
-        {sourceMappings.length ? (
-          <table>
-            <thead><tr><th>Mapping</th><th>Object</th><th>Fields</th><th>Source</th></tr></thead>
-            <tbody>
-              {sourceMappings.map((mapping) => (
-                <tr
-                  className={`selectable-row ${mapping.id === selectedMappingId ? 'selected-row' : ''}`}
-                  key={mapping.id}
-                  onClick={() => loadMapping(mapping)}
-                >
-                  <td>{mapping.name}</td>
-                  <td>{mapping.object_type}</td>
-                  <td>{formatInt(Object.keys(mapping.mapping || {}).length)}</td>
-                  <td>{selectedSource?.name || mapping.data_source_id.slice(0, 8)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No mappings for selected source" detail="Create a mapping to transform source rows into contacts." actionHref="#data" actionLabel="Create mapping" />}
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Import Jobs</h2>
-            <span className="muted">{formatInt(importJobs.length)} visible</span>
-          </div>
-          <a href="#contacts">Open contacts</a>
-        </div>
-        {importJobs.length ? (
-          <table>
-            <thead><tr><th>Created</th><th>Status</th><th>Object</th><th>Received</th><th>Imported</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Errors</th></tr></thead>
-            <tbody>
-              {importJobs.map((job) => (
-                <tr key={job.id}>
-                  <td>{job.created_at}</td>
-                  <td><span className="pill">{job.status}</span></td>
-                  <td>{job.object_type}</td>
-                  <td>{formatInt(job.received_count)}</td>
-                  <td>{formatInt(job.imported_count)}</td>
-                  <td>{formatInt(job.created_count)}</td>
-                  <td>{formatInt(job.updated_count)}</td>
-                  <td>{formatInt(job.skipped_count)}</td>
-                  <td>{formatInt(job.errors?.length || 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No import jobs" detail="Save a source and mapping, then run a dry run or import rows." actionHref="#data" actionLabel="Run import" />}
-      </section>
       {(selectedSource || selectedMapping || validation || schema) ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
             <div>
-              <h2>{selectedSource?.name || 'Selected Data Context'}</h2>
-              <span className="muted">Selected source and mapping summary</span>
+              <h2>{selectedSource?.name || 'New Data Source'}</h2>
+              <span className="muted">Source, mapping, validation, and import workspace</span>
             </div>
-            <a href="#audience">Open audience</a>
+            <a href="#data">Back to data sources</a>
           </div>
           <div className="summary-grid">
-            <div><span>Source type</span><strong>{selectedSource?.source_type || '-'}</strong></div>
-            <div><span>Source status</span><strong>{selectedSource?.status || '-'}</strong></div>
-            <div><span>Mapping</span><strong>{selectedMapping?.name || '-'}</strong></div>
+            <div><span>Source type</span><strong>{selectedSource?.source_type || sourceType}</strong></div>
+            <div><span>Source status</span><strong>{selectedSource?.status || statusValue}</strong></div>
+            <div><span>Mapping</span><strong>{selectedMapping?.name || 'Create or select'}</strong></div>
             <div><span>Validation</span><strong>{validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked'}</strong></div>
             <div><span>Schema fields</span><strong>{schema ? formatInt(schema.fields.length) : 'Unknown'}</strong></div>
             <div><span>Sample rows</span><strong>{schema ? formatInt(schema.sample_rows.length) : 'Unknown'}</strong></div>
@@ -3148,16 +3194,24 @@ function DataPage({ dataSources, mappings, importJobs, onRefresh, onOperation }:
       ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>Data Operations</h2>
-          <a href="#contacts">Open contacts</a>
+          <h2>{selectedSource ? 'Data Operations' : 'Create Data Source'}</h2>
+          <div className="button-row">
+            <a href="#data">Back to data sources</a>
+            <a href="#contacts">Open contacts</a>
+          </div>
         </div>
         <div className="form-grid">
           <label>
             Existing source
             <select value={selectedSourceId} onChange={(event) => {
               const source = dataSources.find((item) => item.id === event.target.value);
-              if (source) loadSource(source);
-              else setSelectedSourceId('');
+              if (source) {
+                loadSource(source);
+                window.location.hash = `#data/${source.id}`;
+              } else {
+                resetSourceEditor();
+                window.location.hash = '#data/new';
+              }
             }}>
               <option value="">Create new source</option>
               {dataSources.map((source) => <option value={source.id} key={source.id}>{source.name} ({source.source_type})</option>)}
@@ -4969,6 +5023,7 @@ function App() {
           dataSources={dashboard.dataSources}
           mappings={dashboard.dataMappings}
           importJobs={dashboard.importJobs}
+          route={route}
           onRefresh={async () => {
             const [dataSourceData, dataMappingData, importJobData] = await Promise.all([
               fetchJson<ListResponse<DataSourceRead>>('/api/v1/data-sources/list?limit=25&offset=0'),
