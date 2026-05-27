@@ -1793,9 +1793,10 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   const routeParts = route.split('/');
   const routeJourneyId = routeParts[0] === 'automations' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
   const isDetailPage = routeParts[0] === 'automations' && Boolean(routeParts[1]);
+  const isNewJourney = routeParts[0] === 'automations' && routeParts[1] === 'new';
 
   useEffect(() => {
-    if (routeParts[1] === 'new') {
+    if (isNewJourney) {
       resetJourneyEditor();
     } else if (routeJourneyId) {
       const journey = journeyItems.find((item) => item.id === routeJourneyId);
@@ -1805,7 +1806,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     }
     if (!templateId && templates.length) setTemplateId(templates[0].id);
     if (!contactId && contacts.length) setContactId(contacts[0].id);
-  }, [contactId, contacts, journeyItems, route, routeJourneyId, selectedJourneyId, templateId, templates]);
+  }, [contactId, contacts, isNewJourney, journeyItems, routeJourneyId, selectedJourneyId, templateId, templates]);
 
   const failures = journeys.reduce((sum, item) =>
     sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
@@ -1814,6 +1815,8 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   const completed = journeys.reduce((sum, item) => sum + Number(item.completed_count || 0), 0);
   const selectedJourney = journeyItems.find((item) => item.id === selectedJourneyId);
   const selectedJourneyPerformance = journeys.find((item) => item.journey_id === selectedJourneyId);
+  const isPersistedJourney = Boolean(selectedJourneyId);
+  const isCreatingJourney = !isPersistedJourney;
   const selectedContact = contacts.find((item) => item.id === contactId);
   const visibleEnrollments = selectedJourneyId
     ? enrollments.filter((item) => item.journey_id === selectedJourneyId)
@@ -2070,25 +2073,32 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
             <a href="#delivery">Open delivery</a>
           </div>
         </div>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Journey</strong>
+            <button className="primary" onClick={saveJourney} disabled={busy}>{isCreatingJourney ? 'Create Journey' : 'Save Changes'}</button>
+          </div>
+          {isPersistedJourney ? (
+            <>
+              <div>
+                <strong>Builder</strong>
+                <button className="ghost" onClick={addSendStep} disabled={busy || !templateId}>Add Send Step</button>
+              </div>
+              <div>
+                <strong>Run</strong>
+                <button className="ghost" onClick={enrollContact} disabled={busy || !contactId}>Enroll Contact</button>
+                <button className="ghost" onClick={processDue} disabled={busy}>Process Due</button>
+              </div>
+            </>
+          ) : null}
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+          {selectedJourney?.steps?.length ? <small>{selectedJourney.steps.map((step) => `${step.position + 1}. ${step.name}`).join(' | ')}</small> : null}
+          {selectedContact ? <small>Selected contact: {selectedContact.email}</small> : null}
+        </div>
         <div className="form-grid">
-          <label>
-            Existing journey
-            <select value={selectedJourneyId} onChange={(event) => {
-              const journey = journeyItems.find((item) => item.id === event.target.value);
-              if (journey) {
-                loadJourneyIntoEditor(journey);
-                window.location.hash = `#automations/${journey.id}`;
-              } else {
-                resetJourneyEditor();
-                window.location.hash = '#automations/new';
-              }
-            }}>
-              <option value="">Create new journey</option>
-              {journeyItems.map((journey) => (
-                <option value={journey.id} key={journey.id}>{journey.name} ({journey.status})</option>
-              ))}
-            </select>
-          </label>
           <label>
             Journey name
             <input value={name} onChange={(event) => setName(event.target.value)} />
@@ -2127,18 +2137,6 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
             Enrollment variables JSON
             <textarea value={enrollmentVariablesJson} onChange={(event) => setEnrollmentVariablesJson(event.target.value)} rows={6} />
           </label>
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={saveJourney} disabled={busy}>Save Journey</button>
-          <button className="ghost" onClick={addSendStep} disabled={busy || !selectedJourneyId || !templateId}>Add Send Step</button>
-          <button className="ghost" onClick={enrollContact} disabled={busy || !selectedJourneyId || !contactId}>Enroll Contact</button>
-          <button className="ghost" onClick={processDue} disabled={busy}>Process Due</button>
-        </div>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
-          {selectedJourney?.steps?.length ? <small>{selectedJourney.steps.map((step) => `${step.position + 1}. ${step.name}`).join(' | ')}</small> : null}
-          {selectedContact ? <small>Selected contact: {selectedContact.email}</small> : null}
         </div>
       </section>
       <section className="panel table-panel full-span">
