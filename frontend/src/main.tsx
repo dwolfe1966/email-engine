@@ -4626,9 +4626,10 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
   const routeParts = route.split('/');
   const routeContactId = routeParts[0] === 'contacts' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
   const isDetailPage = routeParts[0] === 'contacts' && Boolean(routeParts[1]);
+  const isNewContact = routeParts[0] === 'contacts' && routeParts[1] === 'new';
 
   useEffect(() => {
-    if (routeParts[1] === 'new') {
+    if (isNewContact) {
       resetContactEditor();
     } else if (routeContactId) {
       const contact = contacts.find((item) => item.id === routeContactId);
@@ -4636,12 +4637,14 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
     } else if (!selectedContactId && contacts.length) {
       loadContact(contacts[0]);
     }
-  }, [contacts, route, routeContactId, selectedContactId]);
+  }, [contacts, isNewContact, routeContactId, selectedContactId]);
 
   const unsubscribedCount = contacts.filter((contact) => contact.is_unsubscribed).length;
   const attributedCount = contacts.filter((contact) => Object.keys(contact.attributes || {}).length).length;
   const uniqueSources = new Set(contacts.map((contact) => contact.source).filter(Boolean)).size;
   const selectedContact = contacts.find((contact) => contact.id === selectedContactId);
+  const isPersistedContact = Boolean(selectedContactId);
+  const isCreatingContact = !isPersistedContact;
   const sourceRows = metadata?.sources || [];
   const attributeKeys = metadata?.attribute_keys || [];
 
@@ -4864,22 +4867,6 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
         </div>
         <div className="form-grid">
           <label>
-            Existing contact
-            <select value={selectedContactId} onChange={(event) => {
-              const contact = contacts.find((item) => item.id === event.target.value);
-              if (contact) {
-                loadContact(contact);
-                window.location.hash = `#contacts/${contact.id}`;
-              } else {
-                resetContactEditor();
-                window.location.hash = '#contacts/new';
-              }
-            }}>
-              <option value="">Create new contact</option>
-              {contacts.map((contact) => <option value={contact.id} key={contact.id}>{contact.email}</option>)}
-            </select>
-          </label>
-          <label>
             Email
             <input value={email} onChange={(event) => setEmail(event.target.value)} />
           </label>
@@ -4895,27 +4882,31 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             Source
             <input value={source} onChange={(event) => setSource(event.target.value)} />
           </label>
-          <label>
-            Unsubscribed
-            <select value={isUnsubscribed ? 'true' : 'false'} onChange={(event) => setIsUnsubscribed(event.target.value === 'true')}>
-              <option value="false">No</option>
-              <option value="true">Yes</option>
-            </select>
-          </label>
+          {isPersistedContact ? (
+            <label>
+              Unsubscribed
+              <select value={isUnsubscribed ? 'true' : 'false'} onChange={(event) => setIsUnsubscribed(event.target.value === 'true')}>
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+              </select>
+            </label>
+          ) : null}
           <label className="wide-field">
             Attributes JSON
             <textarea value={attributesJson} onChange={(event) => setAttributesJson(event.target.value)} rows={8} />
           </label>
-          <label>
-            Unsubscribe token
-            <textarea value={unsubscribeToken || 'Not generated'} readOnly rows={8} />
-          </label>
+          {isPersistedContact ? (
+            <label>
+              Unsubscribe token
+              <textarea value={unsubscribeToken || 'Not generated'} readOnly rows={8} />
+            </label>
+          ) : null}
         </div>
         <div className="button-row">
-          <button className="primary" onClick={saveContact} disabled={busy}>Save Contact</button>
-          <button className="ghost" onClick={newContact} disabled={busy}>New Contact</button>
-          <button className="ghost" onClick={loadUnsubscribeToken} disabled={busy || !selectedContactId}>Unsubscribe Token</button>
-          <button className="ghost" onClick={deleteContact} disabled={busy || !selectedContactId}>Delete Contact</button>
+          <button className="primary" onClick={saveContact} disabled={busy}>{isCreatingContact ? 'Create Contact' : 'Save Changes'}</button>
+          {isPersistedContact ? <a className="ghost" href="#contacts/new">New Contact</a> : null}
+          {isPersistedContact ? <button className="ghost" onClick={loadUnsubscribeToken} disabled={busy}>Unsubscribe Token</button> : null}
+          {isPersistedContact ? <button className="ghost" onClick={deleteContact} disabled={busy}>Delete Contact</button> : null}
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
