@@ -2503,6 +2503,45 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
   }
 
+  function safeVariablesObject() {
+    try {
+      return parsedVariables();
+    } catch {
+      return {};
+    }
+  }
+
+  function formatSampleInput(value: unknown) {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value);
+  }
+
+  function parseSampleInput(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return value;
+    }
+  }
+
+  function updateSampleVariable(name: string, value: string) {
+    const current = safeVariablesObject();
+    setVariablesJson(JSON.stringify({ ...current, [name]: parseSampleInput(value) }, null, 2));
+    setPreviewHtml('');
+  }
+
+  const sampleVariables = safeVariablesObject();
+  const sampleVariableRows = variables.length
+    ? variables.map((variable) => ({
+      name: variable.name,
+      value: sampleVariables[variable.name] ?? variable.sample_value ?? '',
+      source: variable.native ? 'native' : (variable.sources?.[0] || 'template'),
+    }))
+    : Object.keys(sampleVariables).map((name) => ({ name, value: sampleVariables[name], source: 'sample' }));
+
   async function runTemplateOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
@@ -2857,6 +2896,27 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   </div>
                 ))}
               </div>
+            </section>
+            <section className="workflow-section">
+              <h3>Variables</h3>
+              {sampleVariableRows.length ? (
+                <div className="variable-editor-list">
+                  {sampleVariableRows.map((item) => (
+                    <label key={item.name}>
+                      <span>
+                        <strong>{item.name}</strong>
+                        <em>{item.source}</em>
+                      </span>
+                      <input
+                        value={formatSampleInput(item.value)}
+                        onChange={(event) => updateSampleVariable(item.name, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Click Preview to detect variables and create editable sample data.</p>
+              )}
             </section>
             <section className="workflow-section">
               <h3>HTML Blocks</h3>
