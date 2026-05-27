@@ -720,7 +720,7 @@ function headerAction(page: PageKey) {
     campaigns: { label: 'Create Campaign', href: '#campaigns/new' },
     automations: { label: 'Create Journey', href: '#automations/new' },
     delivery: { label: 'Process Queue', href: '#delivery' },
-    compliance: { label: 'Add Suppression', href: '#compliance' },
+    compliance: { label: 'Add Suppression', href: '#compliance/new' },
     data: { label: 'Add Data Source', href: '#data/new' },
     contacts: { label: 'Create Contact', href: '#contacts/new' },
     audience: { label: 'Create Audience', href: '#audience/new' },
@@ -1274,12 +1274,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Campaigns', value: formatInt(campaignItems.length), change: 'live rows' }} />
-        <MetricCard metric={{ label: 'Requested', value: formatInt(totalRequested), change: 'targeted sends' }} />
-        <MetricCard metric={{ label: 'Sent', value: formatInt(totalSent), change: 'processed sends' }} />
-        <MetricCard metric={{ label: 'Failures', value: formatInt(totalFailures), change: 'delivery issues', tone: totalFailures ? 'warn' : 'good' }} />
-      </section>
       <section className="campaign-flow full-span">
         {workflowSteps.map((step, index) => (
           <article className={step.ready ? 'ready' : ''} key={step.label}>
@@ -1633,14 +1627,6 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Journeys', value: formatInt(journeys.length), change: 'total' }} />
-        <MetricCard metric={{ label: 'Active', value: formatInt(active), change: 'active enrollments' }} />
-        <MetricCard metric={{ label: 'Completed', value: formatInt(completed), change: 'finished enrollments' }} />
-        <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
-        <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
-        <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
-      </section>
       {(selectedJourney || selectedJourneyPerformance) ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
@@ -1935,12 +1921,14 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Audiences', value: formatInt(audienceItems.length), change: 'saved segments' }} />
-        <MetricCard metric={{ label: 'Estimated reach', value: formatInt(estimated), change: 'matched contacts' }} />
-        <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
-        <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
-      </section>
+      {!isNewAudience ? (
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Audiences', value: formatInt(audienceItems.length), change: 'saved segments' }} />
+          <MetricCard metric={{ label: 'Estimated reach', value: formatInt(estimated), change: 'matched contacts' }} />
+          <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
+          <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
+        </section>
+      ) : null}
       <section className="panel table-panel full-span">
         <div className="panel-head">
           <div>
@@ -2312,12 +2300,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Templates', value: formatInt(templates.length), change: 'saved templates' }} />
-        <MetricCard metric={{ label: 'Categories', value: formatInt(templateCategories.size), change: 'content groups' }} />
-        <MetricCard metric={{ label: 'Selected', value: selectedTemplate ? 'Loaded' : 'None', change: selectedTemplate?.name || 'select a template' }} />
-        <MetricCard metric={{ label: 'Variables', value: formatInt(variables.length), change: variables.length ? 'last inspected' : 'not inspected' }} />
-      </section>
       <section className="campaign-flow full-span">
         {templateSteps.map((step, index) => (
           <article className={step.ready ? 'ready' : ''} key={step.label}>
@@ -2681,9 +2663,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   );
 }
 
-function CompliancePage({ suppressions, sendRecords, onRefresh }: {
+function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
   suppressions: SuppressionRead[];
   sendRecords: EmailSendRecordRead[];
+  route: string;
   onRefresh: () => Promise<void>;
 }) {
   const [email, setEmail] = useState('');
@@ -2692,10 +2675,20 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
   const [selectedSuppressionId, setSelectedSuppressionId] = useState('');
   const [status, setStatus] = useState('Ready to create or remove suppressions.');
   const [busy, setBusy] = useState(false);
+  const routeParts = route.split('/');
+  const routeSuppressionId = routeParts[0] === 'compliance' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
+  const isDetailPage = routeParts[0] === 'compliance' && Boolean(routeParts[1]);
 
   useEffect(() => {
-    if (!selectedSuppressionId && suppressions.length) setSelectedSuppressionId(suppressions[0].id);
-  }, [selectedSuppressionId, suppressions]);
+    if (routeParts[1] === 'new') {
+      resetSuppressionEditor();
+    } else if (routeSuppressionId) {
+      const suppression = suppressions.find((item) => item.id === routeSuppressionId);
+      if (suppression && selectedSuppressionId !== suppression.id) loadSuppression(suppression);
+    } else if (!selectedSuppressionId && suppressions.length) {
+      setSelectedSuppressionId(suppressions[0].id);
+    }
+  }, [route, routeSuppressionId, selectedSuppressionId, suppressions]);
 
   const manualCount = suppressions.filter((item) => item.reason === 'manual').length;
   const unsubscribeCount = suppressions.filter((item) => item.reason === 'unsubscribe').length;
@@ -2703,6 +2696,22 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
   const complaintCount = suppressions.filter((item) => item.reason === 'spam_complaint').length;
   const failedWithEmail = sendRecords.filter((record) => record.status === 'failed' && record.to_email).slice(0, 10);
   const selectedSuppression = suppressions.find((item) => item.id === selectedSuppressionId);
+
+  function resetSuppressionEditor() {
+    setEmail('');
+    setReason('manual');
+    setSource('esp_compliance');
+    setSelectedSuppressionId('');
+    setStatus('Ready to create a new suppression.');
+  }
+
+  function loadSuppression(item: SuppressionRead) {
+    setSelectedSuppressionId(item.id);
+    setEmail(item.email);
+    setReason(item.reason);
+    setSource(item.source);
+    setStatus(`Loaded suppression for ${item.email}.`);
+  }
 
   async function runComplianceOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -2730,6 +2739,7 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
         }),
       });
       setSelectedSuppressionId(created.id);
+      window.location.hash = `#compliance/${created.id}`;
       await onRefresh();
       return `Created ${created.reason} suppression for ${created.email}.`;
     });
@@ -2740,7 +2750,8 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
       if (!selectedSuppressionId) throw new Error('Select a suppression.');
       await fetchJson<{ id: string }>(`/api/v1/suppressions/${selectedSuppressionId}`, { method: 'DELETE' });
       const deletedEmail = selectedSuppression?.email || selectedSuppressionId;
-      setSelectedSuppressionId('');
+      resetSuppressionEditor();
+      window.location.hash = '#compliance';
       await onRefresh();
       return `Deleted suppression for ${deletedEmail}.`;
     });
@@ -2748,54 +2759,57 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Suppressions', value: formatInt(suppressions.length), change: 'visible records', tone: suppressions.length ? 'warn' : 'good' }} />
-        <MetricCard metric={{ label: 'Manual', value: formatInt(manualCount), change: 'operator managed' }} />
-        <MetricCard metric={{ label: 'Unsubscribes', value: formatInt(unsubscribeCount), change: 'contact opt-outs', tone: unsubscribeCount ? 'warn' : 'good' }} />
-        <MetricCard metric={{ label: 'Bounces', value: formatInt(bounceCount), change: `${formatInt(complaintCount)} complaints`, tone: bounceCount || complaintCount ? 'warn' : 'good' }} />
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Suppressions</h2>
-            <span className="muted">Select a suppression to inspect source, provider message, and delete controls.</span>
-          </div>
-          <a href="#delivery">Open delivery</a>
-        </div>
-        {suppressions.length ? (
-          <table>
-            <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th></tr></thead>
-            <tbody>
-              {suppressions.map((item) => (
-                <tr
-                  className={`selectable-row ${item.id === selectedSuppressionId ? 'selected-row' : ''}`}
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedSuppressionId(item.id);
-                    setEmail(item.email);
-                    setReason(item.reason);
-                    setSource(item.source);
-                  }}
-                >
-                  <td>{item.email}</td>
-                  <td><span className="pill">{item.reason}</span></td>
-                  <td>{item.source}</td>
-                  <td>{item.provider_message_id || '-'}</td>
-                  <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No suppressions" detail="Create manual suppressions here or ingest provider feedback to populate compliance records." actionHref="#compliance" actionLabel="Add suppression" />}
-      </section>
+      {!isDetailPage ? (
+        <>
+          <section className="metric-grid full-span compact-metrics">
+            <MetricCard metric={{ label: 'Suppressions', value: formatInt(suppressions.length), change: 'visible records', tone: suppressions.length ? 'warn' : 'good' }} />
+            <MetricCard metric={{ label: 'Manual', value: formatInt(manualCount), change: 'operator managed' }} />
+            <MetricCard metric={{ label: 'Unsubscribes', value: formatInt(unsubscribeCount), change: 'contact opt-outs', tone: unsubscribeCount ? 'warn' : 'good' }} />
+            <MetricCard metric={{ label: 'Bounces', value: formatInt(bounceCount), change: `${formatInt(complaintCount)} complaints`, tone: bounceCount || complaintCount ? 'warn' : 'good' }} />
+          </section>
+          <section className="panel table-panel full-span">
+            <div className="panel-head">
+              <div>
+                <h2>Suppressions</h2>
+                <span className="muted">Select a suppression to inspect source, provider message, and delete controls.</span>
+              </div>
+              <div className="button-row">
+                <a href="#compliance/new">Add suppression</a>
+                <a href="#delivery">Open delivery</a>
+              </div>
+            </div>
+            {suppressions.length ? (
+              <table>
+                <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th><th>Editor</th></tr></thead>
+                <tbody>
+                  {suppressions.map((item) => (
+                    <tr
+                      className={`selectable-row ${item.id === selectedSuppressionId ? 'selected-row' : ''}`}
+                      key={item.id}
+                      onClick={() => loadSuppression(item)}
+                    >
+                      <td>{item.email}</td>
+                      <td><span className="pill">{item.reason}</span></td>
+                      <td>{item.source}</td>
+                      <td>{item.provider_message_id || '-'}</td>
+                      <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
+                      <td><a href={`#compliance/${item.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <EmptyState title="No suppressions" detail="Create manual suppressions here or ingest provider feedback to populate compliance records." actionHref="#compliance/new" actionLabel="Add suppression" />}
+          </section>
+        </>
+      ) : null}
       {selectedSuppression ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
             <div>
               <h2>{selectedSuppression.email}</h2>
-              <span className="muted">Selected suppression summary</span>
+              <span className="muted">Suppression editor summary</span>
             </div>
-            <a href="#campaigns">Open campaigns</a>
+            <a href="#compliance">Back to suppressions</a>
           </div>
           <div className="summary-grid">
             <div><span>Reason</span><strong>{selectedSuppression.reason}</strong></div>
@@ -2807,62 +2821,76 @@ function CompliancePage({ suppressions, sendRecords, onRefresh }: {
           </div>
         </section>
       ) : null}
-      <section className="panel full-span campaign-workbench">
-        <div className="panel-head">
-          <h2>Compliance Operations</h2>
-          <a href="#analytics">Open analytics</a>
-        </div>
-        <div className="form-grid">
-          <label>
-            Email
-            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="person@example.com" />
-          </label>
-          <label>
-            Reason
-            <select value={reason} onChange={(event) => setReason(event.target.value as SuppressionRead['reason'])}>
-              <option value="manual">Manual</option>
-              <option value="unsubscribe">Unsubscribe</option>
-              <option value="hard_bounce">Hard bounce</option>
-              <option value="spam_complaint">Spam complaint</option>
-            </select>
-          </label>
-          <label>
-            Source
-            <input value={source} onChange={(event) => setSource(event.target.value)} />
-          </label>
-          <label className="wide-field">
-            Existing suppression
-            <select value={selectedSuppressionId} onChange={(event) => setSelectedSuppressionId(event.target.value)}>
-              <option value="">Select suppression</option>
-              {suppressions.map((item) => (
-                <option value={item.id} key={item.id}>{item.email} | {item.reason} | {item.source}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Selected provider message
-            <input value={selectedSuppression?.provider_message_id || 'none'} readOnly />
-          </label>
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={addSuppression} disabled={busy}>Add Suppression</button>
-          <button className="ghost" onClick={deleteSuppression} disabled={busy || !selectedSuppressionId}>Delete Selected</button>
-          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Suppressions</button>
-        </div>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
-        </div>
-        {failedWithEmail.length ? (
-          <div className="button-row">
-            {failedWithEmail.map((record) => (
-              <button className="ghost" key={record.id} onClick={() => setEmail(record.to_email)} disabled={busy}>
-                Use {record.to_email}
-              </button>
-            ))}
+      {isDetailPage ? (
+        <section className="panel full-span campaign-workbench">
+          <div className="panel-head">
+            <h2>{selectedSuppression ? 'Compliance Operations' : 'Add Suppression'}</h2>
+            <div className="button-row">
+              <a href="#compliance">Back to suppressions</a>
+              <a href="#analytics">Open analytics</a>
+            </div>
           </div>
-        ) : null}
-      </section>
+          <div className="form-grid">
+            <label>
+              Email
+              <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="person@example.com" />
+            </label>
+            <label>
+              Reason
+              <select value={reason} onChange={(event) => setReason(event.target.value as SuppressionRead['reason'])}>
+                <option value="manual">Manual</option>
+                <option value="unsubscribe">Unsubscribe</option>
+                <option value="hard_bounce">Hard bounce</option>
+                <option value="spam_complaint">Spam complaint</option>
+              </select>
+            </label>
+            <label>
+              Source
+              <input value={source} onChange={(event) => setSource(event.target.value)} />
+            </label>
+            <label className="wide-field">
+              Existing suppression
+              <select value={selectedSuppressionId} onChange={(event) => {
+                const suppression = suppressions.find((item) => item.id === event.target.value);
+                if (suppression) {
+                  loadSuppression(suppression);
+                  window.location.hash = `#compliance/${suppression.id}`;
+                } else {
+                  resetSuppressionEditor();
+                  window.location.hash = '#compliance/new';
+                }
+              }}>
+                <option value="">Select suppression</option>
+                {suppressions.map((item) => (
+                  <option value={item.id} key={item.id}>{item.email} | {item.reason} | {item.source}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Selected provider message
+              <input value={selectedSuppression?.provider_message_id || 'none'} readOnly />
+            </label>
+          </div>
+          <div className="button-row">
+            <button className="primary" onClick={addSuppression} disabled={busy}>Add Suppression</button>
+            <button className="ghost" onClick={deleteSuppression} disabled={busy || !selectedSuppressionId}>Delete Selected</button>
+            <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Suppressions</button>
+          </div>
+          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+            <strong>{busy ? 'Working' : 'Status'}</strong>
+            <span>{status}</span>
+          </div>
+          {failedWithEmail.length ? (
+            <div className="button-row">
+              {failedWithEmail.map((record) => (
+                <button className="ghost" key={record.id} onClick={() => setEmail(record.to_email)} disabled={busy}>
+                  Use {record.to_email}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -3182,13 +3210,6 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Sources', value: formatInt(dataSources.length), change: 'configured' }} />
-        <MetricCard metric={{ label: 'Mappings', value: formatInt(mappings.length), change: 'field maps' }} />
-        <MetricCard metric={{ label: 'Imported rows', value: formatInt(importedCount), change: `${formatInt(completedJobs)} completed jobs` }} />
-        <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
-        <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
-      </section>
       {(selectedSource || selectedMapping || validation || schema) ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
@@ -3519,13 +3540,6 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
 
   return (
     <section className="page-grid">
-      <section className="metric-grid full-span compact-metrics">
-        <MetricCard metric={{ label: 'Contacts', value: formatInt(metadata?.total || contacts.length), change: `${formatInt(metadata?.scanned_count || contacts.length)} scanned` }} />
-        <MetricCard metric={{ label: 'Visible', value: formatInt(contacts.length), change: 'loaded rows' }} />
-        <MetricCard metric={{ label: 'Attributed', value: formatInt(attributedCount), change: `${formatInt(attributeKeys.length)} keys` }} />
-        <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
-        <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
-      </section>
       {selectedContact ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
@@ -5085,6 +5099,7 @@ function App() {
         <CompliancePage
           suppressions={dashboard.suppressions}
           sendRecords={dashboard.sendRecords}
+          route={route}
           onRefresh={async () => {
             const suppressionData = await fetchJson<ListResponse<SuppressionRead>>('/api/v1/suppressions/list?limit=25&offset=0');
             setDashboard((current) => ({
