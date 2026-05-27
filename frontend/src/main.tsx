@@ -722,7 +722,7 @@ function headerAction(page: PageKey) {
     delivery: { label: 'Process Queue', href: '#delivery' },
     compliance: { label: 'Add Suppression', href: '#compliance' },
     data: { label: 'Add Data Source', href: '#data/new' },
-    contacts: { label: 'Import Contacts', href: '#data' },
+    contacts: { label: 'Create Contact', href: '#contacts/new' },
     audience: { label: 'Create Audience', href: '#audience/new' },
     templates: { label: 'Create Template', href: '#templates/new' },
     'ai-studio': { label: 'Run AI Review', href: '#ai-studio' },
@@ -3300,9 +3300,10 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   );
 }
 
-function ContactsPage({ contacts, metadata, onRefresh }: {
+function ContactsPage({ contacts, metadata, route, onRefresh }: {
   contacts: ContactRead[];
   metadata: ContactMetadata | null;
+  route: string;
   onRefresh: () => Promise<void>;
 }) {
   const [selectedContactId, setSelectedContactId] = useState('');
@@ -3315,10 +3316,20 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
   const [unsubscribeToken, setUnsubscribeToken] = useState('');
   const [status, setStatus] = useState('Ready to inspect or edit contacts.');
   const [busy, setBusy] = useState(false);
+  const routeParts = route.split('/');
+  const routeContactId = routeParts[0] === 'contacts' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
+  const isDetailPage = routeParts[0] === 'contacts' && Boolean(routeParts[1]);
 
   useEffect(() => {
-    if (!selectedContactId && contacts.length) loadContact(contacts[0]);
-  }, [contacts, selectedContactId]);
+    if (routeParts[1] === 'new') {
+      resetContactEditor();
+    } else if (routeContactId) {
+      const contact = contacts.find((item) => item.id === routeContactId);
+      if (contact && selectedContactId !== contact.id) loadContact(contact);
+    } else if (!selectedContactId && contacts.length) {
+      loadContact(contacts[0]);
+    }
+  }, [contacts, route, routeContactId, selectedContactId]);
 
   const unsubscribedCount = contacts.filter((contact) => contact.is_unsubscribed).length;
   const attributedCount = contacts.filter((contact) => Object.keys(contact.attributes || {}).length).length;
@@ -3381,12 +3392,13 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
           body: JSON.stringify(payload),
         });
       setSelectedContactId(saved.id);
+      window.location.hash = `#contacts/${saved.id}`;
       await onRefresh();
       return `Saved contact: ${saved.email}.`;
     });
   }
 
-  async function newContact() {
+  function resetContactEditor() {
     setSelectedContactId('');
     setEmail('new-contact@example.com');
     setFirstName('New');
@@ -3396,6 +3408,11 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
     setIsUnsubscribed(false);
     setUnsubscribeToken('');
     setStatus('Ready to create a new contact.');
+  }
+
+  async function newContact() {
+    resetContactEditor();
+    window.location.hash = '#contacts/new';
   }
 
   async function deleteContact() {
@@ -3418,6 +3435,72 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
     });
   }
 
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid">
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Contacts', value: formatInt(metadata?.total || contacts.length), change: `${formatInt(metadata?.scanned_count || contacts.length)} scanned` }} />
+          <MetricCard metric={{ label: 'Visible', value: formatInt(contacts.length), change: 'loaded rows' }} />
+          <MetricCard metric={{ label: 'Attributed', value: formatInt(attributedCount), change: `${formatInt(attributeKeys.length)} keys` }} />
+          <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
+          <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Contacts</h2>
+              <span className="muted">Select a contact to inspect attributes, then open it for profile and compliance edits.</span>
+            </div>
+            <div className="button-row">
+              <a href="#contacts/new">Create contact</a>
+              <a href="#data">Import contacts</a>
+            </div>
+          </div>
+          {contacts.length ? (
+            <table>
+              <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th><th>Editor</th></tr></thead>
+              <tbody>
+                {contacts.map((contact) => (
+                  <tr
+                    className={`selectable-row ${contact.id === selectedContactId ? 'selected-row' : ''}`}
+                    key={contact.id}
+                    onClick={() => loadContact(contact)}
+                  >
+                    <td>{contact.email}</td>
+                    <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
+                    <td>{contact.source || '-'}</td>
+                    <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
+                    <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
+                    <td><a href={`#contacts/${contact.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <EmptyState title="No contacts" detail="Import contacts from the Data page or create one here." actionHref="#contacts/new" actionLabel="Create contact" />}
+        </section>
+        {selectedContact ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedContact.email}</h2>
+                <span className="muted">Selected contact summary</span>
+              </div>
+              <a href={`#contacts/${selectedContact.id}`}>Open contact editor</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Name</span><strong>{[selectedContact.first_name, selectedContact.last_name].filter(Boolean).join(' ') || '-'}</strong></div>
+              <div><span>Source</span><strong>{selectedContact.source || '-'}</strong></div>
+              <div><span>Status</span><strong>{selectedContact.is_unsubscribed ? 'Unsubscribed' : 'Subscribed'}</strong></div>
+              <div><span>Attributes</span><strong>{formatInt(Object.keys(selectedContact.attributes || {}).length)}</strong></div>
+              <div><span>Top source</span><strong>{sourceRows[0]?.source || '-'}</strong></div>
+              <div><span>Known keys</span><strong>{formatInt(attributeKeys.length)}</strong></div>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -3427,43 +3510,14 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
         <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
         <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
       </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Contacts</h2>
-            <span className="muted">Select a contact to inspect attributes, edit profile data, or manage unsubscribe state.</span>
-          </div>
-          <a href="#data">Import contacts</a>
-        </div>
-        {contacts.length ? (
-          <table>
-            <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th></tr></thead>
-            <tbody>
-              {contacts.map((contact) => (
-                <tr
-                  className={`selectable-row ${contact.id === selectedContactId ? 'selected-row' : ''}`}
-                  key={contact.id}
-                  onClick={() => loadContact(contact)}
-                >
-                  <td>{contact.email}</td>
-                  <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
-                  <td>{contact.source || '-'}</td>
-                  <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
-                  <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No contacts" detail="Import contacts from the Data page or create one here." actionHref="#data" actionLabel="Open Data" />}
-      </section>
       {selectedContact ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
             <div>
               <h2>{selectedContact.email}</h2>
-              <span className="muted">Selected contact summary</span>
+              <span className="muted">Contact editor summary</span>
             </div>
-            <a href="#audience">Open audience</a>
+            <a href="#contacts">Back to contacts</a>
           </div>
           <div className="summary-grid">
             <div><span>Name</span><strong>{[selectedContact.first_name, selectedContact.last_name].filter(Boolean).join(' ') || '-'}</strong></div>
@@ -3491,16 +3545,24 @@ function ContactsPage({ contacts, metadata, onRefresh }: {
       ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>Contact Operations</h2>
-          <a href="#compliance">Open compliance</a>
+          <h2>{selectedContact ? 'Contact Operations' : 'Create Contact'}</h2>
+          <div className="button-row">
+            <a href="#contacts">Back to contacts</a>
+            <a href="#compliance">Open compliance</a>
+          </div>
         </div>
         <div className="form-grid">
           <label>
             Existing contact
             <select value={selectedContactId} onChange={(event) => {
               const contact = contacts.find((item) => item.id === event.target.value);
-              if (contact) loadContact(contact);
-              else setSelectedContactId('');
+              if (contact) {
+                loadContact(contact);
+                window.location.hash = `#contacts/${contact.id}`;
+              } else {
+                resetContactEditor();
+                window.location.hash = '#contacts/new';
+              }
             }}>
               <option value="">Create new contact</option>
               {contacts.map((contact) => <option value={contact.id} key={contact.id}>{contact.email}</option>)}
@@ -5046,6 +5108,7 @@ function App() {
         <ContactsPage
           contacts={dashboard.contacts}
           metadata={dashboard.contactMeta}
+          route={route}
           onRefresh={async () => {
             const [contactData, contactMeta] = await Promise.all([
               fetchJson<ListResponse<ContactRead>>('/api/v1/audiences/contacts/list?limit=25&offset=0'),
