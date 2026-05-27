@@ -718,7 +718,7 @@ function Sidebar({ activePage }: { activePage: PageKey }) {
 function headerAction(page: PageKey) {
   const actions: Partial<Record<PageKey, { label: string; href: string }>> = {
     campaigns: { label: 'Create Campaign', href: '#campaigns/new' },
-    automations: { label: 'Create Journey', href: '#automations' },
+    automations: { label: 'Create Journey', href: '#automations/new' },
     delivery: { label: 'Process Queue', href: '#delivery' },
     compliance: { label: 'Add Suppression', href: '#compliance' },
     data: { label: 'Add Data Source', href: '#data' },
@@ -1379,13 +1379,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   );
 }
 
-function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollments, executions, onRefresh }: {
+function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollments, executions, route, onRefresh }: {
   journeys: JourneyPerformance[];
   journeyItems: JourneyRead[];
   templates: TemplateRead[];
   contacts: ContactRead[];
   enrollments: JourneyEnrollmentRead[];
   executions: JourneyStepExecutionRead[];
+  route: string;
   onRefresh: () => Promise<void>;
 }) {
   const [selectedJourneyId, setSelectedJourneyId] = useState('');
@@ -1399,12 +1400,22 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   const [enrollmentVariablesJson, setEnrollmentVariablesJson] = useState('{\n  "source": "esp_automation",\n  "plan": "trial"\n}');
   const [status, setStatus] = useState('Ready to create or update a journey.');
   const [busy, setBusy] = useState(false);
+  const routeParts = route.split('/');
+  const routeJourneyId = routeParts[0] === 'automations' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
+  const isDetailPage = routeParts[0] === 'automations' && Boolean(routeParts[1]);
 
   useEffect(() => {
-    if (!selectedJourneyId && journeyItems.length) loadJourneyIntoEditor(journeyItems[0]);
+    if (routeParts[1] === 'new') {
+      resetJourneyEditor();
+    } else if (routeJourneyId) {
+      const journey = journeyItems.find((item) => item.id === routeJourneyId);
+      if (journey && selectedJourneyId !== journey.id) loadJourneyIntoEditor(journey);
+    } else if (!selectedJourneyId && journeyItems.length) {
+      loadJourneyIntoEditor(journeyItems[0]);
+    }
     if (!templateId && templates.length) setTemplateId(templates[0].id);
     if (!contactId && contacts.length) setContactId(contacts[0].id);
-  }, [contactId, contacts, journeyItems, selectedJourneyId, templateId, templates]);
+  }, [contactId, contacts, journeyItems, route, routeJourneyId, selectedJourneyId, templateId, templates]);
 
   const failures = journeys.reduce((sum, item) =>
     sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
@@ -1429,6 +1440,15 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     setEntryRuleJson(JSON.stringify(journey.entry_rule_tree || {}, null, 2));
     setExitRuleJson(JSON.stringify(journey.exit_rule_tree || {}, null, 2));
     setStatus(`Loaded journey: ${journey.name}`);
+  }
+
+  function resetJourneyEditor() {
+    setSelectedJourneyId('');
+    setName('ESP Journey Draft');
+    setDescription('Created from the ESP automation workflow.');
+    setEntryRuleJson('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
+    setExitRuleJson('{}');
+    setStatus('Ready to create a new journey.');
   }
 
   function parseJsonObject(value: string, label: string) {
@@ -1475,6 +1495,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           body: JSON.stringify(payload),
         });
       setSelectedJourneyId(saved.id);
+      window.location.hash = `#automations/${saved.id}`;
       await onRefresh();
       return `Saved journey: ${saved.name}`;
     });
@@ -1525,6 +1546,91 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     });
   }
 
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid">
+        <section className="metric-grid full-span compact-metrics">
+          <MetricCard metric={{ label: 'Journeys', value: formatInt(journeys.length), change: 'total' }} />
+          <MetricCard metric={{ label: 'Active', value: formatInt(active), change: 'active enrollments' }} />
+          <MetricCard metric={{ label: 'Completed', value: formatInt(completed), change: 'finished enrollments' }} />
+          <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
+          <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
+          <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
+        </section>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Automation Journeys</h2>
+              <span className="muted">Select a journey to inspect health, then open it for builder controls.</span>
+            </div>
+            <a href="#automations/new">Create journey</a>
+          </div>
+          {journeys.length ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Journey</th>
+                  <th>Status</th>
+                  <th>Enrollments</th>
+                  <th>Active</th>
+                  <th>Completed</th>
+                  <th>Failures</th>
+                  <th>Queued sends</th>
+                  <th>Builder</th>
+                </tr>
+              </thead>
+              <tbody>
+                {journeys.map((journey) => {
+                  const journeyItem = journeyItems.find((item) => item.id === journey.journey_id);
+                  return (
+                    <tr
+                      className={`selectable-row ${journey.journey_id === selectedJourneyId ? 'selected-row' : ''}`}
+                      key={journey.journey_id}
+                      onClick={() => {
+                        if (journeyItem) loadJourneyIntoEditor(journeyItem);
+                        else setSelectedJourneyId(journey.journey_id);
+                      }}
+                    >
+                      <td>{journey.name}</td>
+                      <td><span className="pill">{journey.status}</span></td>
+                      <td>{formatInt(journey.enrollment_count)}</td>
+                      <td>{formatInt(journey.active_count)}</td>
+                      <td>{formatInt(journey.completed_count)}</td>
+                      <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
+                      <td>{formatInt(journey.queued_send_count)}</td>
+                      <td><a href={`#automations/${journey.journey_id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <EmptyState title="No journeys yet" detail="Create a journey and add send steps to start automation testing." actionHref="#automations/new" actionLabel="Create journey" />
+          )}
+        </section>
+        {(selectedJourney || selectedJourneyPerformance) ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedJourney?.name || selectedJourneyPerformance?.name || 'Selected journey'}</h2>
+                <span className="muted">Selected journey summary</span>
+              </div>
+              <a href={`#automations/${selectedJourneyId}`}>Open journey builder</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Status</span><strong>{selectedJourney?.status || selectedJourneyPerformance?.status || '-'}</strong></div>
+              <div><span>Steps</span><strong>{formatInt(selectedJourney?.steps?.length || 0)}</strong></div>
+              <div><span>Enrollments</span><strong>{formatInt(selectedJourneyPerformance?.enrollment_count)}</strong></div>
+              <div><span>Active</span><strong>{formatInt(selectedJourneyPerformance?.active_count)}</strong></div>
+              <div><span>Failures</span><strong>{formatInt(Number(selectedJourneyPerformance?.failed_count || 0) + Number(selectedJourneyPerformance?.step_failed_count || 0))}</strong></div>
+              <div><span>Queued sends</span><strong>{formatInt(selectedJourneyPerformance?.queued_send_count)}</strong></div>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -1534,62 +1640,6 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
         <MetricCard metric={{ label: 'Failures', value: formatInt(failures), change: 'needs review', tone: failures ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Automation Journeys</h2>
-            <span className="muted">Select a journey to inspect enrollments, executions, and builder controls.</span>
-          </div>
-          <button className="link-button" onClick={() => {
-            setSelectedJourneyId('');
-            setName('ESP Journey Draft');
-            setDescription('Created from the ESP automation workflow.');
-            setEntryRuleJson('{\n  "field": "email",\n  "comparator": "contains",\n  "value": "@"\n}');
-            setExitRuleJson('{}');
-            setStatus('Ready to create a new journey.');
-          }}>New journey</button>
-        </div>
-        {journeys.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Journey</th>
-                <th>Status</th>
-                <th>Enrollments</th>
-                <th>Active</th>
-                <th>Completed</th>
-                <th>Failures</th>
-                <th>Queued sends</th>
-              </tr>
-            </thead>
-            <tbody>
-              {journeys.map((journey) => {
-                const journeyItem = journeyItems.find((item) => item.id === journey.journey_id);
-                return (
-                  <tr
-                    className={`selectable-row ${journey.journey_id === selectedJourneyId ? 'selected-row' : ''}`}
-                    key={journey.journey_id}
-                    onClick={() => {
-                      if (journeyItem) loadJourneyIntoEditor(journeyItem);
-                      else setSelectedJourneyId(journey.journey_id);
-                    }}
-                  >
-                    <td>{journey.name}</td>
-                    <td><span className="pill">{journey.status}</span></td>
-                    <td>{formatInt(journey.enrollment_count)}</td>
-                    <td>{formatInt(journey.active_count)}</td>
-                    <td>{formatInt(journey.completed_count)}</td>
-                    <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
-                    <td>{formatInt(journey.queued_send_count)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No journeys yet" detail="Create a journey and add send steps to start automation testing." actionHref="#automations" actionLabel="Create journey" />
-        )}
       </section>
       {(selectedJourney || selectedJourneyPerformance) ? (
         <section className="panel full-span selected-summary">
@@ -1612,16 +1662,24 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
       ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>Journey Builder</h2>
-          <a href="#delivery">Open delivery</a>
+          <h2>{selectedJourney ? 'Journey Builder' : 'Create Journey'}</h2>
+          <div className="button-row">
+            <a href="#automations">Back to automations</a>
+            <a href="#delivery">Open delivery</a>
+          </div>
         </div>
         <div className="form-grid">
           <label>
             Existing journey
             <select value={selectedJourneyId} onChange={(event) => {
               const journey = journeyItems.find((item) => item.id === event.target.value);
-              if (journey) loadJourneyIntoEditor(journey);
-              else setSelectedJourneyId('');
+              if (journey) {
+                loadJourneyIntoEditor(journey);
+                window.location.hash = `#automations/${journey.id}`;
+              } else {
+                resetJourneyEditor();
+                window.location.hash = '#automations/new';
+              }
             }}>
               <option value="">Create new journey</option>
               {journeyItems.map((journey) => (
@@ -4848,6 +4906,7 @@ function App() {
           contacts={dashboard.contacts}
           enrollments={dashboard.journeyEnrollments}
           executions={dashboard.journeyExecutions}
+          route={route}
           onRefresh={async () => {
             const [journeyData, journeyItems, journeyEnrollmentData, journeyExecutionData, contactData] = await Promise.all([
               fetchJson<ListResponse<JourneyPerformance>>('/api/v1/analytics/journeys?limit=25&offset=0'),
