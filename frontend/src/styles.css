@@ -857,6 +857,7 @@ th {
 .form-grid label,
 .editor-field {
   display: grid;
+  align-content: start;
   gap: 6px;
   color: var(--muted);
   font-size: 12px;
@@ -1105,6 +1106,42 @@ th {
   font-weight: 800;
   text-align: left;
   cursor: pointer;
+}
+
+.block-button-grid .block-structure {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.block-button-grid .block-content {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.block-button-grid .block-media {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.block-button-grid .block-action {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.block-button-grid .block-dynamic {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.block-button-grid .block-compliance {
+  border-color: #e9d5ff;
+  background: #faf5ff;
+  color: #7e22ce;
 }
 
 .block-button-grid button:hover {

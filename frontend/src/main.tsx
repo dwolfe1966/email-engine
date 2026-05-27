@@ -2480,8 +2480,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const blocks: Record<string, string> = {
       container: '<div class="email-container">\n  <h1>Hello {{ first_name }}</h1>\n  <p>Add your message here.</p>\n</div>',
       hero: '<section class="email-container">\n  <h1>Your headline goes here</h1>\n  <p>A short supporting line for {{ first_name }}.</p>\n  <p><a class="button" href="{{ tracking_click }}">Call to action</a></p>\n</section>',
+      heading: '<h2>Section heading</h2>',
       paragraph: '<p>Hello {{ first_name }},</p>\n<p>Add a concise paragraph with one clear idea.</p>',
+      image: '<img src="{{ hero_image_url }}" alt="Describe this image" style="width: 100%; max-width: 600px; height: auto; display: block;" />',
       button: '<p><a class="button" href="{{ tracking_click }}">Call to action</a></p>',
+      divider: '<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />',
+      spacer: '<div style="height: 24px; line-height: 24px;">&nbsp;</div>',
+      quote: '<blockquote style="margin: 0; padding: 16px; border-left: 4px solid #2563eb; background: #f8fafc;">\n  <p>{{ testimonial }}</p>\n</blockquote>',
+      twoColumn: '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">\n  <tr>\n    <td style="width: 50%; padding-right: 8px;">Left column content</td>\n    <td style="width: 50%; padding-left: 8px;">Right column content</td>\n  </tr>\n</table>',
       list: '<ul>\n{% for item in recommendations %}\n  <li>{{ loop.index }}. {{ item }}</li>\n{% endfor %}\n</ul>',
       conditional: '{% if plan == "trial" %}\n  <p>Your trial plan is active.</p>\n{% else %}\n  <p>Your plan is {{ plan }}.</p>\n{% endif %}',
       compliance: '<p class="muted">You are receiving this because you opted in. <a href="{{ unsubscribe_url }}">Unsubscribe</a></p>',
@@ -2870,13 +2876,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     setPreviewSubject('');
                   }} rows={16} />
                   <div className="block-button-grid inline-block-actions">
-                    <button type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
-                    <button type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
-                    <button type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
-                    <button type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
-                    <button type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
-                    <button type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
-                    <button type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
+                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
+                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
+                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
+                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
+                    <button className="block-media" type="button" onClick={() => insertHtmlBlock('image')} disabled={busy}>Image</button>
+                    <button className="block-action" type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
+                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('divider')} disabled={busy}>Divider</button>
+                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('spacer')} disabled={busy}>Spacer</button>
+                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
+                    <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
+                    <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
+                    <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
                   </div>
                 </div>
                 <div className="editor-field">
