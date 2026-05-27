@@ -2352,6 +2352,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
+  const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
   const [cssPreset, setCssPreset] = useState({
     font: 'Arial, Helvetica, sans-serif',
     background: '#f5f7fb',
@@ -2466,11 +2467,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return match?.[1] || '';
   }
 
-  const cssClassCoverage = htmlClassNames.map((className) => ({
-    name: className,
-    hasRule: Boolean(cssRuleForClass(className)),
-  }));
+  const cssClassCoverage = htmlClassNames.map((className) => {
+    const rule = cssRuleForClass(className);
+    return {
+      name: className,
+      hasRule: Boolean(rule),
+      kind: inferCssClassKind(className, rule),
+    };
+  });
   const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
+  const cssClassKindHelp = {
+    container: 'Creates a centered email-safe wrapper with width, margin, padding, and background.',
+    section: 'Creates a reusable content band or card with padding, border, background, and radius.',
+    button: 'Creates an email-safe CTA link with inline-block layout, accent color, and padding.',
+    text: 'Creates text styling with font, color, spacing, and line height.',
+    image: 'Creates responsive image styling with width, max-width, height, border, and radius.',
+  }[cssClassKind];
 
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2482,9 +2494,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
   }
 
+  function inferCssClassKind(className: string, rule = '') {
+    const normalized = `${className} ${rule}`.toLowerCase();
+    if (/button|btn|cta|link|display:\s*inline-block/.test(normalized)) return 'button';
+    if (/image|img|photo|hero-image|<img|object-fit|height:\s*auto/.test(normalized)) return 'image';
+    if (/title|heading|headline|copy|text|muted|eyebrow|font-size|line-height/.test(normalized)) return 'text';
+    if (/section|card|panel|hero|banner|block|border:|box-shadow/.test(normalized)) return 'section';
+    return 'container';
+  }
+
   function selectCssClass(className: string) {
     setSelectedCssClass(className);
     const rule = cssRuleForClass(className);
+    setCssClassKind(inferCssClassKind(className, rule));
     if (!rule) return;
     const paddingMatch = cssProperty(rule, 'padding').match(/\d+/);
     const radiusMatch = cssProperty(rule, 'border-radius').match(/\d+/);
@@ -2526,11 +2548,24 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     ].join('\n');
   }
 
-  function classRuleFromPreset(className: string) {
+  function classRuleFromPreset(className: string, kind = cssClassKind) {
     const radius = Number(cssPreset.radius) || 8;
     const padding = Number(cssPreset.padding) || 24;
     const width = Number(cssPreset.container) || 640;
-    return `.${className} {\n  max-width: ${width}px;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n  border-color: ${cssPreset.accent};\n}`;
+    const compactPadding = Math.max(8, Math.round(padding / 2));
+    if (kind === 'button') {
+      return `.${className} {\n  display: inline-block;\n  background: ${cssPreset.accent};\n  color: #ffffff;\n  font-family: ${cssPreset.font};\n  padding: ${compactPadding}px ${padding}px;\n  border-radius: ${radius}px;\n  text-decoration: none;\n  font-weight: 700;\n  text-align: center;\n}`;
+    }
+    if (kind === 'text') {
+      return `.${className} {\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  line-height: 1.55;\n  margin: 0 0 12px;\n}`;
+    }
+    if (kind === 'image') {
+      return `.${className} {\n  display: block;\n  width: 100%;\n  max-width: ${width}px;\n  height: auto;\n  border-radius: ${radius}px;\n  border: 1px solid #e5e7eb;\n}`;
+    }
+    if (kind === 'section') {
+      return `.${className} {\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n  border: 1px solid ${cssPreset.accent};\n}`;
+    }
+    return `.${className} {\n  max-width: ${width}px;\n  margin: 0 auto;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n}`;
   }
 
   function applyCssPreset() {
@@ -2554,7 +2589,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setStatus('All detected HTML classes already have CSS rules.');
       return;
     }
-    const missingRules = missingCssClasses.map(classRuleFromPreset).join('\n\n');
+    const missingRules = missingCssClasses.map((className) => classRuleFromPreset(className, inferCssClassKind(className))).join('\n\n');
     setCssBody((current) => `${current.trim()}\n\n${missingRules}`.trim());
     setPreviewHtml('');
     setPreviewSubject('');
@@ -3039,6 +3074,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                       </select>
                     </label>
                     <label>
+                      Style type
+                      <select value={cssClassKind} onChange={(event) => setCssClassKind(event.target.value as typeof cssClassKind)}>
+                        <option value="container">Container</option>
+                        <option value="section">Section/card</option>
+                        <option value="button">Button/link</option>
+                        <option value="text">Text</option>
+                        <option value="image">Image</option>
+                      </select>
+                    </label>
+                    <label>
                       Font
                       <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
                         <option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -3073,6 +3118,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
                   </div>
+                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
                       <div className="coverage-summary">
@@ -3088,7 +3134,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                             onClick={() => selectCssClass(item.name)}
                           >
                             .{item.name}
-                            <span>{item.hasRule ? 'styled' : 'missing CSS'}</span>
+                            <span>{item.hasRule ? `styled ${item.kind}` : `missing ${item.kind}`}</span>
                           </button>
                         ))}
                       </div>

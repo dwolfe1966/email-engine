@@ -1046,7 +1046,7 @@ th {
 }
 
 .inline-css-helper {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
   align-items: end;
   margin-top: 4px;
   border: 1px solid #dce8f7;
@@ -1078,6 +1078,10 @@ th {
 .css-helper-grid input[type="color"] {
   height: 38px;
   padding: 4px;
+}
+
+.css-kind-hint {
+  margin: 8px 0 0;
 }
 
 .css-class-coverage {
