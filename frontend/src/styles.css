@@ -1225,6 +1225,25 @@ th {
   padding: 10px;
 }
 
+.template-code-editor {
+  margin-top: 8px;
+}
+
+.cm-jinja-variable {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.cm-jinja-block {
+  color: #5b21b6;
+  font-weight: 700;
+}
+
+.cm-jinja-comment {
+  color: #64748b;
+  font-style: italic;
+}
+
 .coverage-summary {
   display: flex;
   align-items: center;

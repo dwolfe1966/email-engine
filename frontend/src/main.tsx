@@ -1,5 +1,10 @@
-import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
+import { html } from '@codemirror/lang-html';
+import { basicSetup } from 'codemirror';
+import { EditorSelection, EditorState, RangeSetBuilder } from '@codemirror/state';
+import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import './styles.css';
 
 type Metric = {
@@ -21,6 +26,181 @@ type OperationNotice = {
   message: string;
   tone?: 'working' | 'success' | 'warn';
 };
+
+type TemplateCodeEditorHandle = {
+  focus: () => void;
+  getSelectionRange: () => { from: number; to: number };
+  setSelectionRange: (from: number, to: number) => void;
+};
+
+type TemplateCodeEditorProps = {
+  value: string;
+  onChange: (value: string) => void;
+  onSelectionChange?: (from: number, to: number) => void;
+  completions?: string[];
+};
+
+const jinjaDecorations = ViewPlugin.fromClass(class {
+  decorations: DecorationSet;
+
+  constructor(view: EditorView) {
+    this.decorations = this.buildDecorations(view);
+  }
+
+  update(update: ViewUpdate) {
+    if (update.docChanged || update.viewportChanged) {
+      this.decorations = this.buildDecorations(update.view);
+    }
+  }
+
+  buildDecorations(view: EditorView) {
+    const builder = new RangeSetBuilder<Decoration>();
+    const matcher = /({#[\s\S]*?#}|{%-?[\s\S]*?-?%}|{{[\s\S]*?}})/g;
+    for (const { from, to } of view.visibleRanges) {
+      const text = view.state.doc.sliceString(from, to);
+      matcher.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = matcher.exec(text))) {
+        const token = match[0];
+        const className = token.startsWith('{{')
+          ? 'cm-jinja-variable'
+          : token.startsWith('{#')
+            ? 'cm-jinja-comment'
+            : 'cm-jinja-block';
+        builder.add(from + match.index, from + match.index + token.length, Decoration.mark({ class: className }));
+      }
+    }
+    return builder.finish();
+  }
+}, {
+  decorations: (plugin) => plugin.decorations,
+});
+
+const templateEditorTheme = EditorView.theme({
+  '&': {
+    border: '1px solid #d7e1ef',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    fontSize: '13px',
+  },
+  '.cm-content': {
+    minHeight: '300px',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  },
+  '.cm-scroller': {
+    minHeight: '300px',
+    maxHeight: '520px',
+  },
+  '.cm-gutters': {
+    backgroundColor: '#f8fafc',
+    color: '#718096',
+    borderRight: '1px solid #e2e8f0',
+  },
+  '.cm-activeLineGutter, .cm-activeLine': {
+    backgroundColor: '#f1f7ff',
+  },
+  '.cm-focused': {
+    outline: '2px solid rgba(79, 70, 229, 0.18)',
+  },
+});
+
+const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateCodeEditorProps>(function TemplateCodeEditor(
+  { value, onChange, onSelectionChange, completions = [] },
+  ref,
+) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const completionsRef = useRef(completions);
+
+  onChangeRef.current = onChange;
+  onSelectionChangeRef.current = onSelectionChange;
+  completionsRef.current = completions;
+
+  useImperativeHandle(ref, () => ({
+    focus: () => viewRef.current?.focus(),
+    getSelectionRange: () => {
+      const selection = viewRef.current?.state.selection.main;
+      return { from: selection?.from ?? value.length, to: selection?.to ?? value.length };
+    },
+    setSelectionRange: (from: number, to: number) => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.dispatch({
+        selection: EditorSelection.range(from, to),
+        scrollIntoView: true,
+      });
+      view.focus();
+    },
+  }), [value.length]);
+
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const completionSource = (context: CompletionContext) => {
+      const word = context.matchBefore(/[\w.{%-]*/);
+      if (!word || (word.from === word.to && !context.explicit)) return null;
+      const variableOptions = completionsRef.current.map((label) => ({
+        label,
+        type: 'variable',
+        apply: `{{ ${label} }}`,
+      }));
+      const snippetOptions = [
+        { label: 'if', type: 'keyword', apply: '{% if condition %}\n  \n{% endif %}' },
+        { label: 'ifelse', type: 'keyword', apply: '{% if condition %}\n  \n{% else %}\n  \n{% endif %}' },
+        { label: 'for', type: 'keyword', apply: '{% for item in items %}\n  {{ item }}\n{% endfor %}' },
+        { label: 'unsubscribe_url', type: 'variable', apply: '{{ unsubscribe_url }}' },
+        { label: 'tracking_click', type: 'variable', apply: '{{ tracking_click }}' },
+        { label: 'tracking_open', type: 'variable', apply: '{{ tracking_open }}' },
+      ];
+      return {
+        from: word.from,
+        options: [...variableOptions, ...snippetOptions],
+      };
+    };
+    const view = new EditorView({
+      parent: hostRef.current,
+      state: EditorState.create({
+        doc: value,
+        extensions: [
+          basicSetup,
+          html(),
+          jinjaDecorations,
+          autocompletion({ override: [completionSource] }),
+          templateEditorTheme,
+          EditorView.lineWrapping,
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              onChangeRef.current(update.state.doc.toString());
+            }
+            if (update.selectionSet || update.docChanged) {
+              const selection = update.state.selection.main;
+              onSelectionChangeRef.current?.(selection.from, selection.to);
+            }
+          }),
+        ],
+      }),
+    });
+    viewRef.current = view;
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current === value) return;
+    view.dispatch({
+      changes: { from: 0, to: current.length, insert: value },
+    });
+  }, [value]);
+
+  return <div className="template-code-editor" ref={hostRef} />;
+});
 
 type Campaign = {
   name: string;
@@ -2466,7 +2646,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
-  const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
@@ -2635,11 +2815,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (rule) syncCssControlsFromRule(rule, className);
   }
 
-  function syncHtmlSelectionToCssClass() {
-    const editor = htmlEditorRef.current;
-    if (!editor) return;
-    const cursor = editor.selectionStart ?? 0;
-    const selected = htmlBody.slice(editor.selectionStart ?? cursor, editor.selectionEnd ?? cursor);
+  function syncHtmlSelectionToCssClass(from?: number, to?: number) {
+    const selection = typeof from === 'number' && typeof to === 'number'
+      ? { from, to }
+      : htmlEditorRef.current?.getSelectionRange();
+    if (!selection) return;
+    const cursor = selection.from;
+    const selected = htmlBody.slice(selection.from, selection.to);
     const searchStart = Math.max(0, cursor - 500);
     const searchEnd = Math.min(htmlBody.length, cursor + 500);
     const context = `${htmlBody.slice(searchStart, cursor)}${selected}${htmlBody.slice(cursor, searchEnd)}`;
@@ -2815,9 +2997,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function insertHtmlBlock(kind: string) {
     const snippet = htmlBlockSnippet(kind);
-    const editor = htmlEditorRef.current;
-    const start = editor?.selectionStart ?? htmlBody.length;
-    const end = editor?.selectionEnd ?? htmlBody.length;
+    const selection = htmlEditorRef.current?.getSelectionRange();
+    const start = selection?.from ?? htmlBody.length;
+    const end = selection?.to ?? htmlBody.length;
     const before = htmlBody.slice(0, start);
     const after = htmlBody.slice(end);
     const prefix = before && !before.endsWith('\n') ? '\n\n' : '';
@@ -2886,6 +3068,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       source: variable.native ? 'native' : (variable.sources?.[0] || 'template'),
     }))
     : Object.keys(sampleVariables).map((name) => ({ name, value: sampleVariables[name], source: 'sample' }));
+  const templateEditorCompletions = Array.from(new Set([
+    ...sampleVariableRows.map((item) => item.name),
+    'first_name',
+    'last_name',
+    'email',
+    'unsubscribe_url',
+    'tracking_click',
+    'tracking_open',
+  ].filter(Boolean)));
 
   async function runTemplateOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -3214,11 +3405,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     HTML / Jinja
                     <small>Insert blocks into the editor below</small>
                   </span>
-	                  <textarea ref={htmlEditorRef} value={htmlBody} onSelect={syncHtmlSelectionToCssClass} onClick={syncHtmlSelectionToCssClass} onKeyUp={syncHtmlSelectionToCssClass} onChange={(event) => {
-	                    setHtmlBody(event.target.value);
-	                    setPreviewHtml('');
-	                    setPreviewSubject('');
-	                  }} rows={16} />
+                  <TemplateCodeEditor
+                    ref={htmlEditorRef}
+                    value={htmlBody}
+                    completions={templateEditorCompletions}
+                    onSelectionChange={syncHtmlSelectionToCssClass}
+                    onChange={(nextValue) => {
+                      setHtmlBody(nextValue);
+                      setPreviewHtml('');
+                      setPreviewSubject('');
+                    }}
+                  />
 	                  <div className="block-button-grid inline-block-actions">
 	                    <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
 	                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
