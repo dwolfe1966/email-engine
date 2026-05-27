@@ -1677,6 +1677,32 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             <a href="#templates">Edit templates</a>
           </div>
         </div>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Draft</strong>
+            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>{isCreatingCampaign ? 'Create Campaign' : 'Save Changes'}</button>
+          </div>
+          {isPersistedCampaign ? (
+            <>
+              <div>
+                <strong>Review</strong>
+                <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy}>Readiness</button>
+                <button className="ghost" onClick={validateCampaign} disabled={operationBusy}>Check Audience</button>
+                <button className="ghost" onClick={previewTestEmail} disabled={operationBusy}>Preview Email</button>
+              </div>
+              <div>
+                <strong>Send</strong>
+                <button className="ghost" onClick={sendTestEmail} disabled={operationBusy}>Send Test</button>
+                <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
+              </div>
+            </>
+          ) : null}
+        </div>
+        <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{operationBusy ? 'Working' : 'Status'}</strong>
+          <span>{operationStatus}</span>
+          {selectedCampaign ? <small>Selected: {selectedCampaign.name}</small> : null}
+        </div>
         <div className="workflow-section">
           <h3>1. Setup</h3>
           <div className="form-grid">
@@ -1734,32 +1760,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={8} />
             </label>
           </div>
-        </div>
-        <div className="campaign-action-bar">
-          <div>
-            <strong>Draft</strong>
-            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>{isCreatingCampaign ? 'Create Campaign' : 'Save Changes'}</button>
-          </div>
-          {isPersistedCampaign ? (
-            <>
-              <div>
-                <strong>Review</strong>
-                <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy}>Readiness</button>
-                <button className="ghost" onClick={validateCampaign} disabled={operationBusy}>Check Audience</button>
-                <button className="ghost" onClick={previewTestEmail} disabled={operationBusy}>Preview Email</button>
-              </div>
-              <div>
-                <strong>Send</strong>
-                <button className="ghost" onClick={sendTestEmail} disabled={operationBusy}>Send Test</button>
-                <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
-              </div>
-            </>
-          ) : null}
-        </div>
-        <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{operationBusy ? 'Working' : 'Status'}</strong>
-          <span>{operationStatus}</span>
-          {selectedCampaign ? <small>Selected: {selectedCampaign.name}</small> : null}
         </div>
         {previewHtml ? (
           <iframe className="email-preview" title="Campaign test preview" srcDoc={previewHtml} />
@@ -2552,6 +2552,21 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
             <a href="#data">Import contacts</a>
           </div>
         </div>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Audience</strong>
+            <button className="primary" onClick={saveAudience} disabled={busy}>{isCreatingAudience ? 'Create Audience' : 'Save Changes'}</button>
+          </div>
+          <div>
+            <strong>Preview</strong>
+            <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
+            {isPersistedAudience ? <button className="ghost" onClick={snapshotAudience} disabled={busy}>Create Snapshot</button> : null}
+          </div>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
         <div className="workflow-section">
           <h3>1. Setup</h3>
           <div className="form-grid">
@@ -2594,18 +2609,6 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
                 setSampleContacts([]);
               }} rows={10} />
             </label>
-          </div>
-        </div>
-        <div className="workflow-section">
-          <h3>3. Preview and snapshot</h3>
-          <div className="button-row">
-            <button className="primary" onClick={saveAudience} disabled={busy}>{isCreatingAudience ? 'Create Audience' : 'Save Changes'}</button>
-            <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
-            {isPersistedAudience ? <button className="ghost" onClick={snapshotAudience} disabled={busy}>Create Snapshot</button> : null}
-          </div>
-          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-            <strong>{busy ? 'Working' : 'Status'}</strong>
-            <span>{status}</span>
           </div>
         </div>
         {sampleContacts.length ? (
@@ -4865,6 +4868,28 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             <a href="#compliance">Open compliance</a>
           </div>
         </div>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Contact</strong>
+            <button className="primary" onClick={saveContact} disabled={busy}>{isCreatingContact ? 'Create Contact' : 'Save Changes'}</button>
+            {isPersistedContact ? <a className="ghost" href="#contacts/new">New Contact</a> : null}
+          </div>
+          {isPersistedContact ? (
+            <div>
+              <strong>Compliance</strong>
+              <button className="ghost" onClick={loadUnsubscribeToken} disabled={busy}>Unsubscribe Token</button>
+              <button className="ghost" onClick={deleteContact} disabled={busy}>Delete Contact</button>
+            </div>
+          ) : null}
+          <div>
+            <strong>Data</strong>
+            <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
+          </div>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
         <div className="form-grid">
           <label>
             Email
@@ -4901,17 +4926,6 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
               <textarea value={unsubscribeToken || 'Not generated'} readOnly rows={8} />
             </label>
           ) : null}
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={saveContact} disabled={busy}>{isCreatingContact ? 'Create Contact' : 'Save Changes'}</button>
-          {isPersistedContact ? <a className="ghost" href="#contacts/new">New Contact</a> : null}
-          {isPersistedContact ? <button className="ghost" onClick={loadUnsubscribeToken} disabled={busy}>Unsubscribe Token</button> : null}
-          {isPersistedContact ? <button className="ghost" onClick={deleteContact} disabled={busy}>Delete Contact</button> : null}
-          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
-        </div>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
         </div>
       </section>
     </section>
