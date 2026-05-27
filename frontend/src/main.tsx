@@ -4,7 +4,7 @@ import { autocompletion, type CompletionContext } from '@codemirror/autocomplete
 import { html } from '@codemirror/lang-html';
 import { basicSetup } from 'codemirror';
 import { EditorSelection, EditorState, RangeSetBuilder } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { Decoration, keymap, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import './styles.css';
 
 type Metric = {
@@ -38,6 +38,9 @@ type TemplateCodeEditorProps = {
   onChange: (value: string) => void;
   onSelectionChange?: (from: number, to: number) => void;
   completions?: string[];
+  cssClasses?: string[];
+  onSave?: () => void;
+  onFormat?: () => void;
 };
 
 const jinjaDecorations = ViewPlugin.fromClass(class {
@@ -106,7 +109,7 @@ const templateEditorTheme = EditorView.theme({
 });
 
 const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateCodeEditorProps>(function TemplateCodeEditor(
-  { value, onChange, onSelectionChange, completions = [] },
+  { value, onChange, onSelectionChange, completions = [], cssClasses = [], onSave, onFormat },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -114,10 +117,16 @@ const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateCodeEdit
   const onChangeRef = useRef(onChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const completionsRef = useRef(completions);
+  const cssClassesRef = useRef(cssClasses);
+  const onSaveRef = useRef(onSave);
+  const onFormatRef = useRef(onFormat);
 
   onChangeRef.current = onChange;
   onSelectionChangeRef.current = onSelectionChange;
   completionsRef.current = completions;
+  cssClassesRef.current = cssClasses;
+  onSaveRef.current = onSave;
+  onFormatRef.current = onFormat;
 
   useImperativeHandle(ref, () => ({
     focus: () => viewRef.current?.focus(),
@@ -143,20 +152,34 @@ const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateCodeEdit
       if (!word || (word.from === word.to && !context.explicit)) return null;
       const variableOptions = completionsRef.current.map((label) => ({
         label,
+        detail: 'variable',
         type: 'variable',
         apply: `{{ ${label} }}`,
       }));
+      const classOptions = cssClassesRef.current.map((label) => ({
+        label,
+        detail: 'CSS class',
+        type: 'class',
+        apply: label,
+      }));
       const snippetOptions = [
-        { label: 'if', type: 'keyword', apply: '{% if condition %}\n  \n{% endif %}' },
-        { label: 'ifelse', type: 'keyword', apply: '{% if condition %}\n  \n{% else %}\n  \n{% endif %}' },
-        { label: 'for', type: 'keyword', apply: '{% for item in items %}\n  {{ item }}\n{% endfor %}' },
-        { label: 'unsubscribe_url', type: 'variable', apply: '{{ unsubscribe_url }}' },
-        { label: 'tracking_click', type: 'variable', apply: '{{ tracking_click }}' },
-        { label: 'tracking_open', type: 'variable', apply: '{{ tracking_open }}' },
+        { label: 'if', detail: 'Jinja block', type: 'keyword', apply: '{% if condition %}\n  \n{% endif %}' },
+        { label: 'ifelse', detail: 'Jinja branch', type: 'keyword', apply: '{% if condition %}\n  \n{% else %}\n  \n{% endif %}' },
+        { label: 'for', detail: 'Jinja loop', type: 'keyword', apply: '{% for item in items %}\n  {{ item }}\n{% endfor %}' },
+        { label: 'set', detail: 'Jinja assignment', type: 'keyword', apply: '{% set name = value %}' },
+        { label: 'unsubscribe_url', detail: 'native variable', type: 'variable', apply: '{{ unsubscribe_url }}' },
+        { label: 'tracking_click', detail: 'native variable', type: 'variable', apply: '{{ tracking_click }}' },
+        { label: 'tracking_open', detail: 'native variable', type: 'variable', apply: '{{ tracking_open }}' },
+      ];
+      const htmlOptions = [
+        { label: 'email-container', detail: 'wrapper class', type: 'class', apply: 'email-container' },
+        { label: 'email-copy', detail: 'text class', type: 'class', apply: 'email-copy' },
+        { label: 'email-title', detail: 'heading class', type: 'class', apply: 'email-title' },
+        { label: 'button', detail: 'CTA class', type: 'class', apply: 'button' },
       ];
       return {
         from: word.from,
-        options: [...variableOptions, ...snippetOptions],
+        options: [...variableOptions, ...classOptions, ...htmlOptions, ...snippetOptions],
       };
     };
     const view = new EditorView({
@@ -170,6 +193,22 @@ const TemplateCodeEditor = forwardRef<TemplateCodeEditorHandle, TemplateCodeEdit
           autocompletion({ override: [completionSource] }),
           templateEditorTheme,
           EditorView.lineWrapping,
+          keymap.of([
+            {
+              key: 'Mod-s',
+              run: () => {
+                onSaveRef.current?.();
+                return true;
+              },
+            },
+            {
+              key: 'Shift-Mod-f',
+              run: () => {
+                onFormatRef.current?.();
+                return true;
+              },
+            },
+          ]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
               onChangeRef.current(update.state.doc.toString());
@@ -3409,6 +3448,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     ref={htmlEditorRef}
                     value={htmlBody}
                     completions={templateEditorCompletions}
+                    cssClasses={htmlClassNames}
+                    onSave={saveTemplate}
+                    onFormat={formatTemplateSource}
                     onSelectionChange={syncHtmlSelectionToCssClass}
                     onChange={(nextValue) => {
                       setHtmlBody(nextValue);
