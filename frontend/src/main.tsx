@@ -2483,6 +2483,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     text: 'Creates text styling with font, color, spacing, and line height.',
     image: 'Creates responsive image styling with width, max-width, height, border, and radius.',
   }[cssClassKind];
+  const visibleCssControls = {
+    font: cssClassKind !== 'image',
+    background: ['container', 'section', 'button'].includes(cssClassKind),
+    text: ['container', 'section', 'text'].includes(cssClassKind),
+    accent: ['section', 'button', 'image'].includes(cssClassKind),
+    width: ['container', 'image'].includes(cssClassKind),
+    padding: ['container', 'section', 'button'].includes(cssClassKind),
+    radius: cssClassKind !== 'text',
+  };
 
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2507,7 +2516,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSelectedCssClass(className);
     const rule = cssRuleForClass(className);
     setCssClassKind(inferCssClassKind(className, rule));
-    if (!rule) return;
+    if (rule) syncCssControlsFromRule(rule, className);
+  }
+
+  function syncCssControlsFromRule(rule = cssRuleForClass(selectedCssClass), className = selectedCssClass) {
+    if (!rule) {
+      setStatus(className ? `No CSS rule exists yet for .${className}. Choose a style type and update CSS.` : 'Select an HTML class to load existing CSS values.');
+      return;
+    }
     const paddingMatch = cssProperty(rule, 'padding').match(/\d+/);
     const radiusMatch = cssProperty(rule, 'border-radius').match(/\d+/);
     const widthMatch = cssProperty(rule, 'max-width').match(/\d+/);
@@ -2521,6 +2537,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       padding: paddingMatch?.[0] || current.padding,
       radius: radiusMatch?.[0] || current.radius,
     }));
+    setStatus(className ? `Loaded CSS values from .${className}.` : 'Loaded CSS values from the selected rule.');
   }
 
   useEffect(() => {
@@ -3083,7 +3100,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                         <option value="image">Image</option>
                       </select>
                     </label>
-                    <label>
+                    <label className={visibleCssControls.font ? '' : 'css-control-hidden'}>
                       Font
                       <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
                         <option value="Arial, Helvetica, sans-serif">Arial</option>
@@ -3092,31 +3109,32 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                         <option value="Verdana, Geneva, sans-serif">Verdana</option>
                       </select>
                     </label>
-                    <label>
+                    <label className={visibleCssControls.background ? '' : 'css-control-hidden'}>
                       Background
                       <input type="color" value={cssPreset.background} onChange={(event) => setCssPreset((current) => ({ ...current, background: event.target.value }))} />
                     </label>
-                    <label>
+                    <label className={visibleCssControls.text ? '' : 'css-control-hidden'}>
                       Text
                       <input type="color" value={cssPreset.text} onChange={(event) => setCssPreset((current) => ({ ...current, text: event.target.value }))} />
                     </label>
-                    <label>
+                    <label className={visibleCssControls.accent ? '' : 'css-control-hidden'}>
                       Accent
                       <input type="color" value={cssPreset.accent} onChange={(event) => setCssPreset((current) => ({ ...current, accent: event.target.value }))} />
                     </label>
-                    <label>
+                    <label className={visibleCssControls.width ? '' : 'css-control-hidden'}>
                       Width
                       <input type="number" min="480" max="760" step="20" value={cssPreset.container} onChange={(event) => setCssPreset((current) => ({ ...current, container: event.target.value }))} />
                     </label>
-                    <label>
+                    <label className={visibleCssControls.padding ? '' : 'css-control-hidden'}>
                       Padding
                       <input type="number" min="12" max="48" step="2" value={cssPreset.padding} onChange={(event) => setCssPreset((current) => ({ ...current, padding: event.target.value }))} />
                     </label>
-                    <label>
+                    <label className={visibleCssControls.radius ? '' : 'css-control-hidden'}>
                       Radius
                       <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
+                    <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
                   </div>
                   <p className="muted css-kind-hint">{cssClassKindHelp}</p>
                   {cssClassCoverage.length ? (
