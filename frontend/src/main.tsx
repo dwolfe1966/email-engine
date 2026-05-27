@@ -2772,6 +2772,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewSubject('');
     setPendingAiDraft(null);
     setEditorMode('edit');
+    setStatus('Applied AI draft to the editor. Review the source, then use Preview to render it.');
   }
 
   function cssRuleForClass(className: string) {
@@ -3182,6 +3183,31 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     });
   }
 
+  async function previewAiDraft(draft: AITemplateDraft) {
+    await runTemplateOperation('Rendering AI draft preview', async () => {
+      const variableData = await refreshVariables(true);
+      const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: draft.subject || subject,
+          html_body: draft.html_body || htmlBody,
+          css_body: draft.css_body || cssBody || null,
+          variables: draft.sample_variables && Object.keys(draft.sample_variables).length
+            ? { ...variableData.renderVariables, ...draft.sample_variables }
+            : variableData.renderVariables,
+        }),
+      });
+      if (draft.sample_variables && Object.keys(draft.sample_variables).length) {
+        setVariablesJson(JSON.stringify({ ...variableData.renderVariables, ...draft.sample_variables }, null, 2));
+      }
+      setPreviewHtml(data.html_body || '');
+      setPreviewSubject(data.subject || draft.subject || subject);
+      setEditorMode('preview');
+      const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
+      return `Rendered AI draft preview: ${data.subject || draft.subject}.${issueText}`;
+    });
+  }
+
   async function refreshVariables(fillMissingSamples = true) {
     const currentVariables = parsedVariables();
     const data = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
@@ -3378,7 +3404,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
             ) : (
               <>
-                <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Review AI Edit</button>
+                <button className="ghost" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
                 <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
               </>
             )}
@@ -3629,8 +3655,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <div className="ai-draft-preview">
                   <span className="muted">{pendingAiDraft.provider}/{pendingAiDraft.model}</span>
                   <strong>{pendingAiDraft.subject}</strong>
+                  {(pendingAiDraft.change_summary || pendingAiDraft.notes || []).length ? (
+                    <ul className="ai-draft-notes">
+                      {(pendingAiDraft.change_summary || pendingAiDraft.notes || []).slice(0, 4).map((note) => <li key={note}>{note}</li>)}
+                    </ul>
+                  ) : null}
                   <pre>{(pendingAiDraft.html_body || '').slice(0, 900)}</pre>
                   <div className="button-row">
+                    <button className="ghost" onClick={() => previewAiDraft(pendingAiDraft)} disabled={busy}>Preview Draft</button>
                     <button className="primary" onClick={() => applyAiDraft(pendingAiDraft)} disabled={busy}>Apply Draft</button>
                     <button className="ghost" onClick={() => setPendingAiDraft(null)} disabled={busy}>Discard</button>
                   </div>

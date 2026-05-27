@@ -1503,6 +1503,19 @@ th {
   word-break: break-word;
 }
 
+.ai-draft-notes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px 10px 10px 26px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .operation-banner {
   display: grid;
   gap: 3px;
