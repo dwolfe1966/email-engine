@@ -3927,9 +3927,10 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
   const routeParts = route.split('/');
   const routeSuppressionId = routeParts[0] === 'compliance' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
   const isDetailPage = routeParts[0] === 'compliance' && Boolean(routeParts[1]);
+  const isNewSuppression = routeParts[0] === 'compliance' && routeParts[1] === 'new';
 
   useEffect(() => {
-    if (routeParts[1] === 'new') {
+    if (isNewSuppression) {
       resetSuppressionEditor();
     } else if (routeSuppressionId) {
       const suppression = suppressions.find((item) => item.id === routeSuppressionId);
@@ -3937,7 +3938,7 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
     } else if (!selectedSuppressionId && suppressions.length) {
       setSelectedSuppressionId(suppressions[0].id);
     }
-  }, [route, routeSuppressionId, selectedSuppressionId, suppressions]);
+  }, [isNewSuppression, routeSuppressionId, selectedSuppressionId, suppressions]);
 
   const manualCount = suppressions.filter((item) => item.reason === 'manual').length;
   const unsubscribeCount = suppressions.filter((item) => item.reason === 'unsubscribe').length;
@@ -3945,6 +3946,8 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
   const complaintCount = suppressions.filter((item) => item.reason === 'spam_complaint').length;
   const failedWithEmail = sendRecords.filter((record) => record.status === 'failed' && record.to_email).slice(0, 10);
   const selectedSuppression = suppressions.find((item) => item.id === selectedSuppressionId);
+  const isPersistedSuppression = Boolean(selectedSuppressionId);
+  const isCreatingSuppression = !isPersistedSuppression;
 
   function resetSuppressionEditor() {
     setEmail('');
@@ -4090,6 +4093,21 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               <a href="#analytics">Open analytics</a>
             </div>
           </div>
+          <div className="campaign-action-bar">
+            <div>
+              <strong>Suppression</strong>
+              <button className="primary" onClick={addSuppression} disabled={busy}>{isCreatingSuppression ? 'Add Suppression' : 'Add Another'}</button>
+              {isPersistedSuppression ? <button className="ghost" onClick={deleteSuppression} disabled={busy}>Delete Selected</button> : null}
+            </div>
+            <div>
+              <strong>Data</strong>
+              <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Suppressions</button>
+            </div>
+          </div>
+          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+            <strong>{busy ? 'Working' : 'Status'}</strong>
+            <span>{status}</span>
+          </div>
           <div className="form-grid">
             <label>
               Email
@@ -4109,36 +4127,9 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               <input value={source} onChange={(event) => setSource(event.target.value)} />
             </label>
             <label className="wide-field">
-              Existing suppression
-              <select value={selectedSuppressionId} onChange={(event) => {
-                const suppression = suppressions.find((item) => item.id === event.target.value);
-                if (suppression) {
-                  loadSuppression(suppression);
-                  window.location.hash = `#compliance/${suppression.id}`;
-                } else {
-                  resetSuppressionEditor();
-                  window.location.hash = '#compliance/new';
-                }
-              }}>
-                <option value="">Select suppression</option>
-                {suppressions.map((item) => (
-                  <option value={item.id} key={item.id}>{item.email} | {item.reason} | {item.source}</option>
-                ))}
-              </select>
-            </label>
-            <label>
               Selected provider message
               <input value={selectedSuppression?.provider_message_id || 'none'} readOnly />
             </label>
-          </div>
-          <div className="button-row">
-            <button className="primary" onClick={addSuppression} disabled={busy}>Add Suppression</button>
-            <button className="ghost" onClick={deleteSuppression} disabled={busy || !selectedSuppressionId}>Delete Selected</button>
-            <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Suppressions</button>
-          </div>
-          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-            <strong>{busy ? 'Working' : 'Status'}</strong>
-            <span>{status}</span>
           </div>
           {failedWithEmail.length ? (
             <div className="button-row">
