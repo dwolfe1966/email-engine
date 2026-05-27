@@ -81,6 +81,15 @@ type CampaignAnalytics = {
   event_counts: CountRow[];
 };
 
+type CampaignWorkflowStatus = {
+  campaign: CampaignRead;
+  template: TemplateRead | null;
+  validation: { ok: boolean; requested_count: number; errors: string[]; warnings: string[] };
+  analytics: CampaignAnalytics | null;
+  latest_send_job: CampaignSendJobRead | null;
+  latest_send_record: EmailSendRecordRead | null;
+};
+
 type CampaignTimelinePoint = {
   date: string;
   sent_count: number;
@@ -1053,6 +1062,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const [operationStatus, setOperationStatus] = useState('Ready to create a draft campaign.');
   const [operationBusy, setOperationBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
+  const [workflowStatus, setWorkflowStatus] = useState<CampaignWorkflowStatus | null>(null);
 
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
@@ -1081,6 +1091,41 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     { label: 'Audience', detail: selectedAudience ? `${selectedAudience.name} (${formatInt(selectedAudience.estimated_count)})` : 'Choose an audience', ready: Boolean(audienceId) },
     { label: 'Test', detail: testEmail.trim() ? testEmail.trim() : 'Enter a test recipient', ready: Boolean(testEmail.trim()) },
     { label: 'Launch', detail: 'Dry-run before production send', ready: Boolean(selectedCampaignId && templateId && audienceId) },
+  ];
+  const readinessCards = [
+    {
+      label: 'Draft',
+      ready: Boolean(selectedCampaignId),
+      detail: selectedCampaign ? `${selectedCampaign.status} campaign selected.` : 'Save a draft before preview, test send, or launch.',
+    },
+    {
+      label: 'Template',
+      ready: Boolean(selectedTemplate),
+      detail: selectedTemplate ? selectedTemplate.subject : 'Choose the email template for this campaign.',
+    },
+    {
+      label: 'Audience',
+      ready: Boolean(selectedAudience),
+      detail: selectedAudience ? `${formatInt(selectedAudience.estimated_count)} estimated contacts.` : 'Choose a saved audience before launch.',
+    },
+    {
+      label: 'Validation',
+      ready: Boolean(workflowStatus?.validation?.ok),
+      detail: workflowStatus
+        ? workflowStatus.validation.ok
+          ? `${formatInt(workflowStatus.validation.requested_count)} contacts validated.`
+          : `${formatInt((workflowStatus.validation.errors || []).length)} errors / ${formatInt((workflowStatus.validation.warnings || []).length)} warnings.`
+        : 'Run readiness check before sending.',
+    },
+    {
+      label: 'Delivery',
+      ready: Boolean(workflowStatus?.latest_send_job || selectedCampaignPerformance?.sent_count),
+      detail: workflowStatus?.latest_send_job
+        ? `${workflowStatus.latest_send_job.status}: ${formatInt(workflowStatus.latest_send_job.queued_count)} queued.`
+        : selectedCampaignPerformance
+          ? `${formatInt(selectedCampaignPerformance.sent_count)} sent so far.`
+          : 'No delivery job visible yet.',
+    },
   ];
 
   function parsedVariables() {
@@ -1114,20 +1159,20 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   }
 
   async function createDraftCampaign() {
-    await runOperation('Creating draft campaign', async () => {
+    await runOperation(selectedCampaignId ? 'Saving campaign setup' : 'Creating draft campaign', async () => {
       if (!templateId) throw new Error('Select a template.');
       const payload = {
         name: campaignName.trim() || `ESP Campaign ${new Date().toISOString()}`,
         template_id: templateId,
         audience_query: selectedAudience?.rule_tree || {},
       };
-      const created = await fetchJson<CampaignRead>('/api/v1/campaigns', {
-        method: 'POST',
+      const saved = await fetchJson<CampaignRead>(selectedCampaignId ? `/api/v1/campaigns/${selectedCampaignId}` : '/api/v1/campaigns', {
+        method: selectedCampaignId ? 'PATCH' : 'POST',
         body: JSON.stringify(payload),
       });
-      setSelectedCampaignId(created.id);
-      window.location.hash = `#campaigns/${created.id}`;
-      return `Created draft campaign: ${created.name}`;
+      setSelectedCampaignId(saved.id);
+      window.location.hash = `#campaigns/${saved.id}`;
+      return `${selectedCampaignId ? 'Saved campaign' : 'Created draft campaign'}: ${saved.name}`;
     });
   }
 
@@ -1143,6 +1188,17 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       return data.ok
         ? `Validation passed. ${formatInt(data.requested_count)} contacts matched.`
         : `Validation found ${formatInt(issueCount)} issue(s): ${(data.errors || data.warnings || []).join('; ')}`;
+    });
+  }
+
+  async function loadCampaignWorkflowStatus() {
+    await runOperation('Loading campaign readiness', async () => {
+      if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      const data = await fetchJson<CampaignWorkflowStatus>(`/api/v1/campaigns/${selectedCampaignId}/workflow-status`);
+      setWorkflowStatus(data);
+      return data.validation.ok
+        ? `Ready check passed for ${data.campaign.name}.`
+        : `Ready check found ${formatInt((data.validation.errors || []).length)} error(s) and ${formatInt((data.validation.warnings || []).length)} warning(s).`;
     });
   }
 
@@ -1285,6 +1341,34 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           </article>
         ))}
       </section>
+      <section className="workflow-grid full-span">
+        {readinessCards.map((item) => (
+          <article className={`workflow-card ${item.ready ? '' : 'warn'}`} key={item.label}>
+            <span>{item.ready ? 'Ready' : 'Needs attention'}</span>
+            <strong>{item.label}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </section>
+      {selectedCampaign ? (
+        <section className="panel full-span selected-summary">
+          <div className="panel-head">
+            <div>
+              <h2>{selectedCampaign.name}</h2>
+              <span className="muted">Campaign workspace summary</span>
+            </div>
+            <a href="#delivery">Open delivery</a>
+          </div>
+          <div className="summary-grid">
+            <div><span>Status</span><strong>{selectedCampaign.status}</strong></div>
+            <div><span>Template</span><strong>{selectedTemplate?.name || selectedCampaign.template_id.slice(0, 8)}</strong></div>
+            <div><span>Audience</span><strong>{selectedAudience?.name || 'Selected at launch'}</strong></div>
+            <div><span>Requested</span><strong>{formatInt(workflowStatus?.analytics?.requested_count ?? selectedCampaignPerformance?.requested_count)}</strong></div>
+            <div><span>Sent</span><strong>{formatInt(workflowStatus?.analytics?.sent_count ?? selectedCampaignPerformance?.sent_count)}</strong></div>
+            <div><span>Latest job</span><strong>{workflowStatus?.latest_send_job?.status || 'None loaded'}</strong></div>
+          </div>
+        </section>
+      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <div>
@@ -1296,61 +1380,89 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             <a href="#templates">Edit templates</a>
           </div>
         </div>
-        <div className="form-grid">
-          <label>
-            Campaign name
-            <input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} />
-          </label>
-          <label>
-            Existing campaign
-            <select
-              value={selectedCampaignId}
-              onChange={(event) => {
-                const nextCampaignId = event.target.value;
-                setSelectedCampaignId(nextCampaignId);
-                window.location.hash = nextCampaignId ? `#campaigns/${nextCampaignId}` : '#campaigns/new';
-              }}
-            >
-              <option value="">Create new draft</option>
-              {campaignItems.map((campaign) => (
-                <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Template
-            <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
-              <option value="">Select template</option>
-              {templates.map((template) => (
-                <option value={template.id} key={template.id}>{template.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Audience
-            <select value={audienceId} onChange={(event) => setAudienceId(event.target.value)}>
-              <option value="">Select audience</option>
-              {audiences.map((audience) => (
-                <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Test recipient
-            <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="you@example.com" />
-          </label>
-          <label className="wide-field">
-            Personalization data
-            <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={8} />
-          </label>
+        <div className="workflow-section">
+          <h3>1. Setup</h3>
+          <div className="form-grid">
+            <label>
+              Campaign name
+              <input value={campaignName} onChange={(event) => {
+                setCampaignName(event.target.value);
+                setWorkflowStatus(null);
+              }} />
+            </label>
+            <label>
+              Existing campaign
+              <select
+                value={selectedCampaignId}
+                onChange={(event) => {
+                  const nextCampaignId = event.target.value;
+                  setSelectedCampaignId(nextCampaignId);
+                  setWorkflowStatus(null);
+                  window.location.hash = nextCampaignId ? `#campaigns/${nextCampaignId}` : '#campaigns/new';
+                }}
+              >
+                <option value="">Create new draft</option>
+                {campaignItems.map((campaign) => (
+                  <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="workflow-section">
+          <h3>2. Content and Audience</h3>
+          <div className="form-grid">
+            <label>
+              Template
+              <select value={templateId} onChange={(event) => {
+                setTemplateId(event.target.value);
+                setWorkflowStatus(null);
+              }}>
+                <option value="">Select template</option>
+                {templates.map((template) => (
+                  <option value={template.id} key={template.id}>{template.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Audience
+              <select value={audienceId} onChange={(event) => {
+                setAudienceId(event.target.value);
+                setWorkflowStatus(null);
+              }}>
+                <option value="">Select audience</option>
+                {audiences.map((audience) => (
+                  <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Audience size
+              <input value={selectedAudience ? formatInt(selectedAudience.estimated_count) : 'No audience selected'} readOnly />
+            </label>
+          </div>
+        </div>
+        <div className="workflow-section">
+          <h3>3. Test Data</h3>
+          <div className="form-grid">
+            <label>
+              Test recipient
+              <input value={testEmail} onChange={(event) => setTestEmail(event.target.value)} placeholder="you@example.com" />
+            </label>
+            <label className="wide-field">
+              Personalization data
+              <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={8} />
+            </label>
+          </div>
         </div>
         <div className="campaign-action-bar">
           <div>
             <strong>Draft</strong>
-            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>Save Draft</button>
+            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>{selectedCampaignId ? 'Save Setup' : 'Save Draft'}</button>
           </div>
           <div>
             <strong>Review</strong>
+            <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy || !selectedCampaignId}>Readiness</button>
             <button className="ghost" onClick={validateCampaign} disabled={operationBusy || !selectedCampaignId}>Check Audience</button>
             <button className="ghost" onClick={previewTestEmail} disabled={operationBusy || !selectedCampaignId}>Preview Email</button>
           </div>
