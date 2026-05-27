@@ -580,6 +580,23 @@ const chartLines = [
   'M0,235 C44,220 82,230 118,212 C156,194 182,206 214,192 C252,174 282,190 312,178 C348,160 388,176 424,158 C464,138 490,152 520,134',
 ];
 
+function RowActionMenu({ openHref, onDelete, onArchive }: {
+  openHref: string;
+  onDelete?: () => void;
+  onArchive?: () => void;
+}) {
+  return (
+    <details className="row-action-menu" onClick={(event) => event.stopPropagation()}>
+      <summary>Actions</summary>
+      <div>
+        <a href={openHref}>Open</a>
+        <button type="button" onClick={onDelete || (() => window.alert('Delete is not wired for this entity yet.'))}>Delete</button>
+        <button type="button" onClick={onArchive || (() => window.alert('Archive is not wired for this entity yet.'))}>Archive</button>
+      </div>
+    </details>
+  );
+}
+
 function formatInt(value: number | undefined) {
   return Number(value || 0).toLocaleString();
 }
@@ -1258,6 +1275,15 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     });
   }
 
+  async function deleteCampaignRow(campaign: CampaignRead) {
+    if (!window.confirm(`Delete campaign "${campaign.name}"?`)) return;
+    await runOperation('Deleting campaign', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/campaigns/${campaign.id}`, { method: 'DELETE' });
+      if (selectedCampaignId === campaign.id) setSelectedCampaignId('');
+      return `Deleted campaign: ${campaign.name}.`;
+    });
+  }
+
   if (!isDetailPage) {
     return (
       <section className="page-grid entity-list-page">
@@ -1295,12 +1321,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <tbody>
                 {campaignItems.map((campaign) => {
                   const performance = campaignPerformanceById.get(campaign.id);
-                  return (
-                    <tr
-                      className={`selectable-row ${campaign.id === selectedCampaignId ? 'selected-row' : ''}`}
-                      key={campaign.id}
-                      onClick={() => setSelectedCampaignId(campaign.id)}
-                    >
+	                  return (
+	                    <tr
+	                      className={`selectable-row ${campaign.id === selectedCampaignId ? 'selected-row' : ''}`}
+	                      key={campaign.id}
+	                      onClick={() => setSelectedCampaignId(campaign.id)}
+	                      onDoubleClick={() => { window.location.hash = `#campaigns/${campaign.id}`; }}
+	                    >
                       <td>{campaign.name}</td>
                       <td><span className="pill">{campaign.status}</span></td>
                       <td>{formatInt(performance?.requested_count)}</td>
@@ -1308,15 +1335,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                       <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
                       <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
                       <td>{formatInt(performance?.failed_count)}</td>
-                      <td>
-                        <a
-                          className="link-button"
-                          href={`#campaigns/${campaign.id}`}
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          Open
-                        </a>
-                      </td>
+                      <td><RowActionMenu openHref={`#campaigns/${campaign.id}`} onDelete={() => deleteCampaignRow(campaign)} /></td>
                     </tr>
                   );
                 })}
@@ -1707,6 +1726,25 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     });
   }
 
+  async function deleteJourneyRow(journey: JourneyPerformance) {
+    if (!window.confirm(`Delete journey "${journey.name}"?`)) return;
+    await runJourneyOperation('Deleting journey', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/journeys/${journey.journey_id}`, { method: 'DELETE' });
+      if (selectedJourneyId === journey.journey_id) resetJourneyEditor();
+      return `Deleted journey: ${journey.name}.`;
+    });
+  }
+
+  async function archiveJourneyRow(journey: JourneyPerformance) {
+    await runJourneyOperation('Archiving journey', async () => {
+      await fetchJson<JourneyRead>(`/api/v1/journeys/${journey.journey_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      return `Archived journey: ${journey.name}.`;
+    });
+  }
+
   if (!isDetailPage) {
     return (
       <section className="page-grid">
@@ -1744,14 +1782,15 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
                 {journeys.map((journey) => {
                   const journeyItem = journeyItems.find((item) => item.id === journey.journey_id);
                   return (
-                    <tr
-                      className={`selectable-row ${journey.journey_id === selectedJourneyId ? 'selected-row' : ''}`}
-                      key={journey.journey_id}
-                      onClick={() => {
-                        if (journeyItem) loadJourneyIntoEditor(journeyItem);
-                        else setSelectedJourneyId(journey.journey_id);
-                      }}
-                    >
+	                    <tr
+	                      className={`selectable-row ${journey.journey_id === selectedJourneyId ? 'selected-row' : ''}`}
+	                      key={journey.journey_id}
+	                      onClick={() => {
+	                        if (journeyItem) loadJourneyIntoEditor(journeyItem);
+	                        else setSelectedJourneyId(journey.journey_id);
+	                      }}
+	                      onDoubleClick={() => { window.location.hash = `#automations/${journey.journey_id}`; }}
+	                    >
                       <td>{journey.name}</td>
                       <td><span className="pill">{journey.status}</span></td>
                       <td>{formatInt(journey.enrollment_count)}</td>
@@ -1759,7 +1798,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
                       <td>{formatInt(journey.completed_count)}</td>
                       <td>{formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))}</td>
                       <td>{formatInt(journey.queued_send_count)}</td>
-                      <td><a href={`#automations/${journey.journey_id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                      <td><RowActionMenu openHref={`#automations/${journey.journey_id}`} onDelete={() => deleteJourneyRow(journey)} onArchive={() => archiveJourneyRow(journey)} /></td>
                     </tr>
                   );
                 })}
@@ -2146,6 +2185,27 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
     });
   }
 
+  async function deleteAudienceRow(audience: AudienceRead) {
+    if (!window.confirm(`Delete audience "${audience.name}"?`)) return;
+    await runAudienceOperation('Deleting audience', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/audiences/${audience.id}`, { method: 'DELETE' });
+      if (selectedAudienceId === audience.id) resetAudienceEditor();
+      await onRefresh();
+      return `Deleted audience: ${audience.name}.`;
+    });
+  }
+
+  async function archiveAudienceRow(audience: AudienceRead) {
+    await runAudienceOperation('Archiving audience', async () => {
+      await fetchJson<AudienceRead>(`/api/v1/audiences/${audience.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      await onRefresh();
+      return `Archived audience: ${audience.name}.`;
+    });
+  }
+
   if (!isDetailPage) {
     return (
       <section className="page-grid entity-list-page">
@@ -2183,18 +2243,19 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
                 {audienceItems.map((audience) => {
                   const performance = audiencePerformanceById.get(audience.id);
                   return (
-                    <tr
-                      className={`selectable-row ${audience.id === selectedAudienceId ? 'selected-row' : ''}`}
-                      key={audience.id}
-                      onClick={() => loadAudienceIntoEditor(audience)}
-                    >
+	                    <tr
+	                      className={`selectable-row ${audience.id === selectedAudienceId ? 'selected-row' : ''}`}
+	                      key={audience.id}
+	                      onClick={() => loadAudienceIntoEditor(audience)}
+	                      onDoubleClick={() => { window.location.hash = `#audience/${audience.id}`; }}
+	                    >
                       <td>{audience.name}</td>
                       <td><span className="pill">{audience.status}</span></td>
                       <td>{formatInt(performance?.estimated_count ?? audience.estimated_count)}</td>
                       <td>{formatInt(performance?.sent_count)}</td>
                       <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
                       <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
-                      <td><a href={`#audience/${audience.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                      <td><RowActionMenu openHref={`#audience/${audience.id}`} onDelete={() => deleteAudienceRow(audience)} onArchive={() => archiveAudienceRow(audience)} /></td>
                     </tr>
                   );
                 })}
@@ -2406,6 +2467,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
   const [selectedCssRuleDraft, setSelectedCssRuleDraft] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
@@ -2574,6 +2636,39 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const rule = cssRuleForClass(className);
     setCssClassKind(inferCssClassKind(className, rule));
     if (rule) syncCssControlsFromRule(rule, className);
+  }
+
+  function syncHtmlSelectionToCssClass() {
+    const editor = htmlEditorRef.current;
+    if (!editor) return;
+    const cursor = editor.selectionStart ?? 0;
+    const selected = htmlBody.slice(editor.selectionStart ?? cursor, editor.selectionEnd ?? cursor);
+    const searchStart = Math.max(0, cursor - 500);
+    const searchEnd = Math.min(htmlBody.length, cursor + 500);
+    const context = `${htmlBody.slice(searchStart, cursor)}${selected}${htmlBody.slice(cursor, searchEnd)}`;
+    const classMatch = context.match(/class=["']([^"']+)["']/);
+    const className = classMatch?.[1]?.split(/\s+/).filter(Boolean)[0];
+    if (className && htmlClassNames.includes(className) && className !== selectedCssClass) {
+      selectCssClass(className);
+      setStatus(`Selected .${className} from HTML. CSS controls are synced below.`);
+    }
+  }
+
+  function syncCssSelectionToClass() {
+    const editor = cssEditorRef.current;
+    if (!editor) return;
+    const cursor = editor.selectionStart ?? 0;
+    const beforeCursor = cssBody.slice(0, cursor);
+    const selectorStart = beforeCursor.lastIndexOf('.');
+    const blockStart = beforeCursor.lastIndexOf('{');
+    const blockEnd = beforeCursor.lastIndexOf('}');
+    if (selectorStart < 0 || blockEnd > blockStart) return;
+    const selector = cssBody.slice(selectorStart, Math.min(cssBody.indexOf('{', selectorStart), cssBody.length));
+    const className = selector.match(/\.([a-zA-Z0-9_-]+)/)?.[1];
+    if (className && htmlClassNames.includes(className) && className !== selectedCssClass) {
+      selectCssClass(className);
+      setStatus(`Selected .${className} from CSS. Class editor is synced below.`);
+    }
   }
 
   function syncCssControlsFromRule(rule = cssRuleForClass(selectedCssClass), className = selectedCssClass) {
@@ -2860,6 +2955,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     });
   }
 
+  async function deleteTemplateRow(template: TemplateRead) {
+    if (!window.confirm(`Delete template "${template.name}"?`)) return;
+    await runTemplateOperation('Deleting template', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/templates/${template.id}`, { method: 'DELETE' });
+      if (selectedTemplateId === template.id) resetTemplateEditor();
+      await onRefresh();
+      return `Deleted template: ${template.name}.`;
+    });
+  }
+
   async function previewTemplate() {
     await runTemplateOperation('Rendering preview', async () => {
       const variableData = await refreshVariables(true);
@@ -2998,17 +3103,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               </thead>
               <tbody>
                 {templates.map((template) => (
-                  <tr
-                    className={`selectable-row ${template.id === selectedTemplateId ? 'selected-row' : ''}`}
-                    key={template.id}
-                    onClick={() => loadTemplateIntoEditor(template)}
-                  >
+	                  <tr
+	                    className={`selectable-row ${template.id === selectedTemplateId ? 'selected-row' : ''}`}
+	                    key={template.id}
+	                    onClick={() => loadTemplateIntoEditor(template)}
+	                    onDoubleClick={() => { window.location.hash = `#templates/${template.id}`; }}
+	                  >
                     <td>{template.name}</td>
                     <td>{template.subject}</td>
                     <td>{template.category || 'template'}</td>
                     <td><span className="pill">{template.css_body ? 'configured' : 'none'}</span></td>
                     <td>{formatInt((template.html_body || '').length)}</td>
-                    <td><a href={`#templates/${template.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    <td><RowActionMenu openHref={`#templates/${template.id}`} onDelete={() => deleteTemplateRow(template)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -3119,11 +3225,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     HTML / Jinja
                     <small>Insert blocks into the editor below</small>
                   </span>
-                  <textarea ref={htmlEditorRef} value={htmlBody} onChange={(event) => {
-                    setHtmlBody(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={16} />
+	                  <textarea ref={htmlEditorRef} value={htmlBody} onSelect={syncHtmlSelectionToCssClass} onClick={syncHtmlSelectionToCssClass} onKeyUp={syncHtmlSelectionToCssClass} onChange={(event) => {
+	                    setHtmlBody(event.target.value);
+	                    setPreviewHtml('');
+	                    setPreviewSubject('');
+	                  }} rows={16} />
                   <div className="block-button-grid inline-block-actions">
                     <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
                     <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
@@ -3174,11 +3280,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     CSS
                     <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
                   </span>
-                  <textarea value={cssBody} onChange={(event) => {
-                    setCssBody(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={7} />
+	                  <textarea ref={cssEditorRef} value={cssBody} onSelect={syncCssSelectionToClass} onClick={syncCssSelectionToClass} onKeyUp={syncCssSelectionToClass} onChange={(event) => {
+	                    setCssBody(event.target.value);
+	                    setPreviewHtml('');
+	                    setPreviewSubject('');
+	                  }} rows={7} />
                   <div className="css-helper-grid inline-css-helper">
                     <label>
                       HTML class
@@ -3727,6 +3833,16 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
     });
   }
 
+  async function deleteSuppressionRow(item: SuppressionRead) {
+    if (!window.confirm(`Delete suppression for "${item.email}"?`)) return;
+    await runComplianceOperation('Deleting suppression', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/suppressions/${item.id}`, { method: 'DELETE' });
+      if (selectedSuppressionId === item.id) resetSuppressionEditor();
+      await onRefresh();
+      return `Deleted suppression for ${item.email}.`;
+    });
+  }
+
   return (
     <section className="page-grid">
       {!isDetailPage ? (
@@ -3753,17 +3869,18 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
                 <thead><tr><th>Email</th><th>Reason</th><th>Source</th><th>Provider message</th><th>Contact</th><th>Editor</th></tr></thead>
                 <tbody>
                   {suppressions.map((item) => (
-                    <tr
-                      className={`selectable-row ${item.id === selectedSuppressionId ? 'selected-row' : ''}`}
-                      key={item.id}
-                      onClick={() => loadSuppression(item)}
-                    >
+	                    <tr
+	                      className={`selectable-row ${item.id === selectedSuppressionId ? 'selected-row' : ''}`}
+	                      key={item.id}
+	                      onClick={() => loadSuppression(item)}
+	                      onDoubleClick={() => { window.location.hash = `#compliance/${item.id}`; }}
+	                    >
                       <td>{item.email}</td>
                       <td><span className="pill">{item.reason}</span></td>
                       <td>{item.source}</td>
                       <td>{item.provider_message_id || '-'}</td>
                       <td>{item.contact_id ? item.contact_id.slice(0, 8) : '-'}</td>
-                      <td><a href={`#compliance/${item.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                      <td><RowActionMenu openHref={`#compliance/${item.id}`} onDelete={() => deleteSuppressionRow(item)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -4002,6 +4119,16 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
     });
   }
 
+  async function deleteSourceRow(source: DataSourceRead) {
+    if (!window.confirm(`Delete data source "${source.name}"?`)) return;
+    await runDataOperation('Deleting data source', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/data-sources/${source.id}`, { method: 'DELETE' });
+      if (selectedSourceId === source.id) resetSourceEditor();
+      await onRefresh();
+      return `Deleted data source: ${source.name}.`;
+    });
+  }
+
   async function validateSource() {
     await runDataOperation('Validating data source', async () => {
       if (!selectedSourceId) throw new Error('Save or select a data source first.');
@@ -4081,17 +4208,18 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
               <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Mappings</th><th>Secret</th><th>Editor</th></tr></thead>
               <tbody>
                 {dataSources.map((source) => (
-                  <tr
-                    className={`selectable-row ${source.id === selectedSourceId ? 'selected-row' : ''}`}
-                    key={source.id}
-                    onClick={() => loadSource(source)}
-                  >
+	                  <tr
+	                    className={`selectable-row ${source.id === selectedSourceId ? 'selected-row' : ''}`}
+	                    key={source.id}
+	                    onClick={() => loadSource(source)}
+	                    onDoubleClick={() => { window.location.hash = `#data/${source.id}`; }}
+	                  >
                     <td>{source.name}</td>
                     <td><span className="pill">{source.source_type}</span></td>
                     <td>{source.status}</td>
                     <td>{formatInt(mappings.filter((mapping) => mapping.data_source_id === source.id).length)}</td>
                     <td>{source.secret_ref || '-'}</td>
-                    <td><a href={`#data/${source.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    <td><RowActionMenu openHref={`#data/${source.id}`} onDelete={() => deleteSourceRow(source)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -4433,6 +4561,16 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
     });
   }
 
+  async function deleteContactRow(contact: ContactRead) {
+    if (!window.confirm(`Delete contact "${contact.email}"?`)) return;
+    await runContactOperation('Deleting contact', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/audiences/contacts/${contact.id}`, { method: 'DELETE' });
+      if (selectedContactId === contact.id) await newContact();
+      await onRefresh();
+      return `Deleted contact: ${contact.email}.`;
+    });
+  }
+
   async function loadUnsubscribeToken() {
     await runContactOperation('Creating unsubscribe token', async () => {
       if (!selectedContactId) throw new Error('Select a contact.');
@@ -4468,17 +4606,18 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
               <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th><th>Attributes</th><th>Editor</th></tr></thead>
               <tbody>
                 {contacts.map((contact) => (
-                  <tr
-                    className={`selectable-row ${contact.id === selectedContactId ? 'selected-row' : ''}`}
-                    key={contact.id}
-                    onClick={() => loadContact(contact)}
-                  >
+	                  <tr
+	                    className={`selectable-row ${contact.id === selectedContactId ? 'selected-row' : ''}`}
+	                    key={contact.id}
+	                    onClick={() => loadContact(contact)}
+	                    onDoubleClick={() => { window.location.hash = `#contacts/${contact.id}`; }}
+	                  >
                     <td>{contact.email}</td>
                     <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
                     <td>{contact.source || '-'}</td>
                     <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
                     <td>{Object.keys(contact.attributes || {}).slice(0, 6).join(', ') || '-'}</td>
-                    <td><a href={`#contacts/${contact.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    <td><RowActionMenu openHref={`#contacts/${contact.id}`} onDelete={() => deleteContactRow(contact)} /></td>
                   </tr>
                 ))}
               </tbody>

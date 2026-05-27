@@ -513,6 +513,56 @@ tr.selected-row td {
   cursor: pointer;
 }
 
+.row-action-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.row-action-menu summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.row-action-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.row-action-menu div {
+  position: absolute;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 132px;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+
+.row-action-menu a,
+.row-action-menu button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #29405f;
+  padding: 8px 9px;
+  text-align: left;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.row-action-menu a:hover,
+.row-action-menu button:hover {
+  background: #eef5ff;
+}
+
 th {
   color: var(--muted);
   font-size: 11px;
