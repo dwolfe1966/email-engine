@@ -1899,14 +1899,19 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   );
 }
 
-function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation }: {
+function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, onOperation }: {
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
+  metadata: ContactMetadata | null;
   route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
   const routeParts = route.split('/');
+  const routeAudienceId = routeParts[0] === 'audience' && routeParts[1] && routeParts[1] !== 'new'
+    ? routeParts[1]
+    : '';
+  const isDetailPage = routeParts[0] === 'audience' && Boolean(routeParts[1]);
   const isNewAudience = routeParts[0] === 'audience' && routeParts[1] === 'new';
   const [selectedAudienceId, setSelectedAudienceId] = useState('');
   const [name, setName] = useState('ESP Audience Draft');
@@ -1922,10 +1927,17 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
       resetAudienceEditor();
       return;
     }
-    if (!isNewAudience && !selectedAudienceId && audienceItems.length) {
+    if (routeAudienceId) {
+      const routedAudience = audienceItems.find((item) => item.id === routeAudienceId);
+      if (routedAudience && routedAudience.id !== selectedAudienceId) {
+        loadAudienceIntoEditor(routedAudience);
+      }
+      return;
+    }
+    if (!isDetailPage && !selectedAudienceId && audienceItems.length) {
       loadAudienceIntoEditor(audienceItems[0]);
     }
-  }, [audienceItems, isNewAudience, selectedAudienceId]);
+  }, [audienceItems, isDetailPage, isNewAudience, routeAudienceId, selectedAudienceId]);
 
   const estimated = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
   const sent = audiences.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
@@ -1934,6 +1946,38 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
   const audiencePerformanceById = new Map(audiences.map((audience) => [audience.audience_id, audience]));
   const selectedAudience = audienceItems.find((item) => item.id === selectedAudienceId);
   const selectedAudiencePerformance = selectedAudienceId ? audiencePerformanceById.get(selectedAudienceId) : null;
+  const ruleJsonValid = isRuleJsonValid();
+  const availableFields = metadata?.fields || [];
+  const attributeFields = (metadata?.attribute_keys || []).map((key) => `attributes.${key}`);
+  const fieldHints = [...availableFields, ...attributeFields].slice(0, 18);
+  const workflowSteps = [
+    { label: 'Define', detail: name.trim() ? name.trim() : 'Name the audience', ready: Boolean(name.trim()) },
+    { label: 'Rule', detail: ruleJsonValid ? 'Valid JSON rule' : 'Fix rule JSON', ready: ruleJsonValid },
+    { label: 'Preview', detail: matchedCount === null ? 'Preview reach' : `${formatInt(matchedCount)} matched`, ready: matchedCount !== null },
+    { label: 'Snapshot', detail: selectedAudienceId ? 'Ready to snapshot' : 'Save audience first', ready: Boolean(selectedAudienceId) },
+  ];
+  const readinessCards = [
+    {
+      label: 'Contact data',
+      detail: metadata ? `${formatInt(metadata.total)} contacts, ${formatInt(metadata.fields.length + metadata.attribute_keys.length)} usable fields` : 'Contact metadata has not loaded.',
+      ready: Boolean(metadata?.total),
+    },
+    {
+      label: 'Audience rule',
+      detail: ruleJsonValid ? 'Rule JSON can be previewed.' : 'Rule JSON must be an object.',
+      ready: ruleJsonValid,
+    },
+    {
+      label: 'Preview impact',
+      detail: matchedCount === null ? 'Run preview before using this audience in a campaign.' : `${formatInt(matchedCount)} contact(s) matched.`,
+      ready: matchedCount !== null,
+    },
+    {
+      label: 'Campaign-ready',
+      detail: selectedAudienceId && Number(matchedCount || 0) > 0 ? 'Saved with reachable contacts.' : 'Save and preview before launch.',
+      ready: Boolean(selectedAudienceId && Number(matchedCount || 0) > 0),
+    },
+  ];
 
   function loadAudienceIntoEditor(audience: AudienceRead) {
     setSelectedAudienceId(audience.id);
@@ -1965,6 +2009,22 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Invalid audience rule JSON.');
     }
+  }
+
+  function isRuleJsonValid() {
+    try {
+      parsedRuleTree();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function insertFieldRule(field: string) {
+    setRuleJson(JSON.stringify({ field, comparator: 'exists', value: true }, null, 2));
+    setMatchedCount(null);
+    setSampleContacts([]);
+    setStatus(`Inserted starter rule for ${field}. Preview to estimate impact.`);
   }
 
   async function runAudienceOperation(label: string, operation: () => Promise<string>) {
@@ -2001,9 +2061,9 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
           body: JSON.stringify(payload),
         });
       setSelectedAudienceId(saved.id);
-      window.location.hash = '#audience';
       setMatchedCount(saved.estimated_count);
       await onRefresh();
+      window.location.hash = `#audience/${saved.id}`;
       return `Saved audience: ${saved.name} (${formatInt(saved.estimated_count)} matched).`;
     });
   }
@@ -2031,68 +2091,117 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
     });
   }
 
-  return (
-    <section className="page-grid">
-      {!isNewAudience ? (
+  if (!isDetailPage) {
+    return (
+      <section className="page-grid entity-list-page">
         <section className="metric-grid full-span compact-metrics">
           <MetricCard metric={{ label: 'Audiences', value: formatInt(audienceItems.length), change: 'saved segments' }} />
           <MetricCard metric={{ label: 'Estimated reach', value: formatInt(estimated), change: 'matched contacts' }} />
           <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
           <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
         </section>
-      ) : null}
-      <section className="panel table-panel full-span">
-        <div className="panel-head">
-          <div>
-            <h2>Audiences</h2>
-            <span className="muted">Select an audience to inspect reach, performance, and builder details.</span>
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Audiences</h2>
+              <span className="muted">Select an audience for summary, or open one to edit rules and preview reach.</span>
+            </div>
+            <div className="button-row">
+              <a href="#data">Import contacts</a>
+              <a href="#audience/new">New audience</a>
+            </div>
           </div>
-          <a href="#data">Import contacts</a>
-        </div>
-        {audienceItems.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Audience</th>
-                <th>Status</th>
-                <th>Estimated</th>
-                <th>Sent</th>
-                <th>Open rate</th>
-                <th>Click rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {audienceItems.map((audience) => {
-                const performance = audiencePerformanceById.get(audience.id);
-                return (
-                  <tr
-                    className={`selectable-row ${audience.id === selectedAudienceId ? 'selected-row' : ''}`}
-                    key={audience.id}
-                    onClick={() => loadAudienceIntoEditor(audience)}
-                  >
-                    <td>{audience.name}</td>
-                    <td><span className="pill">{audience.status}</span></td>
-                    <td>{formatInt(performance?.estimated_count ?? audience.estimated_count)}</td>
-                    <td>{formatInt(performance?.sent_count)}</td>
-                    <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
-                    <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No audiences yet" detail="Import contacts or create a dynamic audience rule set." actionHref="#data" actionLabel="Import contacts" />
-        )}
+          {audienceItems.length ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Audience</th>
+                  <th>Status</th>
+                  <th>Estimated</th>
+                  <th>Sent</th>
+                  <th>Open rate</th>
+                  <th>Click rate</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audienceItems.map((audience) => {
+                  const performance = audiencePerformanceById.get(audience.id);
+                  return (
+                    <tr
+                      className={`selectable-row ${audience.id === selectedAudienceId ? 'selected-row' : ''}`}
+                      key={audience.id}
+                      onClick={() => loadAudienceIntoEditor(audience)}
+                    >
+                      <td>{audience.name}</td>
+                      <td><span className="pill">{audience.status}</span></td>
+                      <td>{formatInt(performance?.estimated_count ?? audience.estimated_count)}</td>
+                      <td>{formatInt(performance?.sent_count)}</td>
+                      <td>{performance ? formatPct(performance.open_rate) : '-'}</td>
+                      <td>{performance ? formatPct(performance.click_rate) : '-'}</td>
+                      <td><a href={`#audience/${audience.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <EmptyState title="No audiences yet" detail="Import contacts or create a dynamic audience rule set." actionHref="#audience/new" actionLabel="Create audience" />
+          )}
+        </section>
+        {selectedAudience ? (
+          <section className="panel full-span selected-summary">
+            <div className="panel-head">
+              <div>
+                <h2>{selectedAudience.name}</h2>
+                <span className="muted">Selected audience summary</span>
+              </div>
+              <a href={`#audience/${selectedAudience.id}`}>Open audience builder</a>
+            </div>
+            <div className="summary-grid">
+              <div><span>Status</span><strong>{selectedAudience.status}</strong></div>
+              <div><span>Estimated</span><strong>{formatInt(selectedAudiencePerformance?.estimated_count ?? selectedAudience.estimated_count)}</strong></div>
+              <div><span>Sent</span><strong>{formatInt(selectedAudiencePerformance?.sent_count)}</strong></div>
+              <div><span>Open rate</span><strong>{selectedAudiencePerformance ? formatPct(selectedAudiencePerformance.open_rate) : '-'}</strong></div>
+              <div><span>Click rate</span><strong>{selectedAudiencePerformance ? formatPct(selectedAudiencePerformance.click_rate) : '-'}</strong></div>
+              <div><span>Description</span><strong>{selectedAudience.description || '-'}</strong></div>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className="page-grid">
+      <section className="campaign-flow full-span">
+        {workflowSteps.map((step, index) => (
+          <article className={step.ready ? 'ready' : ''} key={step.label}>
+            <span>{index + 1}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <p>{step.detail}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+      <section className="workflow-grid full-span">
+        {readinessCards.map((item) => (
+          <article className={`workflow-card ${item.ready ? '' : 'warn'}`} key={item.label}>
+            <span>{item.ready ? 'Ready' : 'Needs attention'}</span>
+            <strong>{item.label}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
       </section>
       {selectedAudience ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
             <div>
               <h2>{selectedAudience.name}</h2>
-              <span className="muted">Selected audience summary</span>
+              <span className="muted">Audience workspace summary</span>
             </div>
-            <button className="link-button" onClick={previewAudience} disabled={busy}>Preview contacts</button>
+            <a href="#campaigns">Use in campaign</a>
           </div>
           <div className="summary-grid">
             <div><span>Status</span><strong>{selectedAudience.status}</strong></div>
@@ -2106,52 +2215,92 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
       ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>{selectedAudience ? 'Audience Builder' : 'Create Audience'}</h2>
-          <a href="#data">Import contacts</a>
+          <div>
+            <h2>{selectedAudience ? selectedAudience.name : 'Create Audience'}</h2>
+            <span className="muted">Define rules, preview matched contacts, and snapshot stable campaign targets.</span>
+          </div>
+          <div className="button-row">
+            <a href="#audience">Back to audiences</a>
+            <a href="#data">Import contacts</a>
+          </div>
         </div>
-        <div className="form-grid">
-          <label>
-            Existing audience
-            <select value={selectedAudienceId} onChange={(event) => {
-              const audience = audienceItems.find((item) => item.id === event.target.value);
-              if (audience) loadAudienceIntoEditor(audience);
-              else setSelectedAudienceId('');
-            }}>
-              <option value="">Create new audience</option>
-              {audienceItems.map((audience) => (
-                <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
+        <div className="workflow-section">
+          <h3>1. Setup</h3>
+          <div className="form-grid">
+            <label>
+              Existing audience
+              <select
+                value={selectedAudienceId}
+                onChange={(event) => {
+                  const nextAudienceId = event.target.value;
+                  const audience = audienceItems.find((item) => item.id === nextAudienceId);
+                  if (audience) loadAudienceIntoEditor(audience);
+                  else resetAudienceEditor();
+                  window.location.hash = nextAudienceId ? `#audience/${nextAudienceId}` : '#audience/new';
+                }}
+              >
+                <option value="">Create new audience</option>
+                {audienceItems.map((audience) => (
+                  <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Audience name
+              <input value={name} onChange={(event) => {
+                setName(event.target.value);
+                setMatchedCount(null);
+              }} />
+            </label>
+            <label>
+              Matched contacts
+              <input value={matchedCount === null ? 'Not previewed' : formatInt(matchedCount)} readOnly />
+            </label>
+            <label className="wide-field">
+              Description
+              <input value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+          </div>
+        </div>
+        <div className="workflow-section">
+          <h3>2. Rule definition</h3>
+          {fieldHints.length ? (
+            <div className="field-chip-row" aria-label="Available audience fields">
+              {fieldHints.map((field) => (
+                <button type="button" className="field-chip" key={field} onClick={() => insertFieldRule(field)}>
+                  {field}
+                </button>
               ))}
-            </select>
-          </label>
-          <label>
-            Audience name
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label>
-            Matched contacts
-            <input value={matchedCount === null ? 'Not previewed' : formatInt(matchedCount)} readOnly />
-          </label>
-          <label className="wide-field">
-            Description
-            <input value={description} onChange={(event) => setDescription(event.target.value)} />
-          </label>
-          <label className="wide-field">
-            Rule JSON
-            <textarea value={ruleJson} onChange={(event) => setRuleJson(event.target.value)} rows={10} />
-          </label>
+            </div>
+          ) : (
+            <p className="muted">Import contacts to expose fields and attribute keys for rule building.</p>
+          )}
+          <div className="form-grid">
+            <label className="wide-field">
+              Rule JSON
+              <textarea value={ruleJson} onChange={(event) => {
+                setRuleJson(event.target.value);
+                setMatchedCount(null);
+                setSampleContacts([]);
+              }} rows={10} />
+            </label>
+          </div>
         </div>
-        <div className="button-row">
-          <button className="primary" onClick={saveAudience} disabled={busy}>Save Audience</button>
-          <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
-          <button className="ghost" onClick={snapshotAudience} disabled={busy || !selectedAudienceId}>Create Snapshot</button>
-        </div>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
+        <div className="workflow-section">
+          <h3>3. Preview and snapshot</h3>
+          <div className="button-row">
+            <button className="primary" onClick={saveAudience} disabled={busy}>Save Audience</button>
+            <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
+            <button className="ghost" onClick={snapshotAudience} disabled={busy || !selectedAudienceId}>Create Snapshot</button>
+          </div>
+          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+            <strong>{busy ? 'Working' : 'Status'}</strong>
+            <span>{status}</span>
+          </div>
         </div>
         {sampleContacts.length ? (
-          <section className="panel table-panel nested-panel">
-            <div className="panel-head"><h2>Matched Contacts Preview</h2></div>
+          <div className="workflow-section">
+            <h3>Matched Contacts Preview</h3>
             <table>
               <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th></tr></thead>
               <tbody>
@@ -2165,7 +2314,7 @@ function AudiencePage({ audiences, audienceItems, route, onRefresh, onOperation 
                 ))}
               </tbody>
             </table>
-          </section>
+          </div>
         ) : null}
       </section>
     </section>
@@ -5414,16 +5563,19 @@ function App() {
         <AudiencePage
           audiences={dashboard.audiences}
           audienceItems={dashboard.audienceItems}
+          metadata={dashboard.contactMeta}
           route={route}
           onRefresh={async () => {
-            const [audienceData, audienceItems] = await Promise.all([
+            const [audienceData, audienceItems, contactMeta] = await Promise.all([
               fetchJson<ListResponse<AudiencePerformance>>('/api/v1/analytics/audiences?limit=25&offset=0'),
               fetchJson<ListResponse<AudienceRead>>('/api/v1/audiences/list?limit=25&offset=0'),
+              fetchJson<ContactMetadata>('/api/v1/audiences/contacts/meta?sample_limit=10&scan_limit=500'),
             ]);
             setDashboard((current) => ({
               ...current,
               audiences: audienceData.items || [],
               audienceItems: audienceItems.items || [],
+              contactMeta,
             }));
           }}
           onOperation={setOperationNotice}

@@ -826,6 +826,28 @@ th {
   font-size: 13px;
 }
 
+.field-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field-chip {
+  border: 1px solid #cfe0f5;
+  border-radius: 999px;
+  background: #fbfdff;
+  color: #29405f;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.field-chip:hover {
+  border-color: #9db7ff;
+  background: #eef5ff;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
