@@ -977,6 +977,46 @@ th {
   box-shadow: 0 1px 6px rgba(22, 45, 90, .08);
 }
 
+.compact-tabs button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.preview-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.preview-toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.preview-toolbar span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.preview-toolbar strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .compact-status-list,
 .recommendation-list,
 .ai-draft-preview {
@@ -1162,6 +1202,12 @@ th {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+}
+
+.email-preview.mobile-preview {
+  width: min(100%, 390px);
+  min-height: 620px;
+  justify-self: center;
 }
 
 .json-preview {

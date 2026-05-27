@@ -2342,6 +2342,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [status, setStatus] = useState('Ready to edit or preview a template.');
   const [busy, setBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
+  const [previewSubject, setPreviewSubject] = useState('');
+  const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
   const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
   const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
@@ -2413,6 +2415,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setCssBody('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     setPreviewHtml('');
+    setPreviewSubject('');
     setVariables([]);
     setAiRecommendations([]);
     setAiNotes([]);
@@ -2428,6 +2431,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody(template.html_body || '');
     setCssBody(template.css_body || '');
     setPreviewHtml('');
+    setPreviewSubject('');
     setAiRecommendations([]);
     setAiNotes([]);
     setPendingAiDraft(null);
@@ -2444,6 +2448,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     setAiNotes(draft.change_summary || draft.notes || []);
     setPreviewHtml('');
+    setPreviewSubject('');
     setPendingAiDraft(null);
     setEditorMode('edit');
   }
@@ -2467,6 +2472,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function applyCssPreset() {
     setCssBody(generatedCssFromPreset());
     setPreviewHtml('');
+    setPreviewSubject('');
     setStatus('Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
@@ -2487,6 +2493,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const snippet = htmlBlockSnippet(kind);
     setHtmlBody((current) => `${current.trim()}\n\n${snippet}`.trim());
     setPreviewHtml('');
+    setPreviewSubject('');
     setEditorMode('edit');
     setStatus('Inserted HTML block. Click Preview to refresh variables and render it.');
   }
@@ -2531,6 +2538,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const current = safeVariablesObject();
     setVariablesJson(JSON.stringify({ ...current, [name]: parseSampleInput(value) }, null, 2));
     setPreviewHtml('');
+    setPreviewSubject('');
   }
 
   const sampleVariables = safeVariablesObject();
@@ -2610,6 +2618,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         }),
       });
       setPreviewHtml(data.html_body || '');
+      setPreviewSubject(data.subject || '');
       setEditorMode('preview');
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered preview: ${data.subject}.${issueText}`;
@@ -2855,6 +2864,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   <textarea value={htmlBody} onChange={(event) => {
                     setHtmlBody(event.target.value);
                     setPreviewHtml('');
+                    setPreviewSubject('');
                   }} rows={16} />
                 </label>
                 <label>
@@ -2862,6 +2872,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   <textarea value={variablesJson} onChange={(event) => {
                     setVariablesJson(event.target.value);
                     setPreviewHtml('');
+                    setPreviewSubject('');
                   }} rows={16} />
                 </label>
                 <label className="wide-field">
@@ -2869,6 +2880,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   <textarea value={cssBody} onChange={(event) => {
                     setCssBody(event.target.value);
                     setPreviewHtml('');
+                    setPreviewSubject('');
                   }} rows={7} />
                 </label>
                 <label className="wide-field">
@@ -2877,7 +2889,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 </label>
               </div>
             ) : previewHtml ? (
-              <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
+              <div className="preview-shell">
+                <div className="preview-toolbar">
+                  <div>
+                    <span>Subject</span>
+                    <strong>{previewSubject || subject}</strong>
+                  </div>
+                  <div className="tab-row compact-tabs">
+                    <button className={previewViewport === 'desktop' ? 'active' : ''} onClick={() => setPreviewViewport('desktop')}>Desktop</button>
+                    <button className={previewViewport === 'mobile' ? 'active' : ''} onClick={() => setPreviewViewport('mobile')}>Mobile</button>
+                  </div>
+                </div>
+                <iframe className={`email-preview ${previewViewport === 'mobile' ? 'mobile-preview' : ''}`} title="Template preview" srcDoc={previewHtml} />
+              </div>
             ) : (
               <div className="empty-state">
                 <strong>Preview not rendered</strong>
