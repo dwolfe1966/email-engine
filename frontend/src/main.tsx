@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
@@ -2350,6 +2350,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
+  const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [cssPreset, setCssPreset] = useState({
     font: 'Arial, Helvetica, sans-serif',
     background: '#f5f7fb',
@@ -2497,11 +2498,24 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function insertHtmlBlock(kind: string) {
     const snippet = htmlBlockSnippet(kind);
-    setHtmlBody((current) => `${current.trim()}\n\n${snippet}`.trim());
+    const editor = htmlEditorRef.current;
+    const start = editor?.selectionStart ?? htmlBody.length;
+    const end = editor?.selectionEnd ?? htmlBody.length;
+    const before = htmlBody.slice(0, start);
+    const after = htmlBody.slice(end);
+    const prefix = before && !before.endsWith('\n') ? '\n\n' : '';
+    const suffix = after && !after.startsWith('\n') ? '\n\n' : '';
+    const nextHtml = `${before}${prefix}${snippet}${suffix}${after}`.trim();
+    const nextCursor = Math.min(`${before}${prefix}${snippet}`.length, nextHtml.length);
+    setHtmlBody(nextHtml);
     setPreviewHtml('');
     setPreviewSubject('');
     setEditorMode('edit');
     setStatus('Inserted HTML block. Click Preview to refresh variables and render it.');
+    window.setTimeout(() => {
+      htmlEditorRef.current?.focus();
+      htmlEditorRef.current?.setSelectionRange(nextCursor, nextCursor);
+    }, 0);
   }
 
   function parsedVariables() {
@@ -2870,7 +2884,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     HTML / Jinja
                     <small>Insert blocks into the editor below</small>
                   </span>
-                  <textarea value={htmlBody} onChange={(event) => {
+                  <textarea ref={htmlEditorRef} value={htmlBody} onChange={(event) => {
                     setHtmlBody(event.target.value);
                     setPreviewHtml('');
                     setPreviewSubject('');
