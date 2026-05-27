@@ -4179,9 +4179,10 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   const routeParts = route.split('/');
   const routeSourceId = routeParts[0] === 'data' && routeParts[1] && routeParts[1] !== 'new' ? routeParts[1] : '';
   const isDetailPage = routeParts[0] === 'data' && Boolean(routeParts[1]);
+  const isNewSource = routeParts[0] === 'data' && routeParts[1] === 'new';
 
   useEffect(() => {
-    if (routeParts[1] === 'new') {
+    if (isNewSource) {
       resetSourceEditor();
     } else if (routeSourceId) {
       const source = dataSources.find((item) => item.id === routeSourceId);
@@ -4189,7 +4190,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
     } else if (!selectedSourceId && dataSources.length) {
       loadSource(dataSources[0]);
     }
-  }, [dataSources, route, routeSourceId, selectedSourceId]);
+  }, [dataSources, isNewSource, routeSourceId, selectedSourceId]);
 
   useEffect(() => {
     const sourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId);
@@ -4199,6 +4200,8 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   const sourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId);
   const selectedSource = dataSources.find((source) => source.id === selectedSourceId);
   const selectedMapping = mappings.find((mapping) => mapping.id === selectedMappingId);
+  const isPersistedSource = Boolean(selectedSourceId);
+  const isCreatingSource = !isPersistedSource;
   const completedJobs = importJobs.filter((job) => job.status === 'completed').length;
   const dryRunJobs = importJobs.filter((job) => job.status === 'dry_run').length;
   const failedJobs = importJobs.filter((job) => job.status === 'failed').length;
@@ -4508,23 +4511,36 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             <a href="#contacts">Open contacts</a>
           </div>
         </div>
+        <div className="campaign-action-bar">
+          <div>
+            <strong>Source</strong>
+            <button className="primary" onClick={saveSource} disabled={busy}>{isCreatingSource ? 'Create Source' : 'Save Changes'}</button>
+            {isPersistedSource ? <button className="ghost" onClick={validateSource} disabled={busy}>Validate</button> : null}
+            {isPersistedSource ? <button className="ghost" onClick={discoverSchema} disabled={busy}>Discover Schema</button> : null}
+          </div>
+          {isPersistedSource ? (
+            <>
+              <div>
+                <strong>Mapping</strong>
+                <button className="ghost" onClick={saveMapping} disabled={busy}>Save Mapping</button>
+              </div>
+              <div>
+                <strong>Import</strong>
+                <button className="ghost" onClick={() => ingestRows(true)} disabled={busy || !selectedMappingId}>Dry Run</button>
+                <button className="ghost" onClick={() => ingestRows(false)} disabled={busy || !selectedMappingId}>Import Rows</button>
+              </div>
+            </>
+          ) : null}
+          <div>
+            <strong>Data</strong>
+            <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
+          </div>
+        </div>
+        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{busy ? 'Working' : 'Status'}</strong>
+          <span>{status}</span>
+        </div>
         <div className="form-grid">
-          <label>
-            Existing source
-            <select value={selectedSourceId} onChange={(event) => {
-              const source = dataSources.find((item) => item.id === event.target.value);
-              if (source) {
-                loadSource(source);
-                window.location.hash = `#data/${source.id}`;
-              } else {
-                resetSourceEditor();
-                window.location.hash = '#data/new';
-              }
-            }}>
-              <option value="">Create new source</option>
-              {dataSources.map((source) => <option value={source.id} key={source.id}>{source.name} ({source.source_type})</option>)}
-            </select>
-          </label>
           <label>
             Source name
             <input value={name} onChange={(event) => setName(event.target.value)} />
@@ -4553,17 +4569,19 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             Config JSON
             <textarea value={configJson} onChange={(event) => setConfigJson(event.target.value)} rows={8} />
           </label>
-          <label>
-            Existing mapping
-            <select value={selectedMappingId} onChange={(event) => {
-              const mapping = mappings.find((item) => item.id === event.target.value);
-              if (mapping) loadMapping(mapping);
-              else setSelectedMappingId('');
-            }}>
-              <option value="">Create new mapping</option>
-              {sourceMappings.map((mapping) => <option value={mapping.id} key={mapping.id}>{mapping.name}</option>)}
-            </select>
-          </label>
+          {isPersistedSource && sourceMappings.length ? (
+            <label>
+              Existing mapping
+              <select value={selectedMappingId} onChange={(event) => {
+                const mapping = mappings.find((item) => item.id === event.target.value);
+                if (mapping) loadMapping(mapping);
+                else setSelectedMappingId('');
+              }}>
+                <option value="">Create new mapping</option>
+                {sourceMappings.map((mapping) => <option value={mapping.id} key={mapping.id}>{mapping.name}</option>)}
+              </select>
+            </label>
+          ) : null}
           <label>
             Mapping name
             <input value={mappingName} onChange={(event) => setMappingName(event.target.value)} />
@@ -4576,19 +4594,6 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             Import rows JSON
             <textarea value={rowsJson} onChange={(event) => setRowsJson(event.target.value)} rows={8} />
           </label>
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={saveSource} disabled={busy}>Save Source</button>
-          <button className="ghost" onClick={validateSource} disabled={busy || !selectedSourceId}>Validate</button>
-          <button className="ghost" onClick={discoverSchema} disabled={busy || !selectedSourceId}>Discover Schema</button>
-          <button className="ghost" onClick={saveMapping} disabled={busy || !selectedSourceId}>Save Mapping</button>
-          <button className="ghost" onClick={() => ingestRows(true)} disabled={busy || !selectedSourceId || !selectedMappingId}>Dry Run</button>
-          <button className="ghost" onClick={() => ingestRows(false)} disabled={busy || !selectedSourceId || !selectedMappingId}>Import Rows</button>
-          <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh</button>
-        </div>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
         </div>
       </section>
       {schema?.fields?.length ? (
