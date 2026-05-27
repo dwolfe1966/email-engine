@@ -2804,6 +2804,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   });
   const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
+  const selectedCssRule = cssRuleForClass(selectedCssClass);
+  const selectedCssCoverage = cssClassCoverage.find((item) => item.name === selectedCssClass);
   const cssClassKindHelp = {
     container: 'Creates a centered email-safe wrapper with width, margin, padding, and background.',
     section: 'Creates a reusable content band or card with padding, border, background, and radius.',
@@ -2843,7 +2845,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSelectedCssClass(className);
     const rule = cssRuleForClass(className);
     setCssClassKind(inferCssClassKind(className, rule));
-    if (rule) syncCssControlsFromRule(rule, className);
+    if (rule) {
+      syncCssControlsFromRule(rule, className);
+      return;
+    }
+    if (className) {
+      setStatus(`Selected .${className}. No CSS rule exists yet; choose controls and create one.`);
+    }
   }
 
   function syncHtmlSelectionToCssClass(from?: number, to?: number) {
@@ -3552,12 +3560,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                    setCssBody(event.target.value);
 	                    markPreviewStale();
 	                  }} rows={7} />
-                  <div className="editor-tool-panel">
-                    <div className="tool-panel-head">
-                      <strong>CSS rule tools</strong>
-                      <span>Select an HTML class, tune the controls, then update the CSS editor.</span>
-                    </div>
-                    <div className="css-helper-grid inline-css-helper">
+	                  <div className="editor-tool-panel">
+	                    <div className="tool-panel-head">
+	                      <strong>CSS rule tools</strong>
+	                      <span>Select an HTML class, tune the controls, then update the CSS editor.</span>
+	                    </div>
+	                    {selectedCssClass ? (
+	                      <div className={selectedCssRule ? 'selected-css-rule has-rule' : 'selected-css-rule missing-rule'}>
+	                        <div>
+	                          <strong>.{selectedCssClass}</strong>
+	                          <span>{selectedCssRule ? `Existing ${selectedCssCoverage?.kind || cssClassKind} rule loaded` : `Missing ${selectedCssCoverage?.kind || cssClassKind} rule`}</span>
+	                        </div>
+	                        <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssRule ? 'Update Rule' : 'Create Rule'}</button>
+	                      </div>
+	                    ) : null}
+	                    <div className="css-helper-grid inline-css-helper">
                     <label>
                       HTML class
                       <select value={selectedCssClass} onChange={(event) => selectCssClass(event.target.value)}>
@@ -3610,12 +3627,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                       Radius
                       <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
                     </label>
-                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
+	                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? (selectedCssRule ? 'Update Class CSS' : 'Create Class CSS') : 'Generate CSS'}</button>
                     <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
                     </div>
                   </div>
                   <p className="muted css-kind-hint">{cssClassKindHelp}</p>
-                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to update or create its CSS rule.</p> : null}
+	                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to {selectedCssRule ? 'update' : 'create'} its CSS rule.</p> : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
                       <div className="coverage-summary">
@@ -3626,7 +3643,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                         {cssClassCoverage.map((item) => (
                           <button
                             type="button"
-                            className={item.hasRule ? 'has-rule' : 'missing-rule'}
+	                            className={`${item.hasRule ? 'has-rule' : 'missing-rule'} ${item.name === selectedCssClass ? 'selected' : ''}`}
                             key={item.name}
                             onClick={() => selectCssClass(item.name)}
                           >

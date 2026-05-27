@@ -1236,6 +1236,44 @@ th {
   align-items: end;
 }
 
+.selected-css-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.selected-css-rule > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.selected-css-rule strong {
+  color: #29405f;
+  font-size: 13px;
+}
+
+.selected-css-rule span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.selected-css-rule.has-rule {
+  border-color: #b7e8d5;
+  background: #f2fff9;
+}
+
+.selected-css-rule.missing-rule {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+}
+
 .css-helper-grid label {
   display: grid;
   gap: 6px;
@@ -1351,6 +1389,11 @@ th {
   border-color: #f2d5a4;
   background: #fffaf0;
   color: #b45309;
+}
+
+.coverage-chip-list button.selected {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
 }
 
 .css-coverage-empty {
