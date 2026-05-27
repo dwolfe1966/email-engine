@@ -2654,6 +2654,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [busy, setBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewSubject, setPreviewSubject] = useState('');
+  const [previewFreshness, setPreviewFreshness] = useState<'empty' | 'current' | 'stale'>('empty');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
   const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
@@ -2677,6 +2678,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const isPersistedTemplate = Boolean(selectedTemplateId);
   const isCreatingTemplate = !isPersistedTemplate;
+  const previewStatusText = previewFreshness === 'current'
+    ? 'Preview reflects current sample data.'
+    : previewFreshness === 'stale'
+      ? 'Preview is stale. Use the Preview tab to refresh.'
+      : 'Use the Preview tab to detect variables and render.';
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
   const htmlClassNames = Array.from(htmlBody.matchAll(/class=["']([^"']+)["']/g))
@@ -2706,8 +2712,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     },
     {
       label: 'Preview',
-      ready: Boolean(previewHtml),
-      detail: previewHtml ? 'Rendered with sample variables.' : 'Render preview after edits.',
+      ready: previewFreshness === 'current',
+      detail: previewFreshness === 'current' ? 'Rendered with sample variables.' : previewStatusText,
     },
   ];
   const templateSteps = [
@@ -2715,7 +2721,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     { label: 'Subject', detail: subject.trim() || 'Add a subject line', ready: Boolean(subject.trim()) },
     { label: 'Content', detail: htmlBody.trim() ? 'HTML/Jinja ready' : 'Add HTML/Jinja', ready: Boolean(htmlBody.trim()) },
     { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Auto-detected at preview', ready: Boolean(variables.length) },
-    { label: 'Preview', detail: previewHtml ? 'Preview rendered' : 'Render preview', ready: Boolean(previewHtml) },
+    { label: 'Preview', detail: previewFreshness === 'current' ? 'Preview rendered' : 'Render preview', ready: previewFreshness === 'current' },
   ];
 
   useEffect(() => {
@@ -2728,6 +2734,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
   }, [isNewTemplate, routeTemplateId, selectedTemplateId, templates]);
 
+  function clearTemplatePreview() {
+    setPreviewHtml('');
+    setPreviewSubject('');
+    setPreviewFreshness('empty');
+  }
+
   function resetTemplateEditor() {
     setSelectedTemplateId('');
     setName('ESP Template Draft');
@@ -2735,8 +2747,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody('<div class="email-container">\n  <p class="email-copy">Hello {{ first_name }},</p>\n  <p class="email-copy">Welcome to Email Engine.</p>\n</div>');
     setCssBody('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
-    setPreviewHtml('');
-    setPreviewSubject('');
+    clearTemplatePreview();
     setVariables([]);
     setAiRecommendations([]);
     setAiNotes([]);
@@ -2751,8 +2762,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSubject(template.subject);
     setHtmlBody(template.html_body || '');
     setCssBody(template.css_body || '');
-    setPreviewHtml('');
-    setPreviewSubject('');
+    clearTemplatePreview();
     setAiRecommendations([]);
     setAiNotes([]);
     setPendingAiDraft(null);
@@ -2768,11 +2778,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setVariablesJson(JSON.stringify(draft.sample_variables, null, 2));
     }
     setAiNotes(draft.change_summary || draft.notes || []);
-    setPreviewHtml('');
-    setPreviewSubject('');
+    setPreviewFreshness(previewHtml ? 'stale' : 'empty');
     setPendingAiDraft(null);
     setEditorMode('edit');
     setStatus('Applied AI draft to the editor. Review the source, then use Preview to render it.');
+  }
+
+  function markPreviewStale() {
+    setPreviewFreshness(previewHtml ? 'stale' : 'empty');
   }
 
   function cssRuleForClass(className: string) {
@@ -2945,8 +2958,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     } else {
       setCssBody(generatedCssFromPreset());
     }
-    setPreviewHtml('');
-    setPreviewSubject('');
+    markPreviewStale();
     setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
@@ -2957,8 +2969,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     const missingRules = missingCssClasses.map((className) => classRuleFromPreset(className, inferCssClassKind(className))).join('\n\n');
     setCssBody((current) => `${current.trim()}\n\n${missingRules}`.trim());
-    setPreviewHtml('');
-    setPreviewSubject('');
+    markPreviewStale();
     setStatus(`Created CSS rules for ${missingCssClasses.map((className) => `.${className}`).join(', ')}. Click Preview to render them.`);
   }
 
@@ -3008,8 +3019,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function formatTemplateSource() {
     const nextHtml = ensureTemplateContainer(formatHtmlJinjaSource(htmlBody));
     setHtmlBody(nextHtml);
-    setPreviewHtml('');
-    setPreviewSubject('');
+    markPreviewStale();
     setStatus('Formatted HTML/Jinja and ensured an email-container wrapper.');
   }
 
@@ -3025,8 +3035,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const nextHtml = `${before}${prefix}${snippet}${suffix}${after}`.trim();
     const nextCursor = Math.min(`${before}${prefix}${snippet}`.length, nextHtml.length);
     setHtmlBody(nextHtml);
-    setPreviewHtml('');
-    setPreviewSubject('');
+    markPreviewStale();
     setEditorMode('edit');
     setStatus('Inserted HTML block. Click Preview to refresh variables and render it.');
     window.setTimeout(() => {
@@ -3074,8 +3083,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function updateSampleVariable(name: string, value: string) {
     const current = safeVariablesObject();
     setVariablesJson(JSON.stringify({ ...current, [name]: parseSampleInput(value) }, null, 2));
-    setPreviewHtml('');
-    setPreviewSubject('');
+    markPreviewStale();
   }
 
   const sampleVariables = safeVariablesObject();
@@ -3177,6 +3185,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       });
       setPreviewHtml(data.html_body || '');
       setPreviewSubject(data.subject || '');
+      setPreviewFreshness('current');
       setEditorMode('preview');
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered preview: ${data.subject}.${issueText}`;
@@ -3202,6 +3211,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       }
       setPreviewHtml(data.html_body || '');
       setPreviewSubject(data.subject || draft.subject || subject);
+      setPreviewFreshness('current');
       setEditorMode('preview');
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered AI draft preview: ${data.subject || draft.subject}.${issueText}`;
@@ -3411,7 +3421,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           </div>
           <div>
             <strong>Render State</strong>
-            <span className="muted">{previewHtml ? 'Preview reflects current sample data.' : 'Use the Preview tab to detect variables and render.'}</span>
+            <span className="muted">{previewStatusText}</span>
           </div>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -3430,11 +3440,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <label>
                   Template name
                   <input value={name} onChange={(event) => setName(event.target.value)} />
-                </label>
-                <label>
-                  Subject
-                  <input value={subject} onChange={(event) => setSubject(event.target.value)} />
-                </label>
+	                </label>
+	                <label>
+	                  Subject
+	                  <input value={subject} onChange={(event) => {
+	                    setSubject(event.target.value);
+	                    markPreviewStale();
+	                  }} />
+	                </label>
                 <div className="wide-field editor-field">
                   <span className="field-title">
                     HTML / Jinja
@@ -3448,11 +3461,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     onSave={saveTemplate}
                     onFormat={formatTemplateSource}
                     onSelectionChange={syncHtmlSelectionToCssClass}
-                    onChange={(nextValue) => {
-                      setHtmlBody(nextValue);
-                      setPreviewHtml('');
-                      setPreviewSubject('');
-                    }}
+	                    onChange={(nextValue) => {
+	                      setHtmlBody(nextValue);
+	                      markPreviewStale();
+	                    }}
                   />
                   <div className="editor-tool-panel">
                     <div className="tool-panel-head">
@@ -3482,11 +3494,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     Sample variables JSON
                     <small>Field editor updates this JSON</small>
                   </span>
-                  <textarea value={variablesJson} onChange={(event) => {
-                    setVariablesJson(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={16} />
+	                  <textarea value={variablesJson} onChange={(event) => {
+	                    setVariablesJson(event.target.value);
+	                    markPreviewStale();
+	                  }} rows={16} />
                   {sampleVariableRows.length ? (
                     <div className="variable-editor-list inline-variable-editor">
                       {sampleVariableRows.map((item) => (
@@ -3511,11 +3522,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     CSS
                     <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
                   </span>
-                  <textarea ref={cssEditorRef} value={cssBody} onSelect={syncCssSelectionToClass} onClick={syncCssSelectionToClass} onKeyUp={syncCssSelectionToClass} onChange={(event) => {
-                    setCssBody(event.target.value);
-                    setPreviewHtml('');
-                    setPreviewSubject('');
-                  }} rows={7} />
+	                  <textarea ref={cssEditorRef} value={cssBody} onSelect={syncCssSelectionToClass} onClick={syncCssSelectionToClass} onKeyUp={syncCssSelectionToClass} onChange={(event) => {
+	                    setCssBody(event.target.value);
+	                    markPreviewStale();
+	                  }} rows={7} />
                   <div className="editor-tool-panel">
                     <div className="tool-panel-head">
                       <strong>CSS rule tools</strong>
@@ -3613,8 +3623,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 ) : null}
               </div>
             ) : previewHtml ? (
-              <div className="preview-shell">
-                <div className="preview-toolbar">
+	              <div className="preview-shell">
+	                {previewFreshness === 'stale' ? (
+	                  <div className="preview-stale-banner">
+	                    <strong>Preview needs refresh</strong>
+	                    <span>The editor, CSS, or sample data changed after this preview was rendered.</span>
+	                    <button className="ghost" onClick={previewTemplate} disabled={busy}>Refresh Preview</button>
+	                  </div>
+	                ) : null}
+	                <div className="preview-toolbar">
                   <div>
                     <span>Subject</span>
                     <strong>{previewSubject || subject}</strong>

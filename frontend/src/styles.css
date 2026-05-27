@@ -1196,6 +1196,28 @@ th {
   font-size: 14px;
 }
 
+.preview-stale-banner {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #f2d5a4;
+  border-radius: 8px;
+  background: #fffaf0;
+  padding: 10px;
+}
+
+.preview-stale-banner strong {
+  color: #92400e;
+  font-size: 13px;
+}
+
+.preview-stale-banner span {
+  color: #7c5b22;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .compact-status-list,
 .recommendation-list,
 .ai-draft-preview {
