@@ -1114,7 +1114,7 @@ th {
   text-transform: uppercase;
 }
 
-.selected-css-rule pre {
+.selected-css-rule textarea {
   max-height: 150px;
   overflow: auto;
   margin: 0;
@@ -1123,11 +1123,19 @@ th {
   background: #f8fbff;
   color: #29405f;
   padding: 10px;
-  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  min-height: 96px;
+  resize: vertical;
+  white-space: pre;
+}
+
+.selected-css-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .selected-css-rule .danger {
-  justify-self: start;
   border-color: #f3c4c4;
   color: #b42318;
 }

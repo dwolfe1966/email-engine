@@ -2352,6 +2352,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
+  const [selectedCssRuleDraft, setSelectedCssRuleDraft] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
   const [cssPreset, setCssPreset] = useState({
     font: 'Arial, Helvetica, sans-serif',
@@ -2550,6 +2551,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
   }, [htmlClassNames, selectedCssClass]);
 
+  useEffect(() => {
+    setSelectedCssRuleDraft(selectedCssRule);
+  }, [selectedCssClass, selectedCssRule]);
+
   function generatedCssFromPreset() {
     const width = Number(cssPreset.container) || 640;
     const padding = Number(cssPreset.padding) || 24;
@@ -2600,6 +2605,31 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewHtml('');
     setPreviewSubject('');
     setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
+  }
+
+  function saveSelectedCssRuleDraft() {
+    if (!selectedCssClass) {
+      setStatus('Select an HTML class before saving a CSS rule.');
+      return;
+    }
+    const declarations = selectedCssRuleDraft.trim();
+    if (!declarations) {
+      removeSelectedCssRule();
+      return;
+    }
+    const normalizedDeclarations = declarations
+      .replace(new RegExp(`^\\.${selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`, 'i'), '')
+      .replace(/\}\s*$/, '')
+      .trim();
+    const classRule = `.${selectedCssClass} {\n${normalizedDeclarations}\n}`;
+    const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const classRegex = new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm');
+    setCssBody((current) => classRegex.test(current)
+      ? current.replace(classRegex, classRule)
+      : `${current.trim()}\n\n${classRule}`.trim());
+    setPreviewHtml('');
+    setPreviewSubject('');
+    setStatus(`Saved manual CSS edits for .${selectedCssClass}. Click Preview to render them.`);
   }
 
   function removeSelectedCssRule() {
@@ -3157,8 +3187,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                         <strong>.{selectedCssClass}</strong>
                         <span>{selectedCssRule ? `${selectedCssRule.split(';').filter(Boolean).length} declarations` : 'No rule yet'}</span>
                       </div>
-                      <pre>{selectedCssRule ? `.${selectedCssClass} {\n${selectedCssRule}\n}` : 'Use Update Class CSS to create this rule.'}</pre>
-                      <button className="ghost danger" type="button" onClick={removeSelectedCssRule} disabled={busy || !selectedCssRule}>Remove Rule</button>
+                      <textarea
+                        value={selectedCssRuleDraft}
+                        onChange={(event) => {
+                          setSelectedCssRuleDraft(event.target.value);
+                          setPreviewHtml('');
+                          setPreviewSubject('');
+                        }}
+                        rows={selectedCssRule ? 7 : 3}
+                        placeholder={'Add declarations, for example:\n  color: #111827;\n  padding: 24px;'}
+                      />
+                      <div className="selected-css-actions">
+                        <button className="ghost" type="button" onClick={saveSelectedCssRuleDraft} disabled={busy || !selectedCssClass}>Save Rule Edits</button>
+                        <button className="ghost" type="button" onClick={() => setSelectedCssRuleDraft(selectedCssRule)} disabled={busy || !selectedCssClass}>Revert Rule Draft</button>
+                        <button className="ghost danger" type="button" onClick={removeSelectedCssRule} disabled={busy || !selectedCssRule}>Remove Rule</button>
+                      </div>
                     </div>
                   ) : null}
                   {cssClassCoverage.length ? (
