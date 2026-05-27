@@ -2493,6 +2493,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     });
   }
 
+  async function cancelTemplateChanges() {
+    await runTemplateOperation('Cancelling changes', async () => {
+      if (!selectedTemplateId) {
+        resetTemplateEditor();
+        return 'Discarded unsaved draft changes.';
+      }
+      const template = await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`);
+      loadTemplateIntoEditor(template);
+      await onRefresh();
+      return `Reloaded template: ${template.name}`;
+    });
+  }
+
   async function previewTemplate() {
     await runTemplateOperation('Rendering preview', async () => {
       const variableData = await refreshVariables(true);
@@ -2531,13 +2544,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setVariablesJson(JSON.stringify(renderVariables, null, 2));
     }
     return { ...data, renderVariables };
-  }
-
-  async function refreshVariableSamples() {
-    await runTemplateOperation('Refreshing variables', async () => {
-      const data = await refreshVariables(true);
-      return `Detected ${formatInt(data.variables?.length || 0)} variable(s). Missing sample values were added without replacing your data.`;
-    });
   }
 
   async function seedSamples() {
@@ -2706,8 +2712,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         <div className="template-action-bar">
           <div className="button-row">
             <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
-            <button className="ghost" onClick={previewTemplate} disabled={busy}>Render Preview</button>
-            <button className="ghost" onClick={refreshVariableSamples} disabled={busy}>Refresh Variables</button>
+            <button className="ghost" onClick={cancelTemplateChanges} disabled={busy}>Cancel Changes</button>
           </div>
           <div className="button-row">
             <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
@@ -2724,7 +2729,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <section className="template-editor-main">
             <div className="tab-row">
               <button className={editorMode === 'edit' ? 'active' : ''} onClick={() => setEditorMode('edit')}>Edit</button>
-              <button className={editorMode === 'preview' ? 'active' : ''} onClick={() => setEditorMode('preview')}>Preview</button>
+              <button className={editorMode === 'preview' ? 'active' : ''} onClick={previewTemplate} disabled={busy}>Preview</button>
             </div>
             {editorMode === 'edit' ? (
               <div className="form-grid">
@@ -2785,8 +2790,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             ) : (
               <div className="empty-state">
                 <strong>Preview not rendered</strong>
-                <p>Render preview to see this template with the current sample data.</p>
-                <button className="primary" onClick={previewTemplate} disabled={busy}>Render preview</button>
+                <p>Click Preview to refresh variables and render this template with the current sample data.</p>
               </div>
             )}
           </section>
