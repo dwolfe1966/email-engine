@@ -2351,6 +2351,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [selectedCssClass, setSelectedCssClass] = useState('');
   const [cssPreset, setCssPreset] = useState({
     font: 'Arial, Helvetica, sans-serif',
     background: '#f5f7fb',
@@ -2363,6 +2364,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
+  const htmlClassNames = Array.from(htmlBody.matchAll(/class=["']([^"']+)["']/g))
+    .flatMap((match) => match[1].split(/\s+/).filter(Boolean))
+    .filter((className, index, all) => all.indexOf(className) === index)
+    .sort();
   const liveTemplateGuidance = [
     {
       label: 'Subject',
@@ -2454,6 +2459,51 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setEditorMode('edit');
   }
 
+  function cssRuleForClass(className: string) {
+    if (!className) return '';
+    const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = cssBody.match(new RegExp(`\\.${escaped}\\s*\\{([^}]*)\\}`, 'm'));
+    return match?.[1] || '';
+  }
+
+  function cssProperty(rule: string, property: string) {
+    const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = rule.match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
+    return match?.[1]?.trim() || '';
+  }
+
+  function normalizeCssColor(value: string, fallback: string) {
+    return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  }
+
+  function selectCssClass(className: string) {
+    setSelectedCssClass(className);
+    const rule = cssRuleForClass(className);
+    if (!rule) return;
+    const paddingMatch = cssProperty(rule, 'padding').match(/\d+/);
+    const radiusMatch = cssProperty(rule, 'border-radius').match(/\d+/);
+    const widthMatch = cssProperty(rule, 'max-width').match(/\d+/);
+    setCssPreset((current) => ({
+      ...current,
+      font: cssProperty(rule, 'font-family') || current.font,
+      background: normalizeCssColor(cssProperty(rule, 'background'), current.background),
+      text: normalizeCssColor(cssProperty(rule, 'color'), current.text),
+      accent: normalizeCssColor(cssProperty(rule, 'border-color'), current.accent),
+      container: widthMatch?.[0] || current.container,
+      padding: paddingMatch?.[0] || current.padding,
+      radius: radiusMatch?.[0] || current.radius,
+    }));
+  }
+
+  useEffect(() => {
+    if (!selectedCssClass && htmlClassNames.length) {
+      setSelectedCssClass(htmlClassNames[0]);
+    }
+    if (selectedCssClass && !htmlClassNames.includes(selectedCssClass)) {
+      setSelectedCssClass(htmlClassNames[0] || '');
+    }
+  }, [htmlClassNames, selectedCssClass]);
+
   function generatedCssFromPreset() {
     const width = Number(cssPreset.container) || 640;
     const padding = Number(cssPreset.padding) || 24;
@@ -2471,10 +2521,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function applyCssPreset() {
-    setCssBody(generatedCssFromPreset());
+    if (selectedCssClass) {
+      const radius = Number(cssPreset.radius) || 8;
+      const padding = Number(cssPreset.padding) || 24;
+      const width = Number(cssPreset.container) || 640;
+      const classRule = `.${selectedCssClass} {\n  max-width: ${width}px;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n  border-color: ${cssPreset.accent};\n}`;
+      const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const classRegex = new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm');
+      setCssBody((current) => classRegex.test(current)
+        ? current.replace(classRegex, classRule)
+        : `${current.trim()}\n\n${classRule}`.trim());
+    } else {
+      setCssBody(generatedCssFromPreset());
+    }
     setPreviewHtml('');
     setPreviewSubject('');
-    setStatus('Generated email-safe CSS from style controls. Click Preview to render it.');
+    setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
   function htmlBlockSnippet(kind: string) {
@@ -2937,7 +2999,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <div className="wide-field editor-field">
                   <span className="field-title">
                     CSS
-                    <small>Generate starter CSS, then edit it directly</small>
+                    <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
                   </span>
                   <textarea value={cssBody} onChange={(event) => {
                     setCssBody(event.target.value);
@@ -2945,6 +3007,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     setPreviewSubject('');
                   }} rows={7} />
                   <div className="css-helper-grid inline-css-helper">
+                    <label>
+                      HTML class
+                      <select value={selectedCssClass} onChange={(event) => selectCssClass(event.target.value)}>
+                        <option value="">Global starter CSS</option>
+                        {htmlClassNames.map((className) => (
+                          <option value={className} key={className}>.{className}</option>
+                        ))}
+                      </select>
+                    </label>
                     <label>
                       Font
                       <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
@@ -2978,7 +3049,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                       Radius
                       <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
                     </label>
-                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>Generate CSS</button>
+                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
                   </div>
                 </div>
                 <label className="wide-field">
