@@ -3481,6 +3481,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   const eventRows = overview?.event_counts || [];
   const maxStatusCount = Math.max(...statusRows.map((row) => Number(row.count || 0)), 1);
   const maxEventCount = Math.max(...eventRows.map((row) => Number(row.count || 0)), 1);
+  const selectedCampaignPerformance = campaigns.find((item) => item.campaign_id === selectedCampaignId);
   const rateRows = topCampaigns.map((campaign) => ({
     name: campaign.name,
     openRate: Number(campaign.open_rate || 0),
@@ -3526,35 +3527,64 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       <section className="metric-grid full-span compact-metrics">
         {metricsFromOverview(overview).map((metric) => <MetricCard metric={metric} key={metric.label} />)}
       </section>
-      <section className="workflow-grid full-span">
-        <article className="workflow-card">
-          <span>Engagement</span>
-          <strong>{formatPct(totalOpens / Math.max(totalSent, 1))} open rate</strong>
-          <p>{formatInt(totalOpens)} opens from {formatInt(totalSent)} campaign sends in the current result set.</p>
-          <a href="#analytics">Open engagement report</a>
-        </article>
-        <article className="workflow-card">
-          <span>Conversion</span>
-          <strong>{formatPct(totalClicks / Math.max(totalSent, 1))} click rate</strong>
-          <p>{formatInt(totalClicks)} clicks are visible across the loaded campaign performance data.</p>
-          <a href="#analytics">Open click report</a>
-        </article>
-        <article className="workflow-card">
-          <span>Audience</span>
-          <strong>{formatInt(totalAudienceReach)} reachable</strong>
-          <p>Saved audiences are ready for campaign comparison and targeting analysis.</p>
-          <a href="#audience">Compare audiences</a>
-        </article>
-        <article className="workflow-card">
-          <span>Automation</span>
-          <strong>{formatInt(activeEnrollments)} active enrollments</strong>
-          <p>Journey health can be reviewed beside campaign and audience performance.</p>
-          <a href="#automations">Open journeys</a>
-        </article>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Campaign Performance</h2><a href="#campaigns">Manage campaigns</a></div>
+        {topCampaigns.length ? (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Status</th>
+                  <th>Sent</th>
+                  <th>Open rate</th>
+                  <th>Click rate</th>
+                  <th>Failures</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topCampaigns.map((campaign) => (
+                  <tr
+                    className={`selectable-row ${selectedCampaignId === campaign.campaign_id ? 'selected-row' : ''}`}
+                    key={campaign.campaign_id}
+                    onClick={() => setSelectedCampaignId(campaign.campaign_id)}
+                  >
+                    <td>{campaign.name}</td>
+                    <td><span className="pill">{campaign.status}</span></td>
+                    <td>{formatInt(campaign.sent_count)}</td>
+                    <td>{formatPct(campaign.open_rate)}</td>
+                    <td>{formatPct(campaign.click_rate)}</td>
+                    <td>{formatInt(campaign.failed_count)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="selected-summary">
+              <div>
+                <span>Selected campaign</span>
+                <strong>{selectedCampaignPerformance?.name || selectedCampaign?.name || 'Select a campaign'}</strong>
+              </div>
+              <div>
+                <span>Engagement</span>
+                <strong>{formatPct((selectedCampaignPerformance?.open_rate ?? totalOpens / Math.max(totalSent, 1)) || 0)}</strong>
+              </div>
+              <div>
+                <span>Clicks</span>
+                <strong>{formatPct((selectedCampaignPerformance?.click_rate ?? totalClicks / Math.max(totalSent, 1)) || 0)}</strong>
+              </div>
+              <div>
+                <span>Next step</span>
+                <strong>Load detail report</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          <EmptyState title="No campaign analytics yet" detail="Launch a test campaign to populate campaign comparison reports." actionHref="#campaigns" actionLabel="Open Campaigns" />
+        )}
       </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>ESP Reporting Controls</h2>
+          <h2>Reporting Controls</h2>
           <a href="#analytics">Open reports</a>
         </div>
         <div className="form-grid">
@@ -3703,37 +3733,6 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         <div className="panel-head"><h2>Journey Health</h2><a href="#automations">Open journeys</a></div>
         <p className="large-number">{formatInt(activeEnrollments)}</p>
         <span className="muted">active journey enrollments</span>
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Top Campaigns</h2><a href="#campaigns">Manage campaigns</a></div>
-        {topCampaigns.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th>Status</th>
-                <th>Sent</th>
-                <th>Open rate</th>
-                <th>Click rate</th>
-                <th>Failures</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topCampaigns.map((campaign) => (
-                <tr key={campaign.campaign_id}>
-                  <td>{campaign.name}</td>
-                  <td><span className="pill">{campaign.status}</span></td>
-                  <td>{formatInt(campaign.sent_count)}</td>
-                  <td>{formatPct(campaign.open_rate)}</td>
-                  <td>{formatPct(campaign.click_rate)}</td>
-                  <td>{formatInt(campaign.failed_count)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState title="No campaign analytics yet" detail="Launch a test campaign to populate campaign comparison reports." actionHref="/admin/campaigns" actionLabel="Open Campaign Manager" />
-        )}
       </section>
       <section className="panel table-panel">
         <div className="panel-head"><h2>Audience Comparison</h2><a href="#audience">Open audiences</a></div>
