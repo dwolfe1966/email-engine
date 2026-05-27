@@ -2250,6 +2250,8 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const audiencePerformanceById = new Map(audiences.map((audience) => [audience.audience_id, audience]));
   const selectedAudience = audienceItems.find((item) => item.id === selectedAudienceId);
   const selectedAudiencePerformance = selectedAudienceId ? audiencePerformanceById.get(selectedAudienceId) : null;
+  const isPersistedAudience = Boolean(selectedAudienceId);
+  const isCreatingAudience = !isPersistedAudience;
   const ruleJsonValid = isRuleJsonValid();
   const availableFields = metadata?.fields || [];
   const attributeFields = (metadata?.attribute_keys || []).map((key) => `attributes.${key}`);
@@ -2554,24 +2556,6 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
           <h3>1. Setup</h3>
           <div className="form-grid">
             <label>
-              Existing audience
-              <select
-                value={selectedAudienceId}
-                onChange={(event) => {
-                  const nextAudienceId = event.target.value;
-                  const audience = audienceItems.find((item) => item.id === nextAudienceId);
-                  if (audience) loadAudienceIntoEditor(audience);
-                  else resetAudienceEditor();
-                  window.location.hash = nextAudienceId ? `#audience/${nextAudienceId}` : '#audience/new';
-                }}
-              >
-                <option value="">Create new audience</option>
-                {audienceItems.map((audience) => (
-                  <option value={audience.id} key={audience.id}>{audience.name} ({formatInt(audience.estimated_count)})</option>
-                ))}
-              </select>
-            </label>
-            <label>
               Audience name
               <input value={name} onChange={(event) => {
                 setName(event.target.value);
@@ -2615,9 +2599,9 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
         <div className="workflow-section">
           <h3>3. Preview and snapshot</h3>
           <div className="button-row">
-            <button className="primary" onClick={saveAudience} disabled={busy}>Save Audience</button>
+            <button className="primary" onClick={saveAudience} disabled={busy}>{isCreatingAudience ? 'Create Audience' : 'Save Changes'}</button>
             <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
-            <button className="ghost" onClick={snapshotAudience} disabled={busy || !selectedAudienceId}>Create Snapshot</button>
+            {isPersistedAudience ? <button className="ghost" onClick={snapshotAudience} disabled={busy}>Create Snapshot</button> : null}
           </div>
           <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
             <strong>{busy ? 'Working' : 'Status'}</strong>
