@@ -807,6 +807,83 @@ th {
   gap: 14px;
 }
 
+.campaign-launch-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.launch-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.launch-score,
+.launch-next-action {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.launch-score > span,
+.launch-next-action > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.launch-score strong,
+.launch-next-action strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 18px;
+}
+
+.launch-score div {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8f0fb;
+}
+
+.launch-score i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), #12b981);
+}
+
+.launch-score p,
+.launch-next-action p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.launch-issue-list {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.launch-issue-list p {
+  margin: 0;
+  color: #b45309;
+  font-size: 12px;
+}
+
+.launch-issue-list p.warn {
+  color: #b42318;
+}
+
 .workflow-section {
   display: grid;
   gap: 12px;

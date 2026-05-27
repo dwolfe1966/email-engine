@@ -1127,6 +1127,27 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           : 'No delivery job visible yet.',
     },
   ];
+  const readyCount = readinessCards.filter((item) => item.ready).length;
+  const readinessScore = Math.round((readyCount / Math.max(readinessCards.length, 1)) * 100);
+  const validationErrors = workflowStatus?.validation?.errors || [];
+  const validationWarnings = workflowStatus?.validation?.warnings || [];
+  const latestJob = workflowStatus?.latest_send_job;
+  const latestRequested = Number(latestJob?.requested_count || selectedCampaignPerformance?.requested_count || 0);
+  const latestProcessed = Number((selectedCampaignPerformance?.sent_count || 0) + (selectedCampaignPerformance?.failed_count || 0) + (latestJob?.suppressed_count || 0));
+  const latestProgressPct = latestRequested ? Math.min(100, Math.round((latestProcessed / latestRequested) * 100)) : 0;
+  const nextCampaignAction = !selectedCampaignId
+    ? 'Save the draft campaign before preview, test send, or launch.'
+    : !selectedTemplate
+      ? 'Choose a template for the campaign.'
+      : !selectedAudience
+        ? 'Choose an audience and confirm contact volume.'
+        : !workflowStatus
+          ? 'Run readiness before launch.'
+          : validationErrors.length
+            ? 'Resolve validation errors before sending.'
+            : !testEmail.trim()
+              ? 'Enter a test recipient and send a test email.'
+              : 'Ready for test send or dry-run launch.';
 
   function parsedVariables() {
     try {
@@ -1349,6 +1370,40 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             <p>{item.detail}</p>
           </article>
         ))}
+      </section>
+      <section className="panel full-span campaign-launch-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Launch command</h2>
+            <span className="muted">Readiness, latest send job, and next action</span>
+          </div>
+          <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy || !selectedCampaignId}>Refresh Readiness</button>
+        </div>
+        <div className="launch-command-grid">
+          <div className="launch-score">
+            <span>Readiness</span>
+            <strong>{readinessScore}%</strong>
+            <div><i style={{ width: `${readinessScore}%` }} /></div>
+            <p>{readyCount} of {readinessCards.length} checks ready</p>
+          </div>
+          <div className="launch-score">
+            <span>Latest job</span>
+            <strong>{latestJob?.status || 'No job loaded'}</strong>
+            <div><i style={{ width: `${latestProgressPct}%` }} /></div>
+            <p>{latestRequested ? `${formatInt(latestProcessed)} of ${formatInt(latestRequested)} processed` : 'Run readiness or launch dry-run to inspect delivery state'}</p>
+          </div>
+          <div className="launch-next-action">
+            <span>Next action</span>
+            <strong>{nextCampaignAction}</strong>
+            <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
+          </div>
+        </div>
+        {validationErrors.length || validationWarnings.length ? (
+          <div className="launch-issue-list">
+            {validationErrors.map((item) => <p className="warn" key={`error-${item}`}>Error: {item}</p>)}
+            {validationWarnings.map((item) => <p key={`warning-${item}`}>Warning: {item}</p>)}
+          </div>
+        ) : null}
       </section>
       {selectedCampaign ? (
         <section className="panel full-span selected-summary">

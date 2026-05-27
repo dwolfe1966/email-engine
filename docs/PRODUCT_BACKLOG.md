@@ -61,40 +61,46 @@ model clearer and more operationally complete.
      post-launch success/failure states.
    - Keep campaign creation as the primary cross-entity workflow tying templates, audiences,
      delivery, and analytics together.
-2. Template editor next
+2. Overview page visual cleanup
+   - Tighten the ESP overview page information architecture so it feels like a clean executive
+     workspace, not a dense admin/debug page.
+   - Reduce visual noise, improve section separation, rebalance KPI cards, workflow shortcuts,
+     AI insights, recent campaign activity, and report previews.
+   - Align the page with the admin-v2 visual direction while keeping it simple and comprehensible.
+3. Template editor next
    - Improve the template workspace now that the list page is cleaner.
    - Better separate HTML/Jinja editing, WYSIWYG/design, sample variables, preview, CSS helpers, and
      AI assist.
    - Keep render/preview/test-send feedback visible and variable-aware.
-3. Audience builder next
+4. Audience builder next
    - Keep the audience list page clean while making the detail builder easier to reason about.
    - Improve matched-contact preview, available filter attributes, and rule impact feedback.
    - Make audience selection more campaign-aware.
-4. Analytics / Reports
+5. Analytics / Reports
    - Add real charts and trend views for opens, clicks, bounces, unsubscribes, failures,
      deliverability, throughput, and audience/campaign comparison.
    - Keep reports fast by loading lightweight defaults first and progressively fetching heavier
      panels.
-5. AI enablement
+6. AI enablement
    - Add template improvement assistant, campaign creation assistant, audience recommendation
      assistant, performance analysis assistant, and always-on workflow assistant.
-6. Integration hardening
+7. Integration hardening
    - Keep SentientMail aligned to Email Engine API objects and contracts.
    - Document the SentientMail-to-Email Engine workflow contracts.
    - Add cross-app smoke tests for import -> template -> campaign -> test send -> metrics.
    - Reduce fallback and legacy paths once the contracts stabilize.
-7. Folder organization
+8. Folder organization
    - Add user-manageable folders for campaigns, templates, and audiences.
    - Support folder CRUD, move/remove actions, folder filters in list pages, and default unfiled
      views.
    - Keep folders as organization metadata, not ownership/security boundaries, unless access control
      requirements are added later.
-8. Account and permissions area
+9. Account and permissions area
    - Add a general account area where account admins can manage users, credentials, API keys, roles,
      permissions, feature access, and operational privileges.
    - Make permissions visible in the GUI and enforce them in API handlers for sensitive operations
      such as imports, launch, provider configuration, AI usage, user management, and data export.
-9. Global activity log
+10. Global activity log
    - Add a searchable, filterable activity log UI and API backed by append-only event storage.
    - Capture every significant activity with actor, account, target entity, request ID, before/after
      metadata where appropriate, source surface, result, duration, and error details.
