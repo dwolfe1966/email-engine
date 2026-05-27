@@ -3366,12 +3366,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             <a href="#templates">Back to templates</a>
           </div>
         </div>
-        <div className="template-action-bar">
-          <div className="button-row">
+        <div className="campaign-action-bar template-action-bar">
+          <div>
+            <strong>Template</strong>
             <button className="primary" onClick={saveTemplate} disabled={busy}>{isCreatingTemplate ? 'Create Template' : 'Save Changes'}</button>
             <button className="ghost" onClick={cancelTemplateChanges} disabled={busy}>{isCreatingTemplate ? 'Cancel Draft' : 'Revert Changes'}</button>
           </div>
-          <div className="button-row">
+          <div>
+            <strong>AI Assist</strong>
             {isCreatingTemplate ? (
               <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
             ) : (
@@ -3380,6 +3382,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
               </>
             )}
+          </div>
+          <div>
+            <strong>Render State</strong>
+            <span className="muted">{previewHtml ? 'Preview reflects current sample data.' : 'Use the Preview tab to detect variables and render.'}</span>
           </div>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -3422,22 +3428,28 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                       setPreviewSubject('');
                     }}
                   />
-	                  <div className="block-button-grid inline-block-actions">
-	                    <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
-	                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
-                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
-                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
-                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
-                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
-                    <button className="block-media" type="button" onClick={() => insertHtmlBlock('image')} disabled={busy}>Image</button>
-                    <button className="block-action" type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
-                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('divider')} disabled={busy}>Divider</button>
-                    <button className="block-structure" type="button" onClick={() => insertHtmlBlock('spacer')} disabled={busy}>Spacer</button>
-                    <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
-                    <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
-                    <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
-	                    <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
-	                  </div>
+                  <div className="editor-tool-panel">
+                    <div className="tool-panel-head">
+                      <strong>HTML inserts</strong>
+                      <span>These controls insert formatted HTML/Jinja at the cursor.</span>
+                    </div>
+                    <div className="block-button-grid inline-block-actions">
+                      <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
+                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
+                      <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
+                      <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
+                      <button className="block-content" type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
+                      <button className="block-media" type="button" onClick={() => insertHtmlBlock('image')} disabled={busy}>Image</button>
+                      <button className="block-action" type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
+                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('divider')} disabled={busy}>Divider</button>
+                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('spacer')} disabled={busy}>Spacer</button>
+                      <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
+                      <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
+                      <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
+                      <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
+                    </div>
+                  </div>
                 </div>
                 <div className="editor-field">
                   <span className="field-title">
@@ -3473,12 +3485,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     CSS
                     <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
                   </span>
-	                  <textarea ref={cssEditorRef} value={cssBody} onSelect={syncCssSelectionToClass} onClick={syncCssSelectionToClass} onKeyUp={syncCssSelectionToClass} onChange={(event) => {
-	                    setCssBody(event.target.value);
-	                    setPreviewHtml('');
-	                    setPreviewSubject('');
-	                  }} rows={7} />
-                  <div className="css-helper-grid inline-css-helper">
+                  <textarea ref={cssEditorRef} value={cssBody} onSelect={syncCssSelectionToClass} onClick={syncCssSelectionToClass} onKeyUp={syncCssSelectionToClass} onChange={(event) => {
+                    setCssBody(event.target.value);
+                    setPreviewHtml('');
+                    setPreviewSubject('');
+                  }} rows={7} />
+                  <div className="editor-tool-panel">
+                    <div className="tool-panel-head">
+                      <strong>CSS rule tools</strong>
+                      <span>Select an HTML class, tune the controls, then update the CSS editor.</span>
+                    </div>
+                    <div className="css-helper-grid inline-css-helper">
                     <label>
                       HTML class
                       <select value={selectedCssClass} onChange={(event) => selectCssClass(event.target.value)}>
@@ -3533,9 +3550,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </label>
                     <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? 'Update Class CSS' : 'Generate CSS'}</button>
                     <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
-	                  </div>
-	                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
-	                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to update or create its CSS rule.</p> : null}
+                    </div>
+                  </div>
+                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
+                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to update or create its CSS rule.</p> : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
                       <div className="coverage-summary">
@@ -3590,6 +3608,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             )}
           </section>
           <aside className="template-side-pane">
+            <div className="tool-panel-head feedback-panel-head">
+              <strong>Feedback</strong>
+              <span>Readiness checks, AI drafts, and recommendations for this template.</span>
+            </div>
             <section className="workflow-section">
               <h3>Readiness</h3>
               <div className="compact-status-list">

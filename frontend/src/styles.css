@@ -1070,10 +1070,47 @@ th {
 }
 
 .template-action-bar {
+  grid-template-columns: .85fr .95fr 1.2fr;
+}
+
+.template-action-bar .muted {
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.editor-tool-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.tool-panel-head {
   display: flex;
-  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tool-panel-head strong {
+  color: #29405f;
+  font-size: 12px;
+}
+
+.tool-panel-head span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.feedback-panel-head {
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fbfdff;
@@ -1175,11 +1212,6 @@ th {
 .inline-css-helper {
   grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   align-items: end;
-  margin-top: 4px;
-  border: 1px solid #dce8f7;
-  border-radius: 8px;
-  background: #fbfdff;
-  padding: 10px;
 }
 
 .css-helper-grid label {
@@ -1311,11 +1343,6 @@ th {
 
 .inline-block-actions {
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  margin-top: 4px;
-  border: 1px solid #dce8f7;
-  border-radius: 8px;
-  background: #fbfdff;
-  padding: 10px;
 }
 
 .block-button-grid button {
