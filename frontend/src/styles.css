@@ -984,6 +984,37 @@ th {
   gap: 10px;
 }
 
+.css-helper-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.css-helper-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.css-helper-grid input,
+.css-helper-grid select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  color: var(--text);
+  padding: 9px 10px;
+}
+
+.css-helper-grid input[type="color"] {
+  height: 38px;
+  padding: 4px;
+}
+
 .compact-status-list > div,
 .recommendation-list article {
   display: grid;

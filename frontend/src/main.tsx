@@ -2348,6 +2348,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
+  const [cssPreset, setCssPreset] = useState({
+    font: 'Arial, Helvetica, sans-serif',
+    background: '#f5f7fb',
+    text: '#111827',
+    accent: '#2563eb',
+    container: '640',
+    padding: '24',
+    radius: '8',
+  });
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
@@ -2437,6 +2446,28 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewHtml('');
     setPendingAiDraft(null);
     setEditorMode('edit');
+  }
+
+  function generatedCssFromPreset() {
+    const width = Number(cssPreset.container) || 640;
+    const padding = Number(cssPreset.padding) || 24;
+    const radius = Number(cssPreset.radius) || 8;
+    return [
+      `body { margin: 0; background: ${cssPreset.background}; color: ${cssPreset.text}; font-family: ${cssPreset.font}; }`,
+      `.email-container { max-width: ${width}px; margin: 0 auto; background: #ffffff; padding: ${padding}px; border-radius: ${radius}px; }`,
+      `h1, h2, h3 { color: ${cssPreset.text}; margin-top: 0; }`,
+      `p { line-height: 1.55; }`,
+      `a { color: ${cssPreset.accent}; }`,
+      `.button, .cta { display: inline-block; background: ${cssPreset.accent}; color: #ffffff; padding: 12px 18px; border-radius: ${radius}px; text-decoration: none; font-weight: 700; }`,
+      `.muted { color: #6b7280; font-size: 13px; }`,
+      `@media only screen and (max-width: 640px) { .email-container { width: auto !important; padding: 18px !important; border-radius: 0 !important; } }`,
+    ].join('\n');
+  }
+
+  function applyCssPreset() {
+    setCssBody(generatedCssFromPreset());
+    setPreviewHtml('');
+    setStatus('Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
   function parsedVariables() {
@@ -2805,6 +2836,45 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   </div>
                 ))}
               </div>
+            </section>
+            <section className="workflow-section">
+              <h3>CSS Helper</h3>
+              <div className="css-helper-grid">
+                <label>
+                  Font
+                  <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
+                    <option value="Arial, Helvetica, sans-serif">Arial</option>
+                    <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+                    <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
+                    <option value="Verdana, Geneva, sans-serif">Verdana</option>
+                  </select>
+                </label>
+                <label>
+                  Background
+                  <input type="color" value={cssPreset.background} onChange={(event) => setCssPreset((current) => ({ ...current, background: event.target.value }))} />
+                </label>
+                <label>
+                  Text
+                  <input type="color" value={cssPreset.text} onChange={(event) => setCssPreset((current) => ({ ...current, text: event.target.value }))} />
+                </label>
+                <label>
+                  Accent
+                  <input type="color" value={cssPreset.accent} onChange={(event) => setCssPreset((current) => ({ ...current, accent: event.target.value }))} />
+                </label>
+                <label>
+                  Width
+                  <input type="number" min="480" max="760" step="20" value={cssPreset.container} onChange={(event) => setCssPreset((current) => ({ ...current, container: event.target.value }))} />
+                </label>
+                <label>
+                  Padding
+                  <input type="number" min="12" max="48" step="2" value={cssPreset.padding} onChange={(event) => setCssPreset((current) => ({ ...current, padding: event.target.value }))} />
+                </label>
+                <label>
+                  Radius
+                  <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
+                </label>
+              </div>
+              <button className="ghost" onClick={applyCssPreset} disabled={busy}>Generate CSS</button>
             </section>
             <section className="workflow-section">
               <h3>AI Draft Review</h3>
