@@ -1088,6 +1088,50 @@ th {
   margin: 8px 0 0;
 }
 
+.selected-css-rule {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.selected-css-rule > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #29405f;
+  font-size: 12px;
+}
+
+.selected-css-rule span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.selected-css-rule pre {
+  max-height: 150px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid #edf3fb;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #29405f;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.selected-css-rule .danger {
+  justify-self: start;
+  border-color: #f3c4c4;
+  color: #b42318;
+}
+
 .css-class-coverage {
   display: grid;
   gap: 10px;

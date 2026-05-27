@@ -2492,6 +2492,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     padding: ['container', 'section', 'button'].includes(cssClassKind),
     radius: cssClassKind !== 'text',
   };
+  const selectedCssRule = selectedCssClass ? cssRuleForClass(selectedCssClass) : '';
 
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2599,6 +2600,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewHtml('');
     setPreviewSubject('');
     setStatus(selectedCssClass ? `Updated CSS for .${selectedCssClass}. Click Preview to render it.` : 'Generated email-safe CSS from style controls. Click Preview to render it.');
+  }
+
+  function removeSelectedCssRule() {
+    if (!selectedCssClass) {
+      setStatus('Select an HTML class before removing a CSS rule.');
+      return;
+    }
+    const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const classRegex = new RegExp(`\\n?\\.${escaped}\\s*\\{[^}]*\\}\\n?`, 'm');
+    setCssBody((current) => current.replace(classRegex, '\n').replace(/\n{3,}/g, '\n\n').trim());
+    setPreviewHtml('');
+    setPreviewSubject('');
+    setStatus(`Removed CSS rule for .${selectedCssClass}. Click Preview to render the change.`);
   }
 
   function scaffoldMissingCssClasses() {
@@ -3137,6 +3151,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
                   </div>
                   <p className="muted css-kind-hint">{cssClassKindHelp}</p>
+                  {selectedCssClass ? (
+                    <div className="selected-css-rule">
+                      <div>
+                        <strong>.{selectedCssClass}</strong>
+                        <span>{selectedCssRule ? `${selectedCssRule.split(';').filter(Boolean).length} declarations` : 'No rule yet'}</span>
+                      </div>
+                      <pre>{selectedCssRule ? `.${selectedCssClass} {\n${selectedCssRule}\n}` : 'Use Update Class CSS to create this rule.'}</pre>
+                      <button className="ghost danger" type="button" onClick={removeSelectedCssRule} disabled={busy || !selectedCssRule}>Remove Rule</button>
+                    </div>
+                  ) : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
                       <div className="coverage-summary">
