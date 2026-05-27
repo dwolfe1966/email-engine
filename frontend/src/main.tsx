@@ -2699,6 +2699,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     radius: '8',
   });
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+  const isPersistedTemplate = Boolean(selectedTemplateId);
+  const isCreatingTemplate = !isPersistedTemplate;
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
   const htmlClassNames = Array.from(htmlBody.matchAll(/class=["']([^"']+)["']/g))
@@ -3386,18 +3388,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           </div>
           <div className="button-row">
             <a href="#templates">Back to templates</a>
-            <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
           </div>
         </div>
         <div className="template-action-bar">
           <div className="button-row">
-            <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
-            <button className="ghost" onClick={cancelTemplateChanges} disabled={busy}>Cancel Changes</button>
+            <button className="primary" onClick={saveTemplate} disabled={busy}>{isCreatingTemplate ? 'Create Template' : 'Save Changes'}</button>
+            <button className="ghost" onClick={cancelTemplateChanges} disabled={busy}>{isCreatingTemplate ? 'Cancel Draft' : 'Revert Changes'}</button>
           </div>
           <div className="button-row">
-            <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
-            <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Review AI Edit</button>
-            <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
+            {isCreatingTemplate ? (
+              <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
+            ) : (
+              <>
+                <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Review AI Edit</button>
+                <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
+              </>
+            )}
           </div>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -3413,24 +3419,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             </div>
             {editorMode === 'edit' ? (
               <div className="form-grid">
-                <label>
-                  Existing template
-                  <select value={selectedTemplateId} onChange={(event) => {
-                    const template = templates.find((item) => item.id === event.target.value);
-                    if (template) {
-                      loadTemplateIntoEditor(template);
-                      window.location.hash = `#templates/${template.id}`;
-                    } else {
-                      resetTemplateEditor();
-                      window.location.hash = '#templates/new';
-                    }
-                  }}>
-                    <option value="">Create new template</option>
-                    {templates.map((template) => (
-                      <option value={template.id} key={template.id}>{template.name}</option>
-                    ))}
-                  </select>
-                </label>
                 <label>
                   Template name
                   <input value={name} onChange={(event) => setName(event.target.value)} />
@@ -3597,10 +3585,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <p className="muted css-coverage-empty">Add class attributes in HTML to manage class CSS here.</p>
                   )}
                 </div>
-                <label className="wide-field">
-                  AI instruction
-                  <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
-                </label>
+                {isPersistedTemplate ? (
+                  <label className="wide-field">
+                    AI instruction
+                    <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
+                  </label>
+                ) : null}
               </div>
             ) : previewHtml ? (
               <div className="preview-shell">
