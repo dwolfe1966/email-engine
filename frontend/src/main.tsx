@@ -2082,8 +2082,39 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [busy, setBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
+  const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
+  const [aiNotes, setAiNotes] = useState<string[]>([]);
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
+  const detectedVariableNames = variables.map((item) => item.name);
+  const liveTemplateGuidance = [
+    {
+      label: 'Subject',
+      ready: Boolean(subject.trim()),
+      detail: subject.trim() ? 'Subject line is present.' : 'Add a clear subject before preview or send.',
+    },
+    {
+      label: 'Personalization',
+      ready: /\{\{\s*[\w.]+\s*(\|[^}]*)?\}\}/.test(subject + htmlBody),
+      detail: detectedVariableNames.length ? `${formatInt(detectedVariableNames.length)} variables detected.` : 'Use variables, then inspect to build sample data.',
+    },
+    {
+      label: 'Compliance',
+      ready: /unsubscribe/i.test(htmlBody),
+      detail: /unsubscribe/i.test(htmlBody) ? 'Unsubscribe language appears present.' : 'Add unsubscribe copy or URL before production use.',
+    },
+    {
+      label: 'Tracking',
+      ready: /tracking_(open|click)|href=/i.test(htmlBody),
+      detail: /tracking_(open|click)|href=/i.test(htmlBody) ? 'Tracking or links are present.' : 'Add links or tracking placeholders for reporting.',
+    },
+    {
+      label: 'Preview',
+      ready: Boolean(previewHtml),
+      detail: previewHtml ? 'Rendered with sample variables.' : 'Render preview after edits.',
+    },
+  ];
   const templateSteps = [
     { label: 'Setup', detail: name.trim() || 'Name the template', ready: Boolean(name.trim()) },
     { label: 'Subject', detail: subject.trim() || 'Add a subject line', ready: Boolean(subject.trim()) },
@@ -2111,6 +2142,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     setPreviewHtml('');
     setVariables([]);
+    setAiRecommendations([]);
+    setAiNotes([]);
     setStatus('Ready to create a new template.');
   }
 
@@ -2121,7 +2154,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody(template.html_body || '');
     setCssBody(template.css_body || '');
     setPreviewHtml('');
+    setAiRecommendations([]);
+    setAiNotes([]);
     setStatus(`Loaded template: ${template.name}`);
+  }
+
+  function applyAiDraft(draft: AITemplateDraft) {
+    setSubject(draft.subject || subject);
+    setHtmlBody(draft.html_body || htmlBody);
+    setCssBody(draft.css_body || '');
+    if (draft.sample_variables && Object.keys(draft.sample_variables).length) {
+      setVariablesJson(JSON.stringify(draft.sample_variables, null, 2));
+    }
+    setAiNotes(draft.change_summary || draft.notes || []);
+    setPreviewHtml('');
   }
 
   function parsedVariables() {
@@ -2222,6 +2268,59 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     });
   }
 
+  async function draftWithAi() {
+    await runTemplateOperation('Drafting with AI', async () => {
+      const draft = await fetchJson<AITemplateDraft>('/api/v1/ai/templates/draft', {
+        method: 'POST',
+        body: JSON.stringify({
+          brief: `${name}. Subject direction: ${subject}. Create an email-safe HTML/Jinja template for this concept.`,
+          brand: { product: 'Email Engine ESP', tone: 'clear, direct, useful' },
+          required_variables: ['first_name', 'tracking_open', 'tracking_click', 'unsubscribe_url'],
+        }),
+      });
+      applyAiDraft(draft);
+      return `AI drafted template content with ${draft.provider}/${draft.model}.`;
+    });
+  }
+
+  async function applyAiEdit(instruction = aiInstruction) {
+    await runTemplateOperation('Applying AI edit', async () => {
+      const draft = await fetchJson<AITemplateDraft>('/api/v1/ai/templates/edit', {
+        method: 'POST',
+        body: JSON.stringify({
+          instruction,
+          current_subject: subject,
+          current_html: htmlBody,
+          current_css: cssBody || null,
+          sample_variables: parsedVariables(),
+        }),
+      });
+      applyAiDraft(draft);
+      return `Applied AI edit. ${(draft.change_summary || draft.notes || []).slice(0, 2).join(' ')}`;
+    });
+  }
+
+  async function loadAiRecommendations() {
+    await runTemplateOperation('Loading AI suggestions', async () => {
+      const data = await fetchJson<{ recommendations: AITemplateRecommendation[]; sample_variables: Record<string, unknown>; summary: string[] }>('/api/v1/ai/templates/recommend', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_subject: subject,
+          current_html: htmlBody,
+          current_css: cssBody || null,
+          sample_variables: parsedVariables(),
+          goals: ['Improve engagement', 'Preserve dynamic variables', 'Improve deliverability readiness', 'Improve email-safe layout'],
+        }),
+      });
+      setAiRecommendations(data.recommendations || []);
+      setAiNotes(data.summary || []);
+      if (data.sample_variables && Object.keys(data.sample_variables).length) {
+        setVariablesJson(JSON.stringify(data.sample_variables, null, 2));
+      }
+      return `Loaded ${formatInt(data.recommendations?.length || 0)} AI suggestion(s).`;
+    });
+  }
+
   if (!isDetailPage) {
     return (
       <section className="page-grid">
@@ -2311,6 +2410,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           </article>
         ))}
       </section>
+      <section className="workflow-grid full-span">
+        {liveTemplateGuidance.map((item) => (
+          <article className={`workflow-card ${item.ready ? '' : 'warn'}`} key={item.label}>
+            <span>{item.ready ? 'Ready' : 'Needs attention'}</span>
+            <strong>{item.label}</strong>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </section>
       {selectedTemplate ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
@@ -2377,11 +2485,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             CSS
             <textarea value={cssBody} onChange={(event) => setCssBody(event.target.value)} rows={7} />
           </label>
+          <label className="wide-field">
+            AI instruction
+            <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
+          </label>
         </div>
         <div className="button-row">
           <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
           <button className="ghost" onClick={previewTemplate} disabled={busy}>Preview</button>
           <button className="ghost" onClick={inspectVariables} disabled={busy}>Inspect Variables</button>
+          <button className="ghost" onClick={draftWithAi} disabled={busy}>AI Draft</button>
+          <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Apply AI Edit</button>
+          <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
           <button className="ghost" onClick={seedSamples} disabled={busy}>Seed Samples</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -2391,6 +2506,34 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         </div>
         {previewHtml ? (
           <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
+        ) : null}
+        {(aiNotes.length || aiRecommendations.length) ? (
+          <section className="panel nested-panel">
+            <div className="panel-head">
+              <h2>AI Suggestions</h2>
+              <span className="muted">{formatInt(aiRecommendations.length)} recommendations</span>
+            </div>
+            {aiNotes.length ? (
+              <div className="module-links">
+                {aiNotes.slice(0, 4).map((note) => <span className="pill" key={note}>{note}</span>)}
+              </div>
+            ) : null}
+            {aiRecommendations.length ? (
+              <table>
+                <thead><tr><th>Priority</th><th>Suggestion</th><th>Detail</th><th>Action</th></tr></thead>
+                <tbody>
+                  {aiRecommendations.slice(0, 5).map((item) => (
+                    <tr key={item.code}>
+                      <td><span className="pill">{item.priority}</span></td>
+                      <td>{item.title}</td>
+                      <td>{item.detail}</td>
+                      <td><button className="link-button" onClick={() => applyAiEdit(item.suggested_instruction)} disabled={busy}>Apply</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </section>
         ) : null}
       </section>
     </section>
