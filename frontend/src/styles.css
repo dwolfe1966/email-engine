@@ -1225,27 +1225,6 @@ th {
   padding: 10px;
 }
 
-.syntax-source {
-  max-height: 260px;
-  overflow: auto;
-  margin: 4px 0 0;
-  border: 1px solid #dce8f7;
-  border-radius: 8px;
-  background: #0f172a;
-  color: #dbeafe;
-  padding: 12px;
-  white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.syntax-tag { color: #7dd3fc; }
-.syntax-variable { color: #facc15; }
-.syntax-block { color: #c4b5fd; }
-.syntax-comment { color: #94a3b8; }
-.syntax-text { color: #e2e8f0; }
-
 .coverage-summary {
   display: flex;
   align-items: center;

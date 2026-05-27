@@ -2813,22 +2813,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setStatus('Formatted HTML/Jinja and ensured an email-container wrapper.');
   }
 
-  function highlightedHtmlJinja(source: string) {
-    const parts = source.split(/({#[\s\S]*?#}|{%-?[\s\S]*?-?%}|{{[\s\S]*?}}|<\/?[^>]+>)/g).filter(Boolean);
-    return parts.map((part, index) => {
-      const className = part.startsWith('{{')
-        ? 'syntax-variable'
-        : part.startsWith('{%')
-          ? 'syntax-block'
-          : part.startsWith('{#')
-            ? 'syntax-comment'
-            : part.startsWith('<')
-              ? 'syntax-tag'
-              : 'syntax-text';
-      return <span className={className} key={`${className}-${index}`}>{part}</span>;
-    });
-  }
-
   function insertHtmlBlock(kind: string) {
     const snippet = htmlBlockSnippet(kind);
     const editor = htmlEditorRef.current;
@@ -3251,8 +3235,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
 	                    <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
 	                  </div>
-	                  <pre className="syntax-source" aria-label="Syntax highlighted HTML and Jinja source">{highlightedHtmlJinja(htmlBody)}</pre>
-	                </div>
+                </div>
                 <div className="editor-field">
                   <span className="field-title">
                     Sample variables JSON
