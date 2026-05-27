@@ -28,9 +28,15 @@ This backlog is organized around the target platform capabilities:
 ## P0: Platform Foundation
 
 - Add production authentication for GUI-to-API requests.
+- Add account, user, credential, role, and permission management so users can create credentials and
+  be permissioned to specific product areas, API scopes, features, and operational functions.
 - Add list response envelopes with `items`, `limit`, `offset`, and `total`.
 - Add update/delete endpoints for templates, campaigns, contacts, data sources, and audiences.
-- Add audit logs for admin mutations.
+- Add a comprehensive activity log that stores every meaningful activity across the service,
+  including GUI actions, API calls, background jobs, auth events, imports, template changes,
+  campaign operations, delivery actions, tracking events, AI actions, provider callbacks, errors,
+  and system/admin changes.
+- Add audit logs for admin mutations as a security/compliance view over the broader activity log.
 - Add structured JSON logging and request IDs.
 - Add release-phase migration automation for the deployment platform.
 - Establish Email Engine Admin as the primary ESP GUI with consistent navigation, operation
@@ -83,6 +89,17 @@ model clearer and more operationally complete.
      views.
    - Keep folders as organization metadata, not ownership/security boundaries, unless access control
      requirements are added later.
+8. Account and permissions area
+   - Add a general account area where account admins can manage users, credentials, API keys, roles,
+     permissions, feature access, and operational privileges.
+   - Make permissions visible in the GUI and enforce them in API handlers for sensitive operations
+     such as imports, launch, provider configuration, AI usage, user management, and data export.
+9. Global activity log
+   - Add a searchable, filterable activity log UI and API backed by append-only event storage.
+   - Capture every significant activity with actor, account, target entity, request ID, before/after
+     metadata where appropriate, source surface, result, duration, and error details.
+   - Support entity-level activity feeds for campaigns, templates, audiences, contacts, journeys,
+     delivery records, account settings, and provider configuration.
 
 ### Template Builder / Template Editor
 
@@ -198,6 +215,17 @@ model clearer and more operationally complete.
 - Add domain throttling rules and per-provider rate controls.
 - Add suppression checks before send.
 - Keep provider interfaces neutral so SendGrid, SMTP/Postfix, Mailgun, and future providers can be swapped without changing campaign, audience, template, tracking, or analytics domains.
+- Add a dedicated managed-SMTP/reputation platform track. This is a major, high-complexity service
+  area that should eventually let Email Engine operate its own outbound SMTP infrastructure using
+  mature open-source components such as Haraka, Postal, ZoneMTA, Postfix, or similar tooling rather
+  than depending on a paid ESP provider.
+- Managed SMTP must include IP pool management, domain onboarding, DKIM/SPF/DMARC setup, bounce and
+  complaint processing, warmup plans, rate limits, domain throttles, queue isolation, blocklist
+  monitoring, feedback loops, provider-specific retry policy, reputation scoring, abuse controls,
+  tenant isolation, and operational dashboards.
+- Treat the managed SMTP/reputation system as its own platform subsystem with staged research,
+  architecture, operational runbooks, security review, compliance review, and load/reputation testing
+  before production use.
 
 ## P7: Tracking And Provider Webhooks
 
