@@ -2243,19 +2243,47 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <MetricCard metric={{ label: 'Selected', value: selectedTemplate ? 'Loaded' : 'None', change: selectedTemplate?.name || 'select a template' }} />
           <MetricCard metric={{ label: 'Variables', value: formatInt(variables.length), change: variables.length ? 'last inspected' : 'not inspected' }} />
         </section>
-        <section className="cards-grid full-span">
-          {templates.length ? templates.map((template) => (
-            <article
-              className={`panel entity-card selectable-card ${template.id === selectedTemplateId ? 'selected-card' : ''}`}
-              key={template.id}
-              onClick={() => loadTemplateIntoEditor(template)}
-            >
-              <span>{template.category || 'template'}</span>
-              <strong>{template.name}</strong>
-              <p>{template.subject}</p>
-              <a className="link-button" href={`#templates/${template.id}`} onClick={(event) => event.stopPropagation()}>Open editor</a>
-            </article>
-          )) : (
+        <section className="panel table-panel full-span">
+          <div className="panel-head">
+            <div>
+              <h2>Templates</h2>
+              <span className="muted">Select a template to inspect content readiness, then open it for editing and preview.</span>
+            </div>
+            <div className="button-row">
+              <a href="#templates/new">Create template</a>
+              <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
+            </div>
+          </div>
+          {templates.length ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Template</th>
+                  <th>Subject</th>
+                  <th>Category</th>
+                  <th>CSS</th>
+                  <th>HTML size</th>
+                  <th>Editor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {templates.map((template) => (
+                  <tr
+                    className={`selectable-row ${template.id === selectedTemplateId ? 'selected-row' : ''}`}
+                    key={template.id}
+                    onClick={() => loadTemplateIntoEditor(template)}
+                  >
+                    <td>{template.name}</td>
+                    <td>{template.subject}</td>
+                    <td>{template.category || 'template'}</td>
+                    <td><span className="pill">{template.css_body ? 'configured' : 'none'}</span></td>
+                    <td>{formatInt((template.html_body || '').length)}</td>
+                    <td><a href={`#templates/${template.id}`} onClick={(event) => event.stopPropagation()}>Open</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
             <EmptyState title="No templates yet" detail="Seed sample templates or create one in the template wizard." actionHref="#templates/new" actionLabel="Create template" />
           )}
         </section>
@@ -2278,18 +2306,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             </div>
           </section>
         ) : null}
-        <section className="panel full-span selected-summary">
-          <div className="panel-head">
-            <div>
-              <h2>Template Actions</h2>
-              <span className="muted">Create from a blank wizard or load sample templates.</span>
-            </div>
-            <div className="button-row">
-              <a href="#templates/new">Create template</a>
-              <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
-            </div>
-          </div>
-        </section>
       </section>
     );
   }
