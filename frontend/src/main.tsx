@@ -2470,6 +2470,27 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setStatus('Generated email-safe CSS from style controls. Click Preview to render it.');
   }
 
+  function htmlBlockSnippet(kind: string) {
+    const blocks: Record<string, string> = {
+      container: '<div class="email-container">\n  <h1>Hello {{ first_name }}</h1>\n  <p>Add your message here.</p>\n</div>',
+      hero: '<section class="email-container">\n  <h1>Your headline goes here</h1>\n  <p>A short supporting line for {{ first_name }}.</p>\n  <p><a class="button" href="{{ tracking_click }}">Call to action</a></p>\n</section>',
+      paragraph: '<p>Hello {{ first_name }},</p>\n<p>Add a concise paragraph with one clear idea.</p>',
+      button: '<p><a class="button" href="{{ tracking_click }}">Call to action</a></p>',
+      list: '<ul>\n{% for item in recommendations %}\n  <li>{{ loop.index }}. {{ item }}</li>\n{% endfor %}\n</ul>',
+      conditional: '{% if plan == "trial" %}\n  <p>Your trial plan is active.</p>\n{% else %}\n  <p>Your plan is {{ plan }}.</p>\n{% endif %}',
+      compliance: '<p class="muted">You are receiving this because you opted in. <a href="{{ unsubscribe_url }}">Unsubscribe</a></p>',
+    };
+    return blocks[kind] || blocks.paragraph;
+  }
+
+  function insertHtmlBlock(kind: string) {
+    const snippet = htmlBlockSnippet(kind);
+    setHtmlBody((current) => `${current.trim()}\n\n${snippet}`.trim());
+    setPreviewHtml('');
+    setEditorMode('edit');
+    setStatus('Inserted HTML block. Click Preview to refresh variables and render it.');
+  }
+
   function parsedVariables() {
     try {
       const parsed = JSON.parse(variablesJson || '{}');
@@ -2835,6 +2856,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <span>{item.detail}</span>
                   </div>
                 ))}
+              </div>
+            </section>
+            <section className="workflow-section">
+              <h3>HTML Blocks</h3>
+              <div className="block-button-grid">
+                <button type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+                <button type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
+                <button type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
+                <button type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
+                <button type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
+                <button type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
+                <button type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
               </div>
             </section>
             <section className="workflow-section">
