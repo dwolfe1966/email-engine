@@ -1466,6 +1466,30 @@ th {
   padding: 9px 10px;
 }
 
+.sample-json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.json-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.json-status.warn {
+  color: #b45309;
+}
+
+.field-error {
+  border-color: #f2b8a4 !important;
+  background: #fffaf7 !important;
+}
+
 .inline-variable-editor {
   margin-top: 4px;
   border: 1px solid #dce8f7;

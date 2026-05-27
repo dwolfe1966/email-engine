@@ -3064,6 +3064,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
   }
 
+  function sampleJsonError() {
+    try {
+      parsedVariables();
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Invalid variables JSON.';
+    }
+  }
+
   function formatSampleInput(value: unknown) {
     if (value === undefined || value === null) return '';
     if (typeof value === 'string') return value;
@@ -3086,6 +3095,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     markPreviewStale();
   }
 
+  function formatVariablesJson() {
+    try {
+      setVariablesJson(JSON.stringify(parsedVariables(), null, 2));
+      markPreviewStale();
+      setStatus('Formatted sample variables JSON.');
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Invalid variables JSON.'}`);
+    }
+  }
+
+  const variablesJsonError = sampleJsonError();
   const sampleVariables = safeVariablesObject();
   const sampleVariableRows = variables.length
     ? variables.map((variable) => ({
@@ -3489,16 +3509,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     </div>
                   </div>
                 </div>
-                <div className="editor-field">
-                  <span className="field-title">
-                    Sample variables JSON
-                    <small>Field editor updates this JSON</small>
-                  </span>
-	                  <textarea value={variablesJson} onChange={(event) => {
+	                <div className="editor-field">
+	                  <span className="field-title">
+	                    Sample variables JSON
+	                    <small>{variablesJsonError ? 'Fix JSON before previewing' : 'Field editor updates this JSON'}</small>
+	                  </span>
+	                  <textarea className={variablesJsonError ? 'field-error' : ''} value={variablesJson} onChange={(event) => {
 	                    setVariablesJson(event.target.value);
 	                    markPreviewStale();
 	                  }} rows={16} />
-                  {sampleVariableRows.length ? (
+	                  <div className="sample-json-actions">
+	                    <button className="ghost" type="button" onClick={formatVariablesJson} disabled={busy || Boolean(variablesJsonError)}>Format JSON</button>
+	                    <span className={variablesJsonError ? 'json-status warn' : 'json-status'}>
+	                      {variablesJsonError || `${formatInt(Object.keys(sampleVariables).length)} sample value(s) ready`}
+	                    </span>
+	                  </div>
+	                  {sampleVariableRows.length ? (
                     <div className="variable-editor-list inline-variable-editor">
                       {sampleVariableRows.map((item) => (
                         <label key={item.name}>
