@@ -2346,6 +2346,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
   const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
   const [aiNotes, setAiNotes] = useState<string[]>([]);
+  const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
+  const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
@@ -2358,7 +2360,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     {
       label: 'Personalization',
       ready: /\{\{\s*[\w.]+\s*(\|[^}]*)?\}\}/.test(subject + htmlBody),
-      detail: detectedVariableNames.length ? `${formatInt(detectedVariableNames.length)} variables detected.` : 'Use variables, then inspect to build sample data.',
+      detail: detectedVariableNames.length ? `${formatInt(detectedVariableNames.length)} variables detected.` : 'Variables refresh automatically during preview.',
     },
     {
       label: 'Compliance',
@@ -2380,7 +2382,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     { label: 'Setup', detail: name.trim() || 'Name the template', ready: Boolean(name.trim()) },
     { label: 'Subject', detail: subject.trim() || 'Add a subject line', ready: Boolean(subject.trim()) },
     { label: 'Content', detail: htmlBody.trim() ? 'HTML/Jinja ready' : 'Add HTML/Jinja', ready: Boolean(htmlBody.trim()) },
-    { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Inspect variables', ready: Boolean(variables.length) },
+    { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Auto-detected at preview', ready: Boolean(variables.length) },
     { label: 'Preview', detail: previewHtml ? 'Preview rendered' : 'Render preview', ready: Boolean(previewHtml) },
   ];
 
@@ -2405,6 +2407,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setVariables([]);
     setAiRecommendations([]);
     setAiNotes([]);
+    setPendingAiDraft(null);
+    setEditorMode('edit');
     setStatus('Ready to create a new template.');
   }
 
@@ -2417,6 +2421,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewHtml('');
     setAiRecommendations([]);
     setAiNotes([]);
+    setPendingAiDraft(null);
+    setEditorMode('edit');
     setStatus(`Loaded template: ${template.name}`);
   }
 
@@ -2429,6 +2435,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     setAiNotes(draft.change_summary || draft.notes || []);
     setPreviewHtml('');
+    setPendingAiDraft(null);
+    setEditorMode('edit');
   }
 
   function parsedVariables() {
@@ -2487,37 +2495,48 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   async function previewTemplate() {
     await runTemplateOperation('Rendering preview', async () => {
+      const variableData = await refreshVariables(true);
       const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
         method: 'POST',
         body: JSON.stringify({
           subject,
           html_body: htmlBody,
           css_body: cssBody || null,
-          variables: parsedVariables(),
+          variables: variableData.renderVariables,
         }),
       });
       setPreviewHtml(data.html_body || '');
+      setEditorMode('preview');
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered preview: ${data.subject}.${issueText}`;
     });
   }
 
-  async function inspectVariables() {
-    await runTemplateOperation('Inspecting variables', async () => {
-      const data = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
-        method: 'POST',
-        body: JSON.stringify({
-          subject,
-          html_body: htmlBody,
-          css_body: cssBody || null,
-          variables: parsedVariables(),
-        }),
-      });
-      setVariables(data.variables || []);
-      if (data.sample_variables && Object.keys(data.sample_variables).length) {
-        setVariablesJson(JSON.stringify(data.sample_variables, null, 2));
-      }
-      return `Detected ${formatInt(data.variables?.length || 0)} variable(s).`;
+  async function refreshVariables(fillMissingSamples = true) {
+    const currentVariables = parsedVariables();
+    const data = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject,
+        html_body: htmlBody,
+        css_body: cssBody || null,
+        variables: currentVariables,
+      }),
+    });
+    setVariables(data.variables || []);
+    const renderVariables = data.sample_variables && Object.keys(data.sample_variables).length
+      ? { ...data.sample_variables, ...currentVariables }
+      : currentVariables;
+    if (fillMissingSamples && data.sample_variables && Object.keys(data.sample_variables).length) {
+      setVariablesJson(JSON.stringify(renderVariables, null, 2));
+    }
+    return { ...data, renderVariables };
+  }
+
+  async function refreshVariableSamples() {
+    await runTemplateOperation('Refreshing variables', async () => {
+      const data = await refreshVariables(true);
+      return `Detected ${formatInt(data.variables?.length || 0)} variable(s). Missing sample values were added without replacing your data.`;
     });
   }
 
@@ -2539,8 +2558,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           required_variables: ['first_name', 'tracking_open', 'tracking_click', 'unsubscribe_url'],
         }),
       });
-      applyAiDraft(draft);
-      return `AI drafted template content with ${draft.provider}/${draft.model}.`;
+      setPendingAiDraft(draft);
+      setAiNotes(draft.change_summary || draft.notes || []);
+      return `AI draft ready for review from ${draft.provider}/${draft.model}.`;
     });
   }
 
@@ -2556,8 +2576,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           sample_variables: parsedVariables(),
         }),
       });
-      applyAiDraft(draft);
-      return `Applied AI edit. ${(draft.change_summary || draft.notes || []).slice(0, 2).join(' ')}`;
+      setPendingAiDraft(draft);
+      setAiNotes(draft.change_summary || draft.notes || []);
+      return `AI edit ready for review. ${(draft.change_summary || draft.notes || []).slice(0, 2).join(' ')}`;
     });
   }
 
@@ -2671,131 +2692,156 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           </article>
         ))}
       </section>
-      <section className="workflow-grid full-span">
-        {liveTemplateGuidance.map((item) => (
-          <article className={`workflow-card ${item.ready ? '' : 'warn'}`} key={item.label}>
-            <span>{item.ready ? 'Ready' : 'Needs attention'}</span>
-            <strong>{item.label}</strong>
-            <p>{item.detail}</p>
-          </article>
-        ))}
-      </section>
-      {selectedTemplate ? (
-        <section className="panel full-span selected-summary">
-          <div className="panel-head">
-            <div>
-              <h2>{selectedTemplate.name}</h2>
-              <span className="muted">Selected template summary</span>
-            </div>
-            <a href="#templates">Back to templates</a>
-          </div>
-          <div className="summary-grid">
-            <div><span>Category</span><strong>{selectedTemplate.category || 'template'}</strong></div>
-            <div><span>Subject</span><strong>{selectedTemplate.subject}</strong></div>
-            <div><span>CSS</span><strong>{selectedTemplate.css_body ? 'Configured' : 'None'}</strong></div>
-            <div><span>Text</span><strong>{selectedTemplate.text_body ? 'Configured' : 'None'}</strong></div>
-            <div><span>HTML size</span><strong>{formatInt((selectedTemplate.html_body || '').length)} chars</strong></div>
-            <div><span>Variables</span><strong>{variables.length ? variables.map((item) => item.name).join(', ') : 'Inspect to detect'}</strong></div>
-          </div>
-        </section>
-      ) : null}
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
-          <h2>{selectedTemplate ? 'Template Wizard' : 'Create Template Wizard'}</h2>
+          <div>
+            <h2>{selectedTemplate ? selectedTemplate.name : 'Create Template'}</h2>
+            <span className="muted">Edit HTML/Jinja, render previews, and review AI drafts before applying them.</span>
+          </div>
           <div className="button-row">
             <a href="#templates">Back to templates</a>
             <button className="link-button" onClick={seedSamples} disabled={busy}>Seed samples</button>
           </div>
         </div>
-        <div className="form-grid">
-          <label>
-            Existing template
-            <select value={selectedTemplateId} onChange={(event) => {
-              const template = templates.find((item) => item.id === event.target.value);
-              if (template) {
-                loadTemplateIntoEditor(template);
-                window.location.hash = `#templates/${template.id}`;
-              } else {
-                resetTemplateEditor();
-                window.location.hash = '#templates/new';
-              }
-            }}>
-              <option value="">Create new template</option>
-              {templates.map((template) => (
-                <option value={template.id} key={template.id}>{template.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Template name
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <label>
-            Subject
-            <input value={subject} onChange={(event) => setSubject(event.target.value)} />
-          </label>
-          <label className="wide-field">
-            HTML / Jinja
-            <textarea value={htmlBody} onChange={(event) => setHtmlBody(event.target.value)} rows={12} />
-          </label>
-          <label>
-            Sample variables JSON
-            <textarea value={variablesJson} onChange={(event) => setVariablesJson(event.target.value)} rows={12} />
-          </label>
-          <label className="wide-field">
-            CSS
-            <textarea value={cssBody} onChange={(event) => setCssBody(event.target.value)} rows={7} />
-          </label>
-          <label className="wide-field">
-            AI instruction
-            <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
-          </label>
-        </div>
-        <div className="button-row">
-          <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
-          <button className="ghost" onClick={previewTemplate} disabled={busy}>Preview</button>
-          <button className="ghost" onClick={inspectVariables} disabled={busy}>Inspect Variables</button>
-          <button className="ghost" onClick={draftWithAi} disabled={busy}>AI Draft</button>
-          <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Apply AI Edit</button>
-          <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
-          <button className="ghost" onClick={seedSamples} disabled={busy}>Seed Samples</button>
+        <div className="template-action-bar">
+          <div className="button-row">
+            <button className="primary" onClick={saveTemplate} disabled={busy}>Save Template</button>
+            <button className="ghost" onClick={previewTemplate} disabled={busy}>Render Preview</button>
+            <button className="ghost" onClick={refreshVariableSamples} disabled={busy}>Refresh Variables</button>
+          </div>
+          <div className="button-row">
+            <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
+            <button className="ghost" onClick={() => applyAiEdit()} disabled={busy}>Review AI Edit</button>
+            <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
+          </div>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
           {variables.length ? <small>{variables.map((item) => item.name).join(', ')}</small> : null}
         </div>
-        {previewHtml ? (
-          <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
-        ) : null}
-        {(aiNotes.length || aiRecommendations.length) ? (
-          <section className="panel nested-panel">
-            <div className="panel-head">
-              <h2>AI Suggestions</h2>
-              <span className="muted">{formatInt(aiRecommendations.length)} recommendations</span>
+        <div className="template-editor-shell">
+          <section className="template-editor-main">
+            <div className="tab-row">
+              <button className={editorMode === 'edit' ? 'active' : ''} onClick={() => setEditorMode('edit')}>Edit</button>
+              <button className={editorMode === 'preview' ? 'active' : ''} onClick={() => setEditorMode('preview')}>Preview</button>
             </div>
-            {aiNotes.length ? (
-              <div className="module-links">
-                {aiNotes.slice(0, 4).map((note) => <span className="pill" key={note}>{note}</span>)}
+            {editorMode === 'edit' ? (
+              <div className="form-grid">
+                <label>
+                  Existing template
+                  <select value={selectedTemplateId} onChange={(event) => {
+                    const template = templates.find((item) => item.id === event.target.value);
+                    if (template) {
+                      loadTemplateIntoEditor(template);
+                      window.location.hash = `#templates/${template.id}`;
+                    } else {
+                      resetTemplateEditor();
+                      window.location.hash = '#templates/new';
+                    }
+                  }}>
+                    <option value="">Create new template</option>
+                    {templates.map((template) => (
+                      <option value={template.id} key={template.id}>{template.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Template name
+                  <input value={name} onChange={(event) => setName(event.target.value)} />
+                </label>
+                <label>
+                  Subject
+                  <input value={subject} onChange={(event) => setSubject(event.target.value)} />
+                </label>
+                <label className="wide-field">
+                  HTML / Jinja
+                  <textarea value={htmlBody} onChange={(event) => {
+                    setHtmlBody(event.target.value);
+                    setPreviewHtml('');
+                  }} rows={16} />
+                </label>
+                <label>
+                  Sample variables JSON
+                  <textarea value={variablesJson} onChange={(event) => {
+                    setVariablesJson(event.target.value);
+                    setPreviewHtml('');
+                  }} rows={16} />
+                </label>
+                <label className="wide-field">
+                  CSS
+                  <textarea value={cssBody} onChange={(event) => {
+                    setCssBody(event.target.value);
+                    setPreviewHtml('');
+                  }} rows={7} />
+                </label>
+                <label className="wide-field">
+                  AI instruction
+                  <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
+                </label>
               </div>
-            ) : null}
-            {aiRecommendations.length ? (
-              <table>
-                <thead><tr><th>Priority</th><th>Suggestion</th><th>Detail</th><th>Action</th></tr></thead>
-                <tbody>
-                  {aiRecommendations.slice(0, 5).map((item) => (
-                    <tr key={item.code}>
-                      <td><span className="pill">{item.priority}</span></td>
-                      <td>{item.title}</td>
-                      <td>{item.detail}</td>
-                      <td><button className="link-button" onClick={() => applyAiEdit(item.suggested_instruction)} disabled={busy}>Apply</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : null}
+            ) : previewHtml ? (
+              <iframe className="email-preview" title="Template preview" srcDoc={previewHtml} />
+            ) : (
+              <div className="empty-state">
+                <strong>Preview not rendered</strong>
+                <p>Render preview to see this template with the current sample data.</p>
+                <button className="primary" onClick={previewTemplate} disabled={busy}>Render preview</button>
+              </div>
+            )}
           </section>
-        ) : null}
+          <aside className="template-side-pane">
+            <section className="workflow-section">
+              <h3>Readiness</h3>
+              <div className="compact-status-list">
+                {liveTemplateGuidance.map((item) => (
+                  <div className={item.ready ? 'ready' : 'warn'} key={item.label}>
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="workflow-section">
+              <h3>AI Draft Review</h3>
+              {pendingAiDraft ? (
+                <div className="ai-draft-preview">
+                  <span className="muted">{pendingAiDraft.provider}/{pendingAiDraft.model}</span>
+                  <strong>{pendingAiDraft.subject}</strong>
+                  <pre>{(pendingAiDraft.html_body || '').slice(0, 900)}</pre>
+                  <div className="button-row">
+                    <button className="primary" onClick={() => applyAiDraft(pendingAiDraft)} disabled={busy}>Apply Draft</button>
+                    <button className="ghost" onClick={() => setPendingAiDraft(null)} disabled={busy}>Discard</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="muted">AI drafts and edits appear here for review before they change the editor.</p>
+              )}
+            </section>
+            {(aiNotes.length || aiRecommendations.length) ? (
+              <section className="workflow-section">
+                <h3>AI Suggestions</h3>
+                {aiNotes.length ? (
+                  <div className="module-links">
+                    {aiNotes.slice(0, 3).map((note) => <span className="pill" key={note}>{note}</span>)}
+                  </div>
+                ) : null}
+                {aiRecommendations.length ? (
+                  <div className="recommendation-list">
+                    {aiRecommendations.slice(0, 5).map((item) => (
+                      <article key={item.code}>
+                        <span className="pill">{item.priority}</span>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                        <button className="link-button" onClick={() => applyAiEdit(item.suggested_instruction)} disabled={busy}>Review change</button>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+          </aside>
+        </div>
       </section>
     </section>
   );

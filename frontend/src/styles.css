@@ -927,6 +927,114 @@ th {
   opacity: .55;
 }
 
+.template-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.template-editor-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+}
+
+.template-editor-main,
+.template-side-pane {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tab-row {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #f7fbff;
+  padding: 3px;
+}
+
+.tab-row button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tab-row button.active {
+  background: #fff;
+  color: var(--blue);
+  box-shadow: 0 1px 6px rgba(22, 45, 90, .08);
+}
+
+.compact-status-list,
+.recommendation-list,
+.ai-draft-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.compact-status-list > div,
+.recommendation-list article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.compact-status-list > div.ready {
+  border-color: #b7e8d5;
+  background: #f2fff9;
+}
+
+.compact-status-list > div.warn {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+}
+
+.compact-status-list strong,
+.recommendation-list strong,
+.ai-draft-preview strong {
+  color: #29405f;
+  font-size: 13px;
+}
+
+.compact-status-list span,
+.recommendation-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ai-draft-preview pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+  color: #29405f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .operation-banner {
   display: grid;
   gap: 3px;
@@ -1023,6 +1131,7 @@ th {
   .lower-grid,
   .form-grid,
   .campaign-action-bar,
+  .template-editor-shell,
   .campaign-flow,
   .workflow-grid,
   .page-grid { grid-template-columns: 1fr; }
