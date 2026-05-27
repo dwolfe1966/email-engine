@@ -1313,6 +1313,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const selectedAudience = audiences.find((item) => item.id === audienceId);
   const selectedCampaign = campaignItems.find((item) => item.id === selectedCampaignId);
   const selectedTemplate = templates.find((item) => item.id === templateId);
+  const isPersistedCampaign = Boolean(selectedCampaignId);
+  const isCreatingCampaign = !isPersistedCampaign;
   const campaignPerformanceById = new Map(campaigns.map((campaign) => [campaign.campaign_id, campaign]));
   const selectedCampaignPerformance = selectedCampaignId ? campaignPerformanceById.get(selectedCampaignId) : null;
 
@@ -1609,40 +1611,42 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           </article>
         ))}
       </section>
-      <section className="panel full-span campaign-launch-panel">
-        <div className="panel-head">
-          <div>
-            <h2>Launch command</h2>
-            <span className="muted">Readiness, latest send job, and next action</span>
+      {isPersistedCampaign ? (
+        <section className="panel full-span campaign-launch-panel">
+          <div className="panel-head">
+            <div>
+              <h2>Launch command</h2>
+              <span className="muted">Readiness, latest send job, and next action</span>
+            </div>
+            <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy}>Refresh Readiness</button>
           </div>
-          <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy || !selectedCampaignId}>Refresh Readiness</button>
-        </div>
-        <div className="launch-command-grid">
-          <div className="launch-score">
-            <span>Readiness</span>
-            <strong>{readinessScore}%</strong>
-            <div><i style={{ width: `${readinessScore}%` }} /></div>
-            <p>{readyCount} of {readinessCards.length} checks ready</p>
+          <div className="launch-command-grid">
+            <div className="launch-score">
+              <span>Readiness</span>
+              <strong>{readinessScore}%</strong>
+              <div><i style={{ width: `${readinessScore}%` }} /></div>
+              <p>{readyCount} of {readinessCards.length} checks ready</p>
+            </div>
+            <div className="launch-score">
+              <span>Latest job</span>
+              <strong>{latestJob?.status || 'No job loaded'}</strong>
+              <div><i style={{ width: `${latestProgressPct}%` }} /></div>
+              <p>{latestRequested ? `${formatInt(latestProcessed)} of ${formatInt(latestRequested)} processed` : 'Run readiness or launch dry-run to inspect delivery state'}</p>
+            </div>
+            <div className="launch-next-action">
+              <span>Next action</span>
+              <strong>{nextCampaignAction}</strong>
+              <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
+            </div>
           </div>
-          <div className="launch-score">
-            <span>Latest job</span>
-            <strong>{latestJob?.status || 'No job loaded'}</strong>
-            <div><i style={{ width: `${latestProgressPct}%` }} /></div>
-            <p>{latestRequested ? `${formatInt(latestProcessed)} of ${formatInt(latestRequested)} processed` : 'Run readiness or launch dry-run to inspect delivery state'}</p>
-          </div>
-          <div className="launch-next-action">
-            <span>Next action</span>
-            <strong>{nextCampaignAction}</strong>
-            <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
-          </div>
-        </div>
-        {validationErrors.length || validationWarnings.length ? (
-          <div className="launch-issue-list">
-            {validationErrors.map((item) => <p className="warn" key={`error-${item}`}>Error: {item}</p>)}
-            {validationWarnings.map((item) => <p key={`warning-${item}`}>Warning: {item}</p>)}
-          </div>
-        ) : null}
-      </section>
+          {validationErrors.length || validationWarnings.length ? (
+            <div className="launch-issue-list">
+              {validationErrors.map((item) => <p className="warn" key={`error-${item}`}>Error: {item}</p>)}
+              {validationWarnings.map((item) => <p key={`warning-${item}`}>Warning: {item}</p>)}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {selectedCampaign ? (
         <section className="panel full-span selected-summary">
           <div className="panel-head">
@@ -1682,23 +1686,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 setCampaignName(event.target.value);
                 setWorkflowStatus(null);
               }} />
-            </label>
-            <label>
-              Existing campaign
-              <select
-                value={selectedCampaignId}
-                onChange={(event) => {
-                  const nextCampaignId = event.target.value;
-                  setSelectedCampaignId(nextCampaignId);
-                  setWorkflowStatus(null);
-                  window.location.hash = nextCampaignId ? `#campaigns/${nextCampaignId}` : '#campaigns/new';
-                }}
-              >
-                <option value="">Create new draft</option>
-                {campaignItems.map((campaign) => (
-                  <option value={campaign.id} key={campaign.id}>{campaign.name} ({campaign.status})</option>
-                ))}
-              </select>
             </label>
           </div>
         </div>
@@ -1751,19 +1738,23 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         <div className="campaign-action-bar">
           <div>
             <strong>Draft</strong>
-            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>{selectedCampaignId ? 'Save Setup' : 'Save Draft'}</button>
+            <button className="primary" onClick={createDraftCampaign} disabled={operationBusy || !templateId}>{isCreatingCampaign ? 'Create Campaign' : 'Save Changes'}</button>
           </div>
-          <div>
-            <strong>Review</strong>
-            <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy || !selectedCampaignId}>Readiness</button>
-            <button className="ghost" onClick={validateCampaign} disabled={operationBusy || !selectedCampaignId}>Check Audience</button>
-            <button className="ghost" onClick={previewTestEmail} disabled={operationBusy || !selectedCampaignId}>Preview Email</button>
-          </div>
-          <div>
-            <strong>Send</strong>
-            <button className="ghost" onClick={sendTestEmail} disabled={operationBusy || !selectedCampaignId}>Send Test</button>
-            <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy || !selectedCampaignId}>Dry-Run Launch</button>
-          </div>
+          {isPersistedCampaign ? (
+            <>
+              <div>
+                <strong>Review</strong>
+                <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy}>Readiness</button>
+                <button className="ghost" onClick={validateCampaign} disabled={operationBusy}>Check Audience</button>
+                <button className="ghost" onClick={previewTestEmail} disabled={operationBusy}>Preview Email</button>
+              </div>
+              <div>
+                <strong>Send</strong>
+                <button className="ghost" onClick={sendTestEmail} disabled={operationBusy}>Send Test</button>
+                <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
+              </div>
+            </>
+          ) : null}
         </div>
         <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{operationBusy ? 'Working' : 'Status'}</strong>
