@@ -46,6 +46,44 @@ The native admin should become as strong as or stronger than the current Sentien
 work should focus on reusing the good SentientMail UX patterns while making the Email Engine object
 model clearer and more operationally complete.
 
+### Admin-v2 / ESP Workflow Refinement Queue
+
+1. Campaign workspace polish
+   - Make campaign create/edit feel like a guided workflow: setup, template/content, audience,
+     launch/test send, and results.
+   - Improve selected campaign summary, launch readiness messaging, launch progress feedback, and
+     post-launch success/failure states.
+   - Keep campaign creation as the primary cross-entity workflow tying templates, audiences,
+     delivery, and analytics together.
+2. Template editor next
+   - Improve the template workspace now that the list page is cleaner.
+   - Better separate HTML/Jinja editing, WYSIWYG/design, sample variables, preview, CSS helpers, and
+     AI assist.
+   - Keep render/preview/test-send feedback visible and variable-aware.
+3. Audience builder next
+   - Keep the audience list page clean while making the detail builder easier to reason about.
+   - Improve matched-contact preview, available filter attributes, and rule impact feedback.
+   - Make audience selection more campaign-aware.
+4. Analytics / Reports
+   - Add real charts and trend views for opens, clicks, bounces, unsubscribes, failures,
+     deliverability, throughput, and audience/campaign comparison.
+   - Keep reports fast by loading lightweight defaults first and progressively fetching heavier
+     panels.
+5. AI enablement
+   - Add template improvement assistant, campaign creation assistant, audience recommendation
+     assistant, performance analysis assistant, and always-on workflow assistant.
+6. Integration hardening
+   - Keep SentientMail aligned to Email Engine API objects and contracts.
+   - Document the SentientMail-to-Email Engine workflow contracts.
+   - Add cross-app smoke tests for import -> template -> campaign -> test send -> metrics.
+   - Reduce fallback and legacy paths once the contracts stabilize.
+7. Folder organization
+   - Add user-manageable folders for campaigns, templates, and audiences.
+   - Support folder CRUD, move/remove actions, folder filters in list pages, and default unfiled
+     views.
+   - Keep folders as organization metadata, not ownership/security boundaries, unless access control
+     requirements are added later.
+
 ### Template Builder / Template Editor
 
 - Make `/template-editor` a full production authoring surface, not only a test tool.
