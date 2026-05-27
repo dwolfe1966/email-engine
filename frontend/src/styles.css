@@ -882,6 +882,17 @@ th {
   line-height: 1.45;
 }
 
+.field-title {
+  display: grid;
+  gap: 2px;
+}
+
+.field-title small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .wide-field {
   grid-column: span 2;
 }
@@ -1030,6 +1041,15 @@ th {
   gap: 10px;
 }
 
+.inline-css-helper {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
 .css-helper-grid label {
   display: grid;
   gap: 6px;
@@ -1059,6 +1079,14 @@ th {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.inline-block-actions {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
 }
 
 .block-button-grid button {

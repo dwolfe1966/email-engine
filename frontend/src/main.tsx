@@ -2860,7 +2860,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   <input value={subject} onChange={(event) => setSubject(event.target.value)} />
                 </label>
                 <label className="wide-field">
-                  HTML / Jinja
+                  <span className="field-title">
+                    HTML / Jinja
+                    <small>Insert blocks into the editor below</small>
+                  </span>
+                  <div className="block-button-grid inline-block-actions">
+                    <button type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+                    <button type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
+                    <button type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
+                    <button type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
+                    <button type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
+                    <button type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
+                    <button type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
+                  </div>
                   <textarea value={htmlBody} onChange={(event) => {
                     setHtmlBody(event.target.value);
                     setPreviewHtml('');
@@ -2876,7 +2888,46 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   }} rows={16} />
                 </label>
                 <label className="wide-field">
-                  CSS
+                  <span className="field-title">
+                    CSS
+                    <small>Generate starter CSS, then edit it directly</small>
+                  </span>
+                  <div className="css-helper-grid inline-css-helper">
+                    <label>
+                      Font
+                      <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
+                        <option value="Arial, Helvetica, sans-serif">Arial</option>
+                        <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+                        <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
+                        <option value="Verdana, Geneva, sans-serif">Verdana</option>
+                      </select>
+                    </label>
+                    <label>
+                      Background
+                      <input type="color" value={cssPreset.background} onChange={(event) => setCssPreset((current) => ({ ...current, background: event.target.value }))} />
+                    </label>
+                    <label>
+                      Text
+                      <input type="color" value={cssPreset.text} onChange={(event) => setCssPreset((current) => ({ ...current, text: event.target.value }))} />
+                    </label>
+                    <label>
+                      Accent
+                      <input type="color" value={cssPreset.accent} onChange={(event) => setCssPreset((current) => ({ ...current, accent: event.target.value }))} />
+                    </label>
+                    <label>
+                      Width
+                      <input type="number" min="480" max="760" step="20" value={cssPreset.container} onChange={(event) => setCssPreset((current) => ({ ...current, container: event.target.value }))} />
+                    </label>
+                    <label>
+                      Padding
+                      <input type="number" min="12" max="48" step="2" value={cssPreset.padding} onChange={(event) => setCssPreset((current) => ({ ...current, padding: event.target.value }))} />
+                    </label>
+                    <label>
+                      Radius
+                      <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
+                    </label>
+                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>Generate CSS</button>
+                  </div>
                   <textarea value={cssBody} onChange={(event) => {
                     setCssBody(event.target.value);
                     setPreviewHtml('');
@@ -2941,57 +2992,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               ) : (
                 <p className="muted">Click Preview to detect variables and create editable sample data.</p>
               )}
-            </section>
-            <section className="workflow-section">
-              <h3>HTML Blocks</h3>
-              <div className="block-button-grid">
-                <button type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
-                <button type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
-                <button type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
-                <button type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
-                <button type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
-                <button type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
-                <button type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
-              </div>
-            </section>
-            <section className="workflow-section">
-              <h3>CSS Helper</h3>
-              <div className="css-helper-grid">
-                <label>
-                  Font
-                  <select value={cssPreset.font} onChange={(event) => setCssPreset((current) => ({ ...current, font: event.target.value }))}>
-                    <option value="Arial, Helvetica, sans-serif">Arial</option>
-                    <option value="Georgia, 'Times New Roman', serif">Georgia</option>
-                    <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
-                    <option value="Verdana, Geneva, sans-serif">Verdana</option>
-                  </select>
-                </label>
-                <label>
-                  Background
-                  <input type="color" value={cssPreset.background} onChange={(event) => setCssPreset((current) => ({ ...current, background: event.target.value }))} />
-                </label>
-                <label>
-                  Text
-                  <input type="color" value={cssPreset.text} onChange={(event) => setCssPreset((current) => ({ ...current, text: event.target.value }))} />
-                </label>
-                <label>
-                  Accent
-                  <input type="color" value={cssPreset.accent} onChange={(event) => setCssPreset((current) => ({ ...current, accent: event.target.value }))} />
-                </label>
-                <label>
-                  Width
-                  <input type="number" min="480" max="760" step="20" value={cssPreset.container} onChange={(event) => setCssPreset((current) => ({ ...current, container: event.target.value }))} />
-                </label>
-                <label>
-                  Padding
-                  <input type="number" min="12" max="48" step="2" value={cssPreset.padding} onChange={(event) => setCssPreset((current) => ({ ...current, padding: event.target.value }))} />
-                </label>
-                <label>
-                  Radius
-                  <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
-                </label>
-              </div>
-              <button className="ghost" onClick={applyCssPreset} disabled={busy}>Generate CSS</button>
             </section>
             <section className="workflow-section">
               <h3>AI Draft Review</h3>
