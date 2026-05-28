@@ -2749,6 +2749,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   const htmlClassNames = extractHtmlClassNames(htmlBody);
+  const cssClassCoverage = htmlClassNames.map((className) => {
+    const rule = cssRuleForClass(className);
+    return {
+      name: className,
+      hasRule: Boolean(rule),
+      kind: inferCssClassKind(className, rule),
+    };
+  });
+  const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
   const classableHtmlTagCount = Array.from(htmlBody.matchAll(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi))
     .filter((match) => {
       const tag = match[1].toLowerCase();
@@ -2938,15 +2947,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return match?.[1] || '';
   }
 
-  const cssClassCoverage = htmlClassNames.map((className) => {
-    const rule = cssRuleForClass(className);
-    return {
-      name: className,
-      hasRule: Boolean(rule),
-      kind: inferCssClassKind(className, rule),
-    };
-  });
-  const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
   const selectedCssRule = cssRuleForClass(selectedCssClass);
   const selectedCssCoverage = cssClassCoverage.find((item) => item.name === selectedCssClass);
   const cssClassKindHelp = {
