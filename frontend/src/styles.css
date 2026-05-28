@@ -1110,6 +1110,21 @@ th {
   text-align: right;
 }
 
+.tool-panel-toggle {
+  border: 0;
+  background: transparent;
+  color: #29405f;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tool-panel-toggle:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
 .feedback-panel-head {
   border: 1px solid #dce8f7;
   border-radius: 8px;

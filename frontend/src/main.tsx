@@ -2662,6 +2662,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
+  const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
@@ -2934,6 +2935,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setSelectedCssClass(htmlClassNames[0] || '');
     }
   }, [htmlClassNames, selectedCssClass]);
+
+  useEffect(() => {
+    if (classableHtmlTagCount) setHtmlToolsOpen(true);
+  }, [classableHtmlTagCount]);
 
   function generatedCssFromPreset() {
     const width = Number(cssPreset.container) || 640;
@@ -3593,47 +3598,49 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   />
 	                  <div className="editor-tool-panel">
 	                    <div className="tool-panel-head">
-	                      <strong>HTML inserts</strong>
+	                      <button className="tool-panel-toggle" type="button" onClick={() => setHtmlToolsOpen((current) => !current)}>{htmlToolsOpen ? 'Hide HTML tools' : 'Show HTML tools'}</button>
 	                      <span>{classableHtmlTagCount ? `${formatInt(classableHtmlTagCount)} element(s) need classes` : 'These controls insert formatted HTML/Jinja at the cursor.'}</span>
 	                    </div>
-                    <div className="insert-tool-groups">
-                      <div className="insert-tool-group">
-                        <span>Workflow</span>
-                        <div className="block-button-grid inline-block-actions">
-                          <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
-                          <button className="block-structure" type="button" onClick={addMissingHtmlClasses} disabled={busy || !classableHtmlTagCount}>Add Classes</button>
-                          <button className="block-structure" type="button" onClick={addMissingHtmlClassesAndCss} disabled={busy || (!classableHtmlTagCount && !missingCssClasses.length)}>Class + CSS</button>
+                    {htmlToolsOpen ? (
+                      <div className="insert-tool-groups">
+                        <div className="insert-tool-group">
+                          <span>Workflow</span>
+                          <div className="block-button-grid inline-block-actions">
+                            <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
+                            <button className="block-structure" type="button" onClick={addMissingHtmlClasses} disabled={busy || !classableHtmlTagCount}>Add Classes</button>
+                            <button className="block-structure" type="button" onClick={addMissingHtmlClassesAndCss} disabled={busy || (!classableHtmlTagCount && !missingCssClasses.length)}>Class + CSS</button>
+                          </div>
+                        </div>
+                        <div className="insert-tool-group">
+                          <span>Structure</span>
+                          <div className="block-button-grid inline-block-actions">
+                            <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+                            <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
+                            <button className="block-structure" type="button" onClick={() => insertHtmlBlock('divider')} disabled={busy}>Divider</button>
+                            <button className="block-structure" type="button" onClick={() => insertHtmlBlock('spacer')} disabled={busy}>Spacer</button>
+                          </div>
+                        </div>
+                        <div className="insert-tool-group">
+                          <span>Content</span>
+                          <div className="block-button-grid inline-block-actions">
+                            <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
+                            <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
+                            <button className="block-content" type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
+                            <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
+                          </div>
+                        </div>
+                        <div className="insert-tool-group">
+                          <span>Media and logic</span>
+                          <div className="block-button-grid inline-block-actions">
+                            <button className="block-media" type="button" onClick={() => insertHtmlBlock('image')} disabled={busy}>Image</button>
+                            <button className="block-action" type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
+                            <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
+                            <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
+                            <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
+                          </div>
                         </div>
                       </div>
-                      <div className="insert-tool-group">
-                        <span>Structure</span>
-                        <div className="block-button-grid inline-block-actions">
-                          <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
-                          <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
-                          <button className="block-structure" type="button" onClick={() => insertHtmlBlock('divider')} disabled={busy}>Divider</button>
-                          <button className="block-structure" type="button" onClick={() => insertHtmlBlock('spacer')} disabled={busy}>Spacer</button>
-                        </div>
-                      </div>
-                      <div className="insert-tool-group">
-                        <span>Content</span>
-                        <div className="block-button-grid inline-block-actions">
-                          <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
-                          <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
-                          <button className="block-content" type="button" onClick={() => insertHtmlBlock('paragraph')} disabled={busy}>Paragraph</button>
-                          <button className="block-content" type="button" onClick={() => insertHtmlBlock('quote')} disabled={busy}>Quote</button>
-                        </div>
-                      </div>
-                      <div className="insert-tool-group">
-                        <span>Media and logic</span>
-                        <div className="block-button-grid inline-block-actions">
-                          <button className="block-media" type="button" onClick={() => insertHtmlBlock('image')} disabled={busy}>Image</button>
-                          <button className="block-action" type="button" onClick={() => insertHtmlBlock('button')} disabled={busy}>Button</button>
-                          <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('list')} disabled={busy}>Dynamic List</button>
-                          <button className="block-dynamic" type="button" onClick={() => insertHtmlBlock('conditional')} disabled={busy}>If / Else</button>
-                          <button className="block-compliance" type="button" onClick={() => insertHtmlBlock('compliance')} disabled={busy}>Compliance</button>
-                        </div>
-                      </div>
-                    </div>
+                    ) : null}
                   </div>
                 </div>
 	                <div className="editor-field">
