@@ -2789,6 +2789,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Auto-detected at preview', ready: Boolean(variables.length) },
     { label: 'Preview', detail: previewFreshness === 'current' ? 'Preview rendered' : 'Render preview', ready: previewFreshness === 'current' },
   ];
+  const pendingAiDraftNotes = pendingAiDraft ? (pendingAiDraft.change_summary || pendingAiDraft.notes || []) : [];
+  const pendingAiDraftVariables = pendingAiDraft?.sample_variables ? Object.keys(pendingAiDraft.sample_variables) : [];
+  const pendingAiDraftReview = pendingAiDraft ? {
+    subjectChanged: (pendingAiDraft.subject || '') !== subject,
+    htmlDelta: (pendingAiDraft.html_body || '').length - htmlBody.length,
+    cssDelta: (pendingAiDraft.css_body || '').length - cssBody.length,
+    cssChanged: (pendingAiDraft.css_body || '') !== cssBody,
+  } : null;
+  function formatSignedCount(value: number) {
+    if (!value) return '0';
+    return `${value > 0 ? '+' : ''}${formatInt(value)}`;
+  }
 
   useEffect(() => {
     if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
@@ -4013,11 +4025,40 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <div className="ai-draft-preview">
                   <span className="muted">{pendingAiDraft.provider}/{pendingAiDraft.model}</span>
                   <strong>{pendingAiDraft.subject}</strong>
-                  {(pendingAiDraft.change_summary || pendingAiDraft.notes || []).length ? (
+                  {pendingAiDraftReview ? (
+                    <div className="ai-draft-compare-grid">
+                      <div>
+                        <span>Current subject</span>
+                        <strong>{subject || 'No subject'}</strong>
+                      </div>
+                      <div className={pendingAiDraftReview.subjectChanged ? 'changed' : ''}>
+                        <span>Draft subject</span>
+                        <strong>{pendingAiDraft.subject || subject || 'No subject'}</strong>
+                      </div>
+                      <div className={pendingAiDraftReview.htmlDelta ? 'changed' : ''}>
+                        <span>HTML size</span>
+                        <strong>{formatSignedCount(pendingAiDraftReview.htmlDelta)} chars</strong>
+                      </div>
+                      <div className={pendingAiDraftReview.cssChanged ? 'changed' : ''}>
+                        <span>CSS size</span>
+                        <strong>{formatSignedCount(pendingAiDraftReview.cssDelta)} chars</strong>
+                      </div>
+                      <div>
+                        <span>Sample data</span>
+                        <strong>{pendingAiDraftVariables.length ? `${formatInt(pendingAiDraftVariables.length)} value(s)` : 'No draft values'}</strong>
+                      </div>
+                      <div>
+                        <span>Status</span>
+                        <strong>{pendingAiDraftReview.subjectChanged || pendingAiDraftReview.htmlDelta || pendingAiDraftReview.cssChanged ? 'Changes pending' : 'No structural change'}</strong>
+                      </div>
+                    </div>
+                  ) : null}
+                  {pendingAiDraftNotes.length ? (
                     <ul className="ai-draft-notes">
-                      {(pendingAiDraft.change_summary || pendingAiDraft.notes || []).slice(0, 4).map((note) => <li key={note}>{note}</li>)}
+                      {pendingAiDraftNotes.slice(0, 4).map((note) => <li key={note}>{note}</li>)}
                     </ul>
                   ) : null}
+                  <span className="ai-draft-source-label">Draft HTML excerpt</span>
                   <pre>{(pendingAiDraft.html_body || '').slice(0, 900)}</pre>
                   <div className="button-row">
                     <button className="ghost" onClick={() => previewAiDraft(pendingAiDraft)} disabled={busy}>Preview Draft</button>
