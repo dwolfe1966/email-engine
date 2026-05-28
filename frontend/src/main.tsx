@@ -3309,6 +3309,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setStatus(`Added ${type.replace('_', ' ')} block${targetId ? ' at drop point' : ''}.`);
   }
 
+  function addDesignChildBlock(parentId: string, type: string) {
+    const child = newDesignBlock(type);
+    const appendChild = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === parentId) {
+        return { ...block, children: [...(block.children || []), child] };
+      }
+      if (block.children?.length) return { ...block, children: appendChild(block.children) };
+      return block;
+    });
+    setDesignDoc((current) => ({ blocks: appendChild(current.blocks) }));
+    setSelectedDesignBlockId(child.id);
+    setEditorMode('design');
+    setDesignDocEdited(true);
+    markPreviewStale();
+    setStatus(`Added ${designBlockTypeLabel(type)} inside section.`);
+  }
+
   function moveDesignBlock(id: string, direction: -1 | 1) {
     setDesignDoc((current) => {
       const blocks = [...current.blocks];
@@ -4064,6 +4081,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       );
     }
     if (block.type === 'section') {
+      const childBlockTypes = designPaletteBlockTypes.filter((type) => type !== 'section');
       return (
         <>
           {classInput()}
@@ -4073,6 +4091,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             Contents
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
           </label>
+          <div className="section-child-tools wide-field">
+            <span>Add to section</span>
+            <div>
+              {childBlockTypes.map((type) => (
+                <button className="ghost" key={type} type="button" onClick={() => addDesignChildBlock(block.id, type)} disabled={busy}>
+                  {designBlockTypeLabel(type)}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
       );
     }

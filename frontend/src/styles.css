@@ -1416,6 +1416,27 @@ th {
   grid-template-columns: 1fr;
 }
 
+.section-child-tools {
+  display: grid;
+  gap: 6px;
+}
+
+.section-child-tools > span {
+  color: #29405f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.section-child-tools > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.section-child-tools button {
+  padding: 6px 8px;
+}
+
 .design-block-card {
   display: grid;
   position: relative;
