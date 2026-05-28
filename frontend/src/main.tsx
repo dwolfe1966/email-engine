@@ -3029,8 +3029,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return document.blocks.map(designBlockToHtml).join('\n');
   }
 
+  function designCanvasBlockHtml(block: TemplateDesignBlock) {
+    const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
+    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
+${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
+      </div>`;
+  }
+
   function designCanvasSrcDoc() {
-    const bodyHtml = designDocumentTemplateSource();
+    const bodyHtml = designDoc.blocks.map(designCanvasBlockHtml).join('\n');
     return `<!doctype html>
 <html>
   <head>
@@ -3039,6 +3046,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       body { margin: 0; padding: 24px; background: #eef3f8; font-family: Arial, sans-serif; color: #111827; }
       .email-container { max-width: 640px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; }
       img { max-width: 100%; }
+      .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
+      .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
+      .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
       ${cssBody || ''}
     </style>
   </head>
@@ -3046,6 +3056,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     <div class="email-container">
 ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     </div>
+    <script>
+      document.addEventListener('click', function(event) {
+        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        if (!block) return;
+        event.preventDefault();
+        event.stopPropagation();
+        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id') }, '*');
+      });
+    </script>
   </body>
 </html>`;
   }
@@ -3099,6 +3118,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }
     setEditorMode(nextMode);
   }
+
+  useEffect(() => {
+    function handleDesignCanvasMessage(event: MessageEvent) {
+      const data = event.data;
+      if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
+      const block = designDoc.blocks.find((item) => item.id === data.blockId);
+      if (!block) return;
+      setSelectedDesignBlockId(block.id);
+      setStatus(`Selected ${block.type.replace('_', ' ')} block from canvas.`);
+    }
+    window.addEventListener('message', handleDesignCanvasMessage);
+    return () => window.removeEventListener('message', handleDesignCanvasMessage);
+  }, [designDoc.blocks]);
 
   useEffect(() => {
     if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
