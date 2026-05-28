@@ -1768,6 +1768,11 @@ th {
   background: #fff7f7;
 }
 
+.operation-banner.ai-unsaved-banner {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+}
+
 .operation-banner span,
 .operation-banner small {
   color: var(--muted);

@@ -2662,6 +2662,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
+  const [appliedAiDraftLabel, setAppliedAiDraftLabel] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
@@ -2793,6 +2794,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setAiRecommendations([]);
     setAiNotes([]);
     setPendingAiDraft(null);
+    setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setStatus('Ready to create a new template.');
   }
@@ -2807,6 +2809,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setAiRecommendations([]);
     setAiNotes([]);
     setPendingAiDraft(null);
+    setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setStatus(`Loaded template: ${template.name}`);
   }
@@ -2821,8 +2824,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setAiNotes(draft.change_summary || draft.notes || []);
     setPreviewFreshness(previewHtml ? 'stale' : 'empty');
     setPendingAiDraft(null);
+    setAppliedAiDraftLabel(`${draft.provider}/${draft.model}`);
     setEditorMode('edit');
-    setStatus('Applied AI draft to the editor. Review the source, then use Preview to render it.');
+    setStatus('Applied AI draft to the editor. Save changes to persist it.');
   }
 
   function markPreviewStale() {
@@ -3300,6 +3304,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         });
       setSelectedTemplateId(saved.id);
       setHtmlBody(normalizedHtml);
+      setAppliedAiDraftLabel('');
       window.location.hash = `#templates/${saved.id}`;
       await onRefresh();
       return `Saved template: ${saved.name}`;
@@ -3587,6 +3592,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <span>{status}</span>
           {variables.length ? <small>{variables.map((item) => item.name).join(', ')}</small> : null}
         </div>
+        {appliedAiDraftLabel ? (
+          <div className="operation-banner ai-unsaved-banner">
+            <strong>Unsaved AI edit</strong>
+            <span>Applied draft from {appliedAiDraftLabel}. Save changes to persist this template version, or revert changes to reload from the database.</span>
+          </div>
+        ) : null}
         <div className="template-editor-shell">
           <section className="template-editor-main">
             <div className="tab-row">
