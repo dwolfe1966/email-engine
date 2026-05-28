@@ -1187,6 +1187,43 @@ th {
   box-shadow: 0 1px 6px rgba(22, 45, 90, .08);
 }
 
+.mode-switch {
+  width: min(100%, 380px);
+  border: 2px solid #b8c7ff;
+  border-radius: 10px;
+  background: #eef4ff;
+  padding: 4px;
+  box-shadow: 0 8px 22px rgba(54, 91, 180, .12);
+}
+
+.mode-switch button {
+  flex: 1;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 10px 18px;
+  color: #39516f;
+  font-size: 13px;
+}
+
+.mode-switch button.active {
+  border-color: #255fe8;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, .24);
+}
+
+.mode-switch button.preview-mode.active {
+  border-color: #0f9f6e;
+  background: #059669;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, .24);
+}
+
+.mode-switch button.needs-refresh:not(.active) {
+  border-color: #d97706;
+  background: #fff7ed;
+  color: #92400e;
+}
+
 .compact-tabs button {
   padding: 6px 10px;
   font-size: 12px;

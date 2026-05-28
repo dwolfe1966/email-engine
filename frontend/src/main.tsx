@@ -3694,9 +3694,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         ) : null}
         <div className="template-editor-shell">
           <section className="template-editor-main">
-            <div className="tab-row">
-              <button className={editorMode === 'edit' ? 'active' : ''} onClick={() => setEditorMode('edit')}>Edit</button>
-              <button className={editorMode === 'preview' ? 'active' : ''} onClick={previewTemplate} disabled={busy}>Preview</button>
+            <div className="tab-row mode-switch">
+              <button className={editorMode === 'edit' ? 'active edit-mode' : 'edit-mode'} onClick={() => setEditorMode('edit')}>Edit</button>
+              <button className={`${editorMode === 'preview' ? 'active preview-mode' : 'preview-mode'} ${previewFreshness === 'stale' ? 'needs-refresh' : ''}`} onClick={previewTemplate} disabled={busy}>Preview</button>
             </div>
             {editorMode === 'edit' ? (
               <div className="form-grid">
