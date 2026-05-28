@@ -3126,7 +3126,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const designBlockEntries = flattenDesignBlockEntries(designDoc.blocks);
   const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
   const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
-  const selectedDesignBlockTopLevel = Boolean(selectedDesignBlock && designDoc.blocks.some((block) => block.id === selectedDesignBlock.id));
+  function designBlockSiblingInfo(id: string, blocks = designDoc.blocks): { index: number; count: number } | null {
+    const index = blocks.findIndex((block) => block.id === id);
+    if (index >= 0) return { index, count: blocks.length };
+    for (const block of blocks) {
+      const childInfo = designBlockSiblingInfo(id, block.children || []);
+      if (childInfo) return childInfo;
+    }
+    return null;
+  }
+  function canMoveDesignBlock(id: string, direction: -1 | 1) {
+    const siblingInfo = designBlockSiblingInfo(id);
+    if (!siblingInfo) return false;
+    const nextIndex = siblingInfo.index + direction;
+    return nextIndex >= 0 && nextIndex < siblingInfo.count;
+  }
   const designPaletteBlockTypes = ['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
@@ -3327,16 +3341,27 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function moveDesignBlock(id: string, direction: -1 | 1) {
-    setDesignDoc((current) => {
-      const blocks = [...current.blocks];
+    let moved = false;
+    const moveInBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
       const index = blocks.findIndex((block) => block.id === id);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= blocks.length) return current;
-      [blocks[index], blocks[nextIndex]] = [blocks[nextIndex], blocks[index]];
-      return { blocks };
+      if (index >= 0) {
+        const nextIndex = index + direction;
+        if (nextIndex < 0 || nextIndex >= blocks.length) return blocks;
+        const nextBlocks = [...blocks];
+        [nextBlocks[index], nextBlocks[nextIndex]] = [nextBlocks[nextIndex], nextBlocks[index]];
+        moved = true;
+        return nextBlocks;
+      }
+      return blocks.map((block) => block.children?.length ? { ...block, children: moveInBlocks(block.children) } : block);
+    };
+    setDesignDoc((current) => {
+      const blocks = moveInBlocks(current.blocks);
+      return moved ? { blocks } : current;
     });
-    setDesignDocEdited(true);
-    markPreviewStale();
+    if (moved) {
+      setDesignDocEdited(true);
+      markPreviewStale();
+    }
   }
 
   function reorderDesignBlock(sourceId: string, targetId: string, position: 'before' | 'after' = 'before') {
@@ -4802,8 +4827,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                                 {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
 	                            </div>
 	                            <div className="button-row">
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !topLevel || designDoc.blocks[0]?.id === block.id}>Up</button>
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !topLevel || designDoc.blocks[designDoc.blocks.length - 1]?.id === block.id}>Down</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !canMoveDesignBlock(block.id, -1)}>Up</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !canMoveDesignBlock(block.id, 1)}>Down</button>
 	                            </div>
 	                          </div>
 	                        </article>
@@ -4852,8 +4877,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             </div>
                             <div className="button-row">
                               <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !selectedDesignBlockTopLevel || designDoc.blocks[0]?.id === selectedDesignBlock.id}>Move Up</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !selectedDesignBlockTopLevel || designDoc.blocks[designDoc.blocks.length - 1]?.id === selectedDesignBlock.id}>Move Down</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
                               <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
                             </div>
                           </div>
