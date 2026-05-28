@@ -1410,8 +1410,21 @@ th {
   border-radius: 8px;
   background: #fff;
   padding: 8px 8px 8px 24px;
-  cursor: pointer;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  cursor: grab;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+}
+
+.design-block-card:active {
+  cursor: grabbing;
+}
+
+.design-block-card:hover {
+  border-color: #9db7d8;
+}
+
+.design-block-card.dragging {
+  border-style: dashed;
+  opacity: 0.55;
 }
 
 .design-block-card::before {

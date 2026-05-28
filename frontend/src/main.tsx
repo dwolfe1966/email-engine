@@ -2731,6 +2731,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
+  const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [structureOpen, setStructureOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
@@ -3066,7 +3067,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
       : '';
-    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
+    return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
 ${selectedActions}
 ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
@@ -3082,9 +3083,10 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
       body { margin: 0; padding: 24px; background: #eef3f8; font-family: Arial, sans-serif; color: #111827; }
       .email-container { max-width: 640px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; }
       img { max-width: 100%; }
-      .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
+      .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: grab; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+      .ee-design-block.ee-drop-target { border-color: #10b981; background: rgba(16, 185, 129, 0.08); }
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
@@ -3103,6 +3105,33 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         event.stopPropagation();
         var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
         parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
+      });
+      document.addEventListener('dragstart', function(event) {
+        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        if (!block || event.target.closest('.ee-design-actions')) return;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', block.getAttribute('data-design-block-id') || '');
+      });
+      document.addEventListener('dragover', function(event) {
+        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        if (!block) return;
+        event.preventDefault();
+        block.classList.add('ee-drop-target');
+      });
+      document.addEventListener('dragleave', function(event) {
+        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        if (block) block.classList.remove('ee-drop-target');
+      });
+      document.addEventListener('drop', function(event) {
+        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        if (!block) return;
+        event.preventDefault();
+        block.classList.remove('ee-drop-target');
+        parent.postMessage({
+          type: 'ee-design-block-reorder',
+          sourceBlockId: event.dataTransfer.getData('text/plain'),
+          targetBlockId: block.getAttribute('data-design-block-id')
+        }, '*');
       });
     </script>
   </body>
@@ -3136,6 +3165,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     markPreviewStale();
   }
 
+  function reorderDesignBlock(sourceId: string, targetId: string) {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    setDesignDoc((current) => {
+      const sourceIndex = current.blocks.findIndex((block) => block.id === sourceId);
+      const targetIndex = current.blocks.findIndex((block) => block.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) return current;
+      const blocks = [...current.blocks];
+      const [movedBlock] = blocks.splice(sourceIndex, 1);
+      blocks.splice(targetIndex, 0, movedBlock);
+      return { blocks };
+    });
+    setSelectedDesignBlockId(sourceId);
+    markPreviewStale();
+  }
+
   function removeDesignBlock(id: string) {
     setDesignDoc((current) => ({ blocks: current.blocks.filter((block) => block.id !== id) }));
     setSelectedDesignBlockId((current) => current === id ? '' : current);
@@ -3162,6 +3206,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   useEffect(() => {
     function handleDesignCanvasMessage(event: MessageEvent) {
       const data = event.data;
+      if (data?.type === 'ee-design-block-reorder') {
+        reorderDesignBlock(String(data.sourceBlockId || ''), String(data.targetBlockId || ''));
+        setStatus('Reordered design blocks from the canvas.');
+        return;
+      }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
       const block = designDoc.blocks.find((item) => item.id === data.blockId);
       if (!block) return;
@@ -3774,10 +3823,22 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function renderDesignBlockControls(block: TemplateDesignBlock) {
     const colorValue = (value: unknown, fallback = '#111827') => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback;
+    const classOptions = Array.from(new Set([...htmlClassNames, ...String(block.className || '').split(/\s+/).filter(Boolean)])).sort();
     const textInput = (label: string, key: keyof TemplateDesignBlock, type = 'text') => (
       <label>
         {label}
         <input type={type} value={type === 'color' ? colorValue(block[key]) : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: type === 'number' ? Number(event.target.value) : event.target.value })} />
+      </label>
+    );
+    const classInput = () => (
+      <label>
+        CSS class
+        <select value={String(block.className || '')} onChange={(event) => updateDesignBlock(block.id, { className: event.target.value })}>
+          <option value="">No class</option>
+          {classOptions.map((className) => (
+            <option key={className} value={className}>.{className}</option>
+          ))}
+        </select>
       </label>
     );
     const textArea = (label: string, key: keyof TemplateDesignBlock) => (
@@ -3790,7 +3851,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return (
         <>
           {textInput('Text', 'text')}
-          {textInput('CSS class', 'className')}
+          {classInput()}
           {textInput('Level', 'level', 'number')}
           <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         </>
@@ -3801,7 +3862,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         <>
           {textInput('Text', 'text')}
           {textInput('URL', 'href')}
-          {textInput('CSS class', 'className')}
+          {classInput()}
           {textInput('Background', 'bg', 'color')}
           {textInput('Text color', 'color', 'color')}
           {textInput('Radius', 'radius', 'number')}
@@ -3812,7 +3873,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return (
         <>
           <label>List type<select value={block.ordered ? 'ordered' : 'bulleted'} onChange={(event) => updateDesignBlock(block.id, { ordered: event.target.value === 'ordered' })}><option value="bulleted">Bulleted</option><option value="ordered">Numbered</option></select></label>
-          {textInput('CSS class', 'className')}
+          {classInput()}
           {textArea('Items', 'items')}
         </>
       );
@@ -3823,19 +3884,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('Image URL', 'src')}
           {textInput('Alt text', 'alt')}
           {textInput('Link URL', 'href')}
-          {textInput('CSS class', 'className')}
+          {classInput()}
           {textInput('Width', 'width', 'number')}
         </>
       );
     }
-    if (block.type === 'divider') return <>{textInput('CSS class', 'className')}{textInput('Color', 'color', 'color')}</>;
-    if (block.type === 'spacer') return <>{textInput('CSS class', 'className')}{textInput('Height', 'height', 'number')}</>;
-    if (block.type === 'trust_signal') return <>{textInput('CSS class', 'className')}{textArea('Text', 'text')}</>;
+    if (block.type === 'divider') return <>{classInput()}{textInput('Color', 'color', 'color')}</>;
+    if (block.type === 'spacer') return <>{classInput()}{textInput('Height', 'height', 'number')}</>;
+    if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}</>;
     if (block.type === 'html') return <>{textArea('HTML / Jinja', 'code')}</>;
     return (
       <>
         {textArea(block.html ? 'Inline HTML' : 'Text', block.html ? 'html' : 'text')}
-        {textInput('CSS class', 'className')}
+        {classInput()}
         <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         {textInput('Color', 'color', 'color')}
       </>
@@ -4458,9 +4519,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           const meta = designStructureMeta(block);
                           return (
 	                        <article
-                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''}`}
+                            draggable={!busy}
                             key={block.id}
                             onClick={() => setSelectedDesignBlockId(block.id)}
+                            onDragStart={(event) => {
+                              setDraggedDesignBlockId(block.id);
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', block.id);
+                            }}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              reorderDesignBlock(event.dataTransfer.getData('text/plain') || draggedDesignBlockId, block.id);
+                              setDraggedDesignBlockId('');
+                            }}
+                            onDragEnd={() => setDraggedDesignBlockId('')}
                           >
 	                          <div className="design-block-head">
 	                            <div>
