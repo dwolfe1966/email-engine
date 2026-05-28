@@ -38,6 +38,33 @@ type TemplateEditSnapshot = {
   subject: string;
   htmlBody: string;
   cssBody: string;
+  designDocJson: string;
+};
+
+type TemplateDesignBlock = {
+  id: string;
+  type: string;
+  text?: string;
+  html?: string;
+  code?: string;
+  level?: number;
+  align?: string;
+  color?: string;
+  href?: string;
+  bg?: string;
+  radius?: number;
+  padding_y?: number;
+  padding_x?: number;
+  ordered?: boolean;
+  items?: string[];
+  src?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+};
+
+type TemplateDesignDocument = {
+  blocks: TemplateDesignBlock[];
 };
 
 type TemplateCodeEditorProps = {
@@ -825,6 +852,14 @@ function RowActionMenu({ openHref, onDelete, onArchive }: {
 
 function formatInt(value: number | undefined) {
   return Number(value || 0).toLocaleString();
+}
+
+function escapeTemplateText(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function formatPct(value: number | undefined) {
@@ -2650,6 +2685,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     subject: 'Hello {{ first_name }}',
     htmlBody: '<div class="email-container">\n  <p class="email-copy">Hello {{ first_name }},</p>\n  <p class="email-copy">Welcome to Email Engine.</p>\n</div>',
     cssBody: 'body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }',
+    designDocJson: '{"blocks":[]}',
   };
   const routeParts = route.split('/');
   const routeTemplateId = routeParts[0] === 'templates' && routeParts[1] && routeParts[1] !== 'new'
@@ -2677,7 +2713,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [appliedAiDraftLabel, setAppliedAiDraftLabel] = useState('');
-  const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
+  const [editorMode, setEditorMode] = useState<'edit' | 'design' | 'preview'>('edit');
+  const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
+  const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -2701,11 +2739,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     subject,
     htmlBody,
     cssBody,
+    designDocJson: JSON.stringify(designDoc),
   };
   const hasUnsavedTemplateChanges = currentTemplateSnapshot.name !== savedTemplateSnapshot.name
     || currentTemplateSnapshot.subject !== savedTemplateSnapshot.subject
     || currentTemplateSnapshot.htmlBody !== savedTemplateSnapshot.htmlBody
-    || currentTemplateSnapshot.cssBody !== savedTemplateSnapshot.cssBody;
+    || currentTemplateSnapshot.cssBody !== savedTemplateSnapshot.cssBody
+    || currentTemplateSnapshot.designDocJson !== savedTemplateSnapshot.designDocJson;
   const aiInstructionPresets = [
     {
       label: 'Tighten copy',
@@ -2816,6 +2856,130 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return `${value > 0 ? '+' : ''}${formatInt(value)}`;
   }
 
+  function designDocFromTemplate(template: TemplateRead): TemplateDesignDocument {
+    const blocks = template.document_json?.blocks;
+    if (Array.isArray(blocks)) {
+      return { blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)) };
+    }
+    return htmlToDesignDocument(template.html_body || '');
+  }
+
+  function htmlToDesignDocument(source: string): TemplateDesignDocument {
+    const trimmed = source.trim();
+    return {
+      blocks: trimmed
+        ? [{ id: designBlockId(), type: 'html', code: trimmed }]
+        : [newDesignBlock('paragraph')],
+    };
+  }
+
+  function designBlockId() {
+    return `b_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function normalizeDesignBlock(value: unknown, index: number): TemplateDesignBlock {
+    const block = value && typeof value === 'object' ? value as TemplateDesignBlock : { type: 'paragraph' };
+    return {
+      ...block,
+      id: block.id || `b_${index}`,
+      type: block.type || 'paragraph',
+      items: Array.isArray(block.items) ? block.items.map((item) => String(item)) : block.items,
+    };
+  }
+
+  function newDesignBlock(type: string): TemplateDesignBlock {
+    const id = designBlockId();
+    if (type === 'heading') return { id, type, text: 'Main headline', level: 1, align: 'left' };
+    if (type === 'button') return { id, type, text: 'Call to Action', href: '{{ tracking_click }}', bg: '#2563eb', color: '#ffffff', radius: 6, padding_y: 11, padding_x: 16 };
+    if (type === 'list') return { id, type, ordered: false, items: ['First point', 'Second point'] };
+    if (type === 'image') return { id, type, src: '{{ hero_image_url }}', alt: 'Image', href: '', width: 600 };
+    if (type === 'divider') return { id, type, color: '#d8dee6' };
+    if (type === 'spacer') return { id, type, height: 24 };
+    if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.' };
+    if (type === 'html') return { id, type, code: '<p class="email-copy">Custom HTML or Jinja</p>' };
+    return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '' };
+  }
+
+  function designBlockToHtml(block: TemplateDesignBlock) {
+    if (block.type === 'heading') {
+      const level = Math.min(3, Math.max(1, Number(block.level || 1)));
+      return `<h${level} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+    }
+    if (block.type === 'paragraph') {
+      if (block.html) return `<p>${block.html}</p>`;
+      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      return `<p style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
+    }
+    if (block.type === 'button') {
+      const style = `display:inline-block;background:${block.bg || '#2563eb'};color:${block.color || '#ffffff'};padding:${Number(block.padding_y || 11)}px ${Number(block.padding_x || 16)}px;text-decoration:none;border-radius:${Number(block.radius || 6)}px;font-weight:700;`;
+      return `<p><a class="button" href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+    }
+    if (block.type === 'list') {
+      const tag = block.ordered ? 'ol' : 'ul';
+      const items = (block.items || []).map((item) => `<li>${escapeTemplateText(item)}</li>`).join('');
+      return `<${tag}>${items}</${tag}>`;
+    }
+    if (block.type === 'image') {
+      const image = `<img src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
+      return block.href ? `<a href="${escapeTemplateText(block.href)}">${image}</a>` : image;
+    }
+    if (block.type === 'divider') return `<hr style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
+    if (block.type === 'spacer') return `<div style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
+    if (block.type === 'trust_signal') return `<p class="secondary-text" style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+    return block.code || '';
+  }
+
+  function designDocumentTemplateSource(document = designDoc) {
+    return document.blocks.map(designBlockToHtml).join('\n');
+  }
+
+  function updateDesignBlock(id: string, updates: Partial<TemplateDesignBlock>) {
+    setDesignDoc((current) => ({
+      blocks: current.blocks.map((block) => block.id === id ? { ...block, ...updates } : block),
+    }));
+    markPreviewStale();
+  }
+
+  function addDesignBlock(type: string) {
+    setDesignDoc((current) => ({ blocks: [...current.blocks, newDesignBlock(type)] }));
+    setEditorMode('design');
+    markPreviewStale();
+  }
+
+  function moveDesignBlock(id: string, direction: -1 | 1) {
+    setDesignDoc((current) => {
+      const blocks = [...current.blocks];
+      const index = blocks.findIndex((block) => block.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= blocks.length) return current;
+      [blocks[index], blocks[nextIndex]] = [blocks[nextIndex], blocks[index]];
+      return { blocks };
+    });
+    markPreviewStale();
+  }
+
+  function removeDesignBlock(id: string) {
+    setDesignDoc((current) => ({ blocks: current.blocks.filter((block) => block.id !== id) }));
+    markPreviewStale();
+  }
+
+  function syncDesignToCode() {
+    const nextHtml = designDocumentTemplateSource();
+    setHtmlBody(nextHtml);
+    markPreviewStale();
+    setStatus(`Synced ${formatInt(designDoc.blocks.length)} design block(s) to HTML/Jinja.`);
+  }
+
+  function switchTemplateEditorMode(nextMode: 'edit' | 'design') {
+    if (nextMode === 'design' && editorMode !== 'design' && (editorMode !== 'preview' || previewSourceMode !== 'design')) {
+      setDesignDoc(htmlToDesignDocument(htmlBody));
+    }
+    if (nextMode === 'edit' && editorMode === 'design') {
+      setHtmlBody(designDocumentTemplateSource());
+    }
+    setEditorMode(nextMode);
+  }
+
   useEffect(() => {
     if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
       const template = templates.find((item) => item.id === routeTemplateId);
@@ -2852,6 +3016,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSubject(defaultTemplateSnapshot.subject);
     setHtmlBody(defaultTemplateSnapshot.htmlBody);
     setCssBody(defaultTemplateSnapshot.cssBody);
+    setDesignDoc({ blocks: [] });
     setSavedTemplateSnapshot(defaultTemplateSnapshot);
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     clearTemplatePreview();
@@ -2861,23 +3026,27 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPendingAiDraft(null);
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
+    setPreviewSourceMode('edit');
     setStatus('Ready to create a new template.');
     return true;
   }
 
   function loadTemplateIntoEditor(template: TemplateRead, options: { force?: boolean } = {}) {
     if (template.id !== selectedTemplateId && !options.force && !confirmDiscardTemplateChanges(`open "${template.name}"`)) return false;
+    const nextDesignDoc = designDocFromTemplate(template);
     const snapshot = {
       name: template.name,
       subject: template.subject,
       htmlBody: template.html_body || '',
       cssBody: template.css_body || '',
+      designDocJson: JSON.stringify(nextDesignDoc),
     };
     setSelectedTemplateId(template.id);
     setName(snapshot.name);
     setSubject(snapshot.subject);
     setHtmlBody(snapshot.htmlBody);
     setCssBody(snapshot.cssBody);
+    setDesignDoc(nextDesignDoc);
     setSavedTemplateSnapshot(snapshot);
     clearTemplatePreview();
     setAiRecommendations([]);
@@ -2885,6 +3054,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPendingAiDraft(null);
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
+    setPreviewSourceMode('edit');
     setStatus(`Loaded template: ${template.name}`);
     return true;
   }
@@ -2922,6 +3092,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setSubject(nextSubject);
       setHtmlBody(nextHtml);
       setCssBody(nextCss);
+      setDesignDoc(htmlToDesignDocument(nextHtml));
       setVariables(variableData.variables || []);
       setVariablesJson(JSON.stringify(renderVariables, null, 2));
       setPreviewHtml(preview.html_body || '');
@@ -2930,6 +3101,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       setAiNotes(draft.change_summary || draft.notes || []);
       setPendingAiDraft(null);
       setAppliedAiDraftLabel(`${draft.provider}/${draft.model}`);
+      setPreviewSourceMode('edit');
       setEditorMode('preview');
       const issueText = preview.errors?.length ? ` ${preview.errors.join('; ')}` : '';
       return `Applied AI draft and refreshed preview: ${preview.subject || nextSubject}.${issueText}`;
@@ -3371,6 +3543,70 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     'tracking_open',
   ].filter(Boolean)));
 
+  function renderDesignBlockControls(block: TemplateDesignBlock) {
+    const textInput = (label: string, key: keyof TemplateDesignBlock, type = 'text') => (
+      <label>
+        {label}
+        <input type={type} value={String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: type === 'number' ? Number(event.target.value) : event.target.value })} />
+      </label>
+    );
+    const textArea = (label: string, key: keyof TemplateDesignBlock) => (
+      <label className="wide-field">
+        {label}
+        <textarea rows={3} value={Array.isArray(block[key]) ? (block[key] as string[]).join('\n') : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: key === 'items' ? event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) : event.target.value })} />
+      </label>
+    );
+    if (block.type === 'heading') {
+      return (
+        <>
+          {textInput('Text', 'text')}
+          {textInput('Level', 'level', 'number')}
+          <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+        </>
+      );
+    }
+    if (block.type === 'button') {
+      return (
+        <>
+          {textInput('Text', 'text')}
+          {textInput('URL', 'href')}
+          {textInput('Background', 'bg', 'color')}
+          {textInput('Text color', 'color', 'color')}
+          {textInput('Radius', 'radius', 'number')}
+        </>
+      );
+    }
+    if (block.type === 'list') {
+      return (
+        <>
+          <label>List type<select value={block.ordered ? 'ordered' : 'bulleted'} onChange={(event) => updateDesignBlock(block.id, { ordered: event.target.value === 'ordered' })}><option value="bulleted">Bulleted</option><option value="ordered">Numbered</option></select></label>
+          {textArea('Items', 'items')}
+        </>
+      );
+    }
+    if (block.type === 'image') {
+      return (
+        <>
+          {textInput('Image URL', 'src')}
+          {textInput('Alt text', 'alt')}
+          {textInput('Link URL', 'href')}
+          {textInput('Width', 'width', 'number')}
+        </>
+      );
+    }
+    if (block.type === 'divider') return <>{textInput('Color', 'color', 'color')}</>;
+    if (block.type === 'spacer') return <>{textInput('Height', 'height', 'number')}</>;
+    if (block.type === 'trust_signal') return <>{textArea('Text', 'text')}</>;
+    if (block.type === 'html') return <>{textArea('HTML / Jinja', 'code')}</>;
+    return (
+      <>
+        {textArea(block.html ? 'Inline HTML' : 'Text', block.html ? 'html' : 'text')}
+        <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+        {textInput('Color', 'color', 'color')}
+      </>
+    );
+  }
+
   async function runTemplateOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
@@ -3390,13 +3626,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   async function saveTemplate() {
     await runTemplateOperation(selectedTemplateId ? 'Saving template' : 'Creating template', async () => {
-      const normalizedHtml = ensureTemplateContainer(formatHtmlJinjaSource(htmlBody));
+      const designHtml = editorMode === 'design' ? designDocumentTemplateSource() : htmlBody;
+      const normalizedHtml = ensureTemplateContainer(formatHtmlJinjaSource(designHtml));
+      const documentJson = editorMode === 'design' ? designDoc : designDoc.blocks.length ? designDoc : {};
       const payload = {
         name: name.trim() || 'Untitled ESP Template',
         subject,
         html_body: normalizedHtml,
         css_body: cssBody || null,
         text_body: null,
+        document_json: documentJson,
       };
       const saved = selectedTemplateId
         ? await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`, {
@@ -3414,6 +3653,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         subject: payload.subject,
         htmlBody: normalizedHtml,
         cssBody: payload.css_body || '',
+        designDocJson: JSON.stringify(documentJson),
       });
       setAppliedAiDraftLabel('');
       window.location.hash = `#templates/${saved.id}`;
@@ -3447,19 +3687,32 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   async function previewTemplate() {
     await runTemplateOperation('Rendering preview', async () => {
+      const sourceHtml = editorMode === 'design' ? designDocumentTemplateSource() : htmlBody;
+      if (editorMode === 'design') setHtmlBody(sourceHtml);
       const variableData = await refreshVariables(true);
-      const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
-        method: 'POST',
-        body: JSON.stringify({
-          subject,
-          html_body: htmlBody,
-          css_body: cssBody || null,
-          variables: variableData.renderVariables,
-        }),
-      });
+      const data = editorMode === 'design'
+        ? await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/document/render', {
+          method: 'POST',
+          body: JSON.stringify({
+            subject,
+            document_json: designDoc,
+            css_body: cssBody || null,
+            variables: variableData.renderVariables,
+          }),
+        })
+        : await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+          method: 'POST',
+          body: JSON.stringify({
+            subject,
+            html_body: sourceHtml,
+            css_body: cssBody || null,
+            variables: variableData.renderVariables,
+          }),
+        });
       setPreviewHtml(data.html_body || '');
       setPreviewSubject(data.subject || '');
       setPreviewFreshness('current');
+      setPreviewSourceMode(editorMode === 'design' ? 'design' : 'edit');
       setEditorMode('preview');
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered preview: ${data.subject}.${issueText}`;
@@ -3498,7 +3751,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       method: 'POST',
       body: JSON.stringify({
         subject,
-        html_body: htmlBody,
+        html_body: editorMode === 'design' ? designDocumentTemplateSource() : htmlBody,
         css_body: cssBody || null,
         variables: currentVariables,
       }),
@@ -3719,7 +3972,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         <div className="template-editor-shell">
           <section className="template-editor-main">
             <div className="tab-row mode-switch">
-              <button className={editorMode === 'edit' ? 'active edit-mode' : 'edit-mode'} onClick={() => setEditorMode('edit')}>Edit</button>
+              <button className={editorMode === 'edit' ? 'active edit-mode' : 'edit-mode'} onClick={() => switchTemplateEditorMode('edit')}>Edit</button>
+              <button className={editorMode === 'design' ? 'active design-mode' : 'design-mode'} onClick={() => switchTemplateEditorMode('design')}>Design</button>
               <button className={`${editorMode === 'preview' ? 'active preview-mode' : 'preview-mode'} ${previewFreshness === 'stale' ? 'needs-refresh' : ''}`} onClick={previewTemplate} disabled={busy}>Preview</button>
             </div>
             {editorMode === 'edit' ? (
@@ -3950,7 +4204,58 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   )}
                 </div>
               </div>
-            ) : previewHtml ? (
+	            ) : editorMode === 'design' ? (
+	              <div className="design-builder-shell">
+	                <div className="design-builder-toolbar">
+	                  <div>
+	                    <strong>Design Blocks</strong>
+	                    <span>{formatInt(designDoc.blocks.length)} block(s). Build email structure visually, then sync to HTML/Jinja when needed.</span>
+	                  </div>
+	                  <div className="button-row">
+	                    {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'].map((type) => (
+	                      <button className="ghost" type="button" key={type} onClick={() => addDesignBlock(type)} disabled={busy}>{type.replace('_', ' ')}</button>
+	                    ))}
+	                  </div>
+	                </div>
+	                {designDoc.blocks.length ? (
+	                  <div className="design-block-list">
+	                    {designDoc.blocks.map((block, index) => (
+	                      <article className="design-block-card" key={block.id}>
+	                        <div className="design-block-head">
+	                          <div>
+	                            <span>Block {index + 1}</span>
+	                            <strong>{block.type === 'html' ? 'HTML / Jinja' : block.type.replace('_', ' ')}</strong>
+	                          </div>
+	                          <div className="button-row">
+	                            <button className="ghost" type="button" onClick={() => moveDesignBlock(block.id, -1)} disabled={busy || index === 0}>Up</button>
+	                            <button className="ghost" type="button" onClick={() => moveDesignBlock(block.id, 1)} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
+	                            <button className="ghost" type="button" onClick={() => removeDesignBlock(block.id)} disabled={busy}>Remove</button>
+	                          </div>
+	                        </div>
+	                        <div className="design-block-fields">
+	                          {renderDesignBlockControls(block)}
+	                        </div>
+	                      </article>
+	                    ))}
+	                  </div>
+	                ) : (
+	                  <div className="empty-state">
+	                    <strong>No design blocks yet</strong>
+	                    <p>Add a block or load an existing block-based template to start designing visually.</p>
+	                  </div>
+	                )}
+	                <div className="design-builder-toolbar compact-design-toolbar">
+	                  <div>
+	                    <strong>Code sync</strong>
+	                    <span>Sync generates HTML/Jinja from the current block model for code editing or saving.</span>
+	                  </div>
+	                  <div className="button-row">
+	                    <button className="ghost" type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync to Code</button>
+	                    <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview Design</button>
+	                  </div>
+	                </div>
+	              </div>
+	            ) : previewHtml ? (
 	              <div className="preview-shell">
 	                {previewFreshness === 'stale' ? (
 	                  <div className="preview-stale-banner">
