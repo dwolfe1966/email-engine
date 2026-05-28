@@ -94,7 +94,6 @@ function failOnConsoleError(params) {
     .map((arg) => arg.value || arg.description || '')
     .filter(Boolean)
     .join(' ');
-  if (/specified value .*#rrggbb/i.test(text)) return;
   errors.push(text || 'Console error emitted.');
 }
 
@@ -102,7 +101,6 @@ function failOnLogError(params) {
   if (!['error', 'warning'].includes(params.level)) return;
   const text = params.text || '';
   if (/favicon|manifest|Failed to load resource/i.test(text)) return;
-  if (/specified value .*#rrggbb/i.test(text)) return;
   errors.push(text || `Log ${params.level} emitted.`);
 }
 

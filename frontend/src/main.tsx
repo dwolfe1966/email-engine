@@ -3773,10 +3773,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   ].filter(Boolean)));
 
   function renderDesignBlockControls(block: TemplateDesignBlock) {
+    const colorValue = (value: unknown, fallback = '#111827') => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback;
     const textInput = (label: string, key: keyof TemplateDesignBlock, type = 'text') => (
       <label>
         {label}
-        <input type={type} value={String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: type === 'number' ? Number(event.target.value) : event.target.value })} />
+        <input type={type} value={type === 'color' ? colorValue(block[key]) : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: type === 'number' ? Number(event.target.value) : event.target.value })} />
       </label>
     );
     const textArea = (label: string, key: keyof TemplateDesignBlock) => (
