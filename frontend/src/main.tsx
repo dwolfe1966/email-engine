@@ -3924,25 +3924,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const sourceHtml = editorMode === 'design' ? designDocumentTemplateSource() : htmlBody;
       if (editorMode === 'design') setHtmlBody(sourceHtml);
       const variableData = await refreshVariables(true);
-      const data = editorMode === 'design'
-        ? await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/document/render', {
-          method: 'POST',
-          body: JSON.stringify({
-            subject,
-            document_json: designDoc,
-            css_body: cssBody || null,
-            variables: variableData.renderVariables,
-          }),
-        })
-        : await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
-          method: 'POST',
-          body: JSON.stringify({
-            subject,
-            html_body: sourceHtml,
-            css_body: cssBody || null,
-            variables: variableData.renderVariables,
-          }),
-        });
+      const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject,
+          html_body: sourceHtml,
+          css_body: cssBody || null,
+          variables: variableData.renderVariables,
+        }),
+      });
       setPreviewHtml(data.html_body || '');
       setPreviewSubject(data.subject || '');
       setPreviewFreshness('current');
