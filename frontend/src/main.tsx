@@ -2685,10 +2685,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       : 'Use the Preview tab to detect variables and render.';
   const templateCategories = new Set(templates.map((template) => template.category || 'template'));
   const detectedVariableNames = variables.map((item) => item.name);
-  const htmlClassNames = Array.from(htmlBody.matchAll(/class=["']([^"']+)["']/g))
+  function extractHtmlClassNames(source: string) {
+    return Array.from(source.matchAll(/class=["']([^"']+)["']/g))
     .flatMap((match) => match[1].split(/\s+/).filter(Boolean))
     .filter((className, index, all) => all.indexOf(className) === index)
     .sort();
+  }
+
+  function cssHasRuleForClass(source: string, className: string) {
+    if (!className) return false;
+    const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm').test(source);
+  }
+
+  const htmlClassNames = extractHtmlClassNames(htmlBody);
   const classableHtmlTagCount = Array.from(htmlBody.matchAll(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi))
     .filter((match) => {
       const tag = match[1].toLowerCase();
@@ -3046,9 +3056,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return `email-${normalized}`;
   }
 
-  function addMissingHtmlClasses() {
+  function htmlWithMissingClasses(source: string) {
     let added = 0;
-    const nextHtml = htmlBody.replace(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi, (full, tag: string, attrs = '') => {
+    const html = source.replace(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi, (full, tag: string, attrs = '') => {
       const normalized = tag.toLowerCase();
       if (['html', 'head', 'body', 'meta', 'title', 'style', 'script', 'br'].includes(normalized) || /\sclass\s*=/.test(attrs)) {
         return full;
@@ -3056,6 +3066,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       added += 1;
       return `<${tag} class="${classNameForHtmlTag(tag, attrs)}"${attrs || ''}>`;
     });
+    return { html, added };
+  }
+
+  function addMissingHtmlClasses() {
+    const { html: nextHtml, added } = htmlWithMissingClasses(htmlBody);
     if (!added) {
       setStatus('All common HTML elements already have classes.');
       return;
@@ -3063,6 +3078,23 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody(nextHtml);
     markPreviewStale();
     setStatus(`Added classes to ${formatInt(added)} HTML element(s). Review CSS coverage for new rules.`);
+  }
+
+  function addMissingHtmlClassesAndCss() {
+    const { html: nextHtml, added } = htmlWithMissingClasses(htmlBody);
+    const nextClassNames = extractHtmlClassNames(nextHtml);
+    const missingRules = nextClassNames.filter((className) => !cssHasRuleForClass(cssBody, className));
+    if (!added && !missingRules.length) {
+      setStatus('HTML classes and CSS rules are already aligned.');
+      return;
+    }
+    const nextRules = missingRules.map((className) => classRuleFromPreset(className, inferCssClassKind(className))).join('\n\n');
+    setHtmlBody(nextHtml);
+    if (nextRules) {
+      setCssBody((current) => `${current.trim()}\n\n${nextRules}`.trim());
+    }
+    markPreviewStale();
+    setStatus(`Added ${formatInt(added)} class(es) and created ${formatInt(missingRules.length)} CSS rule(s). Use Preview to render the updated template.`);
   }
 
   function formatHtmlJinjaSource(source: string) {
@@ -3567,6 +3599,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                    <div className="block-button-grid inline-block-actions">
 	                      <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
 	                      <button className="block-structure" type="button" onClick={addMissingHtmlClasses} disabled={busy || !classableHtmlTagCount}>Add Classes</button>
+	                      <button className="block-structure" type="button" onClick={addMissingHtmlClassesAndCss} disabled={busy || (!classableHtmlTagCount && !missingCssClasses.length)}>Class + CSS</button>
 	                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
                       <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
                       <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
