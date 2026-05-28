@@ -47,6 +47,7 @@ type TemplateDesignBlock = {
   text?: string;
   html?: string;
   code?: string;
+  className?: string;
   level?: number;
   align?: string;
   color?: string;
@@ -860,6 +861,19 @@ function escapeTemplateText(value: unknown) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function decodeTemplateText(value: unknown) {
+  return String(value ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/<[^>]+>/g, '')
+    .trim();
 }
 
 function formatPct(value: number | undefined) {
@@ -2866,11 +2880,88 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function htmlToDesignDocument(source: string): TemplateDesignDocument {
     const trimmed = source.trim();
-    return {
-      blocks: trimmed
-        ? [{ id: designBlockId(), type: 'html', code: trimmed }]
-        : [newDesignBlock('paragraph')],
-    };
+    if (!trimmed) return { blocks: [newDesignBlock('paragraph')] };
+    const innerSource = stripEmailContainer(trimmed);
+    const blocks = parseHtmlDesignBlocks(innerSource);
+    return { blocks: blocks.length ? blocks : [{ id: designBlockId(), type: 'html', code: trimmed }] };
+  }
+
+  function stripEmailContainer(source: string) {
+    const containerMatch = source.match(/^<div\b([^>]*)>([\s\S]*)<\/div>\s*$/i);
+    if (!containerMatch || !/\bemail-container\b/.test(containerMatch[1] || '')) return source;
+    return containerMatch[2].trim();
+  }
+
+  function htmlAttribute(source: string, name: string) {
+    const pattern = new RegExp(`${name}=["']([^"']*)["']`, 'i');
+    return source.match(pattern)?.[1] || '';
+  }
+
+  function styleValue(style: string, property: string) {
+    const pattern = new RegExp(`${property}\\s*:\\s*([^;]+)`, 'i');
+    return style.match(pattern)?.[1]?.trim() || '';
+  }
+
+  function parseHtmlDesignBlocks(source: string) {
+    const blocks: TemplateDesignBlock[] = [];
+    const blockPattern = /({%[\s\S]*?%}|<h[1-3]\b[\s\S]*?<\/h[1-3]>|<p\b[\s\S]*?<\/p>|<a\b[\s\S]*?<\/a>|<img\b[^>]*>|<ul\b[\s\S]*?<\/ul>|<ol\b[\s\S]*?<\/ol>|<hr\b[^>]*>|<div\b[\s\S]*?<\/div>)/gi;
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    while ((match = blockPattern.exec(source))) {
+      const before = source.slice(cursor, match.index).trim();
+      if (before) blocks.push({ id: designBlockId(), type: 'html', code: before });
+      blocks.push(parseHtmlDesignBlock(match[0]));
+      cursor = match.index + match[0].length;
+    }
+    const after = source.slice(cursor).trim();
+    if (after) blocks.push({ id: designBlockId(), type: 'html', code: after });
+    return blocks.filter((block) => block.type !== 'html' || String(block.code || '').trim());
+  }
+
+  function parseHtmlDesignBlock(markup: string): TemplateDesignBlock {
+    const id = designBlockId();
+    const className = htmlAttribute(markup, 'class');
+    const style = htmlAttribute(markup, 'style');
+    const heading = markup.match(/^<h([1-3])\b/i);
+    if (heading) {
+      return { id, type: 'heading', level: Number(heading[1]), text: decodeTemplateText(markup), className, align: styleValue(style, 'text-align') || 'left' };
+    }
+    if (/^<p\b/i.test(markup)) {
+      const link = markup.match(/<a\b([\s\S]*?)>([\s\S]*?)<\/a>/i);
+      if (link && /\bbutton\b/.test(htmlAttribute(link[0], 'class'))) {
+        const linkStyle = htmlAttribute(link[0], 'style');
+        return {
+          id,
+          type: 'button',
+          text: decodeTemplateText(link[2]),
+          href: htmlAttribute(link[0], 'href') || '{{ tracking_click }}',
+          className: htmlAttribute(link[0], 'class') || 'button',
+          bg: styleValue(linkStyle, 'background') || '#2563eb',
+          color: styleValue(linkStyle, 'color') || '#ffffff',
+          radius: Number.parseInt(styleValue(linkStyle, 'border-radius'), 10) || 6,
+        };
+      }
+      return { id, type: 'paragraph', text: decodeTemplateText(markup), className, align: styleValue(style, 'text-align') || 'left', color: styleValue(style, 'color') };
+    }
+    if (/^<a\b/i.test(markup) && /<img\b/i.test(markup)) {
+      const imageMarkup = markup.match(/<img\b[^>]*>/i)?.[0] || '';
+      return { id, type: 'image', src: htmlAttribute(imageMarkup, 'src'), alt: htmlAttribute(imageMarkup, 'alt'), href: htmlAttribute(markup, 'href'), className: htmlAttribute(imageMarkup, 'class'), width: Number.parseInt(htmlAttribute(imageMarkup, 'width'), 10) || 600 };
+    }
+    if (/^<img\b/i.test(markup)) {
+      return { id, type: 'image', src: htmlAttribute(markup, 'src'), alt: htmlAttribute(markup, 'alt'), className, width: Number.parseInt(htmlAttribute(markup, 'width'), 10) || 600 };
+    }
+    if (/^<(ul|ol)\b/i.test(markup)) {
+      return {
+        id,
+        type: 'list',
+        ordered: /^<ol\b/i.test(markup),
+        className,
+        items: Array.from(markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)).map((item) => decodeTemplateText(item[1])),
+      };
+    }
+    if (/^<hr\b/i.test(markup)) return { id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className };
+    if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return { id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className };
+    return { id, type: 'html', code: markup };
   }
 
   function designBlockId() {
@@ -2889,43 +2980,44 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function newDesignBlock(type: string): TemplateDesignBlock {
     const id = designBlockId();
-    if (type === 'heading') return { id, type, text: 'Main headline', level: 1, align: 'left' };
-    if (type === 'button') return { id, type, text: 'Call to Action', href: '{{ tracking_click }}', bg: '#2563eb', color: '#ffffff', radius: 6, padding_y: 11, padding_x: 16 };
-    if (type === 'list') return { id, type, ordered: false, items: ['First point', 'Second point'] };
-    if (type === 'image') return { id, type, src: '{{ hero_image_url }}', alt: 'Image', href: '', width: 600 };
-    if (type === 'divider') return { id, type, color: '#d8dee6' };
-    if (type === 'spacer') return { id, type, height: 24 };
-    if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.' };
+    if (type === 'heading') return { id, type, text: 'Main headline', level: 1, align: 'left', className: 'email-title' };
+    if (type === 'button') return { id, type, text: 'Call to Action', href: '{{ tracking_click }}', className: 'button', bg: '#2563eb', color: '#ffffff', radius: 6, padding_y: 11, padding_x: 16 };
+    if (type === 'list') return { id, type, ordered: false, items: ['First point', 'Second point'], className: 'email-list' };
+    if (type === 'image') return { id, type, src: '{{ hero_image_url }}', alt: 'Image', href: '', width: 600, className: 'email-image' };
+    if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
+    if (type === 'spacer') return { id, type, height: 24, className: 'email-spacer' };
+    if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.', className: 'secondary-text' };
     if (type === 'html') return { id, type, code: '<p class="email-copy">Custom HTML or Jinja</p>' };
-    return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '' };
+    return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '', className: 'email-copy' };
   }
 
   function designBlockToHtml(block: TemplateDesignBlock) {
+    const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     if (block.type === 'heading') {
       const level = Math.min(3, Math.max(1, Number(block.level || 1)));
-      return `<h${level} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+      return `<h${level}${classAttr} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
     }
     if (block.type === 'paragraph') {
-      if (block.html) return `<p>${block.html}</p>`;
+      if (block.html) return `<p${classAttr}>${block.html}</p>`;
       const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
-      return `<p style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
+      return `<p${classAttr} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
     }
     if (block.type === 'button') {
       const style = `display:inline-block;background:${block.bg || '#2563eb'};color:${block.color || '#ffffff'};padding:${Number(block.padding_y || 11)}px ${Number(block.padding_x || 16)}px;text-decoration:none;border-radius:${Number(block.radius || 6)}px;font-weight:700;`;
-      return `<p><a class="button" href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+      return `<p class="email-action"><a${classAttr || ' class="button"'} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
     }
     if (block.type === 'list') {
       const tag = block.ordered ? 'ol' : 'ul';
       const items = (block.items || []).map((item) => `<li>${escapeTemplateText(item)}</li>`).join('');
-      return `<${tag}>${items}</${tag}>`;
+      return `<${tag}${classAttr}>${items}</${tag}>`;
     }
     if (block.type === 'image') {
-      const image = `<img src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
+      const image = `<img${classAttr} src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
       return block.href ? `<a href="${escapeTemplateText(block.href)}">${image}</a>` : image;
     }
-    if (block.type === 'divider') return `<hr style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
-    if (block.type === 'spacer') return `<div style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
-    if (block.type === 'trust_signal') return `<p class="secondary-text" style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+    if (block.type === 'divider') return `<hr${classAttr} style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
+    if (block.type === 'spacer') return `<div${classAttr} style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
+    if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
   }
 
@@ -3560,6 +3652,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return (
         <>
           {textInput('Text', 'text')}
+          {textInput('CSS class', 'className')}
           {textInput('Level', 'level', 'number')}
           <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         </>
@@ -3570,6 +3663,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         <>
           {textInput('Text', 'text')}
           {textInput('URL', 'href')}
+          {textInput('CSS class', 'className')}
           {textInput('Background', 'bg', 'color')}
           {textInput('Text color', 'color', 'color')}
           {textInput('Radius', 'radius', 'number')}
@@ -3580,6 +3674,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return (
         <>
           <label>List type<select value={block.ordered ? 'ordered' : 'bulleted'} onChange={(event) => updateDesignBlock(block.id, { ordered: event.target.value === 'ordered' })}><option value="bulleted">Bulleted</option><option value="ordered">Numbered</option></select></label>
+          {textInput('CSS class', 'className')}
           {textArea('Items', 'items')}
         </>
       );
@@ -3590,17 +3685,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           {textInput('Image URL', 'src')}
           {textInput('Alt text', 'alt')}
           {textInput('Link URL', 'href')}
+          {textInput('CSS class', 'className')}
           {textInput('Width', 'width', 'number')}
         </>
       );
     }
-    if (block.type === 'divider') return <>{textInput('Color', 'color', 'color')}</>;
-    if (block.type === 'spacer') return <>{textInput('Height', 'height', 'number')}</>;
-    if (block.type === 'trust_signal') return <>{textArea('Text', 'text')}</>;
+    if (block.type === 'divider') return <>{textInput('CSS class', 'className')}{textInput('Color', 'color', 'color')}</>;
+    if (block.type === 'spacer') return <>{textInput('CSS class', 'className')}{textInput('Height', 'height', 'number')}</>;
+    if (block.type === 'trust_signal') return <>{textInput('CSS class', 'className')}{textArea('Text', 'text')}</>;
     if (block.type === 'html') return <>{textArea('HTML / Jinja', 'code')}</>;
     return (
       <>
         {textArea(block.html ? 'Inline HTML' : 'Text', block.html ? 'html' : 'text')}
+        {textInput('CSS class', 'className')}
         <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         {textInput('Color', 'color', 'color')}
       </>
