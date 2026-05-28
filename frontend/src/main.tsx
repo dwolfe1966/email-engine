@@ -2658,6 +2658,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
   const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
+  const [aiInstructionMode, setAiInstructionMode] = useState('Custom');
   const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
@@ -2698,6 +2699,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       instruction: 'Improve deliverability readiness by reducing spammy language, preserving required compliance content, and keeping HTML email-safe.',
     },
   ];
+  function chooseAiInstructionPreset(label: string, instruction: string) {
+    setAiInstruction(instruction);
+    setAiInstructionMode(label);
+  }
   const previewStatusText = previewFreshness === 'current'
     ? 'Preview reflects current sample data.'
     : previewFreshness === 'stale'
@@ -3880,12 +3885,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               <section className="workflow-section">
                 <h3>AI Edit Request</h3>
                 <div className="ai-request-box">
-                  <div className="ai-preset-row">
-                    {aiInstructionPresets.map((preset) => (
-                      <button className="ghost" type="button" key={preset.label} onClick={() => setAiInstruction(preset.instruction)} disabled={busy}>{preset.label}</button>
-                    ))}
-                  </div>
-                  <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
+	                  <div className="ai-preset-row">
+	                    {aiInstructionPresets.map((preset) => (
+	                      <button className={aiInstructionMode === preset.label ? 'ghost active' : 'ghost'} type="button" key={preset.label} onClick={() => chooseAiInstructionPreset(preset.label, preset.instruction)} disabled={busy}>{preset.label}</button>
+	                    ))}
+	                  </div>
+	                  <textarea value={aiInstruction} onChange={(event) => {
+	                    setAiInstruction(event.target.value);
+	                    setAiInstructionMode('Custom');
+	                  }} rows={4} />
+	                  <span className="ai-request-mode">{aiInstructionMode === 'Custom' ? 'Custom AI request' : `${aiInstructionMode} preset selected`}</span>
                   <div className="button-row">
                     <button className="primary" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
                     <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>Suggestions</button>
