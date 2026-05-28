@@ -2663,6 +2663,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
+  const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
@@ -2939,6 +2940,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   useEffect(() => {
     if (classableHtmlTagCount) setHtmlToolsOpen(true);
   }, [classableHtmlTagCount]);
+
+  useEffect(() => {
+    if (missingCssClasses.length || (selectedCssClass && !selectedCssRule)) setCssToolsOpen(true);
+  }, [missingCssClasses.length, selectedCssClass, selectedCssRule]);
 
   function generatedCssFromPreset() {
     const width = Number(cssPreset.container) || 640;
@@ -3688,9 +3693,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                  }} rows={7} />
 	                  <div className="editor-tool-panel">
 	                    <div className="tool-panel-head">
-	                      <strong>CSS rule tools</strong>
-	                      <span>Select an HTML class, tune the controls, then update the CSS editor.</span>
+	                      <button className="tool-panel-toggle" type="button" onClick={() => setCssToolsOpen((current) => !current)}>{cssToolsOpen ? 'Hide CSS tools' : 'Show CSS tools'}</button>
+	                      <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rule(s)` : 'Select an HTML class, tune controls, then update CSS.'}</span>
 	                    </div>
+	                    {cssToolsOpen ? (
+	                      <>
 	                    <div className="css-tool-actions">
 	                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
 	                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
@@ -3758,10 +3765,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                       <input type="number" min="0" max="24" step="2" value={cssPreset.radius} onChange={(event) => setCssPreset((current) => ({ ...current, radius: event.target.value }))} />
                     </label>
 	                    <button className="ghost" type="button" onClick={applyCssPreset} disabled={busy}>{selectedCssClass ? (selectedCssRule ? 'Update Class CSS' : 'Create Class CSS') : 'Generate CSS'}</button>
-                    <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
-                    </div>
-                  </div>
-                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
+	                    <button className="ghost" type="button" onClick={() => syncCssControlsFromRule()} disabled={busy || !selectedCssClass}>Load From CSS</button>
+	                    </div>
+	                      </>
+	                    ) : null}
+	                  </div>
+	                  <p className="muted css-kind-hint">{cssClassKindHelp}</p>
 	                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to {selectedCssRule ? 'update' : 'create'} its CSS rule.</p> : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
