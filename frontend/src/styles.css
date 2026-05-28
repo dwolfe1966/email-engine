@@ -1300,14 +1300,50 @@ th {
 
 .design-block-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .design-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 0.42fr) minmax(420px, 1fr);
+  grid-template-columns: minmax(220px, 0.32fr) minmax(420px, 1fr);
   gap: 12px;
   align-items: start;
+}
+
+.design-workspace-grid.structure-collapsed {
+  grid-template-columns: 76px minmax(420px, 1fr);
+}
+
+.design-structure-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.design-structure-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.design-structure-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.design-structure-head strong {
+  color: #29405f;
+  font-size: 13px;
+}
+
+.design-structure-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
 }
 
 .design-canvas-panel {
@@ -1358,11 +1394,10 @@ th {
 
 .design-block-card {
   display: grid;
-  gap: 6px;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fff;
-  padding: 9px 10px;
+  padding: 8px;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
@@ -1370,7 +1405,7 @@ th {
 .design-block-card.selected {
   border-color: #2563eb;
   background: #f8fbff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: inset 3px 0 0 #2563eb;
 }
 
 .design-block-head {

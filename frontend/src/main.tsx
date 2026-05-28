@@ -2731,6 +2731,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
+  const [structureOpen, setStructureOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -4418,8 +4419,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	              <div className="design-builder-shell">
 	                <div className="design-builder-toolbar">
 	                  <div>
-	                    <strong>Design Blocks</strong>
-	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Select a block to style its class.</span>
+	                    <strong>Design Canvas</strong>
+	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Use the canvas for selection and the inspector for editing.</span>
 	                  </div>
 	                  <div className="button-row">
 	                    {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'].map((type) => (
@@ -4428,8 +4429,17 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  </div>
 	                </div>
 	                {designDoc.blocks.length ? (
-                    <div className="design-workspace-grid">
-	                    <div className="design-block-list">
+                    <div className={`design-workspace-grid ${structureOpen ? '' : 'structure-collapsed'}`}>
+	                    <div className="design-structure-panel">
+                        <div className="design-structure-head">
+                          <div>
+                            <strong>Structure</strong>
+                            <span>{formatInt(designDoc.blocks.length)} items</span>
+                          </div>
+                          <button className="ghost" type="button" onClick={() => setStructureOpen((current) => !current)}>{structureOpen ? 'Hide' : 'Show'}</button>
+                        </div>
+                        {structureOpen ? (
+                        <div className="design-block-list">
 	                      {designDoc.blocks.map((block, index) => (
 	                        <article
                             className={`design-block-card ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
@@ -4450,6 +4460,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                        </article>
 	                      ))}
 	                    </div>
+                        ) : null}
+                      </div>
                       <aside className="design-canvas-panel">
                         <div className="design-canvas-head">
                           <strong>Live Canvas</strong>
