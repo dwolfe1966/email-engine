@@ -1785,6 +1785,27 @@ th {
   background: #fffaf0;
 }
 
+.readiness-action-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #f0c978;
+  border-radius: 8px;
+  background: #fff8e8;
+  padding: 10px;
+}
+
+.readiness-action-card strong {
+  color: #8a5d12;
+  font-size: 13px;
+}
+
+.readiness-action-card span {
+  color: #7c5b22;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .compact-status-list strong,
 .recommendation-list strong,
 .ai-draft-preview strong {

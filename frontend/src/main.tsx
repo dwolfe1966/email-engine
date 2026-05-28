@@ -2777,6 +2777,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       detail: /tracking_(open|click)|href=/i.test(htmlBody) ? 'Tracking or links are present.' : 'Add links or tracking placeholders for reporting.',
     },
     {
+      label: 'Styling',
+      ready: !missingCssClasses.length,
+      detail: missingCssClasses.length ? `${formatInt(missingCssClasses.length)} HTML class(es) need CSS rules.` : 'Detected classes have CSS coverage.',
+    },
+    {
       label: 'Preview',
       ready: previewFreshness === 'current',
       detail: previewFreshness === 'current' ? 'Rendered with sample variables.' : previewStatusText,
@@ -3146,6 +3151,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setCssBody((current) => `${current.trim()}\n\n${missingRules}`.trim());
     markPreviewStale();
     setStatus(`Created CSS rules for ${missingCssClasses.map((className) => `.${className}`).join(', ')}. Click Preview to render them.`);
+  }
+
+  function openCssGapTools() {
+    setEditorMode('edit');
+    setCssToolsOpen(true);
+    if (missingCssClasses[0]) setSelectedCssClass(missingCssClasses[0]);
+    setStatus(missingCssClasses.length ? `Opened CSS tools for ${formatInt(missingCssClasses.length)} missing class rule(s).` : 'Opened CSS tools. All detected classes currently have rules.');
   }
 
   function htmlBlockSnippet(kind: string) {
@@ -3997,6 +4009,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                   </div>
                 ))}
               </div>
+              {missingCssClasses.length ? (
+                <div className="readiness-action-card">
+                  <strong>CSS coverage needs attention</strong>
+                  <span>{missingCssClasses.slice(0, 4).map((className) => `.${className}`).join(', ')}{missingCssClasses.length > 4 ? ` and ${formatInt(missingCssClasses.length - 4)} more` : ''}</span>
+                  <div className="button-row">
+                    <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Open CSS Tools</button>
+                    <button className="primary" type="button" onClick={scaffoldMissingCssClasses} disabled={busy}>Create Missing Rules</button>
+                  </div>
+                </div>
+              ) : null}
             </section>
             {isPersistedTemplate ? (
               <section className="workflow-section">
