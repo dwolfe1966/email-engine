@@ -1,4 +1,4 @@
-.PHONY: install dev test lint migrate
+.PHONY: install dev test lint migrate smoke-esp-template
 
 install:
 	pip install -e ".[dev]"
@@ -14,3 +14,6 @@ lint:
 
 migrate:
 	alembic upgrade head
+
+smoke-esp-template:
+	node scripts/esp_template_smoke.mjs $${ESP_BASE_URL:-https://email-engine.app}
