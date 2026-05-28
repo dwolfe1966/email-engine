@@ -3711,7 +3711,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               <button className={`${editorMode === 'preview' ? 'active preview-mode' : 'preview-mode'} ${previewFreshness === 'stale' ? 'needs-refresh' : ''}`} onClick={previewTemplate} disabled={busy}>Preview</button>
             </div>
             {editorMode === 'edit' ? (
-              <div className="form-grid">
+              <div className="form-grid template-edit-grid">
                 <label>
                   Template name
                   <input value={name} onChange={(event) => setName(event.target.value)} />
@@ -3723,7 +3723,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                    markPreviewStale();
 	                  }} />
 	                </label>
-                <div className="wide-field editor-field">
+                <div className="wide-field editor-field html-editor-field">
                   <span className="field-title">
                     HTML / Jinja
                     <small>Insert blocks into the editor below</small>
@@ -3788,7 +3788,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     ) : null}
                   </div>
                 </div>
-	                <div className="editor-field">
+		                <div className="editor-field sample-editor-field">
 	                  <span className="field-title">
 	                    Sample variables JSON
 	                    <small>{variablesJsonError ? 'Fix JSON before previewing' : 'Field editor updates this JSON'}</small>
@@ -3822,7 +3822,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <p className="muted">Click Preview to detect variables and create editable sample data.</p>
                   )}
                 </div>
-                <div className="wide-field editor-field">
+                <div className="wide-field editor-field css-editor-field">
                   <span className="field-title">
                     CSS
                     <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
