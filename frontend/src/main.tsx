@@ -2730,6 +2730,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [editorMode, setEditorMode] = useState<'edit' | 'design' | 'preview'>('edit');
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
+  const [designDocEdited, setDesignDocEdited] = useState(false);
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
@@ -2758,7 +2759,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     subject,
     htmlBody,
     cssBody,
-    designDocJson: JSON.stringify(designDoc),
+    designDocJson: designDocEdited ? semanticDesignDocJson(designDoc) : savedTemplateSnapshot.designDocJson,
   };
   const hasUnsavedTemplateChanges = currentTemplateSnapshot.name !== savedTemplateSnapshot.name
     || currentTemplateSnapshot.subject !== savedTemplateSnapshot.subject
@@ -2884,6 +2885,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return { blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)) };
     }
     return htmlToDesignDocument(template.html_body || '');
+  }
+
+  function semanticDesignDocJson(document: TemplateDesignDocument) {
+    return JSON.stringify({
+      blocks: document.blocks.map((block) => {
+        const { id: _id, ...semanticBlock } = block;
+        return semanticBlock;
+      }),
+    });
   }
 
   function htmlToDesignDocument(source: string): TemplateDesignDocument {
@@ -3189,6 +3199,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setDesignDoc((current) => ({
       blocks: current.blocks.map((block) => block.id === id ? { ...block, ...updates } : block),
     }));
+    setDesignDocEdited(true);
     markPreviewStale();
   }
 
@@ -3204,6 +3215,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     });
     setSelectedDesignBlockId(block.id);
     setEditorMode('design');
+    setDesignDocEdited(true);
     markPreviewStale();
     setStatus(`Added ${type.replace('_', ' ')} block${targetId ? ' at drop point' : ''}.`);
   }
@@ -3217,6 +3229,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       [blocks[index], blocks[nextIndex]] = [blocks[nextIndex], blocks[index]];
       return { blocks };
     });
+    setDesignDocEdited(true);
     markPreviewStale();
   }
 
@@ -3234,18 +3247,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return { blocks };
     });
     setSelectedDesignBlockId(sourceId);
+    setDesignDocEdited(true);
     markPreviewStale();
   }
 
   function removeDesignBlock(id: string) {
     setDesignDoc((current) => ({ blocks: current.blocks.filter((block) => block.id !== id) }));
     setSelectedDesignBlockId((current) => current === id ? '' : current);
+    setDesignDocEdited(true);
     markPreviewStale();
   }
 
   function syncDesignToCode() {
     const nextHtml = designDocumentTemplateSource();
     setHtmlBody(nextHtml);
+    setDesignDocEdited(false);
     markPreviewStale();
     setStatus(`Synced ${formatInt(designDoc.blocks.length)} design block(s) to HTML/Jinja.`);
   }
@@ -3253,9 +3269,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   function switchTemplateEditorMode(nextMode: 'edit' | 'design') {
     if (nextMode === 'design' && editorMode !== 'design' && (editorMode !== 'preview' || previewSourceMode !== 'design')) {
       setDesignDoc(htmlToDesignDocument(htmlBody));
+      setDesignDocEdited(false);
     }
     if (nextMode === 'edit' && editorMode === 'design') {
-      setHtmlBody(designDocumentTemplateSource());
+      if (designDocEdited) setHtmlBody(designDocumentTemplateSource());
+      setDesignDocEdited(false);
     }
     setEditorMode(nextMode);
   }
@@ -3342,6 +3360,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setHtmlBody(defaultTemplateSnapshot.htmlBody);
     setCssBody(defaultTemplateSnapshot.cssBody);
     setDesignDoc({ blocks: [] });
+    setDesignDocEdited(false);
     setSelectedDesignBlockId('');
     setSavedTemplateSnapshot(defaultTemplateSnapshot);
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
@@ -3365,7 +3384,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       subject: template.subject,
       htmlBody: template.html_body || '',
       cssBody: template.css_body || '',
-      designDocJson: JSON.stringify(nextDesignDoc),
+      designDocJson: semanticDesignDocJson(nextDesignDoc),
     };
     setSelectedTemplateId(template.id);
     setName(snapshot.name);
@@ -3373,6 +3392,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setHtmlBody(snapshot.htmlBody);
     setCssBody(snapshot.cssBody);
     setDesignDoc(nextDesignDoc);
+    setDesignDocEdited(false);
     setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
     setSavedTemplateSnapshot(snapshot);
     clearTemplatePreview();
@@ -3420,6 +3440,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setHtmlBody(nextHtml);
       setCssBody(nextCss);
       setDesignDoc(htmlToDesignDocument(nextHtml));
+      setDesignDocEdited(false);
       setVariables(variableData.variables || []);
       setVariablesJson(JSON.stringify(renderVariables, null, 2));
       setPreviewHtml(preview.html_body || '');
@@ -4005,12 +4026,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         });
       setSelectedTemplateId(saved.id);
       setHtmlBody(normalizedHtml);
+      setDesignDocEdited(false);
       setSavedTemplateSnapshot({
         name: payload.name,
         subject: payload.subject,
         htmlBody: normalizedHtml,
         cssBody: payload.css_body || '',
-        designDocJson: JSON.stringify(documentJson),
+        designDocJson: Array.isArray((documentJson as TemplateDesignDocument).blocks)
+          ? semanticDesignDocJson(documentJson as TemplateDesignDocument)
+          : '{"blocks":[]}',
       });
       setAppliedAiDraftLabel('');
       window.location.hash = `#templates/${saved.id}`;
@@ -4045,7 +4069,6 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   async function previewTemplate() {
     await runTemplateOperation('Rendering preview', async () => {
       const sourceHtml = editorMode === 'design' ? designDocumentTemplateSource() : htmlBody;
-      if (editorMode === 'design') setHtmlBody(sourceHtml);
       const variableData = await refreshVariables(true);
       const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
         method: 'POST',
