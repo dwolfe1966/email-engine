@@ -1318,6 +1318,17 @@ th {
   resize: vertical;
 }
 
+.ai-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ai-preset-row button {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+
 .css-helper-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

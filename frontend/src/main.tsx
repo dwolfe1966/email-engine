@@ -2680,6 +2680,24 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const isPersistedTemplate = Boolean(selectedTemplateId);
   const isCreatingTemplate = !isPersistedTemplate;
+  const aiInstructionPresets = [
+    {
+      label: 'Tighten copy',
+      instruction: 'Make the copy more concise and clearer, preserve all Jinja variables, and keep the same offer and structure.',
+    },
+    {
+      label: 'Stronger CTA',
+      instruction: 'Improve the call to action, make the next step obvious, preserve all Jinja variables, and keep the layout email-safe.',
+    },
+    {
+      label: 'Personalize',
+      instruction: 'Increase personalization using the available variables, preserve all existing Jinja logic, and avoid inventing unsupported variables.',
+    },
+    {
+      label: 'Deliverability',
+      instruction: 'Improve deliverability readiness by reducing spammy language, preserving required compliance content, and keeping HTML email-safe.',
+    },
+  ];
   const previewStatusText = previewFreshness === 'current'
     ? 'Preview reflects current sample data.'
     : previewFreshness === 'stale'
@@ -3862,6 +3880,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               <section className="workflow-section">
                 <h3>AI Edit Request</h3>
                 <div className="ai-request-box">
+                  <div className="ai-preset-row">
+                    {aiInstructionPresets.map((preset) => (
+                      <button className="ghost" type="button" key={preset.label} onClick={() => setAiInstruction(preset.instruction)} disabled={busy}>{preset.label}</button>
+                    ))}
+                  </div>
                   <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
                   <div className="button-row">
                     <button className="primary" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
