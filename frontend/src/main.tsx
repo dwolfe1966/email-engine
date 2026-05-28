@@ -33,6 +33,13 @@ type TemplateCodeEditorHandle = {
   setSelectionRange: (from: number, to: number) => void;
 };
 
+type TemplateEditSnapshot = {
+  name: string;
+  subject: string;
+  htmlBody: string;
+  cssBody: string;
+};
+
 type TemplateCodeEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -2638,6 +2645,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
+  const defaultTemplateSnapshot: TemplateEditSnapshot = {
+    name: 'ESP Template Draft',
+    subject: 'Hello {{ first_name }}',
+    htmlBody: '<div class="email-container">\n  <p class="email-copy">Hello {{ first_name }},</p>\n  <p class="email-copy">Welcome to Email Engine.</p>\n</div>',
+    cssBody: 'body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }',
+  };
   const routeParts = route.split('/');
   const routeTemplateId = routeParts[0] === 'templates' && routeParts[1] && routeParts[1] !== 'new'
     ? routeParts[1]
@@ -2647,8 +2660,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [name, setName] = useState('ESP Template Draft');
   const [subject, setSubject] = useState('Hello {{ first_name }}');
-  const [htmlBody, setHtmlBody] = useState('<p>Hello {{ first_name }},</p>\n<p>Welcome to Email Engine.</p>');
+  const [htmlBody, setHtmlBody] = useState(defaultTemplateSnapshot.htmlBody);
   const [cssBody, setCssBody] = useState('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
+  const [savedTemplateSnapshot, setSavedTemplateSnapshot] = useState<TemplateEditSnapshot>(defaultTemplateSnapshot);
   const [variablesJson, setVariablesJson] = useState('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
   const [status, setStatus] = useState('Ready to edit or preview a template.');
   const [busy, setBusy] = useState(false);
@@ -2682,6 +2696,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const isPersistedTemplate = Boolean(selectedTemplateId);
   const isCreatingTemplate = !isPersistedTemplate;
+  const currentTemplateSnapshot: TemplateEditSnapshot = {
+    name,
+    subject,
+    htmlBody,
+    cssBody,
+  };
+  const hasUnsavedTemplateChanges = currentTemplateSnapshot.name !== savedTemplateSnapshot.name
+    || currentTemplateSnapshot.subject !== savedTemplateSnapshot.subject
+    || currentTemplateSnapshot.htmlBody !== savedTemplateSnapshot.htmlBody
+    || currentTemplateSnapshot.cssBody !== savedTemplateSnapshot.cssBody;
   const aiInstructionPresets = [
     {
       label: 'Tighten copy',
@@ -2784,10 +2808,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function resetTemplateEditor() {
     setSelectedTemplateId('');
-    setName('ESP Template Draft');
-    setSubject('Hello {{ first_name }}');
-    setHtmlBody('<div class="email-container">\n  <p class="email-copy">Hello {{ first_name }},</p>\n  <p class="email-copy">Welcome to Email Engine.</p>\n</div>');
-    setCssBody('body { font-family: Arial, sans-serif; color: #111827; }\np { line-height: 1.5; }');
+    setName(defaultTemplateSnapshot.name);
+    setSubject(defaultTemplateSnapshot.subject);
+    setHtmlBody(defaultTemplateSnapshot.htmlBody);
+    setCssBody(defaultTemplateSnapshot.cssBody);
+    setSavedTemplateSnapshot(defaultTemplateSnapshot);
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     clearTemplatePreview();
     setVariables([]);
@@ -2800,11 +2825,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function loadTemplateIntoEditor(template: TemplateRead) {
+    const snapshot = {
+      name: template.name,
+      subject: template.subject,
+      htmlBody: template.html_body || '',
+      cssBody: template.css_body || '',
+    };
     setSelectedTemplateId(template.id);
-    setName(template.name);
-    setSubject(template.subject);
-    setHtmlBody(template.html_body || '');
-    setCssBody(template.css_body || '');
+    setName(snapshot.name);
+    setSubject(snapshot.subject);
+    setHtmlBody(snapshot.htmlBody);
+    setCssBody(snapshot.cssBody);
+    setSavedTemplateSnapshot(snapshot);
     clearTemplatePreview();
     setAiRecommendations([]);
     setAiNotes([]);
@@ -3336,6 +3368,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         });
       setSelectedTemplateId(saved.id);
       setHtmlBody(normalizedHtml);
+      setSavedTemplateSnapshot({
+        name: payload.name,
+        subject: payload.subject,
+        htmlBody: normalizedHtml,
+        cssBody: payload.css_body || '',
+      });
       setAppliedAiDraftLabel('');
       window.location.hash = `#templates/${saved.id}`;
       await onRefresh();
@@ -3600,8 +3638,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         <div className="campaign-action-bar template-action-bar">
           <div>
             <strong>Template</strong>
-            <button className="primary" onClick={saveTemplate} disabled={busy}>{isCreatingTemplate ? 'Create Template' : 'Save Changes'}</button>
-            <button className="ghost" onClick={cancelTemplateChanges} disabled={busy}>{isCreatingTemplate ? 'Cancel Draft' : 'Revert Changes'}</button>
+            <button className="primary" onClick={saveTemplate} disabled={busy || (!isCreatingTemplate && !hasUnsavedTemplateChanges)}>{isCreatingTemplate ? 'Create Template' : 'Save Changes'}</button>
+            <button className="ghost" onClick={cancelTemplateChanges} disabled={busy || (!isCreatingTemplate && !hasUnsavedTemplateChanges)}>{isCreatingTemplate ? 'Cancel Draft' : 'Revert Changes'}</button>
+            <span className={hasUnsavedTemplateChanges ? 'edit-state-pill dirty' : 'edit-state-pill'}>{hasUnsavedTemplateChanges ? 'Unsaved changes' : 'Saved'}</span>
           </div>
           <div>
             <strong>AI Assist</strong>
@@ -3628,6 +3667,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <div className="operation-banner ai-unsaved-banner">
             <strong>Unsaved AI edit</strong>
             <span>Applied draft from {appliedAiDraftLabel}. Save changes to persist this template version, or revert changes to reload from the database.</span>
+          </div>
+        ) : null}
+        {hasUnsavedTemplateChanges && !appliedAiDraftLabel ? (
+          <div className="operation-banner unsaved-template-banner">
+            <strong>Unsaved changes</strong>
+            <span>The editor differs from the last saved template. Save changes to persist them, or revert changes to reload from the database.</span>
           </div>
         ) : null}
         <div className="template-editor-shell">

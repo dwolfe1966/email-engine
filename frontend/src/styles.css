@@ -1080,6 +1080,22 @@ th {
   font-weight: 700;
 }
 
+.edit-state-pill {
+  border: 1px solid #c9d8eb;
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.edit-state-pill.dirty {
+  border-color: #f0c978;
+  background: #fff8e8;
+  color: #8a5d12;
+}
+
 .editor-tool-panel {
   display: grid;
   gap: 8px;
@@ -1771,6 +1787,11 @@ th {
 .operation-banner.ai-unsaved-banner {
   border-color: #f2d5a4;
   background: #fffaf0;
+}
+
+.operation-banner.unsaved-template-banner {
+  border-color: #f0c978;
+  background: #fff8e8;
 }
 
 .operation-banner span,
