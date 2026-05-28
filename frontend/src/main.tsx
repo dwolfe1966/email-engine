@@ -4443,14 +4443,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                                 {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
 	                            </div>
 	                            <div className="button-row">
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); focusDesignBlockCss(block); }} disabled={busy || !block.className}>Style</button>
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || index === 0}>Up</button>
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); removeDesignBlock(block.id); }} disabled={busy}>Remove</button>
 	                            </div>
-	                          </div>
-	                          <div className="design-block-fields">
-	                            {renderDesignBlockControls(block)}
 	                          </div>
 	                        </article>
 	                      ))}

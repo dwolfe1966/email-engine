@@ -1305,7 +1305,7 @@ th {
 
 .design-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(220px, 0.42fr) minmax(420px, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -1358,11 +1358,11 @@ th {
 
 .design-block-card {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fff;
-  padding: 12px;
+  padding: 9px 10px;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
@@ -1376,7 +1376,7 @@ th {
 .design-block-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -1394,13 +1394,13 @@ th {
 
 .design-block-head strong {
   color: #29405f;
-  font-size: 14px;
+  font-size: 13px;
   text-transform: capitalize;
 }
 
 .design-block-head em {
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 750;
 }
