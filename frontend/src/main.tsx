@@ -2793,10 +2793,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   useEffect(() => {
     if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
       const template = templates.find((item) => item.id === routeTemplateId);
-      if (template) loadTemplateIntoEditor(template);
+      if (template && !loadTemplateIntoEditor(template)) {
+        window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
+      }
     }
     if (isNewTemplate && selectedTemplateId) {
-      resetTemplateEditor();
+      if (!resetTemplateEditor()) {
+        window.location.hash = `#templates/${selectedTemplateId}`;
+      }
     }
   }, [isNewTemplate, routeTemplateId, selectedTemplateId, templates]);
 
@@ -2806,7 +2810,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setPreviewFreshness('empty');
   }
 
-  function resetTemplateEditor() {
+  function confirmDiscardTemplateChanges(nextAction: string) {
+    if (!hasUnsavedTemplateChanges) return true;
+    const confirmed = window.confirm(`Discard unsaved template changes and ${nextAction}?`);
+    if (!confirmed) {
+      setStatus('Kept unsaved template changes. Save or revert before switching context.');
+    }
+    return confirmed;
+  }
+
+  function resetTemplateEditor(options: { force?: boolean } = {}) {
+    if (!options.force && !confirmDiscardTemplateChanges('start a new template')) return false;
     setSelectedTemplateId('');
     setName(defaultTemplateSnapshot.name);
     setSubject(defaultTemplateSnapshot.subject);
@@ -2822,9 +2836,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setStatus('Ready to create a new template.');
+    return true;
   }
 
-  function loadTemplateIntoEditor(template: TemplateRead) {
+  function loadTemplateIntoEditor(template: TemplateRead, options: { force?: boolean } = {}) {
+    if (template.id !== selectedTemplateId && !options.force && !confirmDiscardTemplateChanges(`open "${template.name}"`)) return false;
     const snapshot = {
       name: template.name,
       subject: template.subject,
@@ -2844,6 +2860,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setStatus(`Loaded template: ${template.name}`);
+    return true;
   }
 
   async function applyAiDraft(draft: AITemplateDraft) {
@@ -3384,11 +3401,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   async function cancelTemplateChanges() {
     await runTemplateOperation('Cancelling changes', async () => {
       if (!selectedTemplateId) {
-        resetTemplateEditor();
+        resetTemplateEditor({ force: true });
         return 'Discarded unsaved draft changes.';
       }
       const template = await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`);
-      loadTemplateIntoEditor(template);
+      loadTemplateIntoEditor(template, { force: true });
       await onRefresh();
       return `Reloaded template: ${template.name}`;
     });
@@ -3398,7 +3415,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (!window.confirm(`Delete template "${template.name}"?`)) return;
     await runTemplateOperation('Deleting template', async () => {
       await fetchJson<{ id: string }>(`/api/v1/templates/${template.id}`, { method: 'DELETE' });
-      if (selectedTemplateId === template.id) resetTemplateEditor();
+      if (selectedTemplateId === template.id) resetTemplateEditor({ force: true });
       await onRefresh();
       return `Deleted template: ${template.name}.`;
     });
