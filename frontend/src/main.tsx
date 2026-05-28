@@ -2689,6 +2689,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     .flatMap((match) => match[1].split(/\s+/).filter(Boolean))
     .filter((className, index, all) => all.indexOf(className) === index)
     .sort();
+  const classableHtmlTagCount = Array.from(htmlBody.matchAll(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi))
+    .filter((match) => {
+      const tag = match[1].toLowerCase();
+      const attrs = match[2] || '';
+      return !['html', 'head', 'body', 'meta', 'title', 'style', 'script', 'br'].includes(tag) && !/\sclass\s*=/.test(attrs);
+    }).length;
   const liveTemplateGuidance = [
     {
       label: 'Subject',
@@ -3019,6 +3025,44 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       compliance: '<p class="muted">You are receiving this because you opted in. <a class="unsubscribe-link" href="{{ unsubscribe_url }}">Unsubscribe</a></p>',
     };
     return blocks[kind] || blocks.paragraph;
+  }
+
+  function classNameForHtmlTag(tag: string, attrs = '') {
+    const normalized = tag.toLowerCase();
+    if (normalized === 'h1') return 'email-title';
+    if (normalized === 'h2' || normalized === 'h3') return 'email-heading';
+    if (normalized === 'p') return /href=/.test(attrs) ? 'email-action' : 'email-copy';
+    if (normalized === 'a') return /unsubscribe/i.test(attrs) ? 'unsubscribe-link' : 'email-link';
+    if (normalized === 'img') return 'email-image';
+    if (normalized === 'section') return 'email-section';
+    if (normalized === 'div') return 'email-block';
+    if (normalized === 'table') return 'email-table';
+    if (normalized === 'tr') return 'email-row';
+    if (normalized === 'td') return 'email-cell';
+    if (normalized === 'ul' || normalized === 'ol') return 'email-list';
+    if (normalized === 'li') return 'email-list-item';
+    if (normalized === 'blockquote') return 'email-quote';
+    if (normalized === 'hr') return 'email-divider';
+    return `email-${normalized}`;
+  }
+
+  function addMissingHtmlClasses() {
+    let added = 0;
+    const nextHtml = htmlBody.replace(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi, (full, tag: string, attrs = '') => {
+      const normalized = tag.toLowerCase();
+      if (['html', 'head', 'body', 'meta', 'title', 'style', 'script', 'br'].includes(normalized) || /\sclass\s*=/.test(attrs)) {
+        return full;
+      }
+      added += 1;
+      return `<${tag} class="${classNameForHtmlTag(tag, attrs)}"${attrs || ''}>`;
+    });
+    if (!added) {
+      setStatus('All common HTML elements already have classes.');
+      return;
+    }
+    setHtmlBody(nextHtml);
+    markPreviewStale();
+    setStatus(`Added classes to ${formatInt(added)} HTML element(s). Review CSS coverage for new rules.`);
   }
 
   function formatHtmlJinjaSource(source: string) {
@@ -3515,14 +3559,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                      markPreviewStale();
 	                    }}
                   />
-                  <div className="editor-tool-panel">
-                    <div className="tool-panel-head">
-                      <strong>HTML inserts</strong>
-                      <span>These controls insert formatted HTML/Jinja at the cursor.</span>
-                    </div>
-                    <div className="block-button-grid inline-block-actions">
-                      <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
-                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
+	                  <div className="editor-tool-panel">
+	                    <div className="tool-panel-head">
+	                      <strong>HTML inserts</strong>
+	                      <span>{classableHtmlTagCount ? `${formatInt(classableHtmlTagCount)} element(s) need classes` : 'These controls insert formatted HTML/Jinja at the cursor.'}</span>
+	                    </div>
+	                    <div className="block-button-grid inline-block-actions">
+	                      <button className="block-structure" type="button" onClick={formatTemplateSource} disabled={busy}>Format Source</button>
+	                      <button className="block-structure" type="button" onClick={addMissingHtmlClasses} disabled={busy || !classableHtmlTagCount}>Add Classes</button>
+	                      <button className="block-structure" type="button" onClick={() => insertHtmlBlock('container')} disabled={busy}>Container</button>
                       <button className="block-structure" type="button" onClick={() => insertHtmlBlock('twoColumn')} disabled={busy}>2 Columns</button>
                       <button className="block-content" type="button" onClick={() => insertHtmlBlock('hero')} disabled={busy}>Hero CTA</button>
                       <button className="block-content" type="button" onClick={() => insertHtmlBlock('heading')} disabled={busy}>Heading</button>
