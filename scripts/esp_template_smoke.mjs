@@ -188,6 +188,19 @@ try {
         heading.click();
         await wait(400);
       }
+      const firstCard = document.querySelector('.design-block-card');
+      firstCard?.click();
+      await wait(250);
+      const marker = 'Smoke headline ' + Date.now();
+      const inspector = document.querySelector('.design-inspector-panel');
+      if (!inspector) return { ok: false, reason: 'Selected block inspector not found' };
+      const textInput = Array.from(inspector.querySelectorAll('label')).find((label) => (label.textContent || '').trim().startsWith('Text'))?.querySelector('input, textarea');
+      if (!textInput) return { ok: false, reason: 'Selected block text control not found' };
+      const valueSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(textInput), 'value')?.set;
+      valueSetter ? valueSetter.call(textInput, marker) : (textInput.value = marker);
+      textInput.dispatchEvent(new Event('input', { bubbles: true }));
+      textInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await wait(300);
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
@@ -199,7 +212,7 @@ try {
           return {
             ok: true,
             srcDocLength: srcDoc.length,
-            hasExpectedContent: /Main headline|Add body copy|Hello|Email/i.test(srcDoc),
+            hasExpectedContent: srcDoc.includes(marker),
           };
         }
       }
