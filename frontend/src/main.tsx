@@ -3029,6 +3029,27 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return document.blocks.map(designBlockToHtml).join('\n');
   }
 
+  function designCanvasSrcDoc() {
+    const bodyHtml = designDocumentTemplateSource();
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { margin: 0; padding: 24px; background: #eef3f8; font-family: Arial, sans-serif; color: #111827; }
+      .email-container { max-width: 640px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; }
+      img { max-width: 100%; }
+      ${cssBody || ''}
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
+    </div>
+  </body>
+</html>`;
+  }
+
   function updateDesignBlock(id: string, updates: Partial<TemplateDesignBlock>) {
     setDesignDoc((current) => ({
       blocks: current.blocks.map((block) => block.id === id ? { ...block, ...updates } : block),
@@ -4336,32 +4357,41 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                  </div>
 	                </div>
 	                {designDoc.blocks.length ? (
-	                  <div className="design-block-list">
-	                    {designDoc.blocks.map((block, index) => (
-	                      <article
-                          className={`design-block-card ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
-                          key={block.id}
-                          onClick={() => setSelectedDesignBlockId(block.id)}
-                        >
-	                        <div className="design-block-head">
-	                          <div>
-	                            <span>Block {index + 1}</span>
-	                            <strong>{block.type === 'html' ? 'HTML / Jinja' : block.type.replace('_', ' ')}</strong>
-                              {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
+                    <div className="design-workspace-grid">
+	                    <div className="design-block-list">
+	                      {designDoc.blocks.map((block, index) => (
+	                        <article
+                            className={`design-block-card ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+                            key={block.id}
+                            onClick={() => setSelectedDesignBlockId(block.id)}
+                          >
+	                          <div className="design-block-head">
+	                            <div>
+	                              <span>Block {index + 1}</span>
+	                              <strong>{block.type === 'html' ? 'HTML / Jinja' : block.type.replace('_', ' ')}</strong>
+                                {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
+	                            </div>
+	                            <div className="button-row">
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); focusDesignBlockCss(block); }} disabled={busy || !block.className}>Style</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || index === 0}>Up</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); removeDesignBlock(block.id); }} disabled={busy}>Remove</button>
+	                            </div>
 	                          </div>
-	                          <div className="button-row">
-	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); focusDesignBlockCss(block); }} disabled={busy || !block.className}>Style</button>
-	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || index === 0}>Up</button>
-	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
-	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); removeDesignBlock(block.id); }} disabled={busy}>Remove</button>
+	                          <div className="design-block-fields">
+	                            {renderDesignBlockControls(block)}
 	                          </div>
-	                        </div>
-	                        <div className="design-block-fields">
-	                          {renderDesignBlockControls(block)}
-	                        </div>
-	                      </article>
-	                    ))}
-	                  </div>
+	                        </article>
+	                      ))}
+	                    </div>
+                      <aside className="design-canvas-panel">
+                        <div className="design-canvas-head">
+                          <strong>Live Canvas</strong>
+                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
+                        </div>
+                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+                      </aside>
+                    </div>
 	                ) : (
 	                  <div className="empty-state">
 	                    <strong>No design blocks yet</strong>
