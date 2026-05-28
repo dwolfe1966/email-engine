@@ -62,6 +62,7 @@ type TemplateDesignBlock = {
   alt?: string;
   width?: number;
   height?: number;
+  children?: TemplateDesignBlock[];
 };
 
 type TemplateDesignDocument = {
@@ -2808,8 +2809,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm').test(source);
   }
 
-  const designClassNames = Array.from(new Set(designDoc.blocks
-    .flatMap((block) => String(block.className || '').split(/\s+/).filter(Boolean))))
+  function designBlockClassNames(blocks: TemplateDesignBlock[]): string[] {
+    return blocks.flatMap((block) => [
+      ...String(block.className || '').split(/\s+/).filter(Boolean),
+      ...designBlockClassNames(block.children || []),
+    ]);
+  }
+
+  const designClassNames = Array.from(new Set(designBlockClassNames(designDoc.blocks)))
     .sort();
   const htmlClassNames = Array.from(new Set([...extractHtmlClassNames(htmlBody), ...designClassNames])).sort();
   const cssClassCoverage = htmlClassNames.map((className) => {
@@ -2888,11 +2895,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function semanticDesignDocJson(document: TemplateDesignDocument) {
+    const semanticBlock = (block: TemplateDesignBlock): Omit<TemplateDesignBlock, 'id'> => {
+      const { id: _id, ...rest } = block;
+      return {
+        ...rest,
+        children: block.children?.map(semanticBlock),
+      };
+    };
     return JSON.stringify({
-      blocks: document.blocks.map((block) => {
-        const { id: _id, ...semanticBlock } = block;
-        return semanticBlock;
-      }),
+      blocks: document.blocks.map(semanticBlock),
     });
   }
 
@@ -3018,7 +3029,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (/^<div\b/i.test(markup)) {
       const inner = htmlInner(markup, 'div');
       const nestedBlocks = inner ? parseHtmlDesignBlocks(inner) : [];
-      if (nestedBlocks.length > 1 || nestedBlocks.some((block) => block.type !== 'html')) return nestedBlocks;
+      if (nestedBlocks.length > 1 || nestedBlocks.some((block) => block.type !== 'html')) {
+        return [{
+          id,
+          type: 'section',
+          className,
+          bg: styleValue(style, 'background') || '',
+          padding_y: Number.parseInt(styleValue(style, 'padding'), 10) || undefined,
+          children: nestedBlocks,
+        }];
+      }
     }
     return [{ id, type: 'html', code: markup }];
   }
@@ -3034,6 +3054,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       id: block.id || `b_${index}`,
       type: block.type || 'paragraph',
       items: Array.isArray(block.items) ? block.items.map((item) => String(item)) : block.items,
+      children: Array.isArray(block.children) ? block.children.map((child, childIndex) => normalizeDesignBlock(child, childIndex)) : block.children,
     };
   }
 
@@ -3045,6 +3066,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (type === 'image') return { id, type, src: '{{ hero_image_url }}', alt: 'Image', href: '', width: 600, className: 'email-image' };
     if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
     if (type === 'spacer') return { id, type, height: 24, className: 'email-spacer' };
+    if (type === 'section') return { id, type, className: 'email-section', bg: '', padding_y: 18, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] };
     if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.', className: 'secondary-text' };
     if (type === 'html') return { id, type, code: '<p class="email-copy">Custom HTML or Jinja</p>' };
     return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '', className: 'email-copy' };
@@ -3076,19 +3098,39 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     if (block.type === 'divider') return `<hr${classAttr} style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
     if (block.type === 'spacer') return `<div${classAttr} style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
+    if (block.type === 'section') {
+      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
+      const children = (block.children || []).map(designBlockToHtml).join('\n');
+      return `<div${classAttr} style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
+    }
     if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
+  }
+
+  function flattenDesignBlocks(blocks: TemplateDesignBlock[]): TemplateDesignBlock[] {
+    return blocks.flatMap((block) => [block, ...flattenDesignBlocks(block.children || [])]);
+  }
+
+  function flattenDesignBlockEntries(blocks: TemplateDesignBlock[], depth = 0): Array<{ block: TemplateDesignBlock; depth: number; topLevel: boolean }> {
+    return blocks.flatMap((block) => [
+      { block, depth, topLevel: depth === 0 },
+      ...flattenDesignBlockEntries(block.children || [], depth + 1),
+    ]);
   }
 
   function designDocumentTemplateSource(document = designDoc) {
     return document.blocks.map(designBlockToHtml).join('\n');
   }
 
-  const selectedDesignBlock = designDoc.blocks.find((block) => block.id === selectedDesignBlockId) || designDoc.blocks[0];
-  const selectedDesignBlockIndex = selectedDesignBlock ? designDoc.blocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
-  const designPaletteBlockTypes = ['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
+  const flatDesignBlocks = flattenDesignBlocks(designDoc.blocks);
+  const designBlockEntries = flattenDesignBlockEntries(designDoc.blocks);
+  const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
+  const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
+  const selectedDesignBlockTopLevel = Boolean(selectedDesignBlock && designDoc.blocks.some((block) => block.id === selectedDesignBlock.id));
+  const designPaletteBlockTypes = ['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
+      section: 'Section',
       heading: 'Heading',
       paragraph: 'Paragraph',
       button: 'Button',
@@ -3106,6 +3148,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const raw = String(block.code || block.html || '');
     const typeLabels: Record<string, string> = {
       heading: `Heading H${block.level || 1}`,
+      section: 'Section',
       paragraph: 'Paragraph',
       button: 'Button',
       image: 'Image',
@@ -3237,8 +3280,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function updateDesignBlock(id: string, updates: Partial<TemplateDesignBlock>) {
+    const updateBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === id) return { ...block, ...updates };
+      if (block.children?.length) return { ...block, children: updateBlocks(block.children) };
+      return block;
+    });
     setDesignDoc((current) => ({
-      blocks: current.blocks.map((block) => block.id === id ? { ...block, ...updates } : block),
+      blocks: updateBlocks(current.blocks),
     }));
     setDesignDocEdited(true);
     markPreviewStale();
@@ -3293,7 +3341,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function removeDesignBlock(id: string) {
-    setDesignDoc((current) => ({ blocks: current.blocks.filter((block) => block.id !== id) }));
+    const removeBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks
+      .filter((block) => block.id !== id)
+      .map((block) => block.children?.length ? { ...block, children: removeBlocks(block.children) } : block);
+    setDesignDoc((current) => ({ blocks: removeBlocks(current.blocks) }));
     setSelectedDesignBlockId((current) => current === id ? '' : current);
     setDesignDocEdited(true);
     markPreviewStale();
@@ -4012,6 +4063,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         </>
       );
     }
+    if (block.type === 'section') {
+      return (
+        <>
+          {classInput()}
+          {textInput('Background', 'bg', 'color')}
+          {textInput('Padding', 'padding_y', 'number')}
+          <label className="wide-field">
+            Contents
+            <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
+          </label>
+        </>
+      );
+    }
     if (block.type === 'divider') return <>{classInput()}{textInput('Color', 'color', 'color')}</>;
     if (block.type === 'spacer') return <>{classInput()}{textInput('Height', 'height', 'number')}</>;
     if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}</>;
@@ -4650,27 +4714,29 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         <div className="design-structure-head">
                           <div>
                             <strong>Structure</strong>
-                            <span>{formatInt(designDoc.blocks.length)} items</span>
+                            <span>{formatInt(flatDesignBlocks.length)} items</span>
                           </div>
                           <button className="ghost" type="button" onClick={() => setStructureOpen((current) => !current)}>{structureOpen ? 'Hide' : 'Show'}</button>
                         </div>
                         {structureOpen ? (
                           <>
 	                    <div className="design-block-list">
-	                      {designDoc.blocks.map((block, index) => {
+	                      {designBlockEntries.map(({ block, depth, topLevel }, index) => {
                           const meta = designStructureMeta(block);
                           return (
 	                        <article
-                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''} ${dropTargetDesignBlock?.id === block.id ? `drop-${dropTargetDesignBlock.position}` : ''}`}
-                            draggable={!busy}
+                            className={`design-block-card depth-${Math.max(depth, meta.depth)} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''} ${dropTargetDesignBlock?.id === block.id ? `drop-${dropTargetDesignBlock.position}` : ''}`}
+                            draggable={!busy && topLevel}
                             key={block.id}
                             onClick={() => setSelectedDesignBlockId(block.id)}
                             onDragStart={(event) => {
+                              if (!topLevel) return;
                               setDraggedDesignBlockId(block.id);
                               event.dataTransfer.effectAllowed = 'move';
                               event.dataTransfer.setData('text/plain', block.id);
                             }}
                             onDragOver={(event) => {
+                              if (!topLevel) return;
                               event.preventDefault();
                               event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
                               const rect = event.currentTarget.getBoundingClientRect();
@@ -4681,6 +4747,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             }}
                             onDragLeave={() => setDropTargetDesignBlock((current) => current?.id === block.id ? null : current)}
                             onDrop={(event) => {
+                              if (!topLevel) return;
                               event.preventDefault();
                               const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
                               const rect = event.currentTarget.getBoundingClientRect();
@@ -4707,8 +4774,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                                 {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
 	                            </div>
 	                            <div className="button-row">
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || index === 0}>Up</button>
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !topLevel || designDoc.blocks[0]?.id === block.id}>Up</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !topLevel || designDoc.blocks[designDoc.blocks.length - 1]?.id === block.id}>Down</button>
 	                            </div>
 	                          </div>
 	                        </article>
@@ -4748,7 +4815,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                               <strong>Selected Block</strong>
                               <span>
                                 {designBlockTypeLabel(selectedDesignBlock.type)}
-                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${designDoc.blocks.length}` : ''}
+                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
                                 {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
                               </span>
                             </div>
@@ -4757,8 +4824,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             </div>
                             <div className="button-row">
                               <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || designDoc.blocks[0]?.id === selectedDesignBlock.id}>Move Up</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || designDoc.blocks[designDoc.blocks.length - 1]?.id === selectedDesignBlock.id}>Move Down</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !selectedDesignBlockTopLevel || designDoc.blocks[0]?.id === selectedDesignBlock.id}>Move Up</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !selectedDesignBlockTopLevel || designDoc.blocks[designDoc.blocks.length - 1]?.id === selectedDesignBlock.id}>Move Down</button>
                               <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
                             </div>
                           </div>
