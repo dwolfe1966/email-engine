@@ -1345,6 +1345,17 @@ th {
   background: #eef3f8;
 }
 
+.design-inspector-panel {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #dce8f7;
+  padding-top: 12px;
+}
+
+.inspector-fields {
+  grid-template-columns: 1fr;
+}
+
 .design-block-card {
   display: grid;
   gap: 10px;

@@ -3029,20 +3029,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return document.blocks.map(designBlockToHtml).join('\n');
   }
 
+  const selectedDesignBlock = designDoc.blocks.find((block) => block.id === selectedDesignBlockId) || designDoc.blocks[0];
+
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
-    const canEdit = ['heading', 'paragraph', 'button', 'trust_signal', 'list'].includes(block.type);
-    const editableText = block.type === 'list' ? (block.items || []).join('\n') : String(block.text || '');
     const selectedActions = block.id === selectedDesignBlockId
       ? `<div class="ee-design-actions">
-          ${canEdit ? '<button type="button" data-design-action="edit">Edit</button>' : ''}
+          <button type="button" data-design-action="edit">Edit</button>
           <button type="button" data-design-action="style">Style</button>
           <button type="button" data-design-action="up">Up</button>
           <button type="button" data-design-action="down">Down</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
       : '';
-    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}" data-design-text="${escapeTemplateText(editableText)}">
+    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
 ${selectedActions}
 ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
@@ -3078,12 +3078,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         event.preventDefault();
         event.stopPropagation();
         var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
-        var text = '';
-        if (action === 'edit') {
-          text = window.prompt('Edit block text. For lists, use one item per line.', block.getAttribute('data-design-text') || '') || '';
-          if (!text) return;
-        }
-        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select', text: text }, '*');
+        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
       });
     </script>
   </body>
@@ -3151,13 +3146,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         focusDesignBlockCss(block);
         return;
       }
-      if (data.action === 'edit' && typeof data.text === 'string') {
-        if (block.type === 'list') {
-          updateDesignBlock(block.id, { items: data.text.split('\n').map((item: string) => item.trim()).filter(Boolean) });
-        } else {
-          updateDesignBlock(block.id, { text: data.text });
-        }
-        setStatus(`Updated ${block.type.replace('_', ' ')} block text from canvas.`);
+      if (data.action === 'edit') {
+        setStatus(`Editing ${block.type.replace('_', ' ')} block in the inspector.`);
         return;
       }
       if (data.action === 'up') {
@@ -4471,6 +4461,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
                         </div>
                         <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+                        {selectedDesignBlock ? (
+                          <div className="design-inspector-panel">
+                            <div className="design-canvas-head">
+                              <strong>Selected Block</strong>
+                              <span>{selectedDesignBlock.type === 'html' ? 'HTML / Jinja' : selectedDesignBlock.type.replace('_', ' ')}{selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}</span>
+                            </div>
+                            <div className="design-block-fields inspector-fields">
+                              {renderDesignBlockControls(selectedDesignBlock)}
+                            </div>
+                            <div className="button-row">
+                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || designDoc.blocks[0]?.id === selectedDesignBlock.id}>Move Up</button>
+                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || designDoc.blocks[designDoc.blocks.length - 1]?.id === selectedDesignBlock.id}>Move Down</button>
+                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
+                            </div>
+                          </div>
+                        ) : null}
                       </aside>
                     </div>
 	                ) : (
