@@ -3031,15 +3031,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
+    const canEdit = ['heading', 'paragraph', 'button', 'trust_signal', 'list'].includes(block.type);
+    const editableText = block.type === 'list' ? (block.items || []).join('\n') : String(block.text || '');
     const selectedActions = block.id === selectedDesignBlockId
       ? `<div class="ee-design-actions">
+          ${canEdit ? '<button type="button" data-design-action="edit">Edit</button>' : ''}
           <button type="button" data-design-action="style">Style</button>
           <button type="button" data-design-action="up">Up</button>
           <button type="button" data-design-action="down">Down</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
       : '';
-    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
+    return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}" data-design-text="${escapeTemplateText(editableText)}">
 ${selectedActions}
 ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
@@ -3075,7 +3078,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         event.preventDefault();
         event.stopPropagation();
         var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
-        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
+        var text = '';
+        if (action === 'edit') {
+          text = window.prompt('Edit block text. For lists, use one item per line.', block.getAttribute('data-design-text') || '') || '';
+          if (!text) return;
+        }
+        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select', text: text }, '*');
       });
     </script>
   </body>
@@ -3141,6 +3149,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setSelectedDesignBlockId(block.id);
       if (data.action === 'style') {
         focusDesignBlockCss(block);
+        return;
+      }
+      if (data.action === 'edit' && typeof data.text === 'string') {
+        if (block.type === 'list') {
+          updateDesignBlock(block.id, { items: data.text.split('\n').map((item: string) => item.trim()).filter(Boolean) });
+        } else {
+          updateDesignBlock(block.id, { text: data.text });
+        }
+        setStatus(`Updated ${block.type.replace('_', ' ')} block text from canvas.`);
         return;
       }
       if (data.action === 'up') {
