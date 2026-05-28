@@ -2732,6 +2732,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
+  const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [structureOpen, setStructureOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
@@ -3081,7 +3082,8 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
     <meta charset="UTF-8" />
     <style>
       body { margin: 0; padding: 24px; background: #eef3f8; font-family: Arial, sans-serif; color: #111827; }
-      .email-container { max-width: 640px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; }
+      .email-container { max-width: 640px; min-height: 420px; margin: 0 auto; background: #ffffff; padding: 28px; border-radius: 8px; }
+      .email-container.ee-root-drop-target { outline: 2px dashed #10b981; outline-offset: 8px; }
       img { max-width: 100%; }
       .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: grab; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
@@ -3094,7 +3096,7 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
     </style>
   </head>
   <body>
-    <div class="email-container">
+    <div class="email-container" data-design-drop-root="true">
 ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     </div>
     <script>
@@ -3114,23 +3116,38 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       });
       document.addEventListener('dragover', function(event) {
         var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        if (!block) return;
+        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
+        if (!block && !root) return;
         event.preventDefault();
-        block.classList.add('ee-drop-target');
+        if (block) block.classList.add('ee-drop-target');
+        else if (root) root.classList.add('ee-root-drop-target');
       });
       document.addEventListener('dragleave', function(event) {
         var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
         if (block) block.classList.remove('ee-drop-target');
+        if (root && !root.contains(event.relatedTarget)) root.classList.remove('ee-root-drop-target');
       });
       document.addEventListener('drop', function(event) {
         var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        if (!block) return;
+        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
+        if (!block && !root) return;
         event.preventDefault();
-        block.classList.remove('ee-drop-target');
+        if (block) block.classList.remove('ee-drop-target');
+        if (root) root.classList.remove('ee-root-drop-target');
+        var source = event.dataTransfer.getData('text/plain') || '';
+        if (source.indexOf('new:') === 0) {
+          parent.postMessage({
+            type: 'ee-design-block-insert',
+            blockType: source.slice(4),
+            targetBlockId: block ? block.getAttribute('data-design-block-id') : ''
+          }, '*');
+          return;
+        }
         parent.postMessage({
           type: 'ee-design-block-reorder',
-          sourceBlockId: event.dataTransfer.getData('text/plain'),
-          targetBlockId: block.getAttribute('data-design-block-id')
+          sourceBlockId: source,
+          targetBlockId: block ? block.getAttribute('data-design-block-id') : ''
         }, '*');
       });
     </script>
@@ -3145,12 +3162,20 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     markPreviewStale();
   }
 
-  function addDesignBlock(type: string) {
+  function addDesignBlock(type: string, targetId = '') {
     const block = newDesignBlock(type);
-    setDesignDoc((current) => ({ blocks: [...current.blocks, block] }));
+    setDesignDoc((current) => {
+      if (!targetId) return { blocks: [...current.blocks, block] };
+      const targetIndex = current.blocks.findIndex((item) => item.id === targetId);
+      if (targetIndex < 0) return { blocks: [...current.blocks, block] };
+      const blocks = [...current.blocks];
+      blocks.splice(targetIndex, 0, block);
+      return { blocks };
+    });
     setSelectedDesignBlockId(block.id);
     setEditorMode('design');
     markPreviewStale();
+    setStatus(`Added ${type.replace('_', ' ')} block${targetId ? ' at drop point' : ''}.`);
   }
 
   function moveDesignBlock(id: string, direction: -1 | 1) {
@@ -3166,14 +3191,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function reorderDesignBlock(sourceId: string, targetId: string) {
-    if (!sourceId || !targetId || sourceId === targetId) return;
+    if (!sourceId || sourceId === targetId) return;
     setDesignDoc((current) => {
       const sourceIndex = current.blocks.findIndex((block) => block.id === sourceId);
-      const targetIndex = current.blocks.findIndex((block) => block.id === targetId);
+      const targetIndex = targetId ? current.blocks.findIndex((block) => block.id === targetId) : current.blocks.length;
       if (sourceIndex < 0 || targetIndex < 0) return current;
       const blocks = [...current.blocks];
       const [movedBlock] = blocks.splice(sourceIndex, 1);
-      blocks.splice(targetIndex, 0, movedBlock);
+      const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+      blocks.splice(adjustedTargetIndex, 0, movedBlock);
       return { blocks };
     });
     setSelectedDesignBlockId(sourceId);
@@ -3209,6 +3235,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data?.type === 'ee-design-block-reorder') {
         reorderDesignBlock(String(data.sourceBlockId || ''), String(data.targetBlockId || ''));
         setStatus('Reordered design blocks from the canvas.');
+        return;
+      }
+      if (data?.type === 'ee-design-block-insert') {
+        addDesignBlock(String(data.blockType || 'paragraph'), String(data.targetBlockId || ''));
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
@@ -4499,7 +4529,22 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  </div>
 	                  <div className="button-row">
 	                    {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'].map((type) => (
-	                      <button className="ghost" type="button" key={type} onClick={() => addDesignBlock(type)} disabled={busy}>{type.replace('_', ' ')}</button>
+	                      <button
+                          className={`ghost design-palette-chip ${draggedPaletteBlockType === type ? 'dragging' : ''}`}
+                          type="button"
+                          key={type}
+                          draggable={!busy}
+                          onClick={() => addDesignBlock(type)}
+                          onDragStart={(event) => {
+                            setDraggedPaletteBlockType(type);
+                            event.dataTransfer.effectAllowed = 'copy';
+                            event.dataTransfer.setData('text/plain', `new:${type}`);
+                          }}
+                          onDragEnd={() => setDraggedPaletteBlockType('')}
+                          disabled={busy}
+                        >
+                          {type.replace('_', ' ')}
+                        </button>
 	                    ))}
 	                  </div>
 	                </div>
@@ -4514,6 +4559,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <button className="ghost" type="button" onClick={() => setStructureOpen((current) => !current)}>{structureOpen ? 'Hide' : 'Show'}</button>
                         </div>
                         {structureOpen ? (
+                          <>
 	                    <div className="design-block-list">
 	                      {designDoc.blocks.map((block, index) => {
                           const meta = designStructureMeta(block);
@@ -4534,8 +4580,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             }}
                             onDrop={(event) => {
                               event.preventDefault();
-                              reorderDesignBlock(event.dataTransfer.getData('text/plain') || draggedDesignBlockId, block.id);
+                              const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
+                              if (source.startsWith('new:')) {
+                                addDesignBlock(source.slice(4), block.id);
+                              } else {
+                                reorderDesignBlock(source, block.id);
+                              }
                               setDraggedDesignBlockId('');
+                              setDraggedPaletteBlockType('');
                             }}
                             onDragEnd={() => setDraggedDesignBlockId('')}
                           >
@@ -4555,6 +4607,24 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           );
                         })}
 	                    </div>
+                        <div
+                          className={`design-list-dropzone ${draggedPaletteBlockType ? 'active' : ''}`}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
+                            if (source.startsWith('new:')) addDesignBlock(source.slice(4));
+                            else reorderDesignBlock(source, '');
+                            setDraggedDesignBlockId('');
+                            setDraggedPaletteBlockType('');
+                          }}
+                        >
+	                          Drop here to add to the end
+	                        </div>
+                          </>
                         ) : null}
                       </div>
                       <aside className="design-canvas-panel">
@@ -4583,7 +4653,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                       </aside>
                     </div>
 	                ) : (
-	                  <div className="empty-state">
+	                  <div
+                      className={`empty-state design-empty-dropzone ${draggedPaletteBlockType ? 'active' : ''}`}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'copy';
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const source = event.dataTransfer.getData('text/plain');
+                        if (source.startsWith('new:')) addDesignBlock(source.slice(4));
+                        setDraggedPaletteBlockType('');
+                      }}
+                    >
 	                    <strong>No design blocks yet</strong>
 	                    <p>Add a block or load an existing block-based template to start designing visually.</p>
 	                  </div>

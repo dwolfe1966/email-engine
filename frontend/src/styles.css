@@ -1298,6 +1298,19 @@ th {
   align-items: center;
 }
 
+.design-palette-chip {
+  cursor: grab;
+}
+
+.design-palette-chip:active {
+  cursor: grabbing;
+}
+
+.design-palette-chip.dragging {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
 .design-block-list {
   display: grid;
   gap: 6px;
@@ -1425,6 +1438,26 @@ th {
 .design-block-card.dragging {
   border-style: dashed;
   opacity: 0.55;
+}
+
+.design-list-dropzone,
+.design-empty-dropzone {
+  border: 1px dashed #9db7d8;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #5c6d82;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 10px;
+  text-align: center;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.design-list-dropzone.active,
+.design-empty-dropzone.active {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .design-block-card::before {
