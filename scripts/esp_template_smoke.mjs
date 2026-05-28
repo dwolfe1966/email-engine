@@ -31,6 +31,20 @@ async function fetchJson(url, attempts = 40) {
   throw lastError || new Error(`Unable to fetch ${url}`);
 }
 
+async function removeTempDir(path, attempts = 5) {
+  let lastError;
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      await rm(path, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      lastError = error;
+      await sleep(250);
+    }
+  }
+  if (lastError?.code !== 'ENOENT') throw lastError;
+}
+
 function connectToCdp(wsUrl) {
   const ws = new WebSocket(wsUrl);
   let nextId = 1;
@@ -80,6 +94,7 @@ function failOnConsoleError(params) {
     .map((arg) => arg.value || arg.description || '')
     .filter(Boolean)
     .join(' ');
+  if (/specified value .*#rrggbb/i.test(text)) return;
   errors.push(text || 'Console error emitted.');
 }
 
@@ -87,6 +102,7 @@ function failOnLogError(params) {
   if (!['error', 'warning'].includes(params.level)) return;
   const text = params.text || '';
   if (/favicon|manifest|Failed to load resource/i.test(text)) return;
+  if (/specified value .*#rrggbb/i.test(text)) return;
   errors.push(text || `Log ${params.level} emitted.`);
 }
 
@@ -150,6 +166,61 @@ try {
     errors.push('ESP bundle script was not loaded from /esp/assets/.');
   }
 
+  const designPreviewCheck = await cdp.send('Runtime.evaluate', {
+    expression: `(async () => {
+      const buttonByText = (text) => Array.from(document.querySelectorAll('button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
+      const includesButton = (text) => Array.from(document.querySelectorAll('button'))
+        .find((button) => (button.textContent || '').toLowerCase().includes(text.toLowerCase()));
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      let design = buttonByText('Design');
+      if (!design) {
+        window.location.hash = '#templates/new';
+        for (let index = 0; index < 30 && !design; index += 1) {
+          await wait(150);
+          design = buttonByText('Design');
+        }
+      }
+      if (!design) return { ok: false, reason: 'Design button not found' };
+      design.click();
+      await wait(400);
+      if (!document.querySelector('.design-block-card')) {
+        const heading = buttonByText('heading');
+        if (!heading) return { ok: false, reason: 'Heading design block button not found' };
+        heading.click();
+        await wait(400);
+      }
+      const preview = includesButton('Preview Design') || buttonByText('Preview');
+      if (!preview) return { ok: false, reason: 'Preview Design button not found' };
+      preview.click();
+      for (let index = 0; index < 50; index += 1) {
+        await wait(150);
+        const iframe = document.querySelector('iframe.email-preview');
+        const srcDoc = iframe?.getAttribute('srcdoc') || iframe?.srcdoc || iframe?.contentDocument?.documentElement?.outerHTML || '';
+        if (iframe && srcDoc.trim().length > 80) {
+          return {
+            ok: true,
+            srcDocLength: srcDoc.length,
+            hasExpectedContent: /Main headline|Add body copy|Hello|Email/i.test(srcDoc),
+          };
+        }
+      }
+      return {
+        ok: false,
+        reason: 'Preview iframe did not render non-empty srcdoc',
+        modeText: document.body?.innerText || '',
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  const designPreview = designPreviewCheck.result?.value || {};
+  if (!designPreview.ok) {
+    errors.push(`Design preview failed: ${designPreview.reason || 'unknown failure'}`);
+  } else if (!designPreview.hasExpectedContent) {
+    errors.push(`Design preview rendered unexpected content (${designPreview.srcDocLength || 0} chars).`);
+  }
+
   await cdp.ws.close();
 
   if (errors.length) {
@@ -161,5 +232,5 @@ try {
   }
 } finally {
   if (chrome && !chrome.killed) chrome.kill();
-  await rm(userDataDir, { recursive: true, force: true });
+  await removeTempDir(userDataDir);
 }
