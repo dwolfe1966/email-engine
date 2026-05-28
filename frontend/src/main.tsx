@@ -2733,6 +2733,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
+  const [dropTargetDesignBlock, setDropTargetDesignBlock] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
   const [structureOpen, setStructureOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
@@ -3033,6 +3034,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   const selectedDesignBlock = designDoc.blocks.find((block) => block.id === selectedDesignBlockId) || designDoc.blocks[0];
+  const selectedDesignBlockIndex = selectedDesignBlock ? designDoc.blocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
+  const designPaletteBlockTypes = ['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
+  function designBlockTypeLabel(type: string) {
+    const labels: Record<string, string> = {
+      heading: 'Heading',
+      paragraph: 'Paragraph',
+      button: 'Button',
+      image: 'Image',
+      list: 'List',
+      divider: 'Divider',
+      spacer: 'Spacer',
+      trust_signal: 'Trust signal',
+      html: 'HTML / Jinja',
+    };
+    return labels[type] || type.replace('_', ' ');
+  }
 
   function designStructureMeta(block: TemplateDesignBlock) {
     const raw = String(block.code || block.html || '');
@@ -3051,7 +3068,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       ? `${(block.items || []).length} item(s)`
       : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 52);
     return {
-      label: typeLabels[block.type] || block.type.replace('_', ' '),
+      label: typeLabels[block.type] || designBlockTypeLabel(block.type),
       preview,
       depth: block.type === 'html' && /{%\s*(if|for)\b/.test(raw) ? 1 : 0,
     };
@@ -3088,7 +3105,8 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
       .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: grab; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
-      .ee-design-block.ee-drop-target { border-color: #10b981; background: rgba(16, 185, 129, 0.08); }
+      .ee-design-block.ee-drop-target-before { border-top-color: #10b981; border-top-width: 3px; background: rgba(16, 185, 129, 0.06); }
+      .ee-design-block.ee-drop-target-after { border-bottom-color: #10b981; border-bottom-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
@@ -3119,13 +3137,18 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
         if (!block && !root) return;
         event.preventDefault();
-        if (block) block.classList.add('ee-drop-target');
+        if (block) {
+          var rect = block.getBoundingClientRect();
+          var position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+          block.classList.add(position === 'after' ? 'ee-drop-target-after' : 'ee-drop-target-before');
+        }
         else if (root) root.classList.add('ee-root-drop-target');
       });
       document.addEventListener('dragleave', function(event) {
         var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
         var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
-        if (block) block.classList.remove('ee-drop-target');
+        if (block) block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
         if (root && !root.contains(event.relatedTarget)) root.classList.remove('ee-root-drop-target');
       });
       document.addEventListener('drop', function(event) {
@@ -3133,21 +3156,28 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
         if (!block && !root) return;
         event.preventDefault();
-        if (block) block.classList.remove('ee-drop-target');
+        var position = 'after';
+        if (block) {
+          var rect = block.getBoundingClientRect();
+          position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+        }
         if (root) root.classList.remove('ee-root-drop-target');
         var source = event.dataTransfer.getData('text/plain') || '';
         if (source.indexOf('new:') === 0) {
           parent.postMessage({
             type: 'ee-design-block-insert',
             blockType: source.slice(4),
-            targetBlockId: block ? block.getAttribute('data-design-block-id') : ''
+            targetBlockId: block ? block.getAttribute('data-design-block-id') : '',
+            position: position
           }, '*');
           return;
         }
         parent.postMessage({
           type: 'ee-design-block-reorder',
           sourceBlockId: source,
-          targetBlockId: block ? block.getAttribute('data-design-block-id') : ''
+          targetBlockId: block ? block.getAttribute('data-design-block-id') : '',
+          position: position
         }, '*');
       });
     </script>
@@ -3162,14 +3192,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     markPreviewStale();
   }
 
-  function addDesignBlock(type: string, targetId = '') {
+  function addDesignBlock(type: string, targetId = '', position: 'before' | 'after' = 'before') {
     const block = newDesignBlock(type);
     setDesignDoc((current) => {
       if (!targetId) return { blocks: [...current.blocks, block] };
       const targetIndex = current.blocks.findIndex((item) => item.id === targetId);
       if (targetIndex < 0) return { blocks: [...current.blocks, block] };
       const blocks = [...current.blocks];
-      blocks.splice(targetIndex, 0, block);
+      blocks.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, block);
       return { blocks };
     });
     setSelectedDesignBlockId(block.id);
@@ -3190,11 +3220,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     markPreviewStale();
   }
 
-  function reorderDesignBlock(sourceId: string, targetId: string) {
+  function reorderDesignBlock(sourceId: string, targetId: string, position: 'before' | 'after' = 'before') {
     if (!sourceId || sourceId === targetId) return;
     setDesignDoc((current) => {
       const sourceIndex = current.blocks.findIndex((block) => block.id === sourceId);
-      const targetIndex = targetId ? current.blocks.findIndex((block) => block.id === targetId) : current.blocks.length;
+      const baseTargetIndex = targetId ? current.blocks.findIndex((block) => block.id === targetId) : current.blocks.length;
+      const targetIndex = targetId && position === 'after' ? baseTargetIndex + 1 : baseTargetIndex;
       if (sourceIndex < 0 || targetIndex < 0) return current;
       const blocks = [...current.blocks];
       const [movedBlock] = blocks.splice(sourceIndex, 1);
@@ -3233,12 +3264,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     function handleDesignCanvasMessage(event: MessageEvent) {
       const data = event.data;
       if (data?.type === 'ee-design-block-reorder') {
-        reorderDesignBlock(String(data.sourceBlockId || ''), String(data.targetBlockId || ''));
+        reorderDesignBlock(String(data.sourceBlockId || ''), String(data.targetBlockId || ''), data.position === 'after' ? 'after' : 'before');
         setStatus('Reordered design blocks from the canvas.');
         return;
       }
       if (data?.type === 'ee-design-block-insert') {
-        addDesignBlock(String(data.blockType || 'paragraph'), String(data.targetBlockId || ''));
+        addDesignBlock(String(data.blockType || 'paragraph'), String(data.targetBlockId || ''), data.position === 'after' ? 'after' : 'before');
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
@@ -4528,13 +4559,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Use the canvas for selection and the inspector for editing.</span>
 	                  </div>
 	                  <div className="button-row">
-	                    {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'].map((type) => (
+	                    {designPaletteBlockTypes.map((type) => (
 	                      <button
                           className={`ghost design-palette-chip ${draggedPaletteBlockType === type ? 'dragging' : ''}`}
                           type="button"
                           key={type}
                           draggable={!busy}
                           onClick={() => addDesignBlock(type)}
+                          title={`Drag ${designBlockTypeLabel(type)} onto the canvas or structure list`}
                           onDragStart={(event) => {
                             setDraggedPaletteBlockType(type);
                             event.dataTransfer.effectAllowed = 'copy';
@@ -4543,7 +4575,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           onDragEnd={() => setDraggedPaletteBlockType('')}
                           disabled={busy}
                         >
-                          {type.replace('_', ' ')}
+                          {designBlockTypeLabel(type)}
                         </button>
 	                    ))}
 	                  </div>
@@ -4565,7 +4597,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           const meta = designStructureMeta(block);
                           return (
 	                        <article
-                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''}`}
+                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''} ${dropTargetDesignBlock?.id === block.id ? `drop-${dropTargetDesignBlock.position}` : ''}`}
                             draggable={!busy}
                             key={block.id}
                             onClick={() => setSelectedDesignBlockId(block.id)}
@@ -4576,20 +4608,32 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             }}
                             onDragOver={(event) => {
                               event.preventDefault();
-                              event.dataTransfer.dropEffect = 'move';
+                              event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              setDropTargetDesignBlock({
+                                id: block.id,
+                                position: event.clientY > rect.top + rect.height / 2 ? 'after' : 'before',
+                              });
                             }}
+                            onDragLeave={() => setDropTargetDesignBlock((current) => current?.id === block.id ? null : current)}
                             onDrop={(event) => {
                               event.preventDefault();
                               const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              const position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
                               if (source.startsWith('new:')) {
-                                addDesignBlock(source.slice(4), block.id);
+                                addDesignBlock(source.slice(4), block.id, position);
                               } else {
-                                reorderDesignBlock(source, block.id);
+                                reorderDesignBlock(source, block.id, position);
                               }
                               setDraggedDesignBlockId('');
                               setDraggedPaletteBlockType('');
+                              setDropTargetDesignBlock(null);
                             }}
-                            onDragEnd={() => setDraggedDesignBlockId('')}
+                            onDragEnd={() => {
+                              setDraggedDesignBlockId('');
+                              setDropTargetDesignBlock(null);
+                            }}
                           >
 	                          <div className="design-block-head">
 	                            <div>
@@ -4623,6 +4667,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           }}
                         >
 	                          Drop here to add to the end
+                            {draggedPaletteBlockType ? `: ${designBlockTypeLabel(draggedPaletteBlockType)}` : draggedDesignBlockId ? ': move selected block' : ''}
 	                        </div>
                           </>
                         ) : null}
@@ -4637,7 +4682,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <div className="design-inspector-panel">
                             <div className="design-canvas-head">
                               <strong>Selected Block</strong>
-                              <span>{selectedDesignBlock.type === 'html' ? 'HTML / Jinja' : selectedDesignBlock.type.replace('_', ' ')}{selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}</span>
+                              <span>
+                                {designBlockTypeLabel(selectedDesignBlock.type)}
+                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${designDoc.blocks.length}` : ''}
+                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
+                              </span>
                             </div>
                             <div className="design-block-fields inspector-fields">
                               {renderDesignBlockControls(selectedDesignBlock)}

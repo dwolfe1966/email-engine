@@ -1440,6 +1440,18 @@ th {
   opacity: 0.55;
 }
 
+.design-block-card.drop-before {
+  border-top-color: #10b981;
+  border-top-width: 3px;
+  background: #ecfdf5;
+}
+
+.design-block-card.drop-after {
+  border-bottom-color: #10b981;
+  border-bottom-width: 3px;
+  background: #ecfdf5;
+}
+
 .design-list-dropzone,
 .design-empty-dropzone {
   border: 1px dashed #9db7d8;
