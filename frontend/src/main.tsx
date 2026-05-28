@@ -2814,19 +2814,51 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setStatus(`Loaded template: ${template.name}`);
   }
 
-  function applyAiDraft(draft: AITemplateDraft) {
-    setSubject(draft.subject || subject);
-    setHtmlBody(draft.html_body || htmlBody);
-    setCssBody(draft.css_body || '');
-    if (draft.sample_variables && Object.keys(draft.sample_variables).length) {
-      setVariablesJson(JSON.stringify(draft.sample_variables, null, 2));
-    }
-    setAiNotes(draft.change_summary || draft.notes || []);
-    setPreviewFreshness(previewHtml ? 'stale' : 'empty');
-    setPendingAiDraft(null);
-    setAppliedAiDraftLabel(`${draft.provider}/${draft.model}`);
-    setEditorMode('edit');
-    setStatus('Applied AI draft to the editor. Save changes to persist it.');
+  async function applyAiDraft(draft: AITemplateDraft) {
+    await runTemplateOperation('Applying AI draft', async () => {
+      const nextSubject = draft.subject || subject;
+      const nextHtml = draft.html_body || htmlBody;
+      const nextCss = draft.css_body ?? cssBody;
+      const currentVariables = parsedVariables();
+      const nextVariables = draft.sample_variables && Object.keys(draft.sample_variables).length
+        ? { ...currentVariables, ...draft.sample_variables }
+        : currentVariables;
+      const variableData = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: nextSubject,
+          html_body: nextHtml,
+          css_body: nextCss || null,
+          variables: nextVariables,
+        }),
+      });
+      const renderVariables = variableData.sample_variables && Object.keys(variableData.sample_variables).length
+        ? { ...variableData.sample_variables, ...nextVariables }
+        : nextVariables;
+      const preview = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: nextSubject,
+          html_body: nextHtml,
+          css_body: nextCss || null,
+          variables: renderVariables,
+        }),
+      });
+      setSubject(nextSubject);
+      setHtmlBody(nextHtml);
+      setCssBody(nextCss);
+      setVariables(variableData.variables || []);
+      setVariablesJson(JSON.stringify(renderVariables, null, 2));
+      setPreviewHtml(preview.html_body || '');
+      setPreviewSubject(preview.subject || nextSubject);
+      setPreviewFreshness('current');
+      setAiNotes(draft.change_summary || draft.notes || []);
+      setPendingAiDraft(null);
+      setAppliedAiDraftLabel(`${draft.provider}/${draft.model}`);
+      setEditorMode('preview');
+      const issueText = preview.errors?.length ? ` ${preview.errors.join('; ')}` : '';
+      return `Applied AI draft and refreshed preview: ${preview.subject || nextSubject}.${issueText}`;
+    });
   }
 
   function markPreviewStale() {
