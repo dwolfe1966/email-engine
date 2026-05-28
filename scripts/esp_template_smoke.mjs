@@ -250,10 +250,11 @@ try {
         ok: false,
         reason: 'Existing template design preview did not render marker',
         initialState,
-      afterDesignState,
-      afterPreviewState: savedState(),
-      designBlockCount,
-      bodyText: document.body?.innerText || '',
+        afterDesignState,
+        afterPreviewState: savedState(),
+        designBlockCount,
+        srcDocSnippet: (document.querySelector('iframe.email-preview')?.getAttribute('srcdoc') || '').slice(0, 240),
+        bodyText: document.body?.innerText || '',
       };
     })()`,
     awaitPromise: true,
@@ -267,6 +268,7 @@ try {
       afterPreviewState: existingDesign.afterPreviewState,
       designBlockCount: existingDesign.designBlockCount,
       srcDocLength: existingDesign.srcDocLength,
+      srcDocSnippet: existingDesign.srcDocSnippet,
     })})`);
   }
 
@@ -294,8 +296,9 @@ try {
         heading.click();
         await wait(400);
       }
-      const firstCard = document.querySelector('.design-block-card');
-      firstCard?.click();
+      const editableCard = Array.from(document.querySelectorAll('.design-block-card'))
+        .find((card) => /(Heading|Paragraph|Button)/i.test(card.textContent || '')) || document.querySelector('.design-block-card');
+      editableCard?.click();
       await wait(250);
       const marker = 'Smoke headline ' + Date.now();
       const inspector = document.querySelector('.design-inspector-panel');
