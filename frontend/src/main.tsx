@@ -2920,66 +2920,107 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return style.match(pattern)?.[1]?.trim() || '';
   }
 
+  function htmlInner(markup: string, tag: string) {
+    const match = markup.match(new RegExp(`^<${tag}\\b[^>]*>([\\s\\S]*)<\\/${tag}>$`, 'i'));
+    return match?.[1]?.trim() || '';
+  }
+
+  function htmlText(markup: string) {
+    return decodeTemplateText(markup.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  }
+
+  function findMatchingHtmlClose(source: string, tag: string, openEnd: number) {
+    const pattern = new RegExp(`<\\/?${tag}\\b[^>]*>`, 'gi');
+    pattern.lastIndex = openEnd;
+    let depth = 1;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source))) {
+      if (match[0].startsWith('</')) depth -= 1;
+      else if (!match[0].endsWith('/>')) depth += 1;
+      if (depth === 0) return pattern.lastIndex;
+    }
+    return -1;
+  }
+
+  function nextDesignToken(source: string, cursor: number) {
+    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<hr\b|<div\b)/i);
+    if (!nextMatch || nextMatch.index === undefined) return null;
+    const start = cursor + nextMatch.index;
+    const tokenStart = nextMatch[0];
+    if (tokenStart.startsWith('{%')) return { start, end: start + tokenStart.length, markup: tokenStart };
+    const tag = tokenStart.match(/^<([a-z0-9]+)/i)?.[1]?.toLowerCase() || '';
+    const openEnd = source.indexOf('>', start);
+    if (openEnd < 0) return null;
+    if (tag === 'img' || tag === 'hr') return { start, end: openEnd + 1, markup: source.slice(start, openEnd + 1) };
+    const end = findMatchingHtmlClose(source, tag, openEnd + 1);
+    if (end < 0) return null;
+    return { start, end, markup: source.slice(start, end) };
+  }
+
   function parseHtmlDesignBlocks(source: string) {
     const blocks: TemplateDesignBlock[] = [];
-    const blockPattern = /({%[\s\S]*?%}|<h[1-3]\b[\s\S]*?<\/h[1-3]>|<p\b[\s\S]*?<\/p>|<a\b[\s\S]*?<\/a>|<img\b[^>]*>|<ul\b[\s\S]*?<\/ul>|<ol\b[\s\S]*?<\/ol>|<hr\b[^>]*>|<div\b[\s\S]*?<\/div>)/gi;
     let cursor = 0;
-    let match: RegExpExecArray | null;
-    while ((match = blockPattern.exec(source))) {
-      const before = source.slice(cursor, match.index).trim();
+    let token: ReturnType<typeof nextDesignToken> | null;
+    while ((token = nextDesignToken(source, cursor))) {
+      const before = source.slice(cursor, token.start).trim();
       if (before) blocks.push({ id: designBlockId(), type: 'html', code: before });
-      blocks.push(parseHtmlDesignBlock(match[0]));
-      cursor = match.index + match[0].length;
+      blocks.push(...parseHtmlDesignBlock(token.markup));
+      cursor = token.end;
     }
     const after = source.slice(cursor).trim();
     if (after) blocks.push({ id: designBlockId(), type: 'html', code: after });
     return blocks.filter((block) => block.type !== 'html' || String(block.code || '').trim());
   }
 
-  function parseHtmlDesignBlock(markup: string): TemplateDesignBlock {
+  function parseHtmlDesignBlock(markup: string): TemplateDesignBlock[] {
     const id = designBlockId();
     const className = htmlAttribute(markup, 'class');
     const style = htmlAttribute(markup, 'style');
     const heading = markup.match(/^<h([1-3])\b/i);
     if (heading) {
-      return { id, type: 'heading', level: Number(heading[1]), text: decodeTemplateText(markup), className, align: styleValue(style, 'text-align') || 'left' };
+      return [{ id, type: 'heading', level: Number(heading[1]), text: htmlText(htmlInner(markup, `h${heading[1]}`)), className, align: styleValue(style, 'text-align') || 'left' }];
     }
     if (/^<p\b/i.test(markup)) {
       const link = markup.match(/<a\b([\s\S]*?)>([\s\S]*?)<\/a>/i);
       if (link && /\bbutton\b/.test(htmlAttribute(link[0], 'class'))) {
         const linkStyle = htmlAttribute(link[0], 'style');
-        return {
+        return [{
           id,
           type: 'button',
-          text: decodeTemplateText(link[2]),
+          text: htmlText(link[2]),
           href: htmlAttribute(link[0], 'href') || '{{ tracking_click }}',
           className: htmlAttribute(link[0], 'class') || 'button',
           bg: styleValue(linkStyle, 'background') || '#2563eb',
           color: styleValue(linkStyle, 'color') || '#ffffff',
           radius: Number.parseInt(styleValue(linkStyle, 'border-radius'), 10) || 6,
-        };
+        }];
       }
-      return { id, type: 'paragraph', text: decodeTemplateText(markup), className, align: styleValue(style, 'text-align') || 'left', color: styleValue(style, 'color') };
+      return [{ id, type: 'paragraph', text: htmlText(htmlInner(markup, 'p')), className, align: styleValue(style, 'text-align') || 'left', color: styleValue(style, 'color') }];
     }
     if (/^<a\b/i.test(markup) && /<img\b/i.test(markup)) {
       const imageMarkup = markup.match(/<img\b[^>]*>/i)?.[0] || '';
-      return { id, type: 'image', src: htmlAttribute(imageMarkup, 'src'), alt: htmlAttribute(imageMarkup, 'alt'), href: htmlAttribute(markup, 'href'), className: htmlAttribute(imageMarkup, 'class'), width: Number.parseInt(htmlAttribute(imageMarkup, 'width'), 10) || 600 };
+      return [{ id, type: 'image', src: htmlAttribute(imageMarkup, 'src'), alt: htmlAttribute(imageMarkup, 'alt'), href: htmlAttribute(markup, 'href'), className: htmlAttribute(imageMarkup, 'class'), width: Number.parseInt(htmlAttribute(imageMarkup, 'width'), 10) || 600 }];
     }
     if (/^<img\b/i.test(markup)) {
-      return { id, type: 'image', src: htmlAttribute(markup, 'src'), alt: htmlAttribute(markup, 'alt'), className, width: Number.parseInt(htmlAttribute(markup, 'width'), 10) || 600 };
+      return [{ id, type: 'image', src: htmlAttribute(markup, 'src'), alt: htmlAttribute(markup, 'alt'), className, width: Number.parseInt(htmlAttribute(markup, 'width'), 10) || 600 }];
     }
     if (/^<(ul|ol)\b/i.test(markup)) {
-      return {
+      return [{
         id,
         type: 'list',
         ordered: /^<ol\b/i.test(markup),
         className,
-        items: Array.from(markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)).map((item) => decodeTemplateText(item[1])),
-      };
+        items: Array.from(markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)).map((item) => htmlText(item[1])),
+      }];
     }
-    if (/^<hr\b/i.test(markup)) return { id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className };
-    if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return { id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className };
-    return { id, type: 'html', code: markup };
+    if (/^<hr\b/i.test(markup)) return [{ id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className }];
+    if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return [{ id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className }];
+    if (/^<div\b/i.test(markup)) {
+      const inner = htmlInner(markup, 'div');
+      const nestedBlocks = inner ? parseHtmlDesignBlocks(inner) : [];
+      if (nestedBlocks.length > 1 || nestedBlocks.some((block) => block.type !== 'html')) return nestedBlocks;
+    }
+    return [{ id, type: 'html', code: markup }];
   }
 
   function designBlockId() {

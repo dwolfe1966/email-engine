@@ -129,8 +129,10 @@ try {
       name: smokeMarker,
       subject: 'Hello {{ first_name }}',
       html_body: `<div class="email-container">
-  <h1 class="email-title">${smokeMarker}</h1>
-  <p class="email-copy">Hello {{ first_name }}, your {{ plan }} plan is ready.</p>
+  <div class="promo-section">
+    <h1 class="email-title">${smokeMarker}</h1>
+    <p class="email-copy">Hello {{ first_name }}, your {{ plan }} plan is ready.</p>
+  </div>
 </div>`,
       css_body: '.email-title { color: #2563eb; } .email-copy { color: #111827; }',
       text_body: null,
@@ -217,6 +219,10 @@ try {
         await wait(150);
         if (document.querySelector('.design-block-card')) break;
       }
+      const designBlockCount = document.querySelectorAll('.design-block-card').length;
+      if (designBlockCount < 2) {
+        return { ok: false, reason: 'Nested wrapper did not reverse-engineer into editable blocks', initialState, designBlockCount };
+      }
       const afterDesignState = savedState();
       if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
         return { ok: false, reason: 'Design mode marked existing template dirty', initialState, afterDesignState };
@@ -236,6 +242,7 @@ try {
             afterDesignState,
             afterPreviewState,
             srcDocLength: srcDoc.length,
+            designBlockCount,
           };
         }
       }
@@ -243,9 +250,10 @@ try {
         ok: false,
         reason: 'Existing template design preview did not render marker',
         initialState,
-        afterDesignState,
-        afterPreviewState: savedState(),
-        bodyText: document.body?.innerText || '',
+      afterDesignState,
+      afterPreviewState: savedState(),
+      designBlockCount,
+      bodyText: document.body?.innerText || '',
       };
     })()`,
     awaitPromise: true,
@@ -257,6 +265,7 @@ try {
       initialState: existingDesign.initialState,
       afterDesignState: existingDesign.afterDesignState,
       afterPreviewState: existingDesign.afterPreviewState,
+      designBlockCount: existingDesign.designBlockCount,
       srcDocLength: existingDesign.srcDocLength,
     })})`);
   }
