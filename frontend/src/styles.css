@@ -1274,6 +1274,20 @@ th {
   background: #fffaf0;
 }
 
+.css-tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.css-tool-actions span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .css-helper-grid label {
   display: grid;
   gap: 6px;

@@ -2955,6 +2955,27 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return `.${className} {\n  max-width: ${width}px;\n  margin: 0 auto;\n  background: ${cssPreset.background};\n  color: ${cssPreset.text};\n  font-family: ${cssPreset.font};\n  padding: ${padding}px;\n  border-radius: ${radius}px;\n}`;
   }
 
+  function formatCssSource(source: string) {
+    return source
+      .replace(/\/\*/g, '\n/*')
+      .replace(/\*\//g, '*/\n')
+      .replace(/\s*\{\s*/g, ' {\n  ')
+      .replace(/;\s*/g, ';\n  ')
+      .replace(/\s*\}\s*/g, '\n}\n\n')
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .join('\n')
+      .replace(/\n\s+\}/g, '\n}')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function formatCssEditor() {
+    setCssBody(formatCssSource(cssBody));
+    markPreviewStale();
+    setStatus('Formatted CSS source. Use Preview to render the updated styles.');
+  }
+
   function applyCssPreset() {
     if (selectedCssClass) {
       const classRule = classRuleFromPreset(selectedCssClass);
@@ -3564,6 +3585,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                    <div className="tool-panel-head">
 	                      <strong>CSS rule tools</strong>
 	                      <span>Select an HTML class, tune the controls, then update the CSS editor.</span>
+	                    </div>
+	                    <div className="css-tool-actions">
+	                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
+	                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
 	                    </div>
 	                    {selectedCssClass ? (
 	                      <div className={selectedCssRule ? 'selected-css-rule has-rule' : 'selected-css-rule missing-rule'}>
