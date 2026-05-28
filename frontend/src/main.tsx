@@ -3797,12 +3797,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                     <p className="muted css-coverage-empty">Add class attributes in HTML to manage class CSS here.</p>
                   )}
                 </div>
-                {isPersistedTemplate ? (
-                  <label className="wide-field">
-                    AI instruction
-                    <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
-                  </label>
-                ) : null}
               </div>
             ) : previewHtml ? (
 	              <div className="preview-shell">
@@ -3864,6 +3858,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 ))}
               </div>
             </section>
+            {isPersistedTemplate ? (
+              <section className="workflow-section">
+                <h3>AI Edit Request</h3>
+                <div className="ai-request-box">
+                  <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} rows={4} />
+                  <div className="button-row">
+                    <button className="primary" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
+                    <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>Suggestions</button>
+                  </div>
+                </div>
+              </section>
+            ) : null}
             <section className="workflow-section">
               <h3>AI Draft Review</h3>
               {pendingAiDraft ? (
