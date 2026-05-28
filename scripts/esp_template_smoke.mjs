@@ -10,6 +10,7 @@ const chromePath = process.env.CHROME_PATH || '/Applications/Google Chrome.app/C
 const port = Number(process.env.CHROME_DEBUG_PORT || 9223);
 const userDataDir = await mkdtemp(join(tmpdir(), 'ee-esp-smoke-'));
 const errors = [];
+let tempTemplateId = '';
 let chrome;
 
 function sleep(ms) {
@@ -29,6 +30,22 @@ async function fetchJson(url, attempts = 40) {
     await sleep(150);
   }
   throw lastError || new Error(`Unable to fetch ${url}`);
+}
+
+async function apiJson(path, options = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${body}`);
+  }
+  if (response.status === 204) return null;
+  return response.json();
 }
 
 async function removeTempDir(path, attempts = 5) {
@@ -105,6 +122,23 @@ function failOnLogError(params) {
 }
 
 try {
+  const smokeMarker = `Smoke saved design ${Date.now()}`;
+  const tempTemplate = await apiJson('/api/v1/templates', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: smokeMarker,
+      subject: 'Hello {{ first_name }}',
+      html_body: `<div class="email-container">
+  <h1 class="email-title">${smokeMarker}</h1>
+  <p class="email-copy">Hello {{ first_name }}, your {{ plan }} plan is ready.</p>
+</div>`,
+      css_body: '.email-title { color: #2563eb; } .email-copy { color: #111827; }',
+      text_body: null,
+      document_json: {},
+    }),
+  });
+  tempTemplateId = tempTemplate.id;
+
   chrome = spawn(chromePath, [
     '--headless=new',
     '--disable-gpu',
@@ -162,6 +196,69 @@ try {
   }
   if (!value.bundleScripts?.some((src) => src.includes('/esp/assets/'))) {
     errors.push('ESP bundle script was not loaded from /esp/assets/.');
+  }
+
+  const existingDesignCheck = await cdp.send('Runtime.evaluate', {
+    expression: `(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const buttonByText = (text) => Array.from(document.querySelectorAll('button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
+      const savedState = () => (document.querySelector('.edit-state-pill')?.textContent || '').trim();
+      window.location.hash = '#templates/${tempTemplateId}';
+      for (let index = 0; index < 50; index += 1) {
+        await wait(150);
+        if ((document.body?.innerText || '').includes(${JSON.stringify(smokeMarker)})) break;
+      }
+      const initialState = savedState();
+      const design = buttonByText('Design');
+      if (!design) return { ok: false, reason: 'Design button not found for existing template', initialState };
+      design.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        if (document.querySelector('.design-block-card')) break;
+      }
+      const afterDesignState = savedState();
+      if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
+        return { ok: false, reason: 'Design mode marked existing template dirty', initialState, afterDesignState };
+      }
+      const preview = buttonByText('Preview');
+      if (!preview) return { ok: false, reason: 'Preview button not found after design transition', afterDesignState };
+      preview.click();
+      for (let index = 0; index < 60; index += 1) {
+        await wait(150);
+        const iframe = document.querySelector('iframe.email-preview');
+        const srcDoc = iframe?.getAttribute('srcdoc') || iframe?.srcdoc || iframe?.contentDocument?.documentElement?.outerHTML || '';
+        if (iframe && srcDoc.includes(${JSON.stringify(smokeMarker)})) {
+          const afterPreviewState = savedState();
+          return {
+            ok: /saved/i.test(afterPreviewState) && !/unsaved/i.test(afterPreviewState),
+            initialState,
+            afterDesignState,
+            afterPreviewState,
+            srcDocLength: srcDoc.length,
+          };
+        }
+      }
+      return {
+        ok: false,
+        reason: 'Existing template design preview did not render marker',
+        initialState,
+        afterDesignState,
+        afterPreviewState: savedState(),
+        bodyText: document.body?.innerText || '',
+      };
+    })()`,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  const existingDesign = existingDesignCheck.result?.value || {};
+  if (!existingDesign.ok) {
+    errors.push(`Existing template design transition failed: ${existingDesign.reason || 'dirty state or preview failure'} (${JSON.stringify({
+      initialState: existingDesign.initialState,
+      afterDesignState: existingDesign.afterDesignState,
+      afterPreviewState: existingDesign.afterPreviewState,
+      srcDocLength: existingDesign.srcDocLength,
+    })})`);
   }
 
   const designPreviewCheck = await cdp.send('Runtime.evaluate', {
@@ -243,5 +340,10 @@ try {
   }
 } finally {
   if (chrome && !chrome.killed) chrome.kill();
+  if (tempTemplateId) {
+    await apiJson(`/api/v1/templates/${tempTemplateId}`, { method: 'DELETE' }).catch((error) => {
+      console.error(`Unable to delete smoke template ${tempTemplateId}: ${error.message}`);
+    });
+  }
   await removeTempDir(userDataDir);
 }
