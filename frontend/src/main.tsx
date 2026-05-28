@@ -3032,6 +3032,29 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   const selectedDesignBlock = designDoc.blocks.find((block) => block.id === selectedDesignBlockId) || designDoc.blocks[0];
 
+  function designStructureMeta(block: TemplateDesignBlock) {
+    const raw = String(block.code || block.html || '');
+    const typeLabels: Record<string, string> = {
+      heading: `Heading H${block.level || 1}`,
+      paragraph: 'Paragraph',
+      button: 'Button',
+      image: 'Image',
+      list: block.ordered ? 'Numbered List' : 'List',
+      divider: 'Divider',
+      spacer: 'Spacer',
+      trust_signal: 'Trust Signal',
+      html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
+    };
+    const preview = block.type === 'list'
+      ? `${(block.items || []).length} item(s)`
+      : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 52);
+    return {
+      label: typeLabels[block.type] || block.type.replace('_', ' '),
+      preview,
+      depth: block.type === 'html' && /{%\s*(if|for)\b/.test(raw) ? 1 : 0,
+    };
+  }
+
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
     const selectedActions = block.id === selectedDesignBlockId
@@ -4439,17 +4462,20 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <button className="ghost" type="button" onClick={() => setStructureOpen((current) => !current)}>{structureOpen ? 'Hide' : 'Show'}</button>
                         </div>
                         {structureOpen ? (
-                        <div className="design-block-list">
-	                      {designDoc.blocks.map((block, index) => (
+	                    <div className="design-block-list">
+	                      {designDoc.blocks.map((block, index) => {
+                          const meta = designStructureMeta(block);
+                          return (
 	                        <article
-                            className={`design-block-card ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+                            className={`design-block-card depth-${meta.depth} ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
                             key={block.id}
                             onClick={() => setSelectedDesignBlockId(block.id)}
                           >
 	                          <div className="design-block-head">
 	                            <div>
-	                              <span>Block {index + 1}</span>
-	                              <strong>{block.type === 'html' ? 'HTML / Jinja' : block.type.replace('_', ' ')}</strong>
+	                              <span>{String(index + 1).padStart(2, '0')}</span>
+	                              <strong>{meta.label}</strong>
+                                {meta.preview ? <small>{meta.preview}</small> : null}
                                 {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
 	                            </div>
 	                            <div className="button-row">
@@ -4458,7 +4484,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                            </div>
 	                          </div>
 	                        </article>
-	                      ))}
+                          );
+                        })}
 	                    </div>
                         ) : null}
                       </div>

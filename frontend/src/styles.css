@@ -1301,6 +1301,17 @@ th {
 .design-block-list {
   display: grid;
   gap: 6px;
+  position: relative;
+}
+
+.design-block-list::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 12px;
+  width: 1px;
+  background: #dce8f7;
 }
 
 .design-workspace-grid {
@@ -1394,18 +1405,40 @@ th {
 
 .design-block-card {
   display: grid;
+  position: relative;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #fff;
-  padding: 8px;
+  padding: 8px 8px 8px 24px;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.design-block-card::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 18px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #9db7d8;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.design-block-card.depth-1 {
+  margin-left: 14px;
 }
 
 .design-block-card.selected {
   border-color: #2563eb;
   background: #f8fbff;
   box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.design-block-card.selected::before {
+  border-color: #2563eb;
+  background: #2563eb;
 }
 
 .design-block-head {
@@ -1431,6 +1464,15 @@ th {
   color: #29405f;
   font-size: 13px;
   text-transform: capitalize;
+}
+
+.design-block-head small {
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .design-block-head em {
