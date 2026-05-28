@@ -2730,6 +2730,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [editorMode, setEditorMode] = useState<'edit' | 'design' | 'preview'>('edit');
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
+  const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -2802,7 +2803,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm').test(source);
   }
 
-  const htmlClassNames = extractHtmlClassNames(htmlBody);
+  const designClassNames = Array.from(new Set(designDoc.blocks
+    .flatMap((block) => String(block.className || '').split(/\s+/).filter(Boolean))))
+    .sort();
+  const htmlClassNames = Array.from(new Set([...extractHtmlClassNames(htmlBody), ...designClassNames])).sort();
   const cssClassCoverage = htmlClassNames.map((className) => {
     const rule = cssRuleForClass(className);
     return {
@@ -3033,7 +3037,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function addDesignBlock(type: string) {
-    setDesignDoc((current) => ({ blocks: [...current.blocks, newDesignBlock(type)] }));
+    const block = newDesignBlock(type);
+    setDesignDoc((current) => ({ blocks: [...current.blocks, block] }));
+    setSelectedDesignBlockId(block.id);
     setEditorMode('design');
     markPreviewStale();
   }
@@ -3052,6 +3058,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function removeDesignBlock(id: string) {
     setDesignDoc((current) => ({ blocks: current.blocks.filter((block) => block.id !== id) }));
+    setSelectedDesignBlockId((current) => current === id ? '' : current);
     markPreviewStale();
   }
 
@@ -3109,6 +3116,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody(defaultTemplateSnapshot.htmlBody);
     setCssBody(defaultTemplateSnapshot.cssBody);
     setDesignDoc({ blocks: [] });
+    setSelectedDesignBlockId('');
     setSavedTemplateSnapshot(defaultTemplateSnapshot);
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
     clearTemplatePreview();
@@ -3139,6 +3147,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setHtmlBody(snapshot.htmlBody);
     setCssBody(snapshot.cssBody);
     setDesignDoc(nextDesignDoc);
+    setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
     setSavedTemplateSnapshot(snapshot);
     clearTemplatePreview();
     setAiRecommendations([]);
@@ -3259,6 +3268,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (className) {
       setStatus(`Selected .${className}. No CSS rule exists yet; choose controls and create one.`);
     }
+  }
+
+  function focusDesignBlockCss(block: TemplateDesignBlock) {
+    setSelectedDesignBlockId(block.id);
+    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0];
+    if (!className) {
+      setStatus('Add a CSS class to this design block before styling it.');
+      return;
+    }
+    selectCssClass(className);
+    setCssToolsOpen(true);
+    setStatus(`Styling .${className} from ${block.type.replace('_', ' ')} block.`);
   }
 
   function syncHtmlSelectionToCssClass(from?: number, to?: number) {
@@ -4306,7 +4327,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                <div className="design-builder-toolbar">
 	                  <div>
 	                    <strong>Design Blocks</strong>
-	                    <span>{formatInt(designDoc.blocks.length)} block(s). Build email structure visually, then sync to HTML/Jinja when needed.</span>
+	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Select a block to style its class.</span>
 	                  </div>
 	                  <div className="button-row">
 	                    {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'].map((type) => (
@@ -4317,16 +4338,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                {designDoc.blocks.length ? (
 	                  <div className="design-block-list">
 	                    {designDoc.blocks.map((block, index) => (
-	                      <article className="design-block-card" key={block.id}>
+	                      <article
+                          className={`design-block-card ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+                          key={block.id}
+                          onClick={() => setSelectedDesignBlockId(block.id)}
+                        >
 	                        <div className="design-block-head">
 	                          <div>
 	                            <span>Block {index + 1}</span>
 	                            <strong>{block.type === 'html' ? 'HTML / Jinja' : block.type.replace('_', ' ')}</strong>
+                              {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
 	                          </div>
 	                          <div className="button-row">
-	                            <button className="ghost" type="button" onClick={() => moveDesignBlock(block.id, -1)} disabled={busy || index === 0}>Up</button>
-	                            <button className="ghost" type="button" onClick={() => moveDesignBlock(block.id, 1)} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
-	                            <button className="ghost" type="button" onClick={() => removeDesignBlock(block.id)} disabled={busy}>Remove</button>
+	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); focusDesignBlockCss(block); }} disabled={busy || !block.className}>Style</button>
+	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || index === 0}>Up</button>
+	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || index === designDoc.blocks.length - 1}>Down</button>
+	                            <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); removeDesignBlock(block.id); }} disabled={busy}>Remove</button>
 	                          </div>
 	                        </div>
 	                        <div className="design-block-fields">

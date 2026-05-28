@@ -1310,6 +1310,14 @@ th {
   border-radius: 8px;
   background: #fff;
   padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.design-block-card.selected {
+  border-color: #2563eb;
+  background: #f8fbff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .design-block-head {
@@ -1335,6 +1343,13 @@ th {
   color: #29405f;
   font-size: 14px;
   text-transform: capitalize;
+}
+
+.design-block-head em {
+  color: #64748b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
 }
 
 .design-block-fields {
