@@ -3843,6 +3843,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               <strong>Feedback</strong>
               <span>Readiness checks, AI drafts, and recommendations for this template.</span>
             </div>
+            <div className="ai-feedback-summary">
+              <div className={pendingAiDraft ? 'active' : ''}>
+                <strong>{pendingAiDraft ? 'Draft ready' : 'No draft'}</strong>
+                <span>{pendingAiDraft ? 'Preview or apply before saving.' : 'Drafts appear after AI edits.'}</span>
+              </div>
+              <div className={aiRecommendations.length ? 'active' : ''}>
+                <strong>{formatInt(aiRecommendations.length)} suggestion(s)</strong>
+                <span>{aiRecommendations.length ? 'Review recommended changes.' : 'Load AI suggestions when needed.'}</span>
+              </div>
+            </div>
             <section className="workflow-section">
               <h3>Readiness</h3>
               <div className="compact-status-list">
@@ -3876,28 +3886,31 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 <p className="muted">AI drafts and edits appear here for review before they change the editor.</p>
               )}
             </section>
-            {(aiNotes.length || aiRecommendations.length) ? (
-              <section className="workflow-section">
-                <h3>AI Suggestions</h3>
-                {aiNotes.length ? (
-                  <div className="module-links">
-                    {aiNotes.slice(0, 3).map((note) => <span className="pill" key={note}>{note}</span>)}
-                  </div>
-                ) : null}
-                {aiRecommendations.length ? (
-                  <div className="recommendation-list">
-                    {aiRecommendations.slice(0, 5).map((item) => (
-                      <article key={item.code}>
-                        <span className="pill">{item.priority}</span>
-                        <strong>{item.title}</strong>
-                        <p>{item.detail}</p>
-                        <button className="link-button" onClick={() => applyAiEdit(item.suggested_instruction)} disabled={busy}>Review change</button>
-                      </article>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
+            <section className="workflow-section">
+              <h3>AI Suggestions</h3>
+              {aiNotes.length ? (
+                <div className="module-links">
+                  {aiNotes.slice(0, 3).map((note) => <span className="pill" key={note}>{note}</span>)}
+                </div>
+              ) : null}
+              {aiRecommendations.length ? (
+                <div className="recommendation-list">
+                  {aiRecommendations.slice(0, 5).map((item) => (
+                    <article key={item.code}>
+                      <span className="pill">{item.priority}</span>
+                      <strong>{item.title}</strong>
+                      <p>{item.detail}</p>
+                      <button className="link-button" onClick={() => applyAiEdit(item.suggested_instruction)} disabled={busy}>Review change</button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="ai-empty-state">
+                  <strong>No suggestions loaded</strong>
+                  <span>Use AI Suggestions after previewing to get deliverability, layout, and copy recommendations.</span>
+                </div>
+              )}
+            </section>
           </aside>
         </div>
       </section>
