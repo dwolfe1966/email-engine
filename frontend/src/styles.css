@@ -1211,6 +1211,36 @@ th {
   font-size: 14px;
 }
 
+.preview-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.preview-meta {
+  border: 1px solid #dce8f7;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.preview-meta.good {
+  border-color: #b7e8d5;
+  background: #f2fff9;
+  color: #15803d;
+}
+
+.preview-meta.warn {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+  color: #b45309;
+}
+
 .preview-stale-banner {
   display: grid;
   grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) auto;

@@ -3814,10 +3814,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	                  </div>
 	                ) : null}
 	                <div className="preview-toolbar">
-                  <div>
-                    <span>Subject</span>
-                    <strong>{previewSubject || subject}</strong>
-                  </div>
+	                  <div>
+	                    <span>Subject</span>
+	                    <strong>{previewSubject || subject}</strong>
+	                    <div className="preview-meta-row">
+	                      <span className={previewFreshness === 'current' ? 'preview-meta good' : 'preview-meta warn'}>{previewFreshness === 'current' ? 'Current' : 'Stale'}</span>
+	                      <span className="preview-meta">{previewViewport}</span>
+	                      <span className="preview-meta">{formatInt(variables.length)} variable(s)</span>
+	                      <span className={missingCssClasses.length ? 'preview-meta warn' : 'preview-meta good'}>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} CSS gap(s)` : 'CSS covered'}</span>
+	                    </div>
+	                  </div>
                   <div className="tab-row compact-tabs">
                     <button className={previewViewport === 'desktop' ? 'active' : ''} onClick={() => setPreviewViewport('desktop')}>Desktop</button>
                     <button className={previewViewport === 'mobile' ? 'active' : ''} onClick={() => setPreviewViewport('mobile')}>Mobile</button>
