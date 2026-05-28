@@ -3031,7 +3031,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
+    const selectedActions = block.id === selectedDesignBlockId
+      ? `<div class="ee-design-actions">
+          <button type="button" data-design-action="style">Style</button>
+          <button type="button" data-design-action="up">Up</button>
+          <button type="button" data-design-action="down">Down</button>
+          <button type="button" data-design-action="delete">Delete</button>
+        </div>`
+      : '';
     return `<div class="ee-design-block${selectedClass}" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
+${selectedActions}
 ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
   }
@@ -3049,6 +3058,9 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
       .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+      .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
+      .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
+      .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
       ${cssBody || ''}
     </style>
   </head>
@@ -3062,7 +3074,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         if (!block) return;
         event.preventDefault();
         event.stopPropagation();
-        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id') }, '*');
+        var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
+        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
       });
     </script>
   </body>
@@ -3126,6 +3139,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const block = designDoc.blocks.find((item) => item.id === data.blockId);
       if (!block) return;
       setSelectedDesignBlockId(block.id);
+      if (data.action === 'style') {
+        focusDesignBlockCss(block);
+        return;
+      }
+      if (data.action === 'up') {
+        moveDesignBlock(block.id, -1);
+        setStatus(`Moved ${block.type.replace('_', ' ')} block up from canvas.`);
+        return;
+      }
+      if (data.action === 'down') {
+        moveDesignBlock(block.id, 1);
+        setStatus(`Moved ${block.type.replace('_', ' ')} block down from canvas.`);
+        return;
+      }
+      if (data.action === 'delete') {
+        removeDesignBlock(block.id);
+        setStatus(`Deleted ${block.type.replace('_', ' ')} block from canvas.`);
+        return;
+      }
       setStatus(`Selected ${block.type.replace('_', ' ')} block from canvas.`);
     }
     window.addEventListener('message', handleDesignCanvasMessage);
