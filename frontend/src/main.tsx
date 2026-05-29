@@ -3201,6 +3201,22 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     return null;
   }
+  function designBlockAncestorIds(id: string, blocks = designDoc.blocks, ancestors: string[] = []): string[] {
+    for (const block of blocks) {
+      if (block.id === id) return ancestors;
+      const childAncestors = designBlockAncestorIds(id, block.children || [], [...ancestors, block.id]);
+      if (childAncestors.length) return childAncestors;
+    }
+    return [];
+  }
+  function revealDesignBlockInHierarchy(id: string, ancestorIds = designBlockAncestorIds(id)) {
+    if (!ancestorIds.length) return;
+    setCollapsedDesignTreeIds((current) => current.filter((item) => !ancestorIds.includes(item)));
+  }
+  function selectDesignBlock(id: string, ancestorIds?: string[]) {
+    revealDesignBlockInHierarchy(id, ancestorIds);
+    setSelectedDesignBlockId(id);
+  }
   const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
   function designBlockSiblingContext(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): { blocks: TemplateDesignBlock[]; index: number; parent: TemplateDesignBlock | null } | null {
     const index = blocks.findIndex((block) => block.id === id);
@@ -3290,7 +3306,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
           key={block.id}
           type="button"
-          onClick={() => setSelectedDesignBlockId(block.id)}
+          onClick={() => selectDesignBlock(block.id)}
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
           <span
@@ -3503,7 +3519,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const blocks = insertBlock(current.blocks);
       return { blocks: inserted ? blocks : [...current.blocks, block] };
     });
-    setSelectedDesignBlockId(block.id);
+    selectDesignBlock(block.id, targetId ? designBlockAncestorIds(targetId) : undefined);
     setEditorMode('design');
     setDesignDocEdited(true);
     markPreviewStale();
@@ -3521,7 +3537,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return block;
     });
     setDesignDoc((current) => ({ blocks: appendChild(current.blocks) }));
-    setSelectedDesignBlockId(child.id);
+    selectDesignBlock(child.id, [parentId]);
     setEditorMode('design');
     setDesignDocEdited(true);
     markPreviewStale();
@@ -3554,7 +3570,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (!movedBlock) return current;
       return { blocks: appendToSection(withoutSource) };
     });
-    setSelectedDesignBlockId(sourceId);
+    selectDesignBlock(sourceId, [parentId]);
     setDesignDocEdited(true);
     markPreviewStale();
     setStatus('Moved block into section.');
@@ -3598,7 +3614,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return sectionId ? { blocks } : current;
     });
     if (sectionId) {
-      setSelectedDesignBlockId(sectionId);
+      selectDesignBlock(sectionId, designBlockAncestorIds(id));
       setDesignDocEdited(true);
       markPreviewStale();
       setStatus('Wrapped block in a section.');
@@ -3649,7 +3665,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return duplicateId ? { blocks } : current;
     });
     if (duplicateId) {
-      setSelectedDesignBlockId(duplicateId);
+      selectDesignBlock(duplicateId, designBlockAncestorIds(id));
       setDesignDocEdited(true);
       markPreviewStale();
       setStatus('Duplicated design block.');
@@ -3691,7 +3707,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const blocks = insertBlock(withoutSource);
       return inserted ? { blocks } : current;
     });
-    setSelectedDesignBlockId(sourceId);
+    selectDesignBlock(sourceId, targetId ? designBlockAncestorIds(targetId) : designBlockAncestorIds(sourceId));
     setDesignDocEdited(true);
     markPreviewStale();
   }
@@ -3784,7 +3800,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
       const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
       if (!block) return;
-      setSelectedDesignBlockId(block.id);
+      selectDesignBlock(block.id);
       if (data.action === 'style') {
         focusDesignBlockCss(block);
         return;
@@ -4049,7 +4065,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function focusDesignBlockCss(block: TemplateDesignBlock) {
-    setSelectedDesignBlockId(block.id);
+    selectDesignBlock(block.id);
     const className = String(block.className || '').split(/\s+/).filter(Boolean)[0];
     if (!className) {
       setStatus('Add a CSS class to this design block before styling it.');
