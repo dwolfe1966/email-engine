@@ -3535,6 +3535,36 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setStatus('Outdented block one level.');
   }
 
+  function wrapDesignBlockInSection(id: string) {
+    rememberDesignState();
+    let sectionId = '';
+    const wrapBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === id) {
+        sectionId = designBlockId();
+        return {
+          id: sectionId,
+          type: 'section',
+          className: 'email-section',
+          bg: '',
+          padding_y: 18,
+          children: [block],
+        };
+      }
+      if (block.children?.length) return { ...block, children: wrapBlock(block.children) };
+      return block;
+    });
+    setDesignDoc((current) => {
+      const blocks = wrapBlock(current.blocks);
+      return sectionId ? { blocks } : current;
+    });
+    if (sectionId) {
+      setSelectedDesignBlockId(sectionId);
+      setDesignDocEdited(true);
+      markPreviewStale();
+      setStatus('Wrapped block in a section.');
+    }
+  }
+
   function moveDesignBlock(id: string, direction: -1 | 1) {
     rememberDesignState();
     let moved = false;
@@ -5140,6 +5170,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !canMoveDesignBlock(block.id, 1)}>Down</button>
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); indentDesignBlock(block.id); }} disabled={busy || !canIndentDesignBlock(block.id)}>Indent</button>
 	                              {findDesignBlockParent(block.id) ? <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); outdentDesignBlock(block.id); }} disabled={busy}>Outdent</button> : null}
+	                              {block.type !== 'section' ? <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); wrapDesignBlockInSection(block.id); }} disabled={busy}>Wrap</button> : null}
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); duplicateDesignBlock(block.id); }} disabled={busy}>Duplicate</button>
 	                            </div>
 	                          </div>
@@ -5196,6 +5227,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
 		                              <button className="ghost" type="button" onClick={() => indentDesignBlock(selectedDesignBlock.id)} disabled={busy || !canIndentDesignBlock(selectedDesignBlock.id)}>Indent</button>
 		                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => outdentDesignBlock(selectedDesignBlock.id)} disabled={busy}>Outdent</button> : null}
+		                              {selectedDesignBlock.type !== 'section' ? <button className="ghost" type="button" onClick={() => wrapDesignBlockInSection(selectedDesignBlock.id)} disabled={busy}>Wrap in Section</button> : null}
 		                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
 	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
 	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
