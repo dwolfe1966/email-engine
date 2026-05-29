@@ -2732,6 +2732,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [designDocEdited, setDesignDocEdited] = useState(false);
+  const [designUndoStack, setDesignUndoStack] = useState<TemplateDesignDocument[]>([]);
+  const [designRedoStack, setDesignRedoStack] = useState<TemplateDesignDocument[]>([]);
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
@@ -3056,6 +3058,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   }
 
+  function snapshotDesignBlock(block: TemplateDesignBlock): TemplateDesignBlock {
+    return {
+      ...block,
+      items: block.items ? [...block.items] : block.items,
+      children: block.children?.map(snapshotDesignBlock),
+    };
+  }
+
   function normalizeDesignBlock(value: unknown, index: number): TemplateDesignBlock {
     const block = value && typeof value === 'object' ? value as TemplateDesignBlock : { type: 'paragraph' };
     return {
@@ -3129,6 +3139,47 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designDocumentTemplateSource(document = designDoc) {
     return document.blocks.map(designBlockToHtml).join('\n');
+  }
+
+  function cloneDesignDocument(document: TemplateDesignDocument): TemplateDesignDocument {
+    return {
+      blocks: document.blocks.map((block) => snapshotDesignBlock(block)),
+    };
+  }
+
+  function rememberDesignState() {
+    const snapshot = cloneDesignDocument(designDoc);
+    setDesignUndoStack((current) => {
+      const last = current[current.length - 1];
+      if (last && semanticDesignDocJson(last) === semanticDesignDocJson(snapshot)) return current;
+      return [...current.slice(-39), snapshot];
+    });
+    setDesignRedoStack([]);
+  }
+
+  function restoreDesignHistorySnapshot(snapshot: TemplateDesignDocument) {
+    setDesignDoc(cloneDesignDocument(snapshot));
+    setSelectedDesignBlockId(snapshot.blocks[0]?.id || '');
+    setDesignDocEdited(true);
+    markPreviewStale();
+  }
+
+  function undoDesignChange() {
+    const previous = designUndoStack[designUndoStack.length - 1];
+    if (!previous) return;
+    setDesignRedoStack((current) => [...current.slice(-39), cloneDesignDocument(designDoc)]);
+    setDesignUndoStack((current) => current.slice(0, -1));
+    restoreDesignHistorySnapshot(previous);
+    setStatus('Undid last design change.');
+  }
+
+  function redoDesignChange() {
+    const next = designRedoStack[designRedoStack.length - 1];
+    if (!next) return;
+    setDesignUndoStack((current) => [...current.slice(-39), cloneDesignDocument(designDoc)]);
+    setDesignRedoStack((current) => current.slice(0, -1));
+    restoreDesignHistorySnapshot(next);
+    setStatus('Redid design change.');
   }
 
   const flatDesignBlocks = flattenDesignBlocks(designDoc.blocks);
@@ -3353,6 +3404,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function updateDesignBlock(id: string, updates: Partial<TemplateDesignBlock>) {
+    rememberDesignState();
     const updateBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
       if (block.id === id) return { ...block, ...updates };
       if (block.children?.length) return { ...block, children: updateBlocks(block.children) };
@@ -3366,6 +3418,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function addDesignBlock(type: string, targetId = '', position: 'before' | 'after' = 'before') {
+    rememberDesignState();
     const block = newDesignBlock(type);
     let inserted = false;
     const insertBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
@@ -3391,6 +3444,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function addDesignChildBlock(parentId: string, type: string) {
+    rememberDesignState();
     const child = newDesignBlock(type);
     const appendChild = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
       if (block.id === parentId) {
@@ -3412,6 +3466,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const sourceBlock = flatDesignBlocks.find((block) => block.id === sourceId);
     const blockContains = (block: TemplateDesignBlock, id: string): boolean => block.id === id || Boolean(block.children?.some((child) => blockContains(child, id)));
     if (sourceBlock && blockContains(sourceBlock, parentId)) return;
+    rememberDesignState();
     setDesignDoc((current) => {
       let movedBlock: TemplateDesignBlock | null = null;
       const removeBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks
@@ -3439,6 +3494,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function moveDesignBlock(id: string, direction: -1 | 1) {
+    rememberDesignState();
     let moved = false;
     const moveInBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
       const index = blocks.findIndex((block) => block.id === id);
@@ -3463,6 +3519,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function duplicateDesignBlock(id: string) {
+    rememberDesignState();
     let duplicateId = '';
     const duplicateInBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
       const index = blocks.findIndex((block) => block.id === id);
@@ -3489,6 +3546,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function reorderDesignBlock(sourceId: string, targetId: string, position: 'before' | 'after' = 'before') {
     if (!sourceId || sourceId === targetId) return;
+    rememberDesignState();
     const blockContains = (block: TemplateDesignBlock, id: string): boolean => block.id === id || Boolean(block.children?.some((child) => blockContains(child, id)));
     setDesignDoc((current) => {
       let movedBlock: TemplateDesignBlock | null = null;
@@ -3527,6 +3585,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function removeDesignBlock(id: string) {
+    rememberDesignState();
     const removeBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks
       .filter((block) => block.id !== id)
       .map((block) => block.children?.length ? { ...block, children: removeBlocks(block.children) } : block);
@@ -3548,6 +3607,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (nextMode === 'design' && editorMode !== 'design' && (editorMode !== 'preview' || previewSourceMode !== 'design')) {
       setDesignDoc(htmlToDesignDocument(htmlBody));
       setDesignDocEdited(false);
+      setDesignUndoStack([]);
+      setDesignRedoStack([]);
     }
     if (nextMode === 'edit' && editorMode === 'design') {
       if (designDocEdited) setHtmlBody(designDocumentTemplateSource());
@@ -3676,6 +3737,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setCssBody(defaultTemplateSnapshot.cssBody);
     setDesignDoc({ blocks: [] });
     setDesignDocEdited(false);
+    setDesignUndoStack([]);
+    setDesignRedoStack([]);
     setSelectedDesignBlockId('');
     setSavedTemplateSnapshot(defaultTemplateSnapshot);
     setVariablesJson('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
@@ -3708,6 +3771,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setCssBody(snapshot.cssBody);
     setDesignDoc(nextDesignDoc);
     setDesignDocEdited(false);
+    setDesignUndoStack([]);
+    setDesignRedoStack([]);
     setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
     setSavedTemplateSnapshot(snapshot);
     clearTemplatePreview();
@@ -3756,6 +3821,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setCssBody(nextCss);
       setDesignDoc(htmlToDesignDocument(nextHtml));
       setDesignDocEdited(false);
+      setDesignUndoStack([]);
+      setDesignRedoStack([]);
       setVariables(variableData.variables || []);
       setVariablesJson(JSON.stringify(renderVariables, null, 2));
       setPreviewHtml(preview.html_body || '');
@@ -4919,9 +4986,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  <div>
 	                    <strong>Design Canvas</strong>
 	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Use the canvas for selection and the inspector for editing.</span>
-	                  </div>
-	                  <div className="button-row">
-	                    {designPaletteBlockTypes.map((type) => (
+		                  </div>
+		                  <div className="button-row">
+		                    <button className="ghost" type="button" onClick={undoDesignChange} disabled={busy || !designUndoStack.length}>Undo</button>
+		                    <button className="ghost" type="button" onClick={redoDesignChange} disabled={busy || !designRedoStack.length}>Redo</button>
+		                    {designPaletteBlockTypes.map((type) => (
 	                      <button
                           className={`ghost design-palette-chip ${draggedPaletteBlockType === type ? 'dragging' : ''}`}
                           type="button"
