@@ -2749,6 +2749,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const designInspectorRef = useRef<HTMLElement | null>(null);
+  const designHierarchyRef = useRef<HTMLElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
   const [cssPreset, setCssPreset] = useState({
@@ -3304,6 +3305,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return [
         <button
           className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+          data-design-tree-id={block.id}
           key={block.id}
           type="button"
           onClick={() => selectDesignBlock(block.id)}
@@ -3776,6 +3778,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const highlightTimer = window.setTimeout(() => setDesignInspectorFocusNonce(0), 1400);
     return () => window.clearTimeout(highlightTimer);
   }, [designInspectorFocusNonce, selectedDesignBlockId]);
+
+  useEffect(() => {
+    if (editorMode !== 'design' || !designHierarchyOpen || !selectedDesignBlockId) return;
+    const scrollTimer = window.setTimeout(() => {
+      const selector = `[data-design-tree-id="${CSS.escape(selectedDesignBlockId)}"]`;
+      const selectedRow = designHierarchyRef.current?.querySelector<HTMLElement>(selector);
+      selectedRow?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 0);
+    return () => window.clearTimeout(scrollTimer);
+  }, [collapsedDesignTreeIds, designHierarchyOpen, editorMode, selectedDesignBlockId]);
 
   useEffect(() => {
     function handleDesignCanvasMessage(event: MessageEvent) {
@@ -5182,20 +5194,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                {designDoc.blocks.length ? (
                     <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''}`}>
                       {designHierarchyOpen ? (
-                        <aside className="design-hierarchy-panel">
-                          <div className="design-canvas-head">
-                            <strong>Hierarchy</strong>
-                            <span>{formatInt(flatDesignBlocks.length)} block(s). Select a row to edit it.</span>
-                          </div>
-                          <div className="design-tree-tools">
-                            <button className="ghost" type="button" onClick={() => setCollapsedDesignTreeIds([])}>Expand All</button>
-                            <button
-                              className="ghost"
-                              type="button"
-                              onClick={() => setCollapsedDesignTreeIds(flatDesignBlocks.filter((block) => block.children?.length).map((block) => block.id))}
-                            >
-                              Collapse All
-                            </button>
+                        <aside className="design-hierarchy-panel" ref={designHierarchyRef}>
+                          <div className="design-hierarchy-head">
+                            <div className="design-canvas-head">
+                              <strong>Hierarchy</strong>
+                              <span>{formatInt(flatDesignBlocks.length)} block(s). Select a row to edit it.</span>
+                            </div>
+                            <div className="design-tree-tools" aria-label="Hierarchy controls">
+                              <button className="ghost icon-button" type="button" onClick={() => setCollapsedDesignTreeIds([])} title="Expand all">+</button>
+                              <button
+                                className="ghost icon-button"
+                                type="button"
+                                onClick={() => setCollapsedDesignTreeIds(flatDesignBlocks.filter((block) => block.children?.length).map((block) => block.id))}
+                                title="Collapse all"
+                              >
+                                -
+                              </button>
+                            </div>
                           </div>
                           <div className="design-tree" role="tree" aria-label="Template block hierarchy">
                             {renderDesignHierarchy(designDoc.blocks)}

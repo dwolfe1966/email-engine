@@ -1340,14 +1340,27 @@ th {
   gap: 3px;
 }
 
-.design-tree-tools {
+.design-hierarchy-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.design-tree-tools button {
-  padding: 6px 8px;
+.design-tree-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.design-tree-tools .icon-button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .design-tree-row {
