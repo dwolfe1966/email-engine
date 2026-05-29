@@ -2927,15 +2927,39 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function designBlocksWithVisibleRoot(blocks: TemplateDesignBlock[]) {
-    if (blocks.length <= 1 || blocks.some((block) => block.type === 'section')) return blocks;
+    if (deepestDesignSectionDepth(blocks) >= 2) return blocks;
+    if (blocks.length === 1 && blocks[0].type === 'section') {
+      return [{
+        id: designBlockId(),
+        type: 'section',
+        className: 'email-shell',
+        bg: '#f5f7fb',
+        padding_y: 24,
+        children: blocks,
+      }];
+    }
     return [{
       id: designBlockId(),
       type: 'section',
-      className: 'email-container',
-      bg: '',
+      className: 'email-shell',
+      bg: '#f5f7fb',
       padding_y: 24,
-      children: blocks,
+      children: [{
+        id: designBlockId(),
+        type: 'section',
+        className: 'email-container',
+        bg: '',
+        padding_y: 24,
+        children: blocks,
+      }],
     }];
+  }
+
+  function deepestDesignSectionDepth(blocks: TemplateDesignBlock[], depth = 0): number {
+    return blocks.reduce((maxDepth, block) => {
+      const blockDepth = block.type === 'section' ? depth + 1 : depth;
+      return Math.max(maxDepth, blockDepth, deepestDesignSectionDepth(block.children || [], blockDepth));
+    }, depth);
   }
 
   function htmlAttribute(source: string, name: string) {

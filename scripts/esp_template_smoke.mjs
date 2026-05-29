@@ -208,6 +208,8 @@ try {
       const savedState = () => (document.querySelector('.edit-state-pill')?.textContent || '').trim();
       const canvasBlockCount = () => document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelectorAll('.ee-design-block')?.length || 0;
       const nestedTreeRowCount = () => document.querySelectorAll('.design-tree-row.nested, .design-tree-row[aria-level="2"], .design-tree-row[aria-level="3"]').length;
+      const deepestTreeLevel = () => Math.max(0, ...Array.from(document.querySelectorAll('.design-tree-row'))
+        .map((row) => Number(row.getAttribute('aria-level') || 0)));
       window.location.hash = '#templates/${tempTemplateId}';
       for (let index = 0; index < 50; index += 1) {
         await wait(150);
@@ -223,11 +225,15 @@ try {
       }
       const designBlockCount = canvasBlockCount();
       const nestedRows = nestedTreeRowCount();
+      const deepestLevel = deepestTreeLevel();
       if (designBlockCount < 2) {
         return { ok: false, reason: 'Nested wrapper did not reverse-engineer into editable blocks', initialState, designBlockCount };
       }
       if (nestedRows < 1) {
         return { ok: false, reason: 'Nested wrapper did not render visible hierarchy rows', initialState, designBlockCount, nestedRows };
+      }
+      if (deepestLevel < 3) {
+        return { ok: false, reason: 'Template design hierarchy did not render multiple nesting levels', initialState, designBlockCount, nestedRows, deepestLevel };
       }
       const afterDesignState = savedState();
       if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
@@ -250,6 +256,7 @@ try {
             srcDocLength: srcDoc.length,
             designBlockCount,
             nestedRows,
+            deepestLevel,
           };
         }
       }
@@ -261,6 +268,7 @@ try {
         afterPreviewState: savedState(),
         designBlockCount,
         nestedRows,
+        deepestLevel,
         srcDocSnippet: (document.querySelector('iframe.email-preview')?.getAttribute('srcdoc') || '').slice(0, 240),
         bodyText: document.body?.innerText || '',
       };
@@ -276,6 +284,7 @@ try {
       afterPreviewState: existingDesign.afterPreviewState,
       designBlockCount: existingDesign.designBlockCount,
       nestedRows: existingDesign.nestedRows,
+      deepestLevel: existingDesign.deepestLevel,
       srcDocLength: existingDesign.srcDocLength,
       srcDocSnippet: existingDesign.srcDocSnippet,
     })})`);
