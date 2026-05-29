@@ -3618,6 +3618,26 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   useEffect(() => {
+    function handleDesignKeyboardShortcut(event: KeyboardEvent) {
+      if (editorMode !== 'design' || busy) return;
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"], .cm-editor')) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey && designUndoStack.length) {
+        event.preventDefault();
+        undoDesignChange();
+      }
+      if ((key === 'z' && event.shiftKey || key === 'y') && designRedoStack.length) {
+        event.preventDefault();
+        redoDesignChange();
+      }
+    }
+    window.addEventListener('keydown', handleDesignKeyboardShortcut);
+    return () => window.removeEventListener('keydown', handleDesignKeyboardShortcut);
+  }, [busy, designRedoStack, designUndoStack, editorMode, designDoc]);
+
+  useEffect(() => {
     function handleDesignCanvasMessage(event: MessageEvent) {
       const data = event.data;
       if (data?.type === 'ee-design-block-reorder') {
