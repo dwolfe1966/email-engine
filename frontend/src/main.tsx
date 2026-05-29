@@ -3126,6 +3126,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const designBlockEntries = flattenDesignBlockEntries(designDoc.blocks);
   const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
   const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
+  function findDesignBlockParent(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): TemplateDesignBlock | null {
+    for (const block of blocks) {
+      if (block.id === id) return parent;
+      const childParent = findDesignBlockParent(id, block.children || [], block);
+      if (childParent) return childParent;
+    }
+    return null;
+  }
+  const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
   function designBlockSiblingInfo(id: string, blocks = designDoc.blocks): { index: number; count: number } | null {
     const index = blocks.findIndex((block) => block.id === id);
     if (index >= 0) return { index, count: blocks.length };
@@ -4996,20 +5005,22 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <div className="design-inspector-panel">
                             <div className="design-canvas-head">
                               <strong>Selected Block</strong>
-                              <span>
-                                {designBlockTypeLabel(selectedDesignBlock.type)}
-                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
-                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
-                              </span>
+	                              <span>
+	                                {designBlockTypeLabel(selectedDesignBlock.type)}
+	                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
+	                                {selectedDesignBlockParent ? ` · inside ${designBlockTypeLabel(selectedDesignBlockParent.type)}` : ' · root'}
+	                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
+	                              </span>
                             </div>
                             <div className="design-block-fields inspector-fields">
                               {renderDesignBlockControls(selectedDesignBlock)}
                             </div>
                             <div className="button-row">
                               <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
-                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
-                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
+	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
+	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
+	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
+	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
                             </div>
                           </div>
                         ) : null}
