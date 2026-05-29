@@ -1390,6 +1390,11 @@ th {
   box-shadow: inset 3px 0 0 #2563eb;
 }
 
+.design-tree-row.adding {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
 .design-tree-branch {
   color: #64748b;
   font-size: 10px;
@@ -1463,6 +1468,29 @@ th {
 .design-tree-add.visible:hover {
   background: #dcfce7;
   color: #047857;
+}
+
+.design-tree-add-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: calc(50px + (var(--tree-depth) * 16px));
+  padding: 3px 0 6px;
+}
+
+.design-tree-add-menu button {
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #047857;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 7px;
+}
+
+.design-tree-add-menu button:hover {
+  background: #dcfce7;
 }
 
 .design-selected-path {

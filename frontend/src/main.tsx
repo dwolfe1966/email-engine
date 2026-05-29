@@ -2744,6 +2744,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
+  const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3300,10 +3301,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   }
 
-  function toggleDesignTreeNode(id: string) {
-    setCollapsedDesignTreeIds((current) => (
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    ));
+	  function toggleDesignTreeNode(id: string) {
+	    setCollapsedDesignTreeIds((current) => (
+	      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+	    ));
+	  }
+
+  function addDesignTreeChildBlock(parentId: string, type: string) {
+    addDesignChildBlock(parentId, type);
+    setActiveDesignTreeAddId('');
   }
 
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
@@ -3312,9 +3318,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const children = block.children || [];
       const hasChildren = children.length > 0;
       const collapsed = collapsedDesignTreeIds.includes(block.id);
+      const addMenuOpen = activeDesignTreeAddId === block.id;
       return [
         <button
-          className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+          className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
           data-design-tree-id={block.id}
           key={block.id}
           type="button"
@@ -3336,17 +3343,26 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             <strong>{meta.label}</strong>
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
-          <span
-            className={`design-tree-add ${block.type === 'section' ? 'visible' : ''}`}
-            title={block.type === 'section' ? 'Add paragraph inside section' : undefined}
-            onClick={block.type === 'section' ? (event) => {
-              event.stopPropagation();
-              addDesignChildBlock(block.id, 'paragraph');
-            } : undefined}
-          >
-            {block.type === 'section' ? '+' : ''}
-          </span>
-        </button>,
+	          <span
+	            className={`design-tree-add ${block.type === 'section' ? 'visible' : ''}`}
+	            title={block.type === 'section' ? 'Add block inside section' : undefined}
+	            onClick={block.type === 'section' ? (event) => {
+	              event.stopPropagation();
+	              setActiveDesignTreeAddId((current) => current === block.id ? '' : block.id);
+	            } : undefined}
+	          >
+	            {block.type === 'section' ? '+' : ''}
+	          </span>
+	        </button>,
+        ...(addMenuOpen ? [
+          <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
+            {['heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer'].map((type) => (
+              <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
+                {designBlockTypeLabel(type)}
+              </button>
+            ))}
+          </div>,
+        ] : []),
         ...(collapsed ? [] : renderDesignHierarchy(children, depth + 1)),
       ];
     });
