@@ -2899,7 +2899,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designDocFromTemplate(template: TemplateRead): TemplateDesignDocument {
     const blocks = template.document_json?.blocks;
-    if (Array.isArray(blocks)) {
+    if (Array.isArray(blocks) && blocks.length) {
       return { blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)) };
     }
     return htmlToDesignDocument(template.html_body || '');
