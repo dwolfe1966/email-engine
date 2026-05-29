@@ -162,6 +162,24 @@ model clearer and more operationally complete.
 
 - Add `data_sources` for Postgres, MySQL, Snowflake, BigQuery, REST APIs, CSV/S3, and manual uploads.
 - Add `data_source_mappings` to map external fields into canonical contact/profile/event objects.
+- Add a dedicated client-data architecture research track. Decide how clients should connect and
+  stream data into Email Engine across multiple integration modes:
+  - Pull connectors for databases, warehouses, SaaS APIs, files, and object stores.
+  - Write APIs for clients that prefer to push contacts, profile updates, audience membership,
+    behavioral events, consent changes, and commerce/order data directly.
+  - Event ingestion endpoints and/or a message-bus strategy such as Kafka-compatible topics, webhooks,
+    or managed queues so clients and Email Engine services can post high-volume events without tightly
+    coupling to synchronous API workflows.
+  - Hybrid connector/event models where bulk profile state is imported by connector and real-time
+    behavioral activity arrives by event stream.
+- Define canonical contact, profile, account, event, consent, commerce, and custom-attribute contracts
+  before scaling connector count, so every connector maps into stable internal objects instead of
+  leaking source-specific schemas across audiences, templates, journeys, and analytics.
+- Make mapping and integration easy for operators: schema discovery, sample-row previews, field
+  suggestions, transform expressions, type coercion, validation rules, test imports, dry runs,
+  error isolation, replay, and versioned mapping definitions.
+- Add visualization for data integration flows: source -> mapping -> canonical object -> audience/
+  journey/campaign usage, with row counts, event rates, failures, freshness, and lineage/drilldowns.
 - Add connection validation endpoints that do not expose credentials.
   **Initial provider-neutral validation endpoint shipped.**
 - Add schema discovery endpoints for tables, columns, and sample rows.
@@ -227,6 +245,10 @@ model clearer and more operationally complete.
   area that should eventually let Email Engine operate its own outbound SMTP infrastructure using
   mature open-source components such as Haraka, Postal, ZoneMTA, Postfix, or similar tooling rather
   than depending on a paid ESP provider.
+- Make the long-term delivery objective explicit: Email Engine should be capable of sending outbound
+  email through our own SMTP infrastructure without requiring paid secondary relays such as Amazon SES
+  or SendGrid, while keeping provider adapters available as fallback, migration, and customer-choice
+  options.
 - Managed SMTP must include IP pool management, domain onboarding, DKIM/SPF/DMARC setup, bounce and
   complaint processing, warmup plans, rate limits, domain throttles, queue isolation, blocklist
   monitoring, feedback loops, provider-specific retry policy, reputation scoring, abuse controls,
