@@ -69,6 +69,11 @@ type TemplateDesignDocument = {
   blocks: TemplateDesignBlock[];
 };
 
+type TemplateDesignHistoryEntry = {
+  document: TemplateDesignDocument;
+  selectedBlockId: string;
+};
+
 type TemplateCodeEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -2732,8 +2737,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
   const [designDocEdited, setDesignDocEdited] = useState(false);
-  const [designUndoStack, setDesignUndoStack] = useState<TemplateDesignDocument[]>([]);
-  const [designRedoStack, setDesignRedoStack] = useState<TemplateDesignDocument[]>([]);
+  const [designUndoStack, setDesignUndoStack] = useState<TemplateDesignHistoryEntry[]>([]);
+  const [designRedoStack, setDesignRedoStack] = useState<TemplateDesignHistoryEntry[]>([]);
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
@@ -3147,19 +3152,28 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   }
 
+  function designHistoryEntry(document = designDoc, selectedBlockId = selectedDesignBlockId): TemplateDesignHistoryEntry {
+    return {
+      document: cloneDesignDocument(document),
+      selectedBlockId,
+    };
+  }
+
   function rememberDesignState() {
-    const snapshot = cloneDesignDocument(designDoc);
+    const snapshot = designHistoryEntry();
     setDesignUndoStack((current) => {
       const last = current[current.length - 1];
-      if (last && semanticDesignDocJson(last) === semanticDesignDocJson(snapshot)) return current;
+      if (last && semanticDesignDocJson(last.document) === semanticDesignDocJson(snapshot.document)) return current;
       return [...current.slice(-39), snapshot];
     });
     setDesignRedoStack([]);
   }
 
-  function restoreDesignHistorySnapshot(snapshot: TemplateDesignDocument) {
-    setDesignDoc(cloneDesignDocument(snapshot));
-    setSelectedDesignBlockId(snapshot.blocks[0]?.id || '');
+  function restoreDesignHistorySnapshot(snapshot: TemplateDesignHistoryEntry) {
+    const restoredDocument = cloneDesignDocument(snapshot.document);
+    const restoredBlocks = flattenDesignBlocks(restoredDocument.blocks);
+    setDesignDoc(restoredDocument);
+    setSelectedDesignBlockId(restoredBlocks.some((block) => block.id === snapshot.selectedBlockId) ? snapshot.selectedBlockId : restoredBlocks[0]?.id || '');
     setDesignDocEdited(true);
     markPreviewStale();
   }
@@ -3167,7 +3181,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function undoDesignChange() {
     const previous = designUndoStack[designUndoStack.length - 1];
     if (!previous) return;
-    setDesignRedoStack((current) => [...current.slice(-39), cloneDesignDocument(designDoc)]);
+    setDesignRedoStack((current) => [...current.slice(-39), designHistoryEntry()]);
     setDesignUndoStack((current) => current.slice(0, -1));
     restoreDesignHistorySnapshot(previous);
     setStatus('Undid last design change.');
@@ -3176,7 +3190,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function redoDesignChange() {
     const next = designRedoStack[designRedoStack.length - 1];
     if (!next) return;
-    setDesignUndoStack((current) => [...current.slice(-39), cloneDesignDocument(designDoc)]);
+    setDesignUndoStack((current) => [...current.slice(-39), designHistoryEntry()]);
     setDesignRedoStack((current) => current.slice(0, -1));
     restoreDesignHistorySnapshot(next);
     setStatus('Redid design change.');
