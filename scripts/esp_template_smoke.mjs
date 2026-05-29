@@ -206,6 +206,7 @@ try {
       const buttonByText = (text) => Array.from(document.querySelectorAll('button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
       const savedState = () => (document.querySelector('.edit-state-pill')?.textContent || '').trim();
+      const canvasBlockCount = () => document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelectorAll('.ee-design-block')?.length || 0;
       window.location.hash = '#templates/${tempTemplateId}';
       for (let index = 0; index < 50; index += 1) {
         await wait(150);
@@ -217,9 +218,9 @@ try {
       design.click();
       for (let index = 0; index < 40; index += 1) {
         await wait(150);
-        if (document.querySelector('.design-block-card')) break;
+        if (canvasBlockCount() >= 2 && document.querySelector('.design-inspector-panel')) break;
       }
-      const designBlockCount = document.querySelectorAll('.design-block-card').length;
+      const designBlockCount = canvasBlockCount();
       if (designBlockCount < 2) {
         return { ok: false, reason: 'Nested wrapper did not reverse-engineer into editable blocks', initialState, designBlockCount };
       }
@@ -278,6 +279,13 @@ try {
         .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
       const includesButton = (text) => Array.from(document.querySelectorAll('button'))
         .find((button) => (button.textContent || '').toLowerCase().includes(text.toLowerCase()));
+      const selectedTextControl = () => {
+        const inspector = document.querySelector('.design-inspector-panel');
+        if (!inspector) return null;
+        return Array.from(inspector.querySelectorAll('label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Text'))
+          ?.querySelector('input, textarea') || null;
+      };
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       let design = buttonByText('Design');
       if (!design) {
@@ -290,20 +298,16 @@ try {
       if (!design) return { ok: false, reason: 'Design button not found' };
       design.click();
       await wait(400);
-      if (!document.querySelector('.design-block-card')) {
+      if (!selectedTextControl()) {
         const heading = buttonByText('heading');
         if (!heading) return { ok: false, reason: 'Heading design block button not found' };
         heading.click();
         await wait(400);
       }
-      const editableCard = Array.from(document.querySelectorAll('.design-block-card'))
-        .find((card) => /(Heading|Paragraph|Button)/i.test(card.textContent || '')) || document.querySelector('.design-block-card');
-      editableCard?.click();
-      await wait(250);
       const marker = 'Smoke headline ' + Date.now();
       const inspector = document.querySelector('.design-inspector-panel');
       if (!inspector) return { ok: false, reason: 'Selected block inspector not found' };
-      const textInput = Array.from(inspector.querySelectorAll('label')).find((label) => (label.textContent || '').trim().startsWith('Text'))?.querySelector('input, textarea');
+      const textInput = selectedTextControl();
       if (!textInput) return { ok: false, reason: 'Selected block text control not found' };
       const valueSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(textInput), 'value')?.set;
       valueSetter ? valueSetter.call(textInput, marker) : (textInput.value = marker);
