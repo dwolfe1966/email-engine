@@ -2921,15 +2921,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function htmlToDesignDocument(source: string): TemplateDesignDocument {
     const trimmed = source.trim();
     if (!trimmed) return { blocks: [newDesignBlock('paragraph')] };
-    const innerSource = stripEmailContainer(trimmed);
-    const blocks = parseHtmlDesignBlocks(innerSource);
-    return { blocks: blocks.length ? blocks : [{ id: designBlockId(), type: 'html', code: trimmed }] };
+    const blocks = parseHtmlDesignBlocks(trimmed);
+    if (!blocks.length) return { blocks: [{ id: designBlockId(), type: 'html', code: trimmed }] };
+    return { blocks: designBlocksWithVisibleRoot(blocks) };
   }
 
-  function stripEmailContainer(source: string) {
-    const containerMatch = source.match(/^<div\b([^>]*)>([\s\S]*)<\/div>\s*$/i);
-    if (!containerMatch || !/\bemail-container\b/.test(containerMatch[1] || '')) return source;
-    return containerMatch[2].trim();
+  function designBlocksWithVisibleRoot(blocks: TemplateDesignBlock[]) {
+    if (blocks.length <= 1 || blocks.some((block) => block.type === 'section')) return blocks;
+    return [{
+      id: designBlockId(),
+      type: 'section',
+      className: 'email-container',
+      bg: '',
+      padding_y: 24,
+      children: blocks,
+    }];
   }
 
   function htmlAttribute(source: string, name: string) {
