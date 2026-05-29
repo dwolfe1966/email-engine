@@ -1418,6 +1418,11 @@ th {
   overflow: auto;
 }
 
+.design-inspector-panel.inspector-prompted {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.22);
+}
+
 .inspector-fields {
   grid-template-columns: 1fr;
 }

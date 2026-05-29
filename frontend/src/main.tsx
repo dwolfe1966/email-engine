@@ -2740,6 +2740,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designUndoStack, setDesignUndoStack] = useState<TemplateDesignHistoryEntry[]>([]);
   const [designRedoStack, setDesignRedoStack] = useState<TemplateDesignHistoryEntry[]>([]);
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
+  const [designInspectorFocusNonce, setDesignInspectorFocusNonce] = useState(0);
   const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [dropTargetDesignBlock, setDropTargetDesignBlock] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
@@ -2748,6 +2749,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const designInspectorRef = useRef<HTMLElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
   const [cssClassKind, setCssClassKind] = useState<'container' | 'section' | 'button' | 'text' | 'image'>('container');
   const [cssPreset, setCssPreset] = useState({
@@ -3714,6 +3716,18 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }, [busy, designRedoStack, designUndoStack, editorMode, designDoc]);
 
   useEffect(() => {
+    if (!designInspectorFocusNonce) return;
+    const panel = designInspectorRef.current;
+    const firstEditableField = panel?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:not([readonly]), textarea, select',
+    );
+    panel?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    window.setTimeout(() => firstEditableField?.focus(), 0);
+    const highlightTimer = window.setTimeout(() => setDesignInspectorFocusNonce(0), 1400);
+    return () => window.clearTimeout(highlightTimer);
+  }, [designInspectorFocusNonce, selectedDesignBlockId]);
+
+  useEffect(() => {
     function handleDesignCanvasMessage(event: MessageEvent) {
       const data = event.data;
       if (data?.type === 'ee-design-block-reorder') {
@@ -3742,6 +3756,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return;
       }
       if (data.action === 'edit') {
+        setDesignInspectorFocusNonce((current) => current + 1);
         setStatus(`Editing ${block.type.replace('_', ' ')} block in the inspector.`);
         return;
       }
@@ -5214,7 +5229,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                        </div>
 	                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
 	                      </aside>
-	                      <aside className="design-inspector-panel">
+		                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
 	                        {selectedDesignBlock ? (
 	                          <>
 	                            <div className="design-canvas-head">
