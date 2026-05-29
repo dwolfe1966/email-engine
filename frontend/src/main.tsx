@@ -1,4 +1,4 @@
-import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type DragEvent } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { html } from '@codemirror/lang-html';
@@ -3331,6 +3331,47 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return '';
   }
 
+  function visibleDesignTreeBlocks(blocks = designDoc.blocks): TemplateDesignBlock[] {
+    return blocks.flatMap((block) => [
+      block,
+      ...(collapsedDesignTreeIds.includes(block.id) ? [] : visibleDesignTreeBlocks(block.children || [])),
+    ]);
+  }
+
+  function handleDesignTreeKeyDown(event: KeyboardEvent<HTMLButtonElement>, block: TemplateDesignBlock) {
+    const visibleBlocks = visibleDesignTreeBlocks();
+    const currentIndex = visibleBlocks.findIndex((item) => item.id === block.id);
+    const parent = findDesignBlockParent(block.id);
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      const nextBlock = visibleBlocks[Math.min(currentIndex + 1, visibleBlocks.length - 1)];
+      if (nextBlock) selectDesignBlock(nextBlock.id);
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      const previousBlock = visibleBlocks[Math.max(currentIndex - 1, 0)];
+      if (previousBlock) selectDesignBlock(previousBlock.id);
+    }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      const children = block.children || [];
+      if (children.length && collapsedDesignTreeIds.includes(block.id)) {
+        setCollapsedDesignTreeIds((current) => current.filter((item) => item !== block.id));
+      } else if (children[0]) {
+        selectDesignBlock(children[0].id, [...designBlockAncestorIds(block.id), block.id]);
+      }
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      const children = block.children || [];
+      if (children.length && !collapsedDesignTreeIds.includes(block.id)) {
+        setCollapsedDesignTreeIds((current) => [...current, block.id]);
+      } else if (parent) {
+        selectDesignBlock(parent.id);
+      }
+    }
+  }
+
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
     return blocks.flatMap((block) => {
       const meta = designTreeMeta(block);
@@ -3349,8 +3390,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           aria-level={depth + 1}
           aria-expanded={hasChildren ? !collapsed : undefined}
           type="button"
+          tabIndex={selectedDesignBlockId === block.id ? 0 : -1}
           draggable={!busy}
           onClick={() => selectDesignBlock(block.id)}
+          onKeyDown={(event) => handleDesignTreeKeyDown(event, block)}
           onDragStart={(event) => {
             if (busy) return;
             selectDesignBlock(block.id);
