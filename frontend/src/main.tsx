@@ -3458,17 +3458,42 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }, [designDoc.blocks]);
 
   useEffect(() => {
-    if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
-      const template = templates.find((item) => item.id === routeTemplateId);
-      if (template && !loadTemplateIntoEditor(template)) {
-        window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
+    let cancelled = false;
+    async function syncRouteTemplate() {
+      if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
+        const template = templates.find((item) => item.id === routeTemplateId);
+        if (template) {
+          if (!loadTemplateIntoEditor(template)) {
+            window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
+          }
+          return;
+        }
+        if (!confirmDiscardTemplateChanges(`open template ${routeTemplateId}`)) {
+          window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
+          return;
+        }
+        setBusy(true);
+        setStatus('Loading template details...');
+        try {
+          const fetchedTemplate = await fetchJson<TemplateRead>(`/api/v1/templates/${routeTemplateId}`);
+          if (!cancelled) loadTemplateIntoEditor(fetchedTemplate, { force: true });
+        } catch (error) {
+          if (!cancelled) {
+            setStatus(`Unable to load template: ${apiErrorMessage(error)}`);
+            window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
+          }
+        } finally {
+          if (!cancelled) setBusy(false);
+        }
+      }
+      if (isNewTemplate && selectedTemplateId) {
+        if (!resetTemplateEditor()) {
+          window.location.hash = `#templates/${selectedTemplateId}`;
+        }
       }
     }
-    if (isNewTemplate && selectedTemplateId) {
-      if (!resetTemplateEditor()) {
-        window.location.hash = `#templates/${selectedTemplateId}`;
-      }
-    }
+    syncRouteTemplate();
+    return () => { cancelled = true; };
   }, [isNewTemplate, routeTemplateId, selectedTemplateId, templates]);
 
   function clearTemplatePreview() {
