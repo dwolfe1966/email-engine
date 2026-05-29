@@ -1403,10 +1403,28 @@ th {
   background: #f8fbff;
 }
 
+.design-tree-row.ancestor {
+  border-color: #dbeafe;
+  background: #f8fbff;
+  box-shadow: inset 3px 0 0 #bfdbfe;
+}
+
+.design-tree-row.ancestor .design-tree-icon {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .design-tree-row.selected {
   border-color: #93c5fd;
   background: #eff6ff;
   box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.design-tree-row.selected .design-tree-icon {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .design-tree-row.adding {

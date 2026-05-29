@@ -3231,6 +3231,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
   const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
   const selectedDesignBlockPath = selectedDesignBlock ? designBlockPath(selectedDesignBlock.id) : [];
+  const selectedDesignAncestorIds = selectedDesignBlock ? designBlockAncestorIds(selectedDesignBlock.id) : [];
   function designBlockSiblingContext(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): { blocks: TemplateDesignBlock[]; index: number; parent: TemplateDesignBlock | null } | null {
     const index = blocks.findIndex((block) => block.id === id);
     if (index >= 0) return { blocks, index, parent };
@@ -3320,9 +3321,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const hasChildren = children.length > 0;
       const collapsed = collapsedDesignTreeIds.includes(block.id);
       const addMenuOpen = activeDesignTreeAddId === block.id;
+      const inSelectedPath = selectedDesignAncestorIds.includes(block.id);
       return [
         <button
-          className={`design-tree-row ${depth ? 'nested' : 'root'} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
+          className={`design-tree-row ${depth ? 'nested' : 'root'} ${inSelectedPath ? 'ancestor' : ''} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
           data-design-tree-id={block.id}
           key={block.id}
           type="button"
