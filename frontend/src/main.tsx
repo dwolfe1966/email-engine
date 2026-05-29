@@ -1,4 +1,4 @@
-import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type DragEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { html } from '@codemirror/lang-html';
@@ -2745,6 +2745,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
+  const [designTreeDropTarget, setDesignTreeDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3314,6 +3315,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setActiveDesignTreeAddId('');
   }
 
+  function designTreeDropPosition(event: DragEvent<HTMLElement>): 'before' | 'after' {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+  }
+
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
     return blocks.flatMap((block) => {
       const meta = designTreeMeta(block);
@@ -3322,13 +3328,51 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const collapsed = collapsedDesignTreeIds.includes(block.id);
       const addMenuOpen = activeDesignTreeAddId === block.id;
       const inSelectedPath = selectedDesignAncestorIds.includes(block.id);
+      const activeDropPosition = designTreeDropTarget?.id === block.id ? designTreeDropTarget.position : '';
       return [
         <button
-          className={`design-tree-row ${depth ? 'nested' : 'root'} ${inSelectedPath ? 'ancestor' : ''} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
+          className={`design-tree-row ${depth ? 'nested' : 'root'} ${inSelectedPath ? 'ancestor' : ''} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''} ${activeDropPosition ? `drop-${activeDropPosition}` : ''}`}
           data-design-tree-id={block.id}
           key={block.id}
+          role="treeitem"
+          aria-level={depth + 1}
+          aria-expanded={hasChildren ? !collapsed : undefined}
           type="button"
+          draggable={!busy}
           onClick={() => selectDesignBlock(block.id)}
+          onDragStart={(event) => {
+            if (busy) return;
+            selectDesignBlock(block.id);
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', block.id);
+          }}
+          onDragEnd={() => setDesignTreeDropTarget(null)}
+          onDragOver={(event) => {
+            if (busy) return;
+            const source = event.dataTransfer.getData('text/plain') || (draggedPaletteBlockType ? `new:${draggedPaletteBlockType}` : '');
+            if (!source || source === block.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = source.startsWith('new:') ? 'copy' : 'move';
+            setDesignTreeDropTarget({ id: block.id, position: designTreeDropPosition(event) });
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setDesignTreeDropTarget((current) => current?.id === block.id ? null : current);
+          }}
+          onDrop={(event) => {
+            if (busy) return;
+            const source = event.dataTransfer.getData('text/plain') || (draggedPaletteBlockType ? `new:${draggedPaletteBlockType}` : '');
+            if (!source || source === block.id) return;
+            event.preventDefault();
+            const position = designTreeDropPosition(event);
+            setDesignTreeDropTarget(null);
+            if (source.startsWith('new:')) {
+              addDesignBlock(source.slice(4), block.id, position);
+              return;
+            }
+            reorderDesignBlock(source, block.id, position);
+            setStatus('Reordered design blocks from the hierarchy.');
+          }}
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
           <span

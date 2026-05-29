@@ -1432,6 +1432,18 @@ th {
   background: #f0fdf4;
 }
 
+.design-tree-row.drop-before {
+  border-top-color: #10b981;
+  border-top-width: 3px;
+  background: #ecfdf5;
+}
+
+.design-tree-row.drop-after {
+  border-bottom-color: #10b981;
+  border-bottom-width: 3px;
+  background: #ecfdf5;
+}
+
 .design-tree-branch {
   color: #64748b;
   font-size: 10px;
