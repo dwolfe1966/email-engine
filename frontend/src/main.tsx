@@ -3452,7 +3452,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
               toggleDesignTreeNode(block.id);
             } : undefined}
           >
-            {hasChildren ? (collapsed ? '>' : 'v') : ''}
+            {hasChildren ? (collapsed ? '+' : '-') : ''}
           </span>
           <span className="design-tree-icon">{meta.label.slice(0, 2)}</span>
           <span className="design-tree-copy">

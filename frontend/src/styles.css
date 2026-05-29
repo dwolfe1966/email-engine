@@ -1472,19 +1472,26 @@ th {
 }
 
 .design-tree-branch {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
   color: #64748b;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 900;
   text-align: center;
   text-transform: uppercase;
 }
 
 .design-tree-branch.has-children {
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
+  background: #ffffff;
   cursor: pointer;
 }
 
 .design-tree-branch.has-children:hover {
+  border-color: #93c5fd;
   background: #dbeafe;
   color: #1d4ed8;
 }
