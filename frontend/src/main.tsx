@@ -3336,6 +3336,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             <strong>{meta.label}</strong>
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
+          <span
+            className={`design-tree-add ${block.type === 'section' ? 'visible' : ''}`}
+            title={block.type === 'section' ? 'Add paragraph inside section' : undefined}
+            onClick={block.type === 'section' ? (event) => {
+              event.stopPropagation();
+              addDesignChildBlock(block.id, 'paragraph');
+            } : undefined}
+          >
+            {block.type === 'section' ? '+' : ''}
+          </span>
         </button>,
         ...(collapsed ? [] : renderDesignHierarchy(children, depth + 1)),
       ];
