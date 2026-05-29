@@ -1444,6 +1444,17 @@ th {
   background: #ecfdf5;
 }
 
+.design-tree-row.drop-inside {
+  border-color: #10b981;
+  background: #ecfdf5;
+  box-shadow: inset 0 0 0 2px #bbf7d0;
+}
+
+.design-tree-row.drop-inside .design-tree-add {
+  background: #dcfce7;
+  color: #047857;
+}
+
 .design-tree-branch {
   color: #64748b;
   font-size: 10px;

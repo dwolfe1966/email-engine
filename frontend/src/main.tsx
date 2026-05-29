@@ -2745,7 +2745,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
-  const [designTreeDropTarget, setDesignTreeDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
+  const [designTreeDropTarget, setDesignTreeDropTarget] = useState<{ id: string; position: 'before' | 'after' | 'inside' } | null>(null);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3315,8 +3315,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setActiveDesignTreeAddId('');
   }
 
-  function designTreeDropPosition(event: DragEvent<HTMLElement>): 'before' | 'after' {
+  function designTreeDropPosition(event: DragEvent<HTMLElement>, block: TemplateDesignBlock): 'before' | 'after' | 'inside' {
     const rect = event.currentTarget.getBoundingClientRect();
+    if (block.type === 'section') {
+      const offset = event.clientY - rect.top;
+      if (offset > rect.height * 0.3 && offset < rect.height * 0.7) return 'inside';
+    }
     return event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
   }
 
@@ -3353,7 +3357,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             if (!source || source === block.id) return;
             event.preventDefault();
             event.dataTransfer.dropEffect = source.startsWith('new:') ? 'copy' : 'move';
-            setDesignTreeDropTarget({ id: block.id, position: designTreeDropPosition(event) });
+            setDesignTreeDropTarget({ id: block.id, position: designTreeDropPosition(event, block) });
           }}
           onDragLeave={(event) => {
             if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
@@ -3364,8 +3368,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             const source = event.dataTransfer.getData('text/plain') || (draggedPaletteBlockType ? `new:${draggedPaletteBlockType}` : '');
             if (!source || source === block.id) return;
             event.preventDefault();
-            const position = designTreeDropPosition(event);
+            const position = designTreeDropPosition(event, block);
             setDesignTreeDropTarget(null);
+            if (position === 'inside') {
+              if (source.startsWith('new:')) {
+                addDesignChildBlock(block.id, source.slice(4));
+                return;
+              }
+              moveDesignBlockIntoSection(source, block.id);
+              setStatus('Nested design block inside section.');
+              return;
+            }
             if (source.startsWith('new:')) {
               addDesignBlock(source.slice(4), block.id, position);
               return;
