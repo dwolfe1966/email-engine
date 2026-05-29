@@ -2741,10 +2741,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designRedoStack, setDesignRedoStack] = useState<TemplateDesignHistoryEntry[]>([]);
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [designInspectorFocusNonce, setDesignInspectorFocusNonce] = useState(0);
-  const [draggedDesignBlockId, setDraggedDesignBlockId] = useState('');
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
-  const [dropTargetDesignBlock, setDropTargetDesignBlock] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
-  const [structureOpen, setStructureOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3137,13 +3134,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return blocks.flatMap((block) => [block, ...flattenDesignBlocks(block.children || [])]);
   }
 
-  function flattenDesignBlockEntries(blocks: TemplateDesignBlock[], depth = 0): Array<{ block: TemplateDesignBlock; depth: number; topLevel: boolean }> {
-    return blocks.flatMap((block) => [
-      { block, depth, topLevel: depth === 0 },
-      ...flattenDesignBlockEntries(block.children || [], depth + 1),
-    ]);
-  }
-
   function designDocumentTemplateSource(document = designDoc) {
     return document.blocks.map(designBlockToHtml).join('\n');
   }
@@ -3199,7 +3189,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   const flatDesignBlocks = flattenDesignBlocks(designDoc.blocks);
-  const designBlockEntries = flattenDesignBlockEntries(designDoc.blocks);
   const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
   const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
   function findDesignBlockParent(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): TemplateDesignBlock | null {
@@ -3254,30 +3243,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       html: 'HTML / Jinja',
     };
     return labels[type] || type.replace('_', ' ');
-  }
-
-  function designStructureMeta(block: TemplateDesignBlock) {
-    const raw = String(block.code || block.html || '');
-    const typeLabels: Record<string, string> = {
-      heading: `Heading H${block.level || 1}`,
-      section: 'Section',
-      paragraph: 'Paragraph',
-      button: 'Button',
-      image: 'Image',
-      list: block.ordered ? 'Numbered List' : 'List',
-      divider: 'Divider',
-      spacer: 'Spacer',
-      trust_signal: 'Trust Signal',
-      html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
-    };
-    const preview = block.type === 'list'
-      ? `${(block.items || []).length} item(s)`
-      : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 52);
-    return {
-      label: typeLabels[block.type] || designBlockTypeLabel(block.type),
-      preview,
-      depth: block.type === 'html' && /{%\s*(if|for)\b/.test(raw) ? 1 : 0,
-    };
   }
 
   function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
@@ -5127,102 +5092,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  </div>
 	                </div>
 	                {designDoc.blocks.length ? (
-                    <div className={`design-workspace-grid ${structureOpen ? '' : 'structure-collapsed'}`}>
-	                    <div className="design-structure-panel">
-                        <div className="design-structure-head">
-                          <div>
-                            <strong>Structure</strong>
-                            <span>{formatInt(flatDesignBlocks.length)} items</span>
-                          </div>
-                          <button className="ghost" type="button" onClick={() => setStructureOpen((current) => !current)}>{structureOpen ? 'Hide' : 'Show'}</button>
-                        </div>
-                        {structureOpen ? (
-                          <>
-	                    <div className="design-block-list">
-		                      {designBlockEntries.map(({ block, depth }, index) => {
-                          const meta = designStructureMeta(block);
-                          return (
-	                        <article
-                            className={`design-block-card depth-${Math.max(depth, meta.depth)} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''} ${dropTargetDesignBlock?.id === block.id ? `drop-${dropTargetDesignBlock.position}` : ''}`}
-	                            draggable={!busy}
-                            key={block.id}
-                            onClick={() => setSelectedDesignBlockId(block.id)}
-                            onDragStart={(event) => {
-	                              setDraggedDesignBlockId(block.id);
-                              event.dataTransfer.effectAllowed = 'move';
-                              event.dataTransfer.setData('text/plain', block.id);
-                            }}
-                            onDragOver={(event) => {
-	                              event.preventDefault();
-                              event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
-                              const rect = event.currentTarget.getBoundingClientRect();
-                              setDropTargetDesignBlock({
-                                id: block.id,
-                                position: event.clientY > rect.top + rect.height / 2 ? 'after' : 'before',
-                              });
-                            }}
-                            onDragLeave={() => setDropTargetDesignBlock((current) => current?.id === block.id ? null : current)}
-                            onDrop={(event) => {
-	                              event.preventDefault();
-                              const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
-                              const rect = event.currentTarget.getBoundingClientRect();
-                              const position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
-                              if (source.startsWith('new:')) {
-                                addDesignBlock(source.slice(4), block.id, position);
-                              } else {
-                                reorderDesignBlock(source, block.id, position);
-                              }
-                              setDraggedDesignBlockId('');
-                              setDraggedPaletteBlockType('');
-                              setDropTargetDesignBlock(null);
-                            }}
-                            onDragEnd={() => {
-                              setDraggedDesignBlockId('');
-                              setDropTargetDesignBlock(null);
-                            }}
-                          >
-	                          <div className="design-block-head">
-	                            <div>
-	                              <span>{String(index + 1).padStart(2, '0')}</span>
-	                              <strong>{meta.label}</strong>
-                                {meta.preview ? <small>{meta.preview}</small> : null}
-                                {block.className ? <em>.{block.className.split(/\s+/)[0]}</em> : <em>No CSS class</em>}
-	                            </div>
-	                            <div className="button-row">
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !canMoveDesignBlock(block.id, -1)}>Up</button>
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !canMoveDesignBlock(block.id, 1)}>Down</button>
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); indentDesignBlock(block.id); }} disabled={busy || !canIndentDesignBlock(block.id)}>Indent</button>
-	                              {findDesignBlockParent(block.id) ? <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); outdentDesignBlock(block.id); }} disabled={busy}>Outdent</button> : null}
-	                              {block.type !== 'section' ? <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); wrapDesignBlockInSection(block.id); }} disabled={busy}>Wrap</button> : null}
-	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); duplicateDesignBlock(block.id); }} disabled={busy}>Duplicate</button>
-	                            </div>
-	                          </div>
-	                        </article>
-                          );
-                        })}
-	                    </div>
-                        <div
-                          className={`design-list-dropzone ${draggedPaletteBlockType ? 'active' : ''}`}
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
-                            if (source.startsWith('new:')) addDesignBlock(source.slice(4));
-                            else reorderDesignBlock(source, '');
-                            setDraggedDesignBlockId('');
-                            setDraggedPaletteBlockType('');
-                          }}
-                        >
-	                          Drop here to add to the end
-                            {draggedPaletteBlockType ? `: ${designBlockTypeLabel(draggedPaletteBlockType)}` : draggedDesignBlockId ? ': move selected block' : ''}
-	                        </div>
-                          </>
-                        ) : null}
-                      </div>
-	                      <aside className="design-canvas-panel">
+                    <div className="design-workspace-grid">
+		                      <aside className="design-canvas-panel">
 	                        <div className="design-canvas-head">
 	                          <strong>Live Canvas</strong>
 	                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
