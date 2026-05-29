@@ -3226,6 +3226,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
   function selectDesignBlock(id: string, ancestorIds?: string[]) {
     revealDesignBlockInHierarchy(id, ancestorIds);
+    setActiveDesignTreeAddId('');
     setSelectedDesignBlockId(id);
   }
   const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
@@ -3321,7 +3322,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const addMenuOpen = activeDesignTreeAddId === block.id;
       return [
         <button
-          className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
+          className={`design-tree-row ${depth ? 'nested' : 'root'} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''}`}
           data-design-tree-id={block.id}
           key={block.id}
           type="button"
@@ -3356,6 +3357,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	        </button>,
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
+            <button className="close" type="button" onClick={() => setActiveDesignTreeAddId('')} title="Close chooser">x</button>
             {['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'html'].map((type) => (
               <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
                 {designBlockTypeLabel(type)}
