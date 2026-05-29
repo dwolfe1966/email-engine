@@ -3289,16 +3289,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
+    const wrapAction = block.type !== 'section'
+      ? '<button type="button" data-design-action="wrap">Wrap</button>'
+      : '';
     const selectedActions = block.id === selectedDesignBlockId
       ? `<div class="ee-design-actions">
           <button type="button" data-design-action="edit">Edit</button>
           <button type="button" data-design-action="style">Style</button>
           <button type="button" data-design-action="up">Up</button>
           <button type="button" data-design-action="down">Down</button>
+          ${wrapAction}
           <button type="button" data-design-action="duplicate">Duplicate</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
-	      : '';
+		      : '';
     return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
 ${selectedActions}
 ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
@@ -3749,6 +3753,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data.action === 'down') {
         moveDesignBlock(block.id, 1);
         setStatus(`Moved ${block.type.replace('_', ' ')} block down from canvas.`);
+        return;
+      }
+      if (data.action === 'wrap') {
+        wrapDesignBlockInSection(block.id);
         return;
       }
       if (data.action === 'duplicate') {
