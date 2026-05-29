@@ -3209,6 +3209,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return null;
   }
   const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
+  function designBlockSiblingContext(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): { blocks: TemplateDesignBlock[]; index: number; parent: TemplateDesignBlock | null } | null {
+    const index = blocks.findIndex((block) => block.id === id);
+    if (index >= 0) return { blocks, index, parent };
+    for (const block of blocks) {
+      const childContext = designBlockSiblingContext(id, block.children || [], block);
+      if (childContext) return childContext;
+    }
+    return null;
+  }
   function designBlockSiblingInfo(id: string, blocks = designDoc.blocks): { index: number; count: number } | null {
     const index = blocks.findIndex((block) => block.id === id);
     if (index >= 0) return { index, count: blocks.length };
@@ -3223,6 +3232,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (!siblingInfo) return false;
     const nextIndex = siblingInfo.index + direction;
     return nextIndex >= 0 && nextIndex < siblingInfo.count;
+  }
+  function canIndentDesignBlock(id: string) {
+    const siblingContext = designBlockSiblingContext(id);
+    return Boolean(siblingContext && siblingContext.index > 0 && siblingContext.blocks[siblingContext.index - 1]?.type === 'section');
   }
   const designPaletteBlockTypes = ['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
   function designBlockTypeLabel(type: string) {
@@ -3505,6 +3518,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setDesignDocEdited(true);
     markPreviewStale();
     setStatus('Moved block into section.');
+  }
+
+  function indentDesignBlock(id: string) {
+    const siblingContext = designBlockSiblingContext(id);
+    const targetSection = siblingContext && siblingContext.index > 0 ? siblingContext.blocks[siblingContext.index - 1] : null;
+    if (!targetSection || targetSection.type !== 'section') return;
+    moveDesignBlockIntoSection(id, targetSection.id);
+    setStatus('Indented block into previous section.');
+  }
+
+  function outdentDesignBlock(id: string) {
+    const parent = findDesignBlockParent(id);
+    if (!parent) return;
+    reorderDesignBlock(id, parent.id, 'after');
+    setStatus('Outdented block one level.');
   }
 
   function moveDesignBlock(id: string, direction: -1 | 1) {
@@ -5110,6 +5138,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                            <div className="button-row">
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !canMoveDesignBlock(block.id, -1)}>Up</button>
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !canMoveDesignBlock(block.id, 1)}>Down</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); indentDesignBlock(block.id); }} disabled={busy || !canIndentDesignBlock(block.id)}>Indent</button>
+	                              {findDesignBlockParent(block.id) ? <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); outdentDesignBlock(block.id); }} disabled={busy}>Outdent</button> : null}
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); duplicateDesignBlock(block.id); }} disabled={busy}>Duplicate</button>
 	                            </div>
 	                          </div>
@@ -5162,9 +5192,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                            </div>
 	                            <div className="button-row">
 	                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
-	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
-	                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
+		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
+		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
+		                              <button className="ghost" type="button" onClick={() => indentDesignBlock(selectedDesignBlock.id)} disabled={busy || !canIndentDesignBlock(selectedDesignBlock.id)}>Indent</button>
+		                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => outdentDesignBlock(selectedDesignBlock.id)} disabled={busy}>Outdent</button> : null}
+		                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
 	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
 	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
 	                            </div>
