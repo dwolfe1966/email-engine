@@ -3182,6 +3182,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   }
 
+  function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
+    if (block.type !== 'section') return designBlockToHtml(block);
+    const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+    const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
+    const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
+    const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
+    return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
+  }
+
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
     const selectedActions = block.id === selectedDesignBlockId
@@ -3192,10 +3201,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="down">Down</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
-      : '';
+	      : '';
     return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
 ${selectedActions}
-${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
+${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
   }
 
@@ -3215,9 +3224,12 @@ ${designBlockToHtml(block).split('\n').map((line) => `        ${line}`).join('\n
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
       .ee-design-block.ee-drop-target-before { border-top-color: #10b981; border-top-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-block.ee-drop-target-after { border-bottom-color: #10b981; border-bottom-width: 3px; background: rgba(16, 185, 129, 0.06); }
+      .ee-design-block .ee-design-block { margin: 8px 0; }
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
+      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
+      .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       ${cssBody || ''}
     </style>
   </head>
@@ -3240,40 +3252,68 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', block.getAttribute('data-design-block-id') || '');
       });
-      document.addEventListener('dragover', function(event) {
-        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
-        if (!block && !root) return;
-        event.preventDefault();
-        if (block) {
-          var rect = block.getBoundingClientRect();
-          var position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
-          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+	      document.addEventListener('dragover', function(event) {
+	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+	        var sectionBody = event.target && event.target.closest ? event.target.closest('[data-design-section-body]') : null;
+	        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
+	        if (!block && !root) return;
+	        event.preventDefault();
+	        var nestedBlock = sectionBody && block && sectionBody.getAttribute('data-design-section-body') !== block.getAttribute('data-design-block-id');
+	        if (sectionBody && !nestedBlock) {
+	          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+	          sectionBody.classList.add('ee-section-drop-target');
+	        }
+	        else if (block) {
+	          var rect = block.getBoundingClientRect();
+	          var position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+	          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
           block.classList.add(position === 'after' ? 'ee-drop-target-after' : 'ee-drop-target-before');
         }
         else if (root) root.classList.add('ee-root-drop-target');
       });
-      document.addEventListener('dragleave', function(event) {
-        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
-        if (block) block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
-        if (root && !root.contains(event.relatedTarget)) root.classList.remove('ee-root-drop-target');
-      });
-      document.addEventListener('drop', function(event) {
-        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
-        if (!block && !root) return;
-        event.preventDefault();
-        var position = 'after';
-        if (block) {
-          var rect = block.getBoundingClientRect();
-          position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
-          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
-        }
-        if (root) root.classList.remove('ee-root-drop-target');
-        var source = event.dataTransfer.getData('text/plain') || '';
-        if (source.indexOf('new:') === 0) {
-          parent.postMessage({
+	      document.addEventListener('dragleave', function(event) {
+	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+	        var sectionBody = event.target && event.target.closest ? event.target.closest('[data-design-section-body]') : null;
+	        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
+	        if (block) block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+	        if (sectionBody && !sectionBody.contains(event.relatedTarget)) sectionBody.classList.remove('ee-section-drop-target');
+	        if (root && !root.contains(event.relatedTarget)) root.classList.remove('ee-root-drop-target');
+	      });
+	      document.addEventListener('drop', function(event) {
+	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+	        var sectionBody = event.target && event.target.closest ? event.target.closest('[data-design-section-body]') : null;
+	        var root = event.target && event.target.closest ? event.target.closest('[data-design-drop-root]') : null;
+	        if (!block && !root) return;
+	        event.preventDefault();
+	        var position = 'after';
+	        var nestedBlock = sectionBody && block && sectionBody.getAttribute('data-design-section-body') !== block.getAttribute('data-design-block-id');
+	        var childTargetId = sectionBody && !nestedBlock ? sectionBody.getAttribute('data-design-section-body') : '';
+	        if (block) {
+	          var rect = block.getBoundingClientRect();
+	          position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
+	          block.classList.remove('ee-drop-target-before', 'ee-drop-target-after');
+	        }
+	        if (sectionBody) sectionBody.classList.remove('ee-section-drop-target');
+	        if (root) root.classList.remove('ee-root-drop-target');
+	        var source = event.dataTransfer.getData('text/plain') || '';
+	        if (childTargetId) {
+	          if (source.indexOf('new:') === 0) {
+	            parent.postMessage({
+	              type: 'ee-design-block-child-insert',
+	              blockType: source.slice(4),
+	              parentBlockId: childTargetId
+	            }, '*');
+	            return;
+	          }
+	          parent.postMessage({
+	            type: 'ee-design-block-child-reorder',
+	            sourceBlockId: source,
+	            parentBlockId: childTargetId
+	          }, '*');
+	          return;
+	        }
+	        if (source.indexOf('new:') === 0) {
+	          parent.postMessage({
             type: 'ee-design-block-insert',
             blockType: source.slice(4),
             targetBlockId: block ? block.getAttribute('data-design-block-id') : '',
@@ -3346,6 +3386,37 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setDesignDocEdited(true);
     markPreviewStale();
     setStatus(`Added ${designBlockTypeLabel(type)} inside section.`);
+  }
+
+  function moveDesignBlockIntoSection(sourceId: string, parentId: string) {
+    if (!sourceId || !parentId || sourceId === parentId) return;
+    const sourceBlock = flatDesignBlocks.find((block) => block.id === sourceId);
+    const blockContains = (block: TemplateDesignBlock, id: string): boolean => block.id === id || Boolean(block.children?.some((child) => blockContains(child, id)));
+    if (sourceBlock && blockContains(sourceBlock, parentId)) return;
+    setDesignDoc((current) => {
+      let movedBlock: TemplateDesignBlock | null = null;
+      const removeBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks
+        .filter((block) => {
+          if (block.id !== sourceId) return true;
+          movedBlock = block;
+          return false;
+        })
+        .map((block) => block.children?.length ? { ...block, children: removeBlock(block.children) } : block);
+      const appendToSection = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+        if (block.id === parentId && block.type === 'section' && movedBlock) {
+          return { ...block, children: [...(block.children || []), movedBlock] };
+        }
+        if (block.children?.length) return { ...block, children: appendToSection(block.children) };
+        return block;
+      });
+      const withoutSource = removeBlock(current.blocks);
+      if (!movedBlock) return current;
+      return { blocks: appendToSection(withoutSource) };
+    });
+    setSelectedDesignBlockId(sourceId);
+    setDesignDocEdited(true);
+    markPreviewStale();
+    setStatus('Moved block into section.');
   }
 
   function moveDesignBlock(id: string, direction: -1 | 1) {
@@ -3451,6 +3522,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       }
       if (data?.type === 'ee-design-block-insert') {
         addDesignBlock(String(data.blockType || 'paragraph'), String(data.targetBlockId || ''), data.position === 'after' ? 'after' : 'before');
+        return;
+      }
+      if (data?.type === 'ee-design-block-child-insert') {
+        addDesignChildBlock(String(data.parentBlockId || ''), String(data.blockType || 'paragraph'));
+        return;
+      }
+      if (data?.type === 'ee-design-block-child-reorder') {
+        moveDesignBlockIntoSection(String(data.sourceBlockId || ''), String(data.parentBlockId || ''));
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
