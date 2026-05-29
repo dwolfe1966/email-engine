@@ -1340,6 +1340,16 @@ th {
   gap: 3px;
 }
 
+.design-tree-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.design-tree-tools button {
+  padding: 6px 8px;
+}
+
 .design-tree-row {
   display: grid;
   grid-template-columns: 12px 28px minmax(0, 1fr);
@@ -1373,6 +1383,16 @@ th {
   font-weight: 900;
   text-align: center;
   text-transform: uppercase;
+}
+
+.design-tree-branch.has-children {
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.design-tree-branch.has-children:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .design-tree-icon {

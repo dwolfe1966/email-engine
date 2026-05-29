@@ -2743,6 +2743,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designInspectorFocusNonce, setDesignInspectorFocusNonce] = useState(0);
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
+  const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3272,10 +3273,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   }
 
+  function toggleDesignTreeNode(id: string) {
+    setCollapsedDesignTreeIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  }
+
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
     return blocks.flatMap((block) => {
       const meta = designTreeMeta(block);
       const children = block.children || [];
+      const hasChildren = children.length > 0;
+      const collapsed = collapsedDesignTreeIds.includes(block.id);
       return [
         <button
           className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
@@ -3284,14 +3293,23 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           onClick={() => setSelectedDesignBlockId(block.id)}
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
-          <span className="design-tree-branch">{children.length ? 'v' : ''}</span>
+          <span
+            className={`design-tree-branch ${hasChildren ? 'has-children' : ''}`}
+            title={hasChildren ? `${collapsed ? 'Expand' : 'Collapse'} ${meta.label}` : undefined}
+            onClick={hasChildren ? (event) => {
+              event.stopPropagation();
+              toggleDesignTreeNode(block.id);
+            } : undefined}
+          >
+            {hasChildren ? (collapsed ? '>' : 'v') : ''}
+          </span>
           <span className="design-tree-icon">{meta.label.slice(0, 2)}</span>
           <span className="design-tree-copy">
             <strong>{meta.label}</strong>
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
         </button>,
-        ...renderDesignHierarchy(children, depth + 1),
+        ...(collapsed ? [] : renderDesignHierarchy(children, depth + 1)),
       ];
     });
   }
@@ -5152,6 +5170,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <div className="design-canvas-head">
                             <strong>Hierarchy</strong>
                             <span>{formatInt(flatDesignBlocks.length)} block(s). Select a row to edit it.</span>
+                          </div>
+                          <div className="design-tree-tools">
+                            <button className="ghost" type="button" onClick={() => setCollapsedDesignTreeIds([])}>Expand All</button>
+                            <button
+                              className="ghost"
+                              type="button"
+                              onClick={() => setCollapsedDesignTreeIds(flatDesignBlocks.filter((block) => block.children?.length).map((block) => block.id))}
+                            >
+                              Collapse All
+                            </button>
                           </div>
                           <div className="design-tree" role="tree" aria-label="Template block hierarchy">
                             {renderDesignHierarchy(designDoc.blocks)}
