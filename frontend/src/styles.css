@@ -1318,6 +1318,100 @@ th {
   align-items: start;
 }
 
+.design-workspace-grid.hierarchy-open {
+  grid-template-columns: minmax(190px, 0.28fr) minmax(460px, 1fr) minmax(300px, 0.38fr);
+}
+
+.design-hierarchy-panel {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.design-tree {
+  display: grid;
+  gap: 3px;
+}
+
+.design-tree-row {
+  display: grid;
+  grid-template-columns: 12px 28px minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #29405f;
+  cursor: pointer;
+  padding: 7px 8px;
+  padding-left: calc(8px + (var(--tree-depth) * 16px));
+  text-align: left;
+}
+
+.design-tree-row:hover {
+  border-color: #dce8f7;
+  background: #f8fbff;
+}
+
+.design-tree-row.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.design-tree-branch {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.design-tree-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dce8f7;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #3f2f67;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.design-tree-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.design-tree-copy strong {
+  overflow: hidden;
+  color: #29405f;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-tree-copy small {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .design-canvas-panel {
   position: sticky;
   top: 12px;
@@ -1452,6 +1546,7 @@ th {
   }
 
   .design-canvas-panel,
+  .design-hierarchy-panel,
   .design-inspector-panel {
     position: static;
     max-height: none;

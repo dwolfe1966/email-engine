@@ -2742,6 +2742,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [selectedDesignBlockId, setSelectedDesignBlockId] = useState('');
   const [designInspectorFocusNonce, setDesignInspectorFocusNonce] = useState(0);
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
+  const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
   const [htmlToolsOpen, setHtmlToolsOpen] = useState(false);
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
@@ -3243,6 +3244,56 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       html: 'HTML / Jinja',
     };
     return labels[type] || type.replace('_', ' ');
+  }
+
+  function designTreeMeta(block: TemplateDesignBlock) {
+    const raw = String(block.code || block.html || '');
+    const typeLabels: Record<string, string> = {
+      heading: `Heading H${block.level || 1}`,
+      section: 'Section',
+      paragraph: 'Paragraph',
+      button: 'Button',
+      image: 'Image',
+      list: block.ordered ? 'Numbered list' : 'List',
+      divider: 'Divider',
+      spacer: 'Spacer',
+      trust_signal: 'Trust signal',
+      html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
+    };
+    const preview = block.type === 'list'
+      ? `${(block.items || []).length} item(s)`
+      : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 64);
+    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || '';
+    return {
+      label: typeLabels[block.type] || designBlockTypeLabel(block.type),
+      preview,
+      className,
+      childCount: block.children?.length || 0,
+    };
+  }
+
+  function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
+    return blocks.flatMap((block) => {
+      const meta = designTreeMeta(block);
+      const children = block.children || [];
+      return [
+        <button
+          className={`design-tree-row ${selectedDesignBlockId === block.id ? 'selected' : ''}`}
+          key={block.id}
+          type="button"
+          onClick={() => setSelectedDesignBlockId(block.id)}
+          style={{ '--tree-depth': depth } as Record<string, number>}
+        >
+          <span className="design-tree-branch">{children.length ? 'v' : ''}</span>
+          <span className="design-tree-icon">{meta.label.slice(0, 2)}</span>
+          <span className="design-tree-copy">
+            <strong>{meta.label}</strong>
+            <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
+          </span>
+        </button>,
+        ...renderDesignHierarchy(children, depth + 1),
+      ];
+    });
   }
 
   function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
@@ -5067,17 +5118,20 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    <strong>Design Canvas</strong>
 	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Use the canvas for selection and the inspector for editing.</span>
 		                  </div>
-		                  <div className="button-row">
-		                    <button className="ghost" type="button" onClick={undoDesignChange} disabled={busy || !designUndoStack.length}>Undo</button>
-		                    <button className="ghost" type="button" onClick={redoDesignChange} disabled={busy || !designRedoStack.length}>Redo</button>
-		                    {designPaletteBlockTypes.map((type) => (
+			                  <div className="button-row">
+			                    <button className="ghost" type="button" onClick={() => setDesignHierarchyOpen((current) => !current)}>
+                              {designHierarchyOpen ? 'Hide Hierarchy' : 'Show Hierarchy'}
+                            </button>
+			                    <button className="ghost" type="button" onClick={undoDesignChange} disabled={busy || !designUndoStack.length}>Undo</button>
+			                    <button className="ghost" type="button" onClick={redoDesignChange} disabled={busy || !designRedoStack.length}>Redo</button>
+			                    {designPaletteBlockTypes.map((type) => (
 	                      <button
                           className={`ghost design-palette-chip ${draggedPaletteBlockType === type ? 'dragging' : ''}`}
                           type="button"
                           key={type}
                           draggable={!busy}
                           onClick={() => addDesignBlock(type)}
-                          title={`Drag ${designBlockTypeLabel(type)} onto the canvas or structure list`}
+	                          title={`Drag ${designBlockTypeLabel(type)} onto the canvas`}
                           onDragStart={(event) => {
                             setDraggedPaletteBlockType(type);
                             event.dataTransfer.effectAllowed = 'copy';
@@ -5090,9 +5144,20 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         </button>
 	                    ))}
 	                  </div>
-	                </div>
-	                {designDoc.blocks.length ? (
-                    <div className="design-workspace-grid">
+		                </div>
+		                {designDoc.blocks.length ? (
+                    <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''}`}>
+                      {designHierarchyOpen ? (
+                        <aside className="design-hierarchy-panel">
+                          <div className="design-canvas-head">
+                            <strong>Hierarchy</strong>
+                            <span>{formatInt(flatDesignBlocks.length)} block(s). Select a row to edit it.</span>
+                          </div>
+                          <div className="design-tree" role="tree" aria-label="Template block hierarchy">
+                            {renderDesignHierarchy(designDoc.blocks)}
+                          </div>
+                        </aside>
+                      ) : null}
 		                      <aside className="design-canvas-panel">
 	                        <div className="design-canvas-head">
 	                          <strong>Live Canvas</strong>
@@ -5130,7 +5195,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                        ) : (
 	                          <div className="empty-state compact-empty">
 	                            <strong>No block selected</strong>
-	                            <p>Select a block on the canvas or structure list to edit it.</p>
+		                            <p>Select a block on the canvas or hierarchy tree to edit it.</p>
 	                          </div>
 	                        )}
 	                      </aside>
