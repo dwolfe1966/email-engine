@@ -3210,6 +3210,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     return [];
   }
+  function designBlockPath(id: string, blocks = designDoc.blocks, path: TemplateDesignBlock[] = []): TemplateDesignBlock[] {
+    for (const block of blocks) {
+      const nextPath = [...path, block];
+      if (block.id === id) return nextPath;
+      const childPath = designBlockPath(id, block.children || [], nextPath);
+      if (childPath.length) return childPath;
+    }
+    return [];
+  }
   function revealDesignBlockInHierarchy(id: string, ancestorIds = designBlockAncestorIds(id)) {
     if (!ancestorIds.length) return;
     setCollapsedDesignTreeIds((current) => current.filter((item) => !ancestorIds.includes(item)));
@@ -3219,6 +3228,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     setSelectedDesignBlockId(id);
   }
   const selectedDesignBlockParent = selectedDesignBlock ? findDesignBlockParent(selectedDesignBlock.id) : null;
+  const selectedDesignBlockPath = selectedDesignBlock ? designBlockPath(selectedDesignBlock.id) : [];
   function designBlockSiblingContext(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): { blocks: TemplateDesignBlock[]; index: number; parent: TemplateDesignBlock | null } | null {
     const index = blocks.findIndex((block) => block.id === id);
     if (index >= 0) return { blocks, index, parent };
@@ -5227,18 +5237,35 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
 	                        {selectedDesignBlock ? (
 	                          <>
-	                            <div className="design-canvas-head">
-	                              <strong>Selected Block</strong>
-	                              <span>
-	                                {designBlockTypeLabel(selectedDesignBlock.type)}
+		                            <div className="design-canvas-head">
+		                              <strong>Selected Block</strong>
+		                              <span>
+		                                {designBlockTypeLabel(selectedDesignBlock.type)}
 	                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
 	                                {selectedDesignBlockParent ? ` · inside ${designBlockTypeLabel(selectedDesignBlockParent.type)}` : ' · root'}
-	                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
-	                              </span>
-	                            </div>
-	                            <div className="design-block-fields inspector-fields">
-	                              {renderDesignBlockControls(selectedDesignBlock)}
-	                            </div>
+		                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
+		                              </span>
+		                            </div>
+		                            {selectedDesignBlockPath.length > 1 ? (
+		                              <div className="design-selected-path" aria-label="Selected block path">
+		                                {selectedDesignBlockPath.map((block, index) => (
+		                                  <span key={block.id}>
+		                                    {index > 0 ? <em>/</em> : null}
+		                                    <button
+		                                      className={block.id === selectedDesignBlock.id ? 'current' : ''}
+		                                      type="button"
+		                                      onClick={() => selectDesignBlock(block.id)}
+		                                      disabled={block.id === selectedDesignBlock.id}
+		                                    >
+		                                      {designBlockTypeLabel(block.type)}
+		                                    </button>
+		                                  </span>
+		                                ))}
+		                              </div>
+		                            ) : null}
+		                            <div className="design-block-fields inspector-fields">
+		                              {renderDesignBlockControls(selectedDesignBlock)}
+		                            </div>
 	                            <div className="button-row">
 	                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
 		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
