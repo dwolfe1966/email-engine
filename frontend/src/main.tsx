@@ -3308,13 +3308,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function addDesignBlock(type: string, targetId = '', position: 'before' | 'after' = 'before') {
     const block = newDesignBlock(type);
+    let inserted = false;
+    const insertBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
+      const targetIndex = blocks.findIndex((item) => item.id === targetId);
+      if (targetIndex >= 0) {
+        const nextBlocks = [...blocks];
+        nextBlocks.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, block);
+        inserted = true;
+        return nextBlocks;
+      }
+      return blocks.map((item) => item.children?.length ? { ...item, children: insertBlock(item.children) } : item);
+    };
     setDesignDoc((current) => {
       if (!targetId) return { blocks: [...current.blocks, block] };
-      const targetIndex = current.blocks.findIndex((item) => item.id === targetId);
-      if (targetIndex < 0) return { blocks: [...current.blocks, block] };
-      const blocks = [...current.blocks];
-      blocks.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, block);
-      return { blocks };
+      const blocks = insertBlock(current.blocks);
+      return { blocks: inserted ? blocks : [...current.blocks, block] };
     });
     setSelectedDesignBlockId(block.id);
     setEditorMode('design');
@@ -3366,16 +3374,37 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function reorderDesignBlock(sourceId: string, targetId: string, position: 'before' | 'after' = 'before') {
     if (!sourceId || sourceId === targetId) return;
+    const blockContains = (block: TemplateDesignBlock, id: string): boolean => block.id === id || Boolean(block.children?.some((child) => blockContains(child, id)));
     setDesignDoc((current) => {
-      const sourceIndex = current.blocks.findIndex((block) => block.id === sourceId);
-      const baseTargetIndex = targetId ? current.blocks.findIndex((block) => block.id === targetId) : current.blocks.length;
-      const targetIndex = targetId && position === 'after' ? baseTargetIndex + 1 : baseTargetIndex;
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-      const blocks = [...current.blocks];
-      const [movedBlock] = blocks.splice(sourceIndex, 1);
-      const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-      blocks.splice(adjustedTargetIndex, 0, movedBlock);
-      return { blocks };
+      let movedBlock: TemplateDesignBlock | null = null;
+      let removed = false;
+      let inserted = false;
+      const removeBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks
+        .filter((block) => {
+          if (block.id !== sourceId) return true;
+          movedBlock = block;
+          removed = true;
+          return false;
+        })
+        .map((block) => block.children?.length ? { ...block, children: removeBlock(block.children) } : block);
+      const insertBlock = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
+        if (!movedBlock) return blocks;
+        const targetIndex = blocks.findIndex((block) => block.id === targetId);
+        if (targetIndex >= 0) {
+          const nextBlocks = [...blocks];
+          nextBlocks.splice(position === 'after' ? targetIndex + 1 : targetIndex, 0, movedBlock);
+          inserted = true;
+          return nextBlocks;
+        }
+        return blocks.map((block) => block.children?.length ? { ...block, children: insertBlock(block.children) } : block);
+      };
+      const sourceBlock = flatDesignBlocks.find((block) => block.id === sourceId);
+      if (sourceBlock && targetId && blockContains(sourceBlock, targetId)) return current;
+      const withoutSource = removeBlock(current.blocks);
+      if (!removed || !movedBlock) return current;
+      if (!targetId) return { blocks: [...withoutSource, movedBlock] };
+      const blocks = insertBlock(withoutSource);
+      return inserted ? { blocks } : current;
     });
     setSelectedDesignBlockId(sourceId);
     setDesignDocEdited(true);
@@ -3425,7 +3454,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
-      const block = designDoc.blocks.find((item) => item.id === data.blockId);
+      const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
       if (!block) return;
       setSelectedDesignBlockId(block.id);
       if (data.action === 'style') {
@@ -4799,23 +4828,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         {structureOpen ? (
                           <>
 	                    <div className="design-block-list">
-	                      {designBlockEntries.map(({ block, depth, topLevel }, index) => {
+		                      {designBlockEntries.map(({ block, depth }, index) => {
                           const meta = designStructureMeta(block);
                           return (
 	                        <article
                             className={`design-block-card depth-${Math.max(depth, meta.depth)} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${draggedDesignBlockId === block.id ? 'dragging' : ''} ${dropTargetDesignBlock?.id === block.id ? `drop-${dropTargetDesignBlock.position}` : ''}`}
-                            draggable={!busy && topLevel}
+	                            draggable={!busy}
                             key={block.id}
                             onClick={() => setSelectedDesignBlockId(block.id)}
                             onDragStart={(event) => {
-                              if (!topLevel) return;
-                              setDraggedDesignBlockId(block.id);
+	                              setDraggedDesignBlockId(block.id);
                               event.dataTransfer.effectAllowed = 'move';
                               event.dataTransfer.setData('text/plain', block.id);
                             }}
                             onDragOver={(event) => {
-                              if (!topLevel) return;
-                              event.preventDefault();
+	                              event.preventDefault();
                               event.dataTransfer.dropEffect = draggedPaletteBlockType ? 'copy' : 'move';
                               const rect = event.currentTarget.getBoundingClientRect();
                               setDropTargetDesignBlock({
@@ -4825,8 +4852,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             }}
                             onDragLeave={() => setDropTargetDesignBlock((current) => current?.id === block.id ? null : current)}
                             onDrop={(event) => {
-                              if (!topLevel) return;
-                              event.preventDefault();
+	                              event.preventDefault();
                               const source = event.dataTransfer.getData('text/plain') || draggedDesignBlockId;
                               const rect = event.currentTarget.getBoundingClientRect();
                               const position = event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
