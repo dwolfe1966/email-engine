@@ -3047,6 +3047,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return `b_${Math.random().toString(36).slice(2, 10)}`;
   }
 
+  function cloneDesignBlock(block: TemplateDesignBlock): TemplateDesignBlock {
+    return {
+      ...block,
+      id: designBlockId(),
+      items: block.items ? [...block.items] : block.items,
+      children: block.children?.map(cloneDesignBlock),
+    };
+  }
+
   function normalizeDesignBlock(value: unknown, index: number): TemplateDesignBlock {
     const block = value && typeof value === 'object' ? value as TemplateDesignBlock : { type: 'paragraph' };
     return {
@@ -3208,6 +3217,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="style">Style</button>
           <button type="button" data-design-action="up">Up</button>
           <button type="button" data-design-action="down">Down</button>
+          <button type="button" data-design-action="duplicate">Duplicate</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
 	      : '';
@@ -3452,6 +3462,31 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }
   }
 
+  function duplicateDesignBlock(id: string) {
+    let duplicateId = '';
+    const duplicateInBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => {
+      const index = blocks.findIndex((block) => block.id === id);
+      if (index >= 0) {
+        const duplicatedBlock = cloneDesignBlock(blocks[index]);
+        duplicateId = duplicatedBlock.id;
+        const nextBlocks = [...blocks];
+        nextBlocks.splice(index + 1, 0, duplicatedBlock);
+        return nextBlocks;
+      }
+      return blocks.map((block) => block.children?.length ? { ...block, children: duplicateInBlocks(block.children) } : block);
+    };
+    setDesignDoc((current) => {
+      const blocks = duplicateInBlocks(current.blocks);
+      return duplicateId ? { blocks } : current;
+    });
+    if (duplicateId) {
+      setSelectedDesignBlockId(duplicateId);
+      setDesignDocEdited(true);
+      markPreviewStale();
+      setStatus('Duplicated design block.');
+    }
+  }
+
   function reorderDesignBlock(sourceId: string, targetId: string, position: 'before' | 'after' = 'before') {
     if (!sourceId || sourceId === targetId) return;
     const blockContains = (block: TemplateDesignBlock, id: string): boolean => block.id === id || Boolean(block.children?.some((child) => blockContains(child, id)));
@@ -3561,6 +3596,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data.action === 'down') {
         moveDesignBlock(block.id, 1);
         setStatus(`Moved ${block.type.replace('_', ' ')} block down from canvas.`);
+        return;
+      }
+      if (data.action === 'duplicate') {
+        duplicateDesignBlock(block.id);
         return;
       }
       if (data.action === 'delete') {
@@ -4968,6 +5007,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                            <div className="button-row">
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, -1); }} disabled={busy || !canMoveDesignBlock(block.id, -1)}>Up</button>
 	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); moveDesignBlock(block.id, 1); }} disabled={busy || !canMoveDesignBlock(block.id, 1)}>Down</button>
+	                              <button className="ghost" type="button" onClick={(event) => { event.stopPropagation(); duplicateDesignBlock(block.id); }} disabled={busy}>Duplicate</button>
 	                            </div>
 	                          </div>
 	                        </article>
@@ -5017,9 +5057,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             </div>
                             <div className="button-row">
                               <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
-	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
-	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
+		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
+		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
+		                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
+		                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
 	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
                             </div>
                           </div>
