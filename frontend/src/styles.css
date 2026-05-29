@@ -1329,13 +1329,13 @@ th {
 
 .design-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 0.32fr) minmax(420px, 1fr);
+  grid-template-columns: minmax(220px, 0.28fr) minmax(420px, 1fr) minmax(280px, 0.34fr);
   gap: 12px;
   align-items: start;
 }
 
 .design-workspace-grid.structure-collapsed {
-  grid-template-columns: 76px minmax(420px, 1fr);
+  grid-template-columns: 76px minmax(420px, 1fr) minmax(280px, 0.34fr);
 }
 
 .design-structure-panel {
@@ -1406,10 +1406,16 @@ th {
 }
 
 .design-inspector-panel {
+  position: sticky;
+  top: 12px;
   display: grid;
   gap: 10px;
-  border-top: 1px solid #dce8f7;
-  padding-top: 12px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
 }
 
 .inspector-fields {
@@ -1598,8 +1604,10 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .design-canvas-panel {
+  .design-canvas-panel,
+  .design-inspector-panel {
     position: static;
+    max-height: none;
   }
 }
 

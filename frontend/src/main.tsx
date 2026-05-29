@@ -5138,38 +5138,45 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           </>
                         ) : null}
                       </div>
-                      <aside className="design-canvas-panel">
-                        <div className="design-canvas-head">
-                          <strong>Live Canvas</strong>
-                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
-                        </div>
-                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
-                        {selectedDesignBlock ? (
-                          <div className="design-inspector-panel">
-                            <div className="design-canvas-head">
-                              <strong>Selected Block</strong>
+	                      <aside className="design-canvas-panel">
+	                        <div className="design-canvas-head">
+	                          <strong>Live Canvas</strong>
+	                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
+	                        </div>
+	                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+	                      </aside>
+	                      <aside className="design-inspector-panel">
+	                        {selectedDesignBlock ? (
+	                          <>
+	                            <div className="design-canvas-head">
+	                              <strong>Selected Block</strong>
 	                              <span>
 	                                {designBlockTypeLabel(selectedDesignBlock.type)}
 	                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
 	                                {selectedDesignBlockParent ? ` · inside ${designBlockTypeLabel(selectedDesignBlockParent.type)}` : ' · root'}
 	                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
 	                              </span>
-                            </div>
-                            <div className="design-block-fields inspector-fields">
-                              {renderDesignBlockControls(selectedDesignBlock)}
-                            </div>
-                            <div className="button-row">
-                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
-		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
-		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
-		                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
-		                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
+	                            </div>
+	                            <div className="design-block-fields inspector-fields">
+	                              {renderDesignBlockControls(selectedDesignBlock)}
+	                            </div>
+	                            <div className="button-row">
+	                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
+	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
+	                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
+	                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
+	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
 	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </aside>
-                    </div>
+	                            </div>
+	                          </>
+	                        ) : (
+	                          <div className="empty-state compact-empty">
+	                            <strong>No block selected</strong>
+	                            <p>Select a block on the canvas or structure list to edit it.</p>
+	                          </div>
+	                        )}
+	                      </aside>
+	                    </div>
 	                ) : (
 	                  <div
                       className={`empty-state design-empty-dropzone ${draggedPaletteBlockType ? 'active' : ''}`}
