@@ -3324,6 +3324,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return event.clientY > rect.top + rect.height / 2 ? 'after' : 'before';
   }
 
+  function designTreeDropLabel(position: string) {
+    if (position === 'inside') return 'Nest inside';
+    if (position === 'after') return 'Insert after';
+    if (position === 'before') return 'Insert before';
+    return '';
+  }
+
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
     return blocks.flatMap((block) => {
       const meta = designTreeMeta(block);
@@ -3413,6 +3420,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	          >
 	            {block.type === 'section' ? '+' : ''}
 	          </span>
+          {activeDropPosition ? <span className="design-tree-drop-label">{designTreeDropLabel(activeDropPosition)}</span> : null}
 	        </button>,
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
