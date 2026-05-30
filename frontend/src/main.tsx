@@ -3481,7 +3481,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <span className="design-tree-level" title={`Hierarchy level ${depth + 1}`}>{depth + 1}</span>
           <span className="design-tree-icon">{meta.label.slice(0, 2)}</span>
           <span className="design-tree-copy">
-            <strong>{meta.label}</strong>
+            <strong>
+              {meta.label}
+              {collapsed && children.length ? <em className="design-tree-hidden-count">{children.length} hidden</em> : null}
+            </strong>
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
 	          <span

@@ -1537,11 +1537,27 @@ th {
 }
 
 .design-tree-copy strong {
+  display: flex;
+  gap: 6px;
+  align-items: center;
   overflow: hidden;
   color: #29405f;
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.design-tree-hidden-count {
+  flex: 0 0 auto;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 2px 6px;
+  text-transform: uppercase;
 }
 
 .design-tree-copy small {
