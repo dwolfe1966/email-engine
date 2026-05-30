@@ -335,6 +335,33 @@ try {
         heading.click();
         await wait(400);
       }
+      const styleButton = Array.from(document.querySelectorAll('.design-inspector-panel button, .design-canvas-selection button'))
+        .find((button) => ['style', 'add class'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+      if (!styleButton) return { ok: false, reason: 'Design style/add-class action not found' };
+      styleButton.click();
+      let cssReady = false;
+      for (let index = 0; index < 60; index += 1) {
+        await wait(150);
+        const activeEdit = document.querySelector('.mode-switch .edit-mode.active');
+        const cssText = document.querySelector('.css-tool-actions')?.textContent || '';
+        const cssEditor = document.querySelector('.css-editor-field textarea');
+        if (activeEdit && cssEditor && /working on \\./i.test(cssText)) {
+          cssReady = true;
+          break;
+        }
+      }
+      if (!cssReady) return { ok: false, reason: 'Design style action did not open focused CSS tools' };
+      const backToDesign = Array.from(document.querySelectorAll('.css-tool-actions button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === 'back to design' && !button.disabled);
+      if (!backToDesign) return { ok: false, reason: 'Back to Design action not available from CSS tools' };
+      backToDesign.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        if (document.querySelector('.mode-switch .design-mode.active') && selectedTextControl()) break;
+      }
+      if (!document.querySelector('.mode-switch .design-mode.active') || !selectedTextControl()) {
+        return { ok: false, reason: 'Back to Design did not reselect editable block' };
+      }
       const marker = 'Smoke headline ' + Date.now();
       const inspector = document.querySelector('.design-inspector-panel');
       if (!inspector) return { ok: false, reason: 'Selected block inspector not found' };
