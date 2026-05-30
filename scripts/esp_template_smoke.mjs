@@ -239,7 +239,9 @@ try {
       if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
         return { ok: false, reason: 'Design mode marked existing template dirty', initialState, afterDesignState };
       }
-      const preview = buttonByText('Preview');
+      const preview = Array.from(document.querySelectorAll('button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview design')
+        || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview button not found after design transition', afterDesignState };
       preview.click();
       for (let index = 0; index < 60; index += 1) {
