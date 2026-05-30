@@ -3224,6 +3224,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   const flatDesignBlocks = flattenDesignBlocks(designDoc.blocks);
+  const maxDesignTreeDepth = designTreeMaxDepth(designDoc.blocks);
   const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
   const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
   function findDesignBlockParent(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): TemplateDesignBlock | null {
@@ -3250,6 +3251,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       if (childPath.length) return childPath;
     }
     return [];
+  }
+  function designTreeMaxDepth(blocks: TemplateDesignBlock[], depth = 0): number {
+    if (!blocks.length) return depth;
+    return blocks.reduce((maxDepth, block) => Math.max(maxDepth, designTreeMaxDepth(block.children || [], depth + 1)), depth);
   }
   function revealDesignBlockInHierarchy(id: string, ancestorIds = designBlockAncestorIds(id)) {
     if (!ancestorIds.length) return;
@@ -5386,7 +5391,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <div className="design-hierarchy-head">
                             <div className="design-canvas-head">
                               <strong>Hierarchy</strong>
-                              <span>{formatInt(flatDesignBlocks.length)} block(s). Select a row to edit it.</span>
+                              <span>{formatInt(flatDesignBlocks.length)} block(s) across {formatInt(maxDesignTreeDepth)} level(s). Select a row to edit it.</span>
                             </div>
                             <div className="design-tree-tools" aria-label="Hierarchy controls">
                               <button className="ghost icon-button" type="button" onClick={() => setCollapsedDesignTreeIds([])} title="Expand all">+</button>
