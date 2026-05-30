@@ -5338,11 +5338,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                     <label>
                       HTML class
                       <select value={selectedCssClass} onChange={(event) => selectCssClass(event.target.value)}>
-                        <option value="">Global starter CSS</option>
-                        {htmlClassNames.map((className) => (
-                          <option value={className} key={className}>.{className}</option>
-                        ))}
-                      </select>
+	                        <option value="">Global starter CSS</option>
+	                        {htmlClassNames.map((className) => (
+	                          <option value={className} key={className}>.{className} - {designBlockForClass(className) ? 'design' : 'code only'}</option>
+	                        ))}
+	                      </select>
                     </label>
                     <label>
                       Style type
