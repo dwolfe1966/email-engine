@@ -3536,6 +3536,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
+    const meta = designTreeMeta(block);
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
     const wrapAction = block.type !== 'section'
       ? '<button type="button" data-design-action="wrap">Wrap</button>'
@@ -3551,7 +3552,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
 		      : '';
-    return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}">
+    return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}" title="${escapeTemplateText(meta.label)}">
+<span class="ee-design-block-label">${escapeTemplateText(meta.label)}</span>
 ${selectedActions}
 ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
@@ -3571,6 +3573,8 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: grab; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+      .ee-design-block-label { position: absolute; z-index: 9; top: -18px; left: 8px; display: none; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; color: #1d4ed8; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12); pointer-events: none; }
+      .ee-design-block:hover > .ee-design-block-label, .ee-design-block.selected > .ee-design-block-label { display: block; }
       .ee-design-block.ee-drop-target-before { border-top-color: #10b981; border-top-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-block.ee-drop-target-after { border-bottom-color: #10b981; border-bottom-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-block .ee-design-block { margin: 8px 0; }
