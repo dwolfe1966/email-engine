@@ -205,6 +205,9 @@ try {
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       const buttonByText = (text) => Array.from(document.querySelectorAll('button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
+      const modeButtonByText = (text) => Array.from(document.querySelectorAll('.mode-switch button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase())
+        || buttonByText(text);
       const savedState = () => (document.querySelector('.edit-state-pill')?.textContent || '').trim();
       const canvasBlockCount = () => document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelectorAll('.ee-design-block')?.length || 0;
       const nestedTreeRowCount = () => document.querySelectorAll('.design-tree-row.nested, .design-tree-row[aria-level="2"], .design-tree-row[aria-level="3"]').length;
@@ -216,7 +219,7 @@ try {
         if ((document.body?.innerText || '').includes(${JSON.stringify(smokeMarker)})) break;
       }
       const initialState = savedState();
-      const design = buttonByText('Design');
+      const design = modeButtonByText('Design');
       if (!design) return { ok: false, reason: 'Design button not found for existing template', initialState };
       design.click();
       for (let index = 0; index < 40; index += 1) {
@@ -239,13 +242,19 @@ try {
       if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
         return { ok: false, reason: 'Design mode marked existing template dirty', initialState, afterDesignState };
       }
-      const preview = Array.from(document.querySelectorAll('button'))
-        .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview design')
-        || buttonByText('Preview');
+      let preview = null;
+      for (let index = 0; index < 60; index += 1) {
+        preview = Array.from(document.querySelectorAll('.compact-design-toolbar button, .design-builder-shell button'))
+          .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview design' && !button.disabled)
+          || Array.from(document.querySelectorAll('.mode-switch button'))
+            .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview' && !button.disabled);
+        if (preview) break;
+        await wait(150);
+      }
       if (!preview) return { ok: false, reason: 'Preview button not found after design transition', afterDesignState };
       preview.click();
-      for (let index = 0; index < 60; index += 1) {
-        await wait(150);
+      for (let index = 0; index < 120; index += 1) {
+        await wait(200);
         const iframe = document.querySelector('iframe.email-preview');
         const srcDoc = iframe?.getAttribute('srcdoc') || iframe?.srcdoc || iframe?.contentDocument?.documentElement?.outerHTML || '';
         if (iframe && srcDoc.includes(${JSON.stringify(smokeMarker)})) {
@@ -296,6 +305,9 @@ try {
     expression: `(async () => {
       const buttonByText = (text) => Array.from(document.querySelectorAll('button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
+      const modeButtonByText = (text) => Array.from(document.querySelectorAll('.mode-switch button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase())
+        || buttonByText(text);
       const includesButton = (text) => Array.from(document.querySelectorAll('button'))
         .find((button) => (button.textContent || '').toLowerCase().includes(text.toLowerCase()));
       const selectedTextControl = () => {
@@ -306,12 +318,12 @@ try {
           ?.querySelector('input, textarea') || null;
       };
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      let design = buttonByText('Design');
+      let design = modeButtonByText('Design');
       if (!design) {
         window.location.hash = '#templates/new';
         for (let index = 0; index < 30 && !design; index += 1) {
           await wait(150);
-          design = buttonByText('Design');
+          design = modeButtonByText('Design');
         }
       }
       if (!design) return { ok: false, reason: 'Design button not found' };
