@@ -4274,16 +4274,43 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }
   }
 
+  function designClassNameForBlock(block: TemplateDesignBlock) {
+    if (block.type === 'heading') return Number(block.level) === 1 ? 'email-title' : 'email-heading';
+    if (block.type === 'paragraph') return 'email-copy';
+    if (block.type === 'button') return 'button';
+    if (block.type === 'image') return 'email-image';
+    if (block.type === 'list') return 'email-list';
+    if (block.type === 'divider') return 'email-divider';
+    if (block.type === 'spacer') return 'email-spacer';
+    if (block.type === 'section') return 'email-section';
+    if (block.type === 'trust_signal') return 'secondary-text';
+    if (block.type === 'html') return 'email-custom-html';
+    return `email-${block.type.replace(/_/g, '-')}`;
+  }
+
   function focusDesignBlockCss(block: TemplateDesignBlock) {
     selectDesignBlock(block.id);
-    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0];
-    if (!className) {
-      setStatus('Add a CSS class to this design block before styling it.');
-      return;
+    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || designClassNameForBlock(block);
+    let sourceDoc = designDoc;
+    if (!block.className) {
+      rememberDesignState();
+      const updateBlocks = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((item) => {
+        if (item.id === block.id) return { ...item, className };
+        if (item.children?.length) return { ...item, children: updateBlocks(item.children) };
+        return item;
+      });
+      sourceDoc = { blocks: updateBlocks(designDoc.blocks) };
+      setDesignDoc(sourceDoc);
+      markPreviewStale();
     }
     selectCssClass(className);
     setCssToolsOpen(true);
-    setStatus(`Styling .${className} from ${block.type.replace('_', ' ')} block.`);
+    if (editorMode === 'design') {
+      setHtmlBody(designDocumentTemplateSource(sourceDoc));
+      setDesignDocEdited(false);
+      setEditorMode('edit');
+    }
+    setStatus(`${block.className ? 'Styling' : 'Added class and opened CSS tools for'} .${className} from ${block.type.replace('_', ' ')} block.`);
   }
 
   function syncHtmlSelectionToCssClass(from?: number, to?: number) {
@@ -5432,7 +5459,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                                 </div>
                                 <div className="button-row">
                                   <button className="ghost" type="button" onClick={() => setDesignInspectorFocusNonce((current) => current + 1)} disabled={busy}>Edit</button>
-                                  <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
+                                  <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy}>{selectedDesignBlock.className ? 'Style' : 'Add Class'}</button>
                                 </div>
                               </div>
                             ) : null}
@@ -5472,7 +5499,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                              {renderDesignBlockControls(selectedDesignBlock)}
 		                            </div>
 	                            <div className="button-row">
-	                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
+		                              <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy}>{selectedDesignBlock.className ? 'Style' : 'Add Class'}</button>
 		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, -1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, -1)}>Move Up</button>
 		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
 		                              <button className="ghost" type="button" onClick={() => indentDesignBlock(selectedDesignBlock.id)} disabled={busy || !canIndentDesignBlock(selectedDesignBlock.id)}>Indent</button>
