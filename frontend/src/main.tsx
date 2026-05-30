@@ -4296,6 +4296,27 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }, 0);
   }
 
+  function designBlockForClass(className: string, blocks = designDoc.blocks): TemplateDesignBlock | null {
+    for (const block of blocks) {
+      const classNames = String(block.className || '').split(/\s+/).filter(Boolean);
+      if (classNames.includes(className)) return block;
+      const childMatch = block.children?.length ? designBlockForClass(className, block.children) : null;
+      if (childMatch) return childMatch;
+    }
+    return null;
+  }
+
+  function returnToDesignBlockForClass(className = selectedCssClass) {
+    const block = designBlockForClass(className);
+    if (!block) {
+      setStatus(className ? `No Design block currently uses .${className}.` : 'Select a CSS class before returning to Design.');
+      return;
+    }
+    selectDesignBlock(block.id, designBlockAncestorIds(block.id));
+    setEditorMode('design');
+    setStatus(`Returned to Design and selected .${className}.`);
+  }
+
   function focusDesignBlockCss(block: TemplateDesignBlock) {
     selectDesignBlock(block.id);
     const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || designClassNameForBlock(block);
@@ -5291,10 +5312,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    </div>
 	                    {cssToolsOpen ? (
 	                      <>
-	                    <div className="css-tool-actions">
-	                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
-	                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
-	                    </div>
+		                    <div className="css-tool-actions">
+		                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
+                              <button className="ghost" type="button" onClick={() => returnToDesignBlockForClass()} disabled={busy || !selectedCssClass || !designBlockForClass(selectedCssClass)}>Back to Design</button>
+		                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
+		                    </div>
 	                    {selectedCssClass ? (
 	                      <div className={selectedCssRule ? 'selected-css-rule has-rule' : 'selected-css-rule missing-rule'}>
 	                        <div>
