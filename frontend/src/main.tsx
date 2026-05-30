@@ -4316,6 +4316,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setEditorMode('design');
     setStatus(`Returned to Design and selected .${className}.`);
   }
+  const selectedCssDesignBlock = selectedCssClass ? designBlockForClass(selectedCssClass) : null;
 
   function focusDesignBlockCss(block: TemplateDesignBlock) {
     selectDesignBlock(block.id);
@@ -5312,12 +5313,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    </div>
 	                    {cssToolsOpen ? (
 	                      <>
-		                    <div className="css-tool-actions">
-		                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
-                              <button className="ghost" type="button" onClick={() => returnToDesignBlockForClass()} disabled={busy || !selectedCssClass || !designBlockForClass(selectedCssClass)}>Back to Design</button>
-		                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
-		                    </div>
-	                    {selectedCssClass ? (
+			                    <div className="css-tool-actions">
+			                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
+	                              <button className="ghost" type="button" onClick={() => returnToDesignBlockForClass()} disabled={busy || !selectedCssClass || !selectedCssDesignBlock}>Back to Design</button>
+			                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
+			                    </div>
+                              {selectedCssClass ? (
+                                <div className={`css-design-link ${selectedCssDesignBlock ? 'linked' : 'unlinked'}`}>
+                                  <span>{selectedCssDesignBlock ? 'Linked Design Block' : 'No Design Block Link'}</span>
+                                  <strong>{selectedCssDesignBlock ? designTreeMeta(selectedCssDesignBlock).label : `.${selectedCssClass}`}</strong>
+                                  <small>{selectedCssDesignBlock ? 'Back to Design will reselect this block.' : 'This class exists in HTML/CSS but not the current Design block model.'}</small>
+                                </div>
+                              ) : null}
+		                    {selectedCssClass ? (
 	                      <div className={selectedCssRule ? 'selected-css-rule has-rule' : 'selected-css-rule missing-rule'}>
 	                        <div>
 	                          <strong>.{selectedCssClass}</strong>

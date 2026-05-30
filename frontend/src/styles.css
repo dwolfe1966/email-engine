@@ -2115,6 +2115,43 @@ th {
   font-weight: 800;
 }
 
+.css-design-link {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 8px 10px;
+}
+
+.css-design-link span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.css-design-link strong {
+  color: #29405f;
+  font-size: 13px;
+}
+
+.css-design-link small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.css-design-link.linked {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.css-design-link.unlinked {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+}
+
 .css-helper-grid label {
   display: grid;
   gap: 6px;
