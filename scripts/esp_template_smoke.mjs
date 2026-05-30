@@ -351,6 +351,9 @@ try {
         }
       }
       if (!cssReady) return { ok: false, reason: 'Design style action did not open focused CSS tools' };
+      const designChip = Array.from(document.querySelectorAll('.coverage-chip-list button em'))
+        .find((chip) => (chip.textContent || '').trim().toLowerCase() === 'design');
+      if (!designChip) return { ok: false, reason: 'CSS coverage did not show a Design-linked class chip' };
       const backToDesign = Array.from(document.querySelectorAll('.css-tool-actions button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === 'back to design' && !button.disabled);
       if (!backToDesign) return { ok: false, reason: 'Back to Design action not available from CSS tools' };
