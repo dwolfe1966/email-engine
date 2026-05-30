@@ -2750,6 +2750,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [cssToolsOpen, setCssToolsOpen] = useState(false);
   const htmlEditorRef = useRef<TemplateCodeEditorHandle | null>(null);
   const cssEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const cssEditorSectionRef = useRef<HTMLDivElement | null>(null);
   const designInspectorRef = useRef<HTMLElement | null>(null);
   const designHierarchyRef = useRef<HTMLElement | null>(null);
   const [selectedCssClass, setSelectedCssClass] = useState('');
@@ -4288,6 +4289,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     return `email-${block.type.replace(/_/g, '-')}`;
   }
 
+  function revealCssEditorTools() {
+    window.setTimeout(() => {
+      cssEditorSectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      cssEditorRef.current?.focus();
+    }, 0);
+  }
+
   function focusDesignBlockCss(block: TemplateDesignBlock) {
     selectDesignBlock(block.id);
     const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || designClassNameForBlock(block);
@@ -4310,6 +4318,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setDesignDocEdited(false);
       setEditorMode('edit');
     }
+    revealCssEditorTools();
     setStatus(`${block.className ? 'Styling' : 'Added class and opened CSS tools for'} .${className} from ${block.type.replace('_', ' ')} block.`);
   }
 
@@ -5266,7 +5275,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                     <p className="muted">Click Preview to detect variables and create editable sample data.</p>
                   )}
                 </div>
-                <div className="wide-field editor-field css-editor-field">
+                <div className="wide-field editor-field css-editor-field" ref={cssEditorSectionRef}>
                   <span className="field-title">
                     CSS
                     <small>Select a class from the HTML, adjust controls, then update that CSS rule</small>
