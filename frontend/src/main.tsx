@@ -3492,7 +3492,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	              setActiveDesignTreeAddId((current) => current === block.id ? '' : block.id);
 	            } : undefined}
 	          >
-	            {block.type === 'section' ? '+' : ''}
+	            {block.type === 'section' ? 'Add' : ''}
 	          </span>
           {activeDropPosition ? <span className="design-tree-drop-label">{designTreeDropLabel(activeDropPosition)}</span> : null}
 	        </button>,
