@@ -1398,6 +1398,10 @@ th {
   border-left: 1px solid #cbd5e1;
 }
 
+.design-tree-row.nested.has-next-sibling::after {
+  bottom: -5px;
+}
+
 .design-tree-row:hover {
   border-color: #dce8f7;
   background: #f8fbff;
@@ -1514,6 +1518,19 @@ th {
   border-color: #93c5fd;
   background: #dbeafe;
   color: #1d4ed8;
+}
+
+.design-tree-branch.leaf::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.design-tree-row.selected .design-tree-branch.leaf::before,
+.design-tree-row.ancestor .design-tree-branch.leaf::before {
+  background: #2563eb;
 }
 
 .design-tree-icon {

@@ -3414,7 +3414,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function renderDesignHierarchy(blocks: TemplateDesignBlock[], depth = 0) {
-    return blocks.flatMap((block) => {
+    return blocks.flatMap((block, index) => {
       const meta = designTreeMeta(block);
       const children = block.children || [];
       const hasChildren = children.length > 0;
@@ -3422,9 +3422,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const addMenuOpen = activeDesignTreeAddId === block.id;
       const inSelectedPath = selectedDesignAncestorIds.includes(block.id);
       const activeDropPosition = designTreeDropTarget?.id === block.id ? designTreeDropTarget.position : '';
+      const isLastSibling = index === blocks.length - 1;
       return [
         <button
-          className={`design-tree-row ${depth ? 'nested' : 'root'} ${inSelectedPath ? 'ancestor' : ''} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''} ${activeDropPosition ? `drop-${activeDropPosition}` : ''}`}
+          className={`design-tree-row ${depth ? 'nested' : 'root'} ${isLastSibling ? 'last-sibling' : 'has-next-sibling'} ${inSelectedPath ? 'ancestor' : ''} ${selectedDesignBlockId === block.id ? 'selected' : ''} ${addMenuOpen ? 'adding' : ''} ${activeDropPosition ? `drop-${activeDropPosition}` : ''}`}
           data-design-tree-id={block.id}
           key={block.id}
           role="treeitem"
@@ -3480,7 +3481,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
           <span
-            className={`design-tree-branch ${hasChildren ? 'has-children' : ''}`}
+            className={`design-tree-branch ${hasChildren ? 'has-children' : 'leaf'}`}
             title={hasChildren ? `${collapsed ? 'Expand' : 'Collapse'} ${meta.label}` : undefined}
             onClick={hasChildren ? (event) => {
               event.stopPropagation();
