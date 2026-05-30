@@ -3310,9 +3310,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designTreeMeta(block: TemplateDesignBlock) {
     const raw = String(block.code || block.html || '');
+    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || '';
     const typeLabels: Record<string, string> = {
       heading: `Heading H${block.level || 1}`,
-      section: 'Section',
+      section: className === 'email-shell' ? 'Email shell' : className === 'email-container' ? 'Email container' : 'Section',
       paragraph: 'Paragraph',
       button: 'Button',
       image: 'Image',
@@ -3325,7 +3326,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const preview = block.type === 'list'
       ? `${(block.items || []).length} item(s)`
       : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 64);
-    const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || '';
     return {
       label: typeLabels[block.type] || designBlockTypeLabel(block.type),
       preview,
