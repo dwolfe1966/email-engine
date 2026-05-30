@@ -1598,7 +1598,7 @@ th {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-left: calc(50px + (var(--tree-depth) * 26px));
+  margin-left: calc(80px + (var(--tree-depth) * 30px));
   padding: 3px 0 6px;
 }
 
