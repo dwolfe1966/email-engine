@@ -3311,6 +3311,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function designTreeMeta(block: TemplateDesignBlock) {
     const raw = String(block.code || block.html || '');
     const className = String(block.className || '').split(/\s+/).filter(Boolean)[0] || '';
+    const descendantCount = countDesignDescendants(block);
     const typeLabels: Record<string, string> = {
       heading: `Heading H${block.level || 1}`,
       section: className === 'email-shell' ? 'Email shell' : className === 'email-container' ? 'Email container' : 'Section',
@@ -3331,7 +3332,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       preview,
       className,
       childCount: block.children?.length || 0,
+      descendantCount,
     };
+  }
+
+  function countDesignDescendants(block: TemplateDesignBlock): number {
+    return (block.children || []).reduce((count, child) => count + 1 + countDesignDescendants(child), 0);
   }
 
 	  function toggleDesignTreeNode(id: string) {
@@ -3483,7 +3489,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <span className="design-tree-copy">
             <strong>
               {meta.label}
-              {collapsed && children.length ? <em className="design-tree-hidden-count">{children.length} hidden</em> : null}
+              {collapsed && meta.descendantCount ? <em className="design-tree-hidden-count">{meta.descendantCount} hidden</em> : null}
             </strong>
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
