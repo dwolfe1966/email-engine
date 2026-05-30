@@ -354,6 +354,9 @@ try {
       const designChip = Array.from(document.querySelectorAll('.coverage-chip-list button em'))
         .find((chip) => (chip.textContent || '').trim().toLowerCase() === 'design');
       if (!designChip) return { ok: false, reason: 'CSS coverage did not show a Design-linked class chip' };
+      const designOption = Array.from(document.querySelectorAll('.css-helper-grid select option'))
+        .find((option) => / - design$/i.test((option.textContent || '').trim()));
+      if (!designOption) return { ok: false, reason: 'CSS class dropdown did not label Design-linked classes' };
       const backToDesign = Array.from(document.querySelectorAll('.css-tool-actions button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === 'back to design' && !button.disabled);
       if (!backToDesign) return { ok: false, reason: 'Back to Design action not available from CSS tools' };
