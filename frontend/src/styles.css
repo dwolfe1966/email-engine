@@ -2257,6 +2257,26 @@ th {
   text-transform: uppercase;
 }
 
+.coverage-chip-list button em {
+  display: inline-block;
+  margin-top: 5px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.coverage-chip-list .design-linked em {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .coverage-chip-list .has-rule {
   border-color: #b7e8d5;
   background: #f2fff9;

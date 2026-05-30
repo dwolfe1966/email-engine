@@ -5401,19 +5401,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         <strong>HTML class coverage</strong>
                         <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rules` : 'All detected classes have rules'}</span>
                       </div>
-                      <div className="coverage-chip-list">
-                        {cssClassCoverage.map((item) => (
-                          <button
-                            type="button"
-	                            className={`${item.hasRule ? 'has-rule' : 'missing-rule'} ${item.name === selectedCssClass ? 'selected' : ''}`}
-                            key={item.name}
-                            onClick={() => selectCssClass(item.name)}
-                          >
-                            .{item.name}
-                            <span>{item.hasRule ? `styled ${item.kind}` : `missing ${item.kind}`}</span>
-                          </button>
-                        ))}
-                      </div>
+	                      <div className="coverage-chip-list">
+	                        {cssClassCoverage.map((item) => {
+                            const linkedBlock = designBlockForClass(item.name);
+                            return (
+	                            <button
+	                              type="button"
+		                              className={`${item.hasRule ? 'has-rule' : 'missing-rule'} ${linkedBlock ? 'design-linked' : 'code-only'} ${item.name === selectedCssClass ? 'selected' : ''}`}
+	                              key={item.name}
+	                              onClick={() => selectCssClass(item.name)}
+	                            >
+	                              .{item.name}
+	                              <span>{item.hasRule ? `styled ${item.kind}` : `missing ${item.kind}`}</span>
+                                <em>{linkedBlock ? 'design' : 'code only'}</em>
+	                            </button>
+                            );
+                          })}
+	                      </div>
                       <button className="ghost" type="button" onClick={scaffoldMissingCssClasses} disabled={busy || !missingCssClasses.length}>Create Missing Rules</button>
                     </div>
                   ) : (
