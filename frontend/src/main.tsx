@@ -5416,12 +5416,28 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         </aside>
                       ) : null}
 		                      <aside className="design-canvas-panel">
-	                        <div className="design-canvas-head">
-	                          <strong>Live Canvas</strong>
-	                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
-	                        </div>
-	                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
-	                      </aside>
+		                        <div className="design-canvas-head">
+		                          <strong>Live Canvas</strong>
+		                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
+		                        </div>
+                            {selectedDesignBlock ? (
+                              <div className="design-canvas-selection">
+                                <div>
+                                  <small>Selected</small>
+                                  <strong>{designTreeMeta(selectedDesignBlock).label}</strong>
+                                  <span>
+                                    {selectedDesignBlockPath.length ? `Level ${selectedDesignBlockPath.length}` : 'Root'}
+                                    {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
+                                  </span>
+                                </div>
+                                <div className="button-row">
+                                  <button className="ghost" type="button" onClick={() => setDesignInspectorFocusNonce((current) => current + 1)} disabled={busy}>Edit</button>
+                                  <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy || !selectedDesignBlock.className}>Style</button>
+                                </div>
+                              </div>
+                            ) : null}
+		                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+		                      </aside>
 		                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
 	                        {selectedDesignBlock ? (
 	                          <>
