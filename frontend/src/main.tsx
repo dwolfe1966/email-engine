@@ -5440,7 +5440,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                                      onClick={() => selectDesignBlock(block.id)}
 		                                      disabled={block.id === selectedDesignBlock.id}
 		                                    >
-		                                      {designBlockTypeLabel(block.type)}
+		                                      <small>L{index + 1}</small>
+		                                      {designTreeMeta(block).label}
 		                                    </button>
 		                                  </span>
 		                                ))}

@@ -1655,6 +1655,9 @@ th {
 }
 
 .design-selected-path button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
   border: 0;
   border-radius: 999px;
   background: #ffffff;
@@ -1665,10 +1668,24 @@ th {
   padding: 5px 7px;
 }
 
+.design-selected-path button small {
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 1px 5px;
+}
+
 .design-selected-path button.current {
   background: #dbeafe;
   color: #1d4ed8;
   cursor: default;
+}
+
+.design-selected-path button.current small {
+  background: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .design-canvas-panel {
