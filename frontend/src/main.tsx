@@ -4262,6 +4262,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     return 'container';
   }
 
+  function cssDesignLinkStatus(className: string) {
+    const block = designBlockForClass(className);
+    if (!block) return ' Code-only class; no Design block is linked.';
+    return ` Linked to ${designTreeMeta(block).label}; Back to Design will reselect it.`;
+  }
+
   function selectCssClass(className: string) {
     setSelectedCssClass(className);
     const rule = cssRuleForClass(className);
@@ -4271,7 +4277,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return;
     }
     if (className) {
-      setStatus(`Selected .${className}. No CSS rule exists yet; choose controls and create one.`);
+      setStatus(`Selected .${className}. No CSS rule exists yet; choose controls and create one.${cssDesignLinkStatus(className)}`);
     }
   }
 
@@ -4360,7 +4366,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const className = classMatch?.[1]?.split(/\s+/).filter(Boolean)[0];
     if (className && htmlClassNames.includes(className) && className !== selectedCssClass) {
       selectCssClass(className);
-      setStatus(`Selected .${className} from HTML. CSS controls are synced below.`);
+      setStatus(`Selected .${className} from HTML. CSS controls are synced below.${cssDesignLinkStatus(className)}`);
     }
   }
 
@@ -4377,13 +4383,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const className = selector.match(/\.([a-zA-Z0-9_-]+)/)?.[1];
     if (className && htmlClassNames.includes(className) && className !== selectedCssClass) {
       selectCssClass(className);
-      setStatus(`Selected .${className} from CSS. Class editor is synced below.`);
+      setStatus(`Selected .${className} from CSS. Class editor is synced below.${cssDesignLinkStatus(className)}`);
     }
   }
 
   function syncCssControlsFromRule(rule = cssRuleForClass(selectedCssClass), className = selectedCssClass) {
     if (!rule) {
-      setStatus(className ? `No CSS rule exists yet for .${className}. Choose a style type and update CSS.` : 'Select an HTML class to load existing CSS values.');
+      setStatus(className ? `No CSS rule exists yet for .${className}. Choose a style type and update CSS.${cssDesignLinkStatus(className)}` : 'Select an HTML class to load existing CSS values.');
       return;
     }
     const paddingMatch = cssProperty(rule, 'padding').match(/\d+/);
@@ -4399,7 +4405,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       padding: paddingMatch?.[0] || current.padding,
       radius: radiusMatch?.[0] || current.radius,
     }));
-    setStatus(className ? `Loaded CSS values from .${className}.` : 'Loaded CSS values from the selected rule.');
+    setStatus(className ? `Loaded CSS values from .${className}.${cssDesignLinkStatus(className)}` : 'Loaded CSS values from the selected rule.');
   }
 
   useEffect(() => {
