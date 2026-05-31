@@ -259,7 +259,7 @@ try {
       let preview = null;
       for (let index = 0; index < 60; index += 1) {
         preview = Array.from(document.querySelectorAll('.compact-design-toolbar button, .design-builder-shell button'))
-          .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview design' && !button.disabled)
+          .find((button) => ['preview design', 'preview', 'preview now'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled)
           || Array.from(document.querySelectorAll('.mode-switch button'))
             .find((button) => (button.textContent || '').trim().toLowerCase() === 'preview' && !button.disabled);
         if (preview) break;
