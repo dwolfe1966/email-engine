@@ -4026,6 +4026,52 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setStatus(`Added ${designBlockTypeLabel(type)} inside container.`);
   }
 
+  function addDesignColumn(parentId: string) {
+    rememberDesignState();
+    const column = { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('paragraph')] };
+    const appendColumn = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === parentId && block.type === 'columns') {
+        return { ...block, children: [...(block.children || []), column] };
+      }
+      if (block.children?.length) return { ...block, children: appendColumn(block.children) };
+      return block;
+    });
+    setDesignDoc((current) => ({ blocks: appendColumn(current.blocks) }));
+    selectDesignBlock(column.id, [parentId]);
+    setEditorMode('design');
+    setDesignDocEdited(true);
+    markPreviewStale();
+    setStatus('Added column.');
+  }
+
+  function removeLastDesignColumn(parentId: string) {
+    rememberDesignState();
+    let removed = false;
+    const removeColumn = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === parentId && block.type === 'columns') {
+        const children = block.children || [];
+        if (children.length <= 1) return block;
+        removed = true;
+        return { ...block, children: children.slice(0, -1) };
+      }
+      if (block.children?.length) return { ...block, children: removeColumn(block.children) };
+      return block;
+    });
+    setDesignDoc((current) => {
+      const blocks = removeColumn(current.blocks);
+      return removed ? { blocks } : current;
+    });
+    selectDesignBlock(parentId);
+    setEditorMode('design');
+    if (removed) {
+      setDesignDocEdited(true);
+      markPreviewStale();
+      setStatus('Removed last column.');
+    } else {
+      setStatus('Columns need at least one column.');
+    }
+  }
+
   function moveDesignBlockIntoSection(sourceId: string, parentId: string) {
     if (!sourceId || !parentId || sourceId === parentId) return;
     const sourceBlock = flatDesignBlocks.find((block) => block.id === sourceId);
@@ -5163,6 +5209,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             Contents
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
           </label>
+          {block.type === 'columns' ? (
+            <div className="section-child-tools wide-field">
+              <span>Manage columns</span>
+              <div>
+                <button className="ghost" type="button" onClick={() => addDesignColumn(block.id)} disabled={busy}>Add Column</button>
+                <button className="ghost" type="button" onClick={() => removeLastDesignColumn(block.id)} disabled={busy || (block.children?.length || 0) <= 1}>Remove Last Column</button>
+              </div>
+            </div>
+          ) : null}
           <div className="section-child-tools wide-field">
             <span>Add to {designBlockTypeLabel(block.type).toLowerCase()}</span>
             <div>

@@ -632,6 +632,21 @@ try {
       if ((gapControl?.value || '') !== '24') {
         return { ok: false, reason: 'Canvas columns gap edit did not update inspector field', gapValue: gapControl?.value || '' };
       }
+      const addColumnButton = Array.from(document.querySelectorAll('.design-inspector-panel button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === 'add column' && !button.disabled);
+      if (!addColumnButton) return { ok: false, reason: 'Add Column action not found for columns block' };
+      addColumnButton.click();
+      let addedColumnReady = false;
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const columnsBlock = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('[data-design-block-type="columns"]');
+        const nestedSections = columnsBlock?.querySelectorAll('[data-design-block-type="section"]') || [];
+        if (nestedSections.length >= 3) {
+          addedColumnReady = true;
+          break;
+        }
+      }
+      if (!addedColumnReady) return { ok: false, reason: 'Add Column did not create another nested column section' };
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
