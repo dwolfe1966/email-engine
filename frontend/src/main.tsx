@@ -4645,6 +4645,47 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     padding: ['container', 'section', 'button'].includes(cssClassKind),
     radius: cssClassKind !== 'text',
   };
+  const cssColorSwatches = ['#ffffff', '#f8fafc', '#f5f7fb', '#111827', '#334155', '#64748b', '#2563eb', '#0f766e', '#10b981', '#f59e0b', '#dc2626', '#7c3aed'];
+  function updateCssPresetColor(key: 'background' | 'text' | 'accent', value: string) {
+    setCssPreset((current) => ({ ...current, [key]: value }));
+  }
+  function cssColorControl(label: string, key: 'background' | 'text' | 'accent', visible: boolean) {
+    const value = cssPreset[key];
+    return (
+      <label className={visible ? 'css-color-control' : 'css-control-hidden'}>
+        {label}
+        <div className="css-color-picker">
+          <span className="css-color-preview" style={{ backgroundColor: value }} aria-hidden="true" />
+          <input
+            aria-label={`${label} hex color`}
+            value={value}
+            onChange={(event) => updateCssPresetColor(key, event.target.value)}
+            onBlur={(event) => updateCssPresetColor(key, normalizeCssColor(event.target.value, value))}
+          />
+          <input
+            aria-label={`${label} color picker`}
+            className="native-color-input"
+            type="color"
+            value={normalizeCssColor(value, '#000000')}
+            onChange={(event) => updateCssPresetColor(key, event.target.value)}
+          />
+        </div>
+        <div className="css-color-swatches" aria-label={`${label} color swatches`}>
+          {cssColorSwatches.map((swatch) => (
+            <button
+              aria-label={`Use ${swatch}`}
+              className={swatch.toLowerCase() === value.toLowerCase() ? 'selected' : ''}
+              key={swatch}
+              onClick={() => updateCssPresetColor(key, swatch)}
+              style={{ backgroundColor: swatch }}
+              title={swatch}
+              type="button"
+            />
+          ))}
+        </div>
+      </label>
+    );
+  }
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const match = rule.match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
@@ -5784,18 +5825,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         <option value="Verdana, Geneva, sans-serif">Verdana</option>
                       </select>
                     </label>
-                    <label className={visibleCssControls.background ? '' : 'css-control-hidden'}>
-                      Background
-                      <input type="color" value={cssPreset.background} onChange={(event) => setCssPreset((current) => ({ ...current, background: event.target.value }))} />
-                    </label>
-                    <label className={visibleCssControls.text ? '' : 'css-control-hidden'}>
-                      Text
-                      <input type="color" value={cssPreset.text} onChange={(event) => setCssPreset((current) => ({ ...current, text: event.target.value }))} />
-                    </label>
-                    <label className={visibleCssControls.accent ? '' : 'css-control-hidden'}>
-                      Accent
-                      <input type="color" value={cssPreset.accent} onChange={(event) => setCssPreset((current) => ({ ...current, accent: event.target.value }))} />
-                    </label>
+                    {cssColorControl('Background', 'background', visibleCssControls.background)}
+                    {cssColorControl('Text', 'text', visibleCssControls.text)}
+                    {cssColorControl('Accent', 'accent', visibleCssControls.accent)}
                     <label className={visibleCssControls.width ? '' : 'css-control-hidden'}>
                       Width
                       <input type="number" min="480" max="760" step="20" value={cssPreset.container} onChange={(event) => setCssPreset((current) => ({ ...current, container: event.target.value }))} />

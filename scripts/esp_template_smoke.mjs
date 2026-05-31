@@ -372,6 +372,17 @@ try {
       const designOption = Array.from(document.querySelectorAll('.css-helper-grid select option'))
         .find((option) => / - design$/i.test((option.textContent || '').trim()));
       if (!designOption) return { ok: false, reason: 'CSS class dropdown did not label Design-linked classes' };
+      const visibleColorControl = Array.from(document.querySelectorAll('.css-color-control'))
+        .find((control) => getComputedStyle(control).display !== 'none');
+      if (!visibleColorControl) return { ok: false, reason: 'CSS palette color control not found' };
+      const purpleSwatch = visibleColorControl.querySelector('button[title="#7c3aed"]');
+      if (!purpleSwatch) return { ok: false, reason: 'CSS palette swatch not found' };
+      purpleSwatch.click();
+      await wait(150);
+      const colorInputValue = visibleColorControl.querySelector('input[aria-label$="hex color"]')?.value || '';
+      if (colorInputValue.toLowerCase() !== '#7c3aed') {
+        return { ok: false, reason: 'CSS palette swatch did not update hex input', colorInputValue };
+      }
       const backToDesign = Array.from(document.querySelectorAll('.css-tool-actions button'))
         .find((button) => (button.textContent || '').trim().toLowerCase() === 'back to design' && !button.disabled);
       if (!backToDesign) return { ok: false, reason: 'Back to Design action not available from CSS tools' };
