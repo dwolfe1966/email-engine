@@ -331,6 +331,7 @@ try {
           .find((label) => (label.textContent || '').trim().startsWith('Text'))
           ?.querySelector('input, textarea') || null;
       };
+      const currentEditHint = () => document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-edit-hint')?.textContent || '';
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       let design = modeButtonByText('Design');
       if (!design) {
@@ -433,6 +434,9 @@ try {
       const listMarker = 'Smoke list item ' + Date.now();
       const listEditable = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected li[data-design-edit-field="item"]');
       if (!listEditable) return { ok: false, reason: 'Canvas inline editable list item not found' };
+      if (!/click list item to edit/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas list edit hint was not contextual', editHint: currentEditHint() };
+      }
       listEditable.focus();
       listEditable.textContent = listMarker;
       listEditable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -460,6 +464,9 @@ try {
       const imageAltMarker = 'Smoke image alt ' + Date.now();
       const imageAltInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-image-field="alt"]');
       if (!imageAltInput) return { ok: false, reason: 'Canvas image alt input not found' };
+      if (!/edit image details/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas image edit hint was not contextual', editHint: currentEditHint() };
+      }
       imageAltInput.value = imageAltMarker;
       imageAltInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
@@ -486,6 +493,9 @@ try {
       const buttonUrlMarker = 'https://example.com/smoke-button-' + Date.now();
       const buttonUrlInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="href"]');
       if (!buttonUrlInput) return { ok: false, reason: 'Canvas button URL input not found' };
+      if (!/edit text or url/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas button edit hint was not contextual', editHint: currentEditHint() };
+      }
       buttonUrlInput.value = buttonUrlMarker;
       buttonUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
@@ -511,6 +521,9 @@ try {
       }
       const sectionPaddingInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="padding_y"]');
       if (!sectionPaddingInput) return { ok: false, reason: 'Canvas section padding input not found' };
+      if (!/edit section style/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas section edit hint was not contextual', editHint: currentEditHint() };
+      }
       sectionPaddingInput.value = '32';
       sectionPaddingInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
@@ -536,6 +549,9 @@ try {
       }
       const spacerHeightInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="height"]');
       if (!spacerHeightInput) return { ok: false, reason: 'Canvas spacer height input not found' };
+      if (!/edit spacer height/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas spacer edit hint was not contextual', editHint: currentEditHint() };
+      }
       spacerHeightInput.value = '36';
       spacerHeightInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {

@@ -3671,6 +3671,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       || (block.type === 'paragraph' && !block.html);
   }
 
+  function designCanvasEditHint(block: TemplateDesignBlock) {
+    if (block.type === 'list') return 'Click list item to edit';
+    if (block.type === 'button') return 'Edit text or URL';
+    if (block.type === 'image') return 'Edit image details';
+    if (block.type === 'section') return 'Edit section style';
+    if (block.type === 'spacer') return 'Edit spacer height';
+    if (block.type === 'divider') return 'Edit divider color';
+    if (canEditDesignBlockTextOnCanvas(block)) return 'Click text to edit';
+    return '';
+  }
+
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const meta = designTreeMeta(block);
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
@@ -3693,8 +3704,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
 			      : '';
-    const editableHint = block.id === selectedDesignBlockId && canEditDesignBlockTextOnCanvas(block)
-      ? '<span class="ee-design-edit-hint">Click text to edit</span>'
+    const editHintText = block.id === selectedDesignBlockId ? designCanvasEditHint(block) : '';
+    const editableHint = editHintText
+      ? `<span class="ee-design-edit-hint">${escapeTemplateText(editHintText)}</span>`
       : '';
     return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}" title="${escapeTemplateText(meta.label)}">
 <span class="ee-design-block-label">${escapeTemplateText(meta.label)}</span>
