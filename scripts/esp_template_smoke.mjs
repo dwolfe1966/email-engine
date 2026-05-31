@@ -422,6 +422,33 @@ try {
       if (!/next: sync visual edits/i.test(nextActionText)) {
         return { ok: false, reason: 'Design next-action card did not guide sync after block edit', nextActionText };
       }
+      const listButton = buttonByText('list');
+      if (!listButton) return { ok: false, reason: 'List design block button not found' };
+      listButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const canvasListItem = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected li[data-design-edit-field="item"]');
+        if (canvasListItem) break;
+      }
+      const listMarker = 'Smoke list item ' + Date.now();
+      const listEditable = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected li[data-design-edit-field="item"]');
+      if (!listEditable) return { ok: false, reason: 'Canvas inline editable list item not found' };
+      listEditable.focus();
+      listEditable.textContent = listMarker;
+      listEditable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const itemsControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Items'))
+          ?.querySelector('textarea');
+        if ((itemsControl?.value || '').includes(listMarker)) break;
+      }
+      const itemsControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Items'))
+        ?.querySelector('textarea');
+      if (!(itemsControl?.value || '').includes(listMarker)) {
+        return { ok: false, reason: 'Canvas list item edit did not update inspector items', itemsValue: itemsControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();

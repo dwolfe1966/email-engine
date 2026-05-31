@@ -3601,6 +3601,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
       return `<p${classAttr} ${editableAttrs(block.text)} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     }
+    if (block.type === 'list') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+      const tag = block.ordered ? 'ol' : 'ul';
+      const items = (block.items || []).map((item, index) => (
+        `<li contenteditable="true" spellcheck="false" data-design-edit-field="item" data-design-edit-index="${index}" data-design-original-value="${escapeTemplateText(item)}">${escapeTemplateText(item)}</li>`
+      )).join('');
+      return `<${tag}${classAttr}>${items}</${tag}>`;
+    }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
@@ -3612,6 +3620,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function canEditDesignBlockTextOnCanvas(block: TemplateDesignBlock) {
     return block.type === 'heading'
       || block.type === 'button'
+      || block.type === 'list'
       || block.type === 'trust_signal'
       || (block.type === 'paragraph' && !block.html);
   }
@@ -3700,6 +3709,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		          type: 'ee-design-block-edit',
 		          blockId: block.getAttribute('data-design-block-id'),
 		          field: editable.getAttribute('data-design-edit-field') || 'text',
+		          index: editable.getAttribute('data-design-edit-index') || '',
 		          value: editableValue(editable)
 		        }, '*');
 		      }
@@ -4158,7 +4168,18 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data?.type === 'ee-design-block-edit' && typeof data.blockId === 'string') {
         const nextValue = String(data.value || '').trim();
         const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
-        if (!block || block.text === nextValue) return;
+        if (!block) return;
+        if (data.field === 'item') {
+          const itemIndex = Number(data.index);
+          if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= (block.items || []).length) return;
+          if ((block.items || [])[itemIndex] === nextValue) return;
+          const nextItems = [...(block.items || [])];
+          nextItems[itemIndex] = nextValue;
+          updateDesignBlock(block.id, { items: nextItems });
+          setStatus(`Updated list item ${itemIndex + 1} from the canvas.`);
+          return;
+        }
+        if (block.text === nextValue) return;
         updateDesignBlock(block.id, { text: nextValue });
         setStatus(`Updated ${block.type.replace('_', ' ')} text from the canvas.`);
         return;
@@ -4167,7 +4188,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
         if (!block) return;
         selectDesignBlock(block.id);
-        setStatus(`Editing ${block.type.replace('_', ' ')} text on the canvas. Press Enter to commit, Escape to cancel, or click outside to capture changes.`);
+        setStatus(`Editing ${block.type === 'list' ? 'list item' : block.type.replace('_', ' ')} text on the canvas. Press Enter to commit, Escape to cancel, or click outside to capture changes.`);
         return;
       }
       if (data?.type === 'ee-design-block-edit-cancel') {
