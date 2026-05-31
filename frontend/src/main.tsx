@@ -4317,6 +4317,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setStatus(`Returned to Design and selected .${className}.`);
   }
   const selectedCssDesignBlock = selectedCssClass ? designBlockForClass(selectedCssClass) : null;
+  const designLinkedCssClassCount = cssClassCoverage.filter((item) => designBlockForClass(item.name)).length;
+  const codeOnlyCssClassCount = Math.max(0, cssClassCoverage.length - designLinkedCssClassCount);
 
   function focusDesignBlockCss(block: TemplateDesignBlock) {
     selectDesignBlock(block.id);
@@ -5397,10 +5399,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  {selectedCssClass ? <p className="muted css-kind-hint">Selected .{selectedCssClass}. Use the controls above to {selectedCssRule ? 'update' : 'create'} its CSS rule.</p> : null}
                   {cssClassCoverage.length ? (
                     <div className="css-class-coverage">
-                      <div className="coverage-summary">
-                        <strong>HTML class coverage</strong>
-                        <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rules` : 'All detected classes have rules'}</span>
-                      </div>
+	                      <div className="coverage-summary">
+	                        <strong>HTML class coverage</strong>
+	                        <span>
+                            {missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rules` : 'All detected classes have rules'}
+                            {` · ${formatInt(designLinkedCssClassCount)} design · ${formatInt(codeOnlyCssClassCount)} code only`}
+                          </span>
+	                      </div>
 	                      <div className="coverage-chip-list">
 	                        {cssClassCoverage.map((item) => {
                             const linkedBlock = designBlockForClass(item.name);
