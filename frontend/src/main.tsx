@@ -3609,6 +3609,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       )).join('');
       return `<${tag}${classAttr}>${items}</${tag}>`;
     }
+    if (block.type === 'image') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+      const image = `<img${classAttr} src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
+      const imageHtml = block.href ? `<a href="${escapeTemplateText(block.href)}">${image}</a>` : image;
+      if (block.id !== selectedDesignBlockId) return imageHtml;
+      return `<div class="ee-image-edit-wrap">
+        ${imageHtml}
+        <div class="ee-image-edit-panel">
+          <label>Image URL<input data-design-image-field="src" value="${escapeTemplateText(block.src)}" /></label>
+          <label>Alt text<input data-design-image-field="alt" value="${escapeTemplateText(block.alt)}" /></label>
+        </div>
+      </div>`;
+    }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
@@ -3680,11 +3693,15 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: min(96%, 520px); gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 12px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
-      .ee-design-edit-hint { position: absolute; z-index: 9; right: 10px; bottom: -16px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #047857; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1); pointer-events: none; }
-      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
-      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
-      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
-      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
+	      .ee-design-edit-hint { position: absolute; z-index: 9; right: 10px; bottom: -16px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #047857; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1); pointer-events: none; }
+	      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
+	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
+	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
+      .ee-image-edit-wrap { display: grid; gap: 8px; }
+      .ee-image-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
+      .ee-image-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
+      .ee-image-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
+	      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       ${cssBody || ''}
     </style>
@@ -3725,11 +3742,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	        var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
 	        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
 	      });
-	      document.addEventListener('blur', function(event) {
+		      document.addEventListener('blur', function(event) {
 		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
 		        if (!editable) return;
 		        commitEditable(editable);
 		      }, true);
+      document.addEventListener('change', function(event) {
+        var input = event.target && event.target.closest ? event.target.closest('[data-design-image-field]') : null;
+        if (!input) return;
+        var block = input.closest('[data-design-block-id]');
+        if (!block) return;
+        parent.postMessage({
+          type: 'ee-design-block-image-edit',
+          blockId: block.getAttribute('data-design-block-id'),
+          field: input.getAttribute('data-design-image-field') || '',
+          value: input.value || ''
+        }, '*');
+      });
 		      document.addEventListener('focus', function(event) {
 		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
 		        if (!editable) return;
@@ -4182,6 +4211,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         if (block.text === nextValue) return;
         updateDesignBlock(block.id, { text: nextValue });
         setStatus(`Updated ${block.type.replace('_', ' ')} text from the canvas.`);
+        return;
+      }
+      if (data?.type === 'ee-design-block-image-edit' && typeof data.blockId === 'string') {
+        const field = data.field === 'alt' ? 'alt' : data.field === 'src' ? 'src' : '';
+        if (!field) return;
+        const nextValue = String(data.value || '').trim();
+        updateDesignBlock(data.blockId, { [field]: nextValue });
+        setStatus(`Updated image ${field === 'src' ? 'URL' : 'alt text'} from the canvas.`);
         return;
       }
       if (data?.type === 'ee-design-block-edit-focus' && typeof data.blockId === 'string') {

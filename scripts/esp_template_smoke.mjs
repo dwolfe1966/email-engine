@@ -449,6 +449,32 @@ try {
       if (!(itemsControl?.value || '').includes(listMarker)) {
         return { ok: false, reason: 'Canvas list item edit did not update inspector items', itemsValue: itemsControl?.value || '' };
       }
+      const imageButton = buttonByText('image');
+      if (!imageButton) return { ok: false, reason: 'Image design block button not found' };
+      imageButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const imageAltInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-image-field="alt"]');
+        if (imageAltInput) break;
+      }
+      const imageAltMarker = 'Smoke image alt ' + Date.now();
+      const imageAltInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-image-field="alt"]');
+      if (!imageAltInput) return { ok: false, reason: 'Canvas image alt input not found' };
+      imageAltInput.value = imageAltMarker;
+      imageAltInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const altControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Alt text'))
+          ?.querySelector('input');
+        if ((altControl?.value || '').includes(imageAltMarker)) break;
+      }
+      const altControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Alt text'))
+        ?.querySelector('input');
+      if (!(altControl?.value || '').includes(imageAltMarker)) {
+        return { ok: false, reason: 'Canvas image alt edit did not update inspector field', altValue: altControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
