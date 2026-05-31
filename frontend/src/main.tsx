@@ -3609,6 +3609,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
   }
 
+  function canEditDesignBlockTextOnCanvas(block: TemplateDesignBlock) {
+    return block.type === 'heading'
+      || block.type === 'button'
+      || block.type === 'trust_signal'
+      || (block.type === 'paragraph' && !block.html);
+  }
+
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const meta = designTreeMeta(block);
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
@@ -3630,10 +3637,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           <button type="button" data-design-action="duplicate">Duplicate</button>
           <button type="button" data-design-action="delete">Delete</button>
         </div>`
-		      : '';
+			      : '';
+    const editableHint = block.id === selectedDesignBlockId && canEditDesignBlockTextOnCanvas(block)
+      ? '<span class="ee-design-edit-hint">Click text to edit</span>'
+      : '';
     return `<div class="ee-design-block${selectedClass}" draggable="true" data-design-block-id="${escapeTemplateText(block.id)}" data-design-block-type="${escapeTemplateText(block.type)}" title="${escapeTemplateText(meta.label)}">
 <span class="ee-design-block-label">${escapeTemplateText(meta.label)}</span>
 ${selectedActions}
+${editableHint}
 ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}`).join('\n')}
       </div>`;
   }
@@ -3660,6 +3671,7 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: min(96%, 520px); gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 12px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
+      .ee-design-edit-hint { position: absolute; z-index: 9; right: 10px; bottom: -16px; border: 1px solid #bbf7d0; border-radius: 999px; background: #f0fdf4; color: #047857; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1); pointer-events: none; }
       [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
       [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
       [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
@@ -3695,6 +3707,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	          blockId: block.getAttribute('data-design-block-id'),
 	          field: editable.getAttribute('data-design-edit-field') || 'text',
 	          value: editable.innerText || editable.textContent || ''
+	        }, '*');
+	      }, true);
+	      document.addEventListener('focus', function(event) {
+	        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
+	        if (!editable) return;
+	        var block = editable.closest('[data-design-block-id]');
+	        if (!block) return;
+	        parent.postMessage({
+	          type: 'ee-design-block-edit-focus',
+	          blockId: block.getAttribute('data-design-block-id')
 	        }, '*');
 	      }, true);
 	      document.addEventListener('dragstart', function(event) {
@@ -4111,6 +4133,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         if (!block || block.text === nextValue) return;
         updateDesignBlock(block.id, { text: nextValue });
         setStatus(`Updated ${block.type.replace('_', ' ')} text from the canvas.`);
+        return;
+      }
+      if (data?.type === 'ee-design-block-edit-focus' && typeof data.blockId === 'string') {
+        const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
+        if (!block) return;
+        selectDesignBlock(block.id);
+        setStatus(`Editing ${block.type.replace('_', ' ')} text on the canvas. Click outside the text to capture changes.`);
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;

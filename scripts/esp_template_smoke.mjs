@@ -382,6 +382,8 @@ try {
       const textInput = selectedTextControl();
       if (!textInput) return { ok: false, reason: 'Selected block text control not found' };
       const canvasDoc = document.querySelector('iframe.design-canvas-frame')?.contentDocument;
+      const editHint = canvasDoc?.querySelector('.ee-design-edit-hint')?.textContent || '';
+      if (!/click text to edit/i.test(editHint)) return { ok: false, reason: 'Canvas inline edit hint was not visible on selected text block', editHint };
       const inlineEditable = canvasDoc?.querySelector('.ee-design-block.selected [data-design-edit-field]')
         || canvasDoc?.querySelector('[data-design-edit-field]');
       if (!inlineEditable) return { ok: false, reason: 'Canvas inline editable text field not found' };
