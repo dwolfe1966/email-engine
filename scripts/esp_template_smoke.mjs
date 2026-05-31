@@ -595,6 +595,26 @@ try {
       if ((colorControl?.value || '').toLowerCase() !== '#334155') {
         return { ok: false, reason: 'Canvas divider color edit did not update inspector field', colorValue: colorControl?.value || '' };
       }
+      const columnsButton = buttonByText('columns');
+      if (!columnsButton) return { ok: false, reason: 'Columns design block button not found' };
+      columnsButton.click();
+      let columnsReady = false;
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const selectedColumns = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected[data-design-block-type="columns"]');
+        const nestedSections = selectedColumns?.querySelectorAll('[data-design-block-type="section"]') || [];
+        const treeText = document.querySelector('.design-hierarchy-panel')?.textContent || '';
+        if (selectedColumns && nestedSections.length >= 2 && /columns/i.test(treeText)) {
+          columnsReady = true;
+          break;
+        }
+      }
+      if (!columnsReady) {
+        return { ok: false, reason: 'Columns block did not render with nested editable sections in canvas/hierarchy' };
+      }
+      if (!/edit columns style/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas columns edit hint was not contextual', editHint: currentEditHint() };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();

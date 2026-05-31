@@ -3016,6 +3016,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }, depth);
   }
 
+  function isDesignContainerBlock(block: TemplateDesignBlock) {
+    return block.type === 'section' || block.type === 'columns';
+  }
+
   function htmlAttribute(source: string, name: string) {
     const pattern = new RegExp(`${name}=["']([^"']*)["']`, 'i');
     return source.match(pattern)?.[1] || '';
@@ -3179,6 +3183,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
     if (type === 'spacer') return { id, type, height: 24, className: 'email-spacer' };
     if (type === 'section') return { id, type, className: 'email-section', bg: '', padding_y: 18, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] };
+    if (type === 'columns') return {
+      id,
+      type,
+      className: 'email-columns',
+      bg: '',
+      padding_y: 8,
+      children: [
+        { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] },
+        { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('paragraph'), newDesignBlock('button')] },
+      ],
+    };
     if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.', className: 'secondary-text' };
     if (type === 'html') return { id, type, code: '<p class="email-copy">Custom HTML or Jinja</p>' };
     return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '', className: 'email-copy' };
@@ -3214,6 +3229,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
       const children = (block.children || []).map(designBlockToHtml).join('\n');
       return `<div${classAttr} style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
+    }
+    if (block.type === 'columns') {
+      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;`;
+      const children = (block.children || []).map(designBlockToHtml).join('\n');
+      return `<div${classAttr || ' class="email-columns"'} style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
     if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
@@ -3348,12 +3368,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
   function canIndentDesignBlock(id: string) {
     const siblingContext = designBlockSiblingContext(id);
-    return Boolean(siblingContext && siblingContext.index > 0 && siblingContext.blocks[siblingContext.index - 1]?.type === 'section');
+    return Boolean(siblingContext && siblingContext.index > 0 && isDesignContainerBlock(siblingContext.blocks[siblingContext.index - 1]));
   }
-  const designPaletteBlockTypes = ['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
+  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
       section: 'Section',
+      columns: 'Columns',
       heading: 'Heading',
       paragraph: 'Paragraph',
       button: 'Button',
@@ -3374,6 +3395,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const typeLabels: Record<string, string> = {
       heading: `Heading H${block.level || 1}`,
       section: className === 'email-shell' ? 'Email shell' : className === 'email-container' ? 'Email container' : 'Section',
+      columns: 'Columns',
       paragraph: 'Paragraph',
       button: 'Button',
       image: 'Image',
@@ -3412,7 +3434,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designTreeDropPosition(event: DragEvent<HTMLElement>, block: TemplateDesignBlock): 'before' | 'after' | 'inside' {
     const rect = event.currentTarget.getBoundingClientRect();
-    if (block.type === 'section') {
+    if (isDesignContainerBlock(block)) {
       const offset = event.clientY - rect.top;
       if (offset > rect.height * 0.3 && offset < rect.height * 0.7) return 'inside';
     }
@@ -3522,7 +3544,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
                 return;
               }
               moveDesignBlockIntoSection(source, block.id);
-              setStatus('Nested design block inside section.');
+              setStatus(`Nested design block inside ${designBlockTypeLabel(block.type).toLowerCase()}.`);
               return;
             }
             if (source.startsWith('new:')) {
@@ -3554,21 +3576,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             <small>{meta.className ? `.${meta.className}` : meta.preview || (children.length ? `${meta.childCount} nested block(s)` : 'No detail')}</small>
           </span>
 	          <span
-	            className={`design-tree-add ${block.type === 'section' ? 'visible' : ''}`}
-	            title={block.type === 'section' ? 'Add block inside section' : undefined}
-	            onClick={block.type === 'section' ? (event) => {
+	            className={`design-tree-add ${isDesignContainerBlock(block) ? 'visible' : ''}`}
+	            title={isDesignContainerBlock(block) ? `Add block inside ${designBlockTypeLabel(block.type).toLowerCase()}` : undefined}
+	            onClick={isDesignContainerBlock(block) ? (event) => {
 	              event.stopPropagation();
 	              setActiveDesignTreeAddId((current) => current === block.id ? '' : block.id);
 	            } : undefined}
 	          >
-	            {block.type === 'section' ? 'Add' : ''}
+	            {isDesignContainerBlock(block) ? 'Add' : ''}
 	          </span>
           {activeDropPosition ? <span className="design-tree-drop-label">{designTreeDropLabel(activeDropPosition)}</span> : null}
 	        </button>,
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
             <button className="close" type="button" onClick={() => setActiveDesignTreeAddId('')} title="Close chooser">x</button>
-            {['section', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'html'].map((type) => (
+            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'html'].map((type) => (
               <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
                 {designBlockTypeLabel(type)}
               </button>
@@ -3649,6 +3671,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         </div>
       </div>`;
     }
+    if (block.type === 'columns') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="email-columns"';
+      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;`;
+      const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
+      const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
+      const columnControls = block.id === selectedDesignBlockId
+        ? `<div class="ee-section-edit-panel">
+            <label>Background<input type="color" data-design-block-field="bg" value="${escapeTemplateText(block.bg || '#ffffff')}" /></label>
+            <label>Padding<input type="number" min="0" max="80" data-design-block-field="padding_y" value="${Number(block.padding_y || 0)}" /></label>
+          </div>`
+        : '';
+      return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${columnControls}\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
+    }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
@@ -3676,6 +3711,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'button') return 'Edit text or URL';
     if (block.type === 'image') return 'Edit image details';
     if (block.type === 'section') return 'Edit section style';
+    if (block.type === 'columns') return 'Edit columns style';
     if (block.type === 'spacer') return 'Edit spacer height';
     if (block.type === 'divider') return 'Edit divider color';
     if (canEditDesignBlockTextOnCanvas(block)) return 'Click text to edit';
@@ -3685,7 +3721,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const meta = designTreeMeta(block);
     const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
-    const wrapAction = block.type !== 'section'
+    const wrapAction = !isDesignContainerBlock(block)
       ? '<button type="button" data-design-action="wrap">Wrap</button>'
       : '';
     const parentAction = findDesignBlockParent(block.id)
@@ -3975,7 +4011,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setEditorMode('design');
     setDesignDocEdited(true);
     markPreviewStale();
-    setStatus(`Added ${designBlockTypeLabel(type)} inside section.`);
+    setStatus(`Added ${designBlockTypeLabel(type)} inside container.`);
   }
 
   function moveDesignBlockIntoSection(sourceId: string, parentId: string) {
@@ -3994,7 +4030,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         })
         .map((block) => block.children?.length ? { ...block, children: removeBlock(block.children) } : block);
       const appendToSection = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
-        if (block.id === parentId && block.type === 'section' && movedBlock) {
+        if (block.id === parentId && isDesignContainerBlock(block) && movedBlock) {
           return { ...block, children: [...(block.children || []), movedBlock] };
         }
         if (block.children?.length) return { ...block, children: appendToSection(block.children) };
@@ -4007,15 +4043,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     selectDesignBlock(sourceId, [parentId]);
     setDesignDocEdited(true);
     markPreviewStale();
-    setStatus('Moved block into section.');
+    setStatus('Moved block into container.');
   }
 
   function indentDesignBlock(id: string) {
     const siblingContext = designBlockSiblingContext(id);
     const targetSection = siblingContext && siblingContext.index > 0 ? siblingContext.blocks[siblingContext.index - 1] : null;
-    if (!targetSection || targetSection.type !== 'section') return;
+    if (!targetSection || !isDesignContainerBlock(targetSection)) return;
     moveDesignBlockIntoSection(id, targetSection.id);
-    setStatus('Indented block into previous section.');
+    setStatus('Indented block into previous container.');
   }
 
   function outdentDesignBlock(id: string) {
@@ -4324,7 +4360,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         if (canIndentDesignBlock(block.id)) {
           indentDesignBlock(block.id);
         } else {
-          setStatus('Select a block below a section to indent it into that section.');
+          setStatus('Select a block below a container to indent it.');
         }
         return;
       }
@@ -4596,6 +4632,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (block.type === 'divider') return 'email-divider';
     if (block.type === 'spacer') return 'email-spacer';
     if (block.type === 'section') return 'email-section';
+    if (block.type === 'columns') return 'email-columns';
     if (block.type === 'trust_signal') return 'secondary-text';
     if (block.type === 'html') return 'email-custom-html';
     return `email-${block.type.replace(/_/g, '-')}`;
@@ -5100,8 +5137,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         </>
       );
     }
-    if (block.type === 'section') {
-      const childBlockTypes = designPaletteBlockTypes.filter((type) => type !== 'section');
+    if (isDesignContainerBlock(block)) {
+      const childBlockTypes = designPaletteBlockTypes.filter((type) => type !== 'section' && type !== 'columns');
       return (
         <>
           {classInput()}
@@ -5112,7 +5149,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
           </label>
           <div className="section-child-tools wide-field">
-            <span>Add to section</span>
+            <span>Add to {designBlockTypeLabel(block.type).toLowerCase()}</span>
             <div>
               {childBlockTypes.map((type) => (
                 <button className="ghost" key={type} type="button" onClick={() => addDesignChildBlock(block.id, type)} disabled={busy}>
@@ -5898,7 +5935,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		                              <button className="ghost" type="button" onClick={() => moveDesignBlock(selectedDesignBlock.id, 1)} disabled={busy || !canMoveDesignBlock(selectedDesignBlock.id, 1)}>Move Down</button>
 		                              <button className="ghost" type="button" onClick={() => indentDesignBlock(selectedDesignBlock.id)} disabled={busy || !canIndentDesignBlock(selectedDesignBlock.id)}>Indent</button>
 		                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => outdentDesignBlock(selectedDesignBlock.id)} disabled={busy}>Outdent</button> : null}
-		                              {selectedDesignBlock.type !== 'section' ? <button className="ghost" type="button" onClick={() => wrapDesignBlockInSection(selectedDesignBlock.id)} disabled={busy}>Wrap in Section</button> : null}
+		                              {!isDesignContainerBlock(selectedDesignBlock) ? <button className="ghost" type="button" onClick={() => wrapDesignBlockInSection(selectedDesignBlock.id)} disabled={busy}>Wrap in Section</button> : null}
 		                              <button className="ghost" type="button" onClick={() => duplicateDesignBlock(selectedDesignBlock.id)} disabled={busy}>Duplicate</button>
 	                              {selectedDesignBlockParent ? <button className="ghost" type="button" onClick={() => { reorderDesignBlock(selectedDesignBlock.id, ''); setStatus('Moved block to root.'); }} disabled={busy}>Move to Root</button> : null}
 	                              <button className="ghost" type="button" onClick={() => removeDesignBlock(selectedDesignBlock.id)} disabled={busy}>Delete</button>
