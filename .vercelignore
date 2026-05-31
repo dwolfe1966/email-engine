@@ -12,4 +12,5 @@ __pycache__
 .env.production.local
 docs
 tests
-frontend/dist/assets/* 2.*
+frontend/dist/assets/* [0-9].*
+frontend/dist/assets/* [0-9][0-9].*
