@@ -1180,6 +1180,10 @@ th {
   overflow: hidden;
 }
 
+.template-editor-shell.feedback-closed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .template-editor-main,
 .template-side-pane {
   display: grid;
@@ -1187,6 +1191,68 @@ th {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+.pane-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pane-title-row strong {
+  min-width: 0;
+}
+
+.pane-toggle-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border: 1px solid #d6e2f1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #29405f;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0 7px;
+  cursor: pointer;
+}
+
+.pane-toggle-button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: var(--blue);
+}
+
+.pane-restore-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px dashed #bfdbfe;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 7px 9px;
+}
+
+.pane-restore-row span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pane-restore-row .pane-toggle-button {
+  width: auto;
+  min-width: 0;
+}
+
+.tool-panel-head .pane-title-row {
+  width: 100%;
 }
 
 .tab-row {
@@ -1406,7 +1472,7 @@ th {
 
 .design-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: start;
   min-width: 0;
@@ -1414,7 +1480,15 @@ th {
   overflow: hidden;
 }
 
-.design-workspace-grid.hierarchy-open {
+.design-workspace-grid.inspector-open {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+}
+
+.design-workspace-grid.hierarchy-open.inspector-closed {
+  grid-template-columns: minmax(132px, 180px) minmax(0, 1fr);
+}
+
+.design-workspace-grid.hierarchy-open.inspector-open {
   grid-template-columns: minmax(132px, 180px) minmax(0, 1fr) minmax(260px, 300px);
 }
 

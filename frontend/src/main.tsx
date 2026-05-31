@@ -2744,6 +2744,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designInspectorFocusNonce, setDesignInspectorFocusNonce] = useState(0);
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
+  const [designInspectorOpen, setDesignInspectorOpen] = useState(true);
+  const [templateFeedbackOpen, setTemplateFeedbackOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
   const [designTreeDropTarget, setDesignTreeDropTarget] = useState<{ id: string; position: 'before' | 'after' | 'inside' } | null>(null);
@@ -5834,7 +5836,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <span>The editor differs from the last saved template. Save changes to persist them, or revert changes to reload from the database.</span>
           </div>
         ) : null}
-        <div className="template-editor-shell">
+	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
           <section className="template-editor-main">
             <div className="tab-row mode-switch">
               <button className={editorMode === 'edit' ? 'active edit-mode' : 'edit-mode'} onClick={() => switchTemplateEditorMode('edit')}>Edit</button>
@@ -6082,12 +6084,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    <strong>Design Canvas</strong>
 	                    <span>{formatInt(designDoc.blocks.length)} block(s), {formatInt(designClassNames.length)} CSS class(es). Use the canvas for selection and the inspector for editing.</span>
 		                  </div>
-			                  <div className="button-row">
-			                    <button className="ghost" type="button" onClick={() => setDesignHierarchyOpen((current) => !current)}>
-                              {designHierarchyOpen ? 'Hide Hierarchy' : 'Show Hierarchy'}
-                            </button>
-			                    <button className="ghost" type="button" onClick={undoDesignChange} disabled={busy || !designUndoStack.length}>Undo</button>
-			                    <button className="ghost" type="button" onClick={redoDesignChange} disabled={busy || !designRedoStack.length}>Redo</button>
+				                  <div className="button-row">
+				                    <button className="ghost" type="button" onClick={undoDesignChange} disabled={busy || !designUndoStack.length}>Undo</button>
+				                    <button className="ghost" type="button" onClick={redoDesignChange} disabled={busy || !designRedoStack.length}>Redo</button>
 			                    {designPaletteBlockTypes.map((type) => (
 	                      <button
                           className={`ghost design-palette-chip ${draggedPaletteBlockType === type ? 'dragging' : ''}`}
@@ -6127,8 +6126,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           {missingCssClasses.length ? <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Fix CSS</button> : null}
                           <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
                         </div>
-                      </div>
-                      <div className={`design-next-action ${designNextAction.tone}`}>
+	                      </div>
+                      {(!designHierarchyOpen || !designInspectorOpen || !templateFeedbackOpen) ? (
+                        <div className="pane-restore-row" aria-label="Hidden panes">
+                          <span>Hidden panes</span>
+                          {!designHierarchyOpen ? <button className="pane-toggle-button" type="button" onClick={() => setDesignHierarchyOpen(true)} title="Show Hierarchy">+ Hierarchy</button> : null}
+                          {!designInspectorOpen ? <button className="pane-toggle-button" type="button" onClick={() => setDesignInspectorOpen(true)} title="Show Selected Block">+ Selected Block</button> : null}
+                          {!templateFeedbackOpen ? <button className="pane-toggle-button" type="button" onClick={() => setTemplateFeedbackOpen(true)} title="Show Feedback">+ Feedback</button> : null}
+                        </div>
+                      ) : null}
+	                      <div className={`design-next-action ${designNextAction.tone}`}>
                         <div>
                           <strong>{designNextAction.title}</strong>
                           <span>{designNextAction.detail}</span>
@@ -6144,16 +6151,17 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         ) : null}
                       </div>
 			                {designDoc.blocks.length ? (
-                    <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''}`}>
-                      {designHierarchyOpen ? (
-                        <aside className="design-hierarchy-panel" ref={designHierarchyRef}>
-                          <div className="design-hierarchy-head">
-                            <div className="design-canvas-head">
-                              <strong>Hierarchy</strong>
-                              <span>{formatInt(flatDesignBlocks.length)} block(s) across {formatInt(maxDesignTreeDepth)} level(s). Select a row to edit it.</span>
-                            </div>
-                            <div className="design-tree-tools" aria-label="Hierarchy controls">
-                              <button className="ghost icon-button" type="button" onClick={() => setCollapsedDesignTreeIds([])} title="Expand all">+</button>
+	                    <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''} ${designInspectorOpen ? 'inspector-open' : 'inspector-closed'}`}>
+	                      {designHierarchyOpen ? (
+	                        <aside className="design-hierarchy-panel" ref={designHierarchyRef}>
+	                          <div className="design-hierarchy-head">
+	                            <div className="design-canvas-head">
+	                              <strong>Hierarchy</strong>
+	                              <span>{formatInt(flatDesignBlocks.length)} block(s) across {formatInt(maxDesignTreeDepth)} level(s). Select a row to edit it.</span>
+	                            </div>
+	                            <div className="design-tree-tools" aria-label="Hierarchy controls">
+                                <button className="pane-toggle-button" type="button" onClick={() => setDesignHierarchyOpen(false)} title="Hide Hierarchy">-</button>
+	                              <button className="ghost icon-button" type="button" onClick={() => setCollapsedDesignTreeIds([])} title="Expand all">+</button>
                               <button
                                 className="ghost icon-button"
                                 type="button"
@@ -6192,13 +6200,17 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                             ) : null}
 		                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
 		                      </aside>
-		                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
-	                        {selectedDesignBlock ? (
-	                          <>
-		                            <div className="design-canvas-head">
-		                              <strong>Selected Block</strong>
-		                              <span>
-		                                {designBlockTypeLabel(selectedDesignBlock.type)}
+                      {designInspectorOpen ? (
+			                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
+		                        {selectedDesignBlock ? (
+		                          <>
+			                            <div className="design-canvas-head">
+                                  <div className="pane-title-row">
+			                                <strong>Selected Block</strong>
+                                    <button className="pane-toggle-button" type="button" onClick={() => setDesignInspectorOpen(false)} title="Hide Selected Block">-</button>
+                                  </div>
+			                              <span>
+			                                {designBlockTypeLabel(selectedDesignBlock.type)}
 	                                {selectedDesignBlockIndex >= 0 ? ` · ${selectedDesignBlockIndex + 1} of ${flatDesignBlocks.length}` : ''}
 	                                {selectedDesignBlockParent ? ` · inside ${designBlockTypeLabel(selectedDesignBlockParent.type)}` : ' · root'}
 		                                {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
@@ -6242,9 +6254,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                            <strong>No block selected</strong>
 		                            <p>Select a block on the canvas or hierarchy tree to edit it.</p>
 	                          </div>
-	                        )}
-	                      </aside>
-	                    </div>
+		                        )}
+		                      </aside>
+                      ) : null}
+		                    </div>
 	                ) : (
 	                  <div
                       className={`empty-state design-empty-dropzone ${draggedPaletteBlockType ? 'active' : ''}`}
@@ -6298,11 +6311,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               </div>
             )}
           </section>
-          <aside className="template-side-pane">
-            <div className="tool-panel-head feedback-panel-head">
-              <strong>Feedback</strong>
-              <span>Readiness checks, AI drafts, and recommendations for this template.</span>
-            </div>
+	          {templateFeedbackOpen ? (
+	          <aside className="template-side-pane">
+	            <div className="tool-panel-head feedback-panel-head">
+                <div className="pane-title-row">
+	                <strong>Feedback</strong>
+                  <button className="pane-toggle-button" type="button" onClick={() => setTemplateFeedbackOpen(false)} title="Hide Feedback">-</button>
+                </div>
+	              <span>Readiness checks, AI drafts, and recommendations for this template.</span>
+	            </div>
             <div className="ai-feedback-summary">
               <div className={pendingAiDraft ? 'active' : ''}>
                 <strong>{pendingAiDraft ? 'Draft ready' : 'No draft'}</strong>
@@ -6429,10 +6446,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                   <strong>No suggestions loaded</strong>
                   <span>Use AI Suggestions after previewing to get deliverability, layout, and copy recommendations.</span>
                 </div>
-              )}
-            </section>
-          </aside>
-        </div>
+	              )}
+	            </section>
+	          </aside>
+            ) : null}
+	        </div>
       </section>
     </section>
   );
