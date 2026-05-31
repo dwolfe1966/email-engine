@@ -3581,6 +3581,26 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
+    const editableAttrs = 'contenteditable="true" spellcheck="false" data-design-edit-field="text"';
+    if (block.type === 'heading') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+      const level = Math.min(3, Math.max(1, Number(block.level || 1)));
+      return `<h${level}${classAttr} ${editableAttrs} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+    }
+    if (block.type === 'paragraph' && !block.html) {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      return `<p${classAttr} ${editableAttrs} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
+    }
+    if (block.type === 'button') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="button"';
+      const style = `display:inline-block;background:${block.bg || '#2563eb'};color:${block.color || '#ffffff'};padding:${Number(block.padding_y || 11)}px ${Number(block.padding_x || 16)}px;text-decoration:none;border-radius:${Number(block.radius || 6)}px;font-weight:700;`;
+      return `<p class="email-action"><a${classAttr} ${editableAttrs} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+    }
+    if (block.type === 'trust_signal') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
+      return `<p${classAttr} ${editableAttrs} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+    }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
@@ -3640,6 +3660,9 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: min(96%, 520px); gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 12px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
+      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
+      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
+      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
       [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       ${cssBody || ''}
@@ -3650,20 +3673,36 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     </div>
     <script>
-      document.addEventListener('click', function(event) {
-        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        if (!block) return;
-        event.preventDefault();
-        event.stopPropagation();
-        var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
-        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
-      });
-      document.addEventListener('dragstart', function(event) {
-        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-        if (!block || event.target.closest('.ee-design-actions')) return;
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', block.getAttribute('data-design-block-id') || '');
-      });
+	      document.addEventListener('click', function(event) {
+	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+	        if (!block) return;
+	        if (event.target.closest('[data-design-edit-field]')) {
+	          parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: 'select' }, '*');
+	          return;
+	        }
+	        event.preventDefault();
+	        event.stopPropagation();
+	        var action = event.target && event.target.getAttribute ? event.target.getAttribute('data-design-action') : '';
+	        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
+	      });
+	      document.addEventListener('blur', function(event) {
+	        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
+	        if (!editable) return;
+	        var block = editable.closest('[data-design-block-id]');
+	        if (!block) return;
+	        parent.postMessage({
+	          type: 'ee-design-block-edit',
+	          blockId: block.getAttribute('data-design-block-id'),
+	          field: editable.getAttribute('data-design-edit-field') || 'text',
+	          value: editable.innerText || editable.textContent || ''
+	        }, '*');
+	      }, true);
+	      document.addEventListener('dragstart', function(event) {
+	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+	        if (!block || event.target.closest('.ee-design-actions') || event.target.closest('[data-design-edit-field]')) return;
+	        event.dataTransfer.effectAllowed = 'move';
+	        event.dataTransfer.setData('text/plain', block.getAttribute('data-design-block-id') || '');
+	      });
 	      document.addEventListener('dragover', function(event) {
 	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
 	        var sectionBody = event.target && event.target.closest ? event.target.closest('[data-design-section-body]') : null;
@@ -4064,6 +4103,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       }
       if (data?.type === 'ee-design-block-child-reorder') {
         moveDesignBlockIntoSection(String(data.sourceBlockId || ''), String(data.parentBlockId || ''));
+        return;
+      }
+      if (data?.type === 'ee-design-block-edit' && typeof data.blockId === 'string') {
+        const nextValue = String(data.value || '').trim();
+        const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
+        if (!block || block.text === nextValue) return;
+        updateDesignBlock(block.id, { text: nextValue });
+        setStatus(`Updated ${block.type.replace('_', ' ')} text from the canvas.`);
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;

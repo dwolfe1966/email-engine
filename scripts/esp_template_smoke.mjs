@@ -376,16 +376,23 @@ try {
       if (!document.querySelector('.mode-switch .design-mode.active') || !selectedTextControl()) {
         return { ok: false, reason: 'Back to Design did not reselect editable block' };
       }
-      const marker = 'Smoke headline ' + Date.now();
+      const marker = 'Smoke canvas headline ' + Date.now();
       const inspector = document.querySelector('.design-inspector-panel');
       if (!inspector) return { ok: false, reason: 'Selected block inspector not found' };
       const textInput = selectedTextControl();
       if (!textInput) return { ok: false, reason: 'Selected block text control not found' };
-      const valueSetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(textInput), 'value')?.set;
-      valueSetter ? valueSetter.call(textInput, marker) : (textInput.value = marker);
-      textInput.dispatchEvent(new Event('input', { bubbles: true }));
-      textInput.dispatchEvent(new Event('change', { bubbles: true }));
-      await wait(300);
+      const canvasDoc = document.querySelector('iframe.design-canvas-frame')?.contentDocument;
+      const inlineEditable = canvasDoc?.querySelector('.ee-design-block.selected [data-design-edit-field]')
+        || canvasDoc?.querySelector('[data-design-edit-field]');
+      if (!inlineEditable) return { ok: false, reason: 'Canvas inline editable text field not found' };
+      inlineEditable.focus();
+      inlineEditable.textContent = marker;
+      inlineEditable.dispatchEvent(new Event('blur', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const inspectorValue = selectedTextControl()?.value || selectedTextControl()?.textContent || '';
+        if (inspectorValue.includes(marker)) break;
+      }
       const designStatusText = (document.querySelector('.design-sync-strip')?.textContent || '').trim();
       const nextActionText = (document.querySelector('.design-next-action')?.textContent || '').trim();
       if (!/sync needed/i.test(designStatusText)) {
