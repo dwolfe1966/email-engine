@@ -2845,6 +2845,54 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     : hasUnsavedTemplateChanges
       ? 'Template has unsaved code, CSS, or metadata changes.'
       : 'Design and saved template state are aligned.';
+  const designNextAction = (() => {
+    if (!designDoc.blocks.length) {
+      return {
+        tone: 'warn',
+        title: 'Next: add a block',
+        detail: 'Start with a section, heading, paragraph, image, button, or custom HTML block.',
+        action: '',
+      };
+    }
+    if (designDocEdited) {
+      return {
+        tone: 'warn',
+        title: 'Next: sync visual edits',
+        detail: 'Sync writes the current Design block model into HTML/Jinja so it can be saved and rendered consistently.',
+        action: 'sync',
+      };
+    }
+    if (missingCssClasses.length) {
+      return {
+        tone: 'warn',
+        title: 'Next: fix CSS coverage',
+        detail: `${formatInt(missingCssClasses.length)} detected class rule(s) are missing. Create rules before final preview.`,
+        action: 'css',
+      };
+    }
+    if (previewFreshness !== 'current') {
+      return {
+        tone: 'warn',
+        title: 'Next: preview render',
+        detail: 'Render the template with sample variables to confirm Jinja, layout, and CSS output.',
+        action: 'preview',
+      };
+    }
+    if (hasUnsavedTemplateChanges) {
+      return {
+        tone: 'warn',
+        title: 'Next: save changes',
+        detail: 'Preview is current and no CSS gaps are detected. Save the template when the design looks right.',
+        action: 'save',
+      };
+    }
+    return {
+      tone: 'good',
+      title: 'Ready for refinement',
+      detail: 'Design, CSS, preview, and saved state are aligned. Continue editing or move into campaign workflow.',
+      action: '',
+    };
+  })();
   const classableHtmlTagCount = Array.from(htmlBody.matchAll(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi))
     .filter((match) => {
       const tag = match[1].toLowerCase();
@@ -5515,6 +5563,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           {missingCssClasses.length ? <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Fix CSS</button> : null}
                           <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
                         </div>
+                      </div>
+                      <div className={`design-next-action ${designNextAction.tone}`}>
+                        <div>
+                          <strong>{designNextAction.title}</strong>
+                          <span>{designNextAction.detail}</span>
+                        </div>
+                        {designNextAction.action === 'sync' ? (
+                          <button className="primary" type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync Now</button>
+                        ) : designNextAction.action === 'css' ? (
+                          <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Open CSS Tools</button>
+                        ) : designNextAction.action === 'preview' ? (
+                          <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview Now</button>
+                        ) : designNextAction.action === 'save' ? (
+                          <button className="primary" type="button" onClick={saveTemplate} disabled={busy || (!isCreatingTemplate && !hasUnsavedTemplateChanges)}>Save Template</button>
+                        ) : null}
                       </div>
 			                {designDoc.blocks.length ? (
                     <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''}`}>
