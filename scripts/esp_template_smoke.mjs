@@ -567,6 +567,34 @@ try {
       if ((heightControl?.value || '') !== '36') {
         return { ok: false, reason: 'Canvas spacer height edit did not update inspector field', heightValue: heightControl?.value || '' };
       }
+      const dividerButton = buttonByText('divider');
+      if (!dividerButton) return { ok: false, reason: 'Divider design block button not found' };
+      dividerButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const dividerColorInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="color"]');
+        if (dividerColorInput) break;
+      }
+      const dividerColorInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="color"]');
+      if (!dividerColorInput) return { ok: false, reason: 'Canvas divider color input not found' };
+      if (!/edit divider color/i.test(currentEditHint())) {
+        return { ok: false, reason: 'Canvas divider edit hint was not contextual', editHint: currentEditHint() };
+      }
+      dividerColorInput.value = '#334155';
+      dividerColorInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const colorControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Color'))
+          ?.querySelector('input');
+        if ((colorControl?.value || '').toLowerCase() === '#334155') break;
+      }
+      const colorControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Color'))
+        ?.querySelector('input');
+      if ((colorControl?.value || '').toLowerCase() !== '#334155') {
+        return { ok: false, reason: 'Canvas divider color edit did not update inspector field', colorValue: colorControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
