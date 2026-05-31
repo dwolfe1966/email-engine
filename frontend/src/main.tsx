@@ -3629,6 +3629,26 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         </div>
       </div>`;
     }
+    if (block.type === 'divider') {
+      const dividerHtml = designBlockToHtml(block);
+      if (block.id !== selectedDesignBlockId) return dividerHtml;
+      return `<div class="ee-spacing-edit-wrap">
+        ${dividerHtml}
+        <div class="ee-field-edit-panel">
+          <label>Line color<input type="color" data-design-block-field="color" value="${escapeTemplateText(block.color || '#d8dee6')}" /></label>
+        </div>
+      </div>`;
+    }
+    if (block.type === 'spacer') {
+      const spacerHtml = designBlockToHtml(block);
+      if (block.id !== selectedDesignBlockId) return spacerHtml;
+      return `<div class="ee-spacing-edit-wrap">
+        ${spacerHtml}
+        <div class="ee-field-edit-panel">
+          <label>Height<input type="number" min="0" max="120" data-design-block-field="height" value="${Number(block.height || 24)}" /></label>
+        </div>
+      </div>`;
+    }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
@@ -3710,7 +3730,7 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 	      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
 	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
 	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
-      .ee-image-edit-wrap, .ee-button-edit-wrap { display: grid; gap: 8px; }
+      .ee-image-edit-wrap, .ee-button-edit-wrap, .ee-spacing-edit-wrap { display: grid; gap: 8px; }
       .ee-image-edit-panel, .ee-field-edit-panel, .ee-section-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
       .ee-section-edit-panel { grid-template-columns: minmax(0, 1fr) 96px; margin-bottom: 8px; }
       .ee-image-edit-panel label, .ee-field-edit-panel label, .ee-section-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
@@ -4237,11 +4257,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return;
       }
       if (data?.type === 'ee-design-block-field-edit' && typeof data.blockId === 'string') {
-        const field = data.field === 'href' ? 'href' : data.field === 'bg' ? 'bg' : data.field === 'padding_y' ? 'padding_y' : '';
+        const field = data.field === 'href' ? 'href'
+          : data.field === 'bg' ? 'bg'
+            : data.field === 'padding_y' ? 'padding_y'
+              : data.field === 'height' ? 'height'
+                : data.field === 'color' ? 'color'
+                  : '';
         if (!field) return;
-        const nextValue = field === 'padding_y' ? Number(data.value || 0) : String(data.value || '').trim();
+        const nextValue = ['padding_y', 'height'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
         updateDesignBlock(data.blockId, { [field]: nextValue });
-        setStatus(field === 'href' ? 'Updated button URL from the canvas.' : `Updated section ${field === 'bg' ? 'background' : 'padding'} from the canvas.`);
+        const fieldLabel = field === 'href' ? 'button URL'
+          : field === 'bg' ? 'section background'
+            : field === 'padding_y' ? 'section padding'
+              : field === 'height' ? 'spacer height'
+                : 'divider color';
+        setStatus(`Updated ${fieldLabel} from the canvas.`);
         return;
       }
       if (data?.type === 'ee-design-block-edit-focus' && typeof data.blockId === 'string') {

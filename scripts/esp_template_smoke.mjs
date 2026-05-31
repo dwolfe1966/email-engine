@@ -526,6 +526,31 @@ try {
       if ((paddingControl?.value || '') !== '32') {
         return { ok: false, reason: 'Canvas section padding edit did not update inspector field', paddingValue: paddingControl?.value || '' };
       }
+      const spacerButton = buttonByText('spacer');
+      if (!spacerButton) return { ok: false, reason: 'Spacer design block button not found' };
+      spacerButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const spacerHeightInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="height"]');
+        if (spacerHeightInput) break;
+      }
+      const spacerHeightInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="height"]');
+      if (!spacerHeightInput) return { ok: false, reason: 'Canvas spacer height input not found' };
+      spacerHeightInput.value = '36';
+      spacerHeightInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const heightControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Height'))
+          ?.querySelector('input');
+        if ((heightControl?.value || '') === '36') break;
+      }
+      const heightControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Height'))
+        ?.querySelector('input');
+      if ((heightControl?.value || '') !== '36') {
+        return { ok: false, reason: 'Canvas spacer height edit did not update inspector field', heightValue: heightControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
