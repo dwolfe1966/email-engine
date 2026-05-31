@@ -522,6 +522,20 @@ try {
       if (!(hrefControl?.value || '').includes(buttonUrlMarker)) {
         return { ok: false, reason: 'Canvas button URL edit did not update inspector field', hrefValue: hrefControl?.value || '' };
       }
+      const textColorPreset = Array.from(document.querySelectorAll('.design-inspector-panel .design-color-control'))
+        .find((control) => (control.textContent || '').includes('Text color'))
+        ?.querySelector('.design-color-presets button:nth-child(4)');
+      if (!textColorPreset) return { ok: false, reason: 'Design text color preset not found for selected button' };
+      textColorPreset.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const textColorValue = document.querySelector('.design-inspector-panel input[aria-label="Design text color hex color"]')?.value || '';
+        if (textColorValue.toLowerCase() === '#ffffff') break;
+      }
+      const textColorValue = document.querySelector('.design-inspector-panel input[aria-label="Design text color hex color"]')?.value || '';
+      if (textColorValue.toLowerCase() !== '#ffffff') {
+        return { ok: false, reason: 'Design text color preset did not update button text color', textColorValue };
+      }
       const sectionButton = buttonByText('section');
       if (!sectionButton) return { ok: false, reason: 'Section design block button not found' };
       sectionButton.click();

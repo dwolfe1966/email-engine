@@ -5252,29 +5252,37 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         <textarea rows={3} value={Array.isArray(block[key]) ? (block[key] as string[]).join('\n') : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: key === 'items' ? event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) : event.target.value })} />
       </label>
     );
-    const backgroundControl = () => {
-      const rawValue = String(block.bg || '');
-      const color = normalizeCssColor(rawValue, '#ffffff');
+    const designColorPanel = (config: {
+      allowTransparent?: boolean;
+      ariaPrefix: string;
+      emptyLabel: string;
+      keyName: keyof TemplateDesignBlock;
+      label: string;
+      presets: { name: string; value: string }[];
+    }) => {
+      const rawValue = String(block[config.keyName] || '');
+      const color = normalizeCssColor(rawValue, config.allowTransparent ? '#ffffff' : '#111827');
       const hsl = hexToHsl(color);
-      const updateHsl = (updates: Partial<typeof hsl>) => updateDesignBlock(block.id, { bg: hslToHex(updates.h ?? hsl.h, updates.s ?? hsl.s, updates.l ?? hsl.l) });
+      const updateColor = (value: string) => updateDesignBlock(block.id, { [config.keyName]: value });
+      const updateHsl = (updates: Partial<typeof hsl>) => updateColor(hslToHex(updates.h ?? hsl.h, updates.s ?? hsl.s, updates.l ?? hsl.l));
       return (
         <label className="design-color-control wide-field">
-          Background
+          {config.label}
           <div className="design-background-picker">
             <div className="design-color-main">
               <span className={`design-color-preview ${rawValue ? '' : 'empty'}`} style={{ backgroundColor: rawValue || 'transparent' }} aria-hidden="true" />
               <div>
-                <strong>{rawValue || 'Transparent'}</strong>
-                <small>{rawValue ? `H ${hsl.h} / S ${hsl.s} / L ${hsl.l}` : 'No background fill'}</small>
+                <strong>{rawValue || config.emptyLabel}</strong>
+                <small>{rawValue ? `H ${hsl.h} / S ${hsl.s} / L ${hsl.l}` : config.emptyLabel}</small>
               </div>
-              <button className="ghost" onClick={() => updateDesignBlock(block.id, { bg: '' })} type="button">None</button>
+              {config.allowTransparent ? <button className="ghost" onClick={() => updateColor('')} type="button">None</button> : null}
             </div>
-            <div className="design-color-presets" aria-label="Design background presets">
-              {designBackgroundPresets.map((preset) => (
+            <div className="design-color-presets" aria-label={`${config.ariaPrefix} presets`}>
+              {config.presets.map((preset) => (
                 <button
                   className={preset.value.toLowerCase() === rawValue.toLowerCase() ? 'selected' : ''}
                   key={preset.name}
-                  onClick={() => updateDesignBlock(block.id, { bg: preset.value })}
+                  onClick={() => updateColor(preset.value)}
                   type="button"
                 >
                   <span style={{ backgroundColor: preset.value }} />
@@ -5285,40 +5293,40 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <div className="design-color-sliders">
               <label>
                 Hue
-                <input aria-label="Design background hue" max="360" min="0" type="range" value={hsl.h} onChange={(event) => updateHsl({ h: Number(event.target.value) })} />
+                <input aria-label={`${config.ariaPrefix} hue`} max="360" min="0" type="range" value={hsl.h} onChange={(event) => updateHsl({ h: Number(event.target.value) })} />
               </label>
               <label>
                 Saturation
-                <input aria-label="Design background saturation" max="100" min="0" type="range" value={hsl.s} onChange={(event) => updateHsl({ s: Number(event.target.value) })} />
+                <input aria-label={`${config.ariaPrefix} saturation`} max="100" min="0" type="range" value={hsl.s} onChange={(event) => updateHsl({ s: Number(event.target.value) })} />
               </label>
               <label>
                 Lightness
-                <input aria-label="Design background lightness" max="100" min="0" type="range" value={hsl.l} onChange={(event) => updateHsl({ l: Number(event.target.value) })} />
+                <input aria-label={`${config.ariaPrefix} lightness`} max="100" min="0" type="range" value={hsl.l} onChange={(event) => updateHsl({ l: Number(event.target.value) })} />
               </label>
             </div>
             <div className="design-color-picker compact">
               <input
-                aria-label="Design background hex color"
-                placeholder="transparent"
+                aria-label={`${config.ariaPrefix} hex color`}
+                placeholder={config.allowTransparent ? 'transparent' : '#111827'}
                 value={rawValue}
-                onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
-                onBlur={(event) => updateDesignBlock(block.id, { bg: event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '' })}
+                onChange={(event) => updateColor(event.target.value)}
+                onBlur={(event) => updateColor(event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '')}
               />
               <input
-                aria-label="Design background color picker"
+                aria-label={`${config.ariaPrefix} color picker`}
                 className="native-color-input"
                 type="color"
                 value={color}
-                onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
+                onChange={(event) => updateColor(event.target.value)}
               />
             </div>
-            <div className="design-color-swatches" aria-label="Design background color swatches">
+            <div className="design-color-swatches" aria-label={`${config.ariaPrefix} color swatches`}>
               {cssColorSwatches.map((swatch) => (
               <button
                 aria-label={`Use ${swatch}`}
                 className={swatch.toLowerCase() === rawValue.toLowerCase() ? 'selected' : ''}
                 key={swatch}
-                onClick={() => updateDesignBlock(block.id, { bg: swatch })}
+                onClick={() => updateColor(swatch)}
                 style={{ backgroundColor: swatch }}
                 title={swatch}
                 type="button"
@@ -5329,6 +5337,30 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         </label>
       );
     };
+    const backgroundControl = () => designColorPanel({
+      allowTransparent: true,
+      ariaPrefix: 'Design background',
+      emptyLabel: 'Transparent',
+      keyName: 'bg',
+      label: 'Background',
+      presets: designBackgroundPresets,
+    });
+    const textColorControl = () => designColorPanel({
+      ariaPrefix: 'Design text color',
+      emptyLabel: 'Default text color',
+      keyName: 'color',
+      label: 'Text color',
+      presets: [
+        { name: 'Ink', value: '#111827' },
+        { name: 'Slate', value: '#334155' },
+        { name: 'Muted', value: '#64748b' },
+        { name: 'White', value: '#ffffff' },
+        { name: 'Blue', value: '#2563eb' },
+        { name: 'Green', value: '#0f766e' },
+        { name: 'Amber', value: '#f59e0b' },
+        { name: 'Purple', value: '#7c3aed' },
+      ],
+    });
     if (block.type === 'heading') {
       return (
         <>
@@ -5346,7 +5378,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('URL', 'href')}
           {classInput()}
           {backgroundControl()}
-          {textInput('Text color', 'color', 'color')}
+          {textColorControl()}
           {textInput('Radius', 'radius', 'number')}
         </>
       );
