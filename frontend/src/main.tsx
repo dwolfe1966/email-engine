@@ -5196,6 +5196,46 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         <textarea rows={3} value={Array.isArray(block[key]) ? (block[key] as string[]).join('\n') : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: key === 'items' ? event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) : event.target.value })} />
       </label>
     );
+    const backgroundControl = () => {
+      const rawValue = String(block.bg || '');
+      const color = normalizeCssColor(rawValue, '#ffffff');
+      return (
+        <label className="design-color-control wide-field">
+          Background
+          <div className="design-color-picker">
+            <span className={`design-color-preview ${rawValue ? '' : 'empty'}`} style={{ backgroundColor: rawValue || 'transparent' }} aria-hidden="true" />
+            <input
+              aria-label="Design background hex color"
+              placeholder="transparent"
+              value={rawValue}
+              onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
+              onBlur={(event) => updateDesignBlock(block.id, { bg: event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '' })}
+            />
+            <input
+              aria-label="Design background color picker"
+              className="native-color-input"
+              type="color"
+              value={color}
+              onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
+            />
+          </div>
+          <div className="design-color-swatches" aria-label="Design background color swatches">
+            <button className={!rawValue ? 'selected transparent' : 'transparent'} onClick={() => updateDesignBlock(block.id, { bg: '' })} title="Transparent" type="button">None</button>
+            {cssColorSwatches.map((swatch) => (
+              <button
+                aria-label={`Use ${swatch}`}
+                className={swatch.toLowerCase() === rawValue.toLowerCase() ? 'selected' : ''}
+                key={swatch}
+                onClick={() => updateDesignBlock(block.id, { bg: swatch })}
+                style={{ backgroundColor: swatch }}
+                title={swatch}
+                type="button"
+              />
+            ))}
+          </div>
+        </label>
+      );
+    };
     if (block.type === 'heading') {
       return (
         <>
@@ -5212,7 +5252,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('Text', 'text')}
           {textInput('URL', 'href')}
           {classInput()}
-          {textInput('Background', 'bg', 'color')}
+          {backgroundControl()}
           {textInput('Text color', 'color', 'color')}
           {textInput('Radius', 'radius', 'number')}
         </>
@@ -5243,7 +5283,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return (
         <>
           {classInput()}
-          {textInput('Background', 'bg', 'color')}
+          {backgroundControl()}
           {textInput('Padding', 'padding_y', 'number')}
           {block.type === 'columns' ? textInput('Column gap', 'gap', 'number') : null}
           <label className="wide-field">

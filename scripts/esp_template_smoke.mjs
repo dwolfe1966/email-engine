@@ -535,6 +535,18 @@ try {
       if (!/edit section style/i.test(currentEditHint())) {
         return { ok: false, reason: 'Canvas section edit hint was not contextual', editHint: currentEditHint() };
       }
+      const designBgSwatch = document.querySelector('.design-inspector-panel .design-color-swatches button[title="#f8fafc"]');
+      if (!designBgSwatch) return { ok: false, reason: 'Design background swatch not found for selected section' };
+      designBgSwatch.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const bgControl = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]');
+        if ((bgControl?.value || '').toLowerCase() === '#f8fafc') break;
+      }
+      const bgControl = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]');
+      if ((bgControl?.value || '').toLowerCase() !== '#f8fafc') {
+        return { ok: false, reason: 'Design background swatch did not update selected block background', bgValue: bgControl?.value || '' };
+      }
       sectionPaddingInput.value = '32';
       sectionPaddingInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
