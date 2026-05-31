@@ -3205,7 +3205,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
     if (block.type === 'heading') {
       const level = Math.min(3, Math.max(1, Number(block.level || 1)));
-      return `<h${level}${classAttr} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      return `<h${level}${classAttr} style="${style}">${escapeTemplateText(block.text)}</h${level}>`;
     }
     if (block.type === 'paragraph') {
       if (block.html) return `<p${classAttr}>${block.html}</p>`;
@@ -3246,7 +3247,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       if (!outerPadding) return table;
       return `<div style="padding:${outerPadding}px;">\n${table.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
-    if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+    if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;${block.color ? `color:${block.color};` : ''}">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
   }
 
@@ -5345,11 +5346,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       label: 'Background',
       presets: designBackgroundPresets,
     });
-    const textColorControl = () => designColorPanel({
-      ariaPrefix: 'Design text color',
+    const textColorControl = (label = 'Text color', ariaPrefix = 'Design text color') => designColorPanel({
+      ariaPrefix,
       emptyLabel: 'Default text color',
       keyName: 'color',
-      label: 'Text color',
+      label,
       presets: [
         { name: 'Ink', value: '#111827' },
         { name: 'Slate', value: '#334155' },
@@ -5368,6 +5369,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {classInput()}
           {textInput('Level', 'level', 'number')}
           <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+          {textColorControl()}
         </>
       );
     }
@@ -5437,16 +5439,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         </>
       );
     }
-    if (block.type === 'divider') return <>{classInput()}{textInput('Color', 'color', 'color')}</>;
+    if (block.type === 'divider') return <>{classInput()}{textColorControl('Line color', 'Design line color')}</>;
     if (block.type === 'spacer') return <>{classInput()}{textInput('Height', 'height', 'number')}</>;
-    if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}</>;
+    if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}{textColorControl()}</>;
     if (block.type === 'html') return <>{textArea('HTML / Jinja', 'code')}</>;
     return (
       <>
         {textArea(block.html ? 'Inline HTML' : 'Text', block.html ? 'html' : 'text')}
         {classInput()}
         <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-        {textInput('Color', 'color', 'color')}
+        {textColorControl()}
       </>
     );
   }

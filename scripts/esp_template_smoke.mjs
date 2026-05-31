@@ -631,18 +631,33 @@ try {
       }
       dividerColorInput.value = '#334155';
       dividerColorInput.dispatchEvent(new Event('change', { bubbles: true }));
-      for (let index = 0; index < 40; index += 1) {
-        await wait(150);
-        const colorControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+      const dividerInspectorColorInput = () => document.querySelector('.design-inspector-panel input[aria-label="Design line color hex color"]')
+        || Array.from(document.querySelectorAll('.design-inspector-panel label'))
           .find((label) => (label.textContent || '').trim().startsWith('Color'))
           ?.querySelector('input');
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const colorControl = dividerInspectorColorInput();
         if ((colorControl?.value || '').toLowerCase() === '#334155') break;
       }
-      const colorControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
-        .find((label) => (label.textContent || '').trim().startsWith('Color'))
-        ?.querySelector('input');
+      const colorControl = dividerInspectorColorInput();
       if ((colorControl?.value || '').toLowerCase() !== '#334155') {
         return { ok: false, reason: 'Canvas divider color edit did not update inspector field', colorValue: colorControl?.value || '' };
+      }
+      const lineColorPreset = Array.from(document.querySelectorAll('.design-inspector-panel .design-color-control'))
+        .find((control) => (control.textContent || '').includes('Line color'))
+        ?.querySelector('.design-color-presets button:nth-child(5)');
+      if (lineColorPreset) {
+        lineColorPreset.click();
+        for (let index = 0; index < 40; index += 1) {
+          await wait(150);
+          const nextColor = document.querySelector('.design-inspector-panel input[aria-label="Design line color hex color"]')?.value || '';
+          if (nextColor.toLowerCase() === '#2563eb') break;
+        }
+        const nextLineColor = document.querySelector('.design-inspector-panel input[aria-label="Design line color hex color"]')?.value || '';
+        if (nextLineColor.toLowerCase() !== '#2563eb') {
+          return { ok: false, reason: 'Design line color preset did not update divider color', nextLineColor };
+        }
       }
       const columnsButton = buttonByText('columns');
       if (!columnsButton) return { ok: false, reason: 'Columns design block button not found' };
