@@ -475,6 +475,32 @@ try {
       if (!(altControl?.value || '').includes(imageAltMarker)) {
         return { ok: false, reason: 'Canvas image alt edit did not update inspector field', altValue: altControl?.value || '' };
       }
+      const buttonBlockButton = buttonByText('button');
+      if (!buttonBlockButton) return { ok: false, reason: 'Button design block button not found' };
+      buttonBlockButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const buttonUrlInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="href"]');
+        if (buttonUrlInput) break;
+      }
+      const buttonUrlMarker = 'https://example.com/smoke-button-' + Date.now();
+      const buttonUrlInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="href"]');
+      if (!buttonUrlInput) return { ok: false, reason: 'Canvas button URL input not found' };
+      buttonUrlInput.value = buttonUrlMarker;
+      buttonUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const hrefControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('URL'))
+          ?.querySelector('input');
+        if ((hrefControl?.value || '').includes(buttonUrlMarker)) break;
+      }
+      const hrefControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('URL'))
+        ?.querySelector('input');
+      if (!(hrefControl?.value || '').includes(buttonUrlMarker)) {
+        return { ok: false, reason: 'Canvas button URL edit did not update inspector field', hrefValue: hrefControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();

@@ -3595,7 +3595,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'button') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="button"';
       const style = `display:inline-block;background:${block.bg || '#2563eb'};color:${block.color || '#ffffff'};padding:${Number(block.padding_y || 11)}px ${Number(block.padding_x || 16)}px;text-decoration:none;border-radius:${Number(block.radius || 6)}px;font-weight:700;`;
-      return `<p class="email-action"><a${classAttr} ${editableAttrs(block.text || 'Call to Action')} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+      const buttonHtml = `<p class="email-action"><a${classAttr} ${editableAttrs(block.text || 'Call to Action')} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+      if (block.id !== selectedDesignBlockId) return buttonHtml;
+      return `<div class="ee-button-edit-wrap">
+        ${buttonHtml}
+        <div class="ee-field-edit-panel">
+          <label>Button URL<input data-design-block-field="href" value="${escapeTemplateText(block.href || '{{ tracking_click }}')}" /></label>
+        </div>
+      </div>`;
     }
     if (block.type === 'trust_signal') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
@@ -3697,10 +3704,10 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 	      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
 	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
 	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
-      .ee-image-edit-wrap { display: grid; gap: 8px; }
-      .ee-image-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
-      .ee-image-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
-      .ee-image-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
+      .ee-image-edit-wrap, .ee-button-edit-wrap { display: grid; gap: 8px; }
+      .ee-image-edit-panel, .ee-field-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
+      .ee-image-edit-panel label, .ee-field-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
+      .ee-image-edit-panel input, .ee-field-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
 	      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       ${cssBody || ''}
@@ -3749,13 +3756,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		      }, true);
       document.addEventListener('change', function(event) {
         var input = event.target && event.target.closest ? event.target.closest('[data-design-image-field]') : null;
+        if (!input) input = event.target && event.target.closest ? event.target.closest('[data-design-block-field]') : null;
         if (!input) return;
         var block = input.closest('[data-design-block-id]');
         if (!block) return;
         parent.postMessage({
-          type: 'ee-design-block-image-edit',
+          type: input.hasAttribute('data-design-image-field') ? 'ee-design-block-image-edit' : 'ee-design-block-field-edit',
           blockId: block.getAttribute('data-design-block-id'),
-          field: input.getAttribute('data-design-image-field') || '',
+          field: input.getAttribute('data-design-image-field') || input.getAttribute('data-design-block-field') || '',
           value: input.value || ''
         }, '*');
       });
@@ -4219,6 +4227,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         const nextValue = String(data.value || '').trim();
         updateDesignBlock(data.blockId, { [field]: nextValue });
         setStatus(`Updated image ${field === 'src' ? 'URL' : 'alt text'} from the canvas.`);
+        return;
+      }
+      if (data?.type === 'ee-design-block-field-edit' && typeof data.blockId === 'string') {
+        const field = data.field === 'href' ? 'href' : '';
+        if (!field) return;
+        updateDesignBlock(data.blockId, { [field]: String(data.value || '').trim() });
+        setStatus('Updated button URL from the canvas.');
         return;
       }
       if (data?.type === 'ee-design-block-edit-focus' && typeof data.blockId === 'string') {
