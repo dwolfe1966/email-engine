@@ -535,9 +535,10 @@ try {
       if (!/edit section style/i.test(currentEditHint())) {
         return { ok: false, reason: 'Canvas section edit hint was not contextual', editHint: currentEditHint() };
       }
-      const designBgSwatch = document.querySelector('.design-inspector-panel .design-color-swatches button[title="#f8fafc"]');
-      if (!designBgSwatch) return { ok: false, reason: 'Design background swatch not found for selected section' };
-      designBgSwatch.click();
+      const designBgPreset = Array.from(document.querySelectorAll('.design-inspector-panel .design-color-presets button'))
+        .find((button) => (button.textContent || '').trim().toLowerCase() === 'mist');
+      if (!designBgPreset) return { ok: false, reason: 'Design background preset not found for selected section' };
+      designBgPreset.click();
       for (let index = 0; index < 40; index += 1) {
         await wait(150);
         const bgControl = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]');
@@ -545,7 +546,16 @@ try {
       }
       const bgControl = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]');
       if ((bgControl?.value || '').toLowerCase() !== '#f8fafc') {
-        return { ok: false, reason: 'Design background swatch did not update selected block background', bgValue: bgControl?.value || '' };
+        return { ok: false, reason: 'Design background preset did not update selected block background', bgValue: bgControl?.value || '' };
+      }
+      const lightnessSlider = document.querySelector('.design-inspector-panel input[aria-label="Design background lightness"]');
+      if (!lightnessSlider) return { ok: false, reason: 'Design background lightness slider not found' };
+      lightnessSlider.value = '92';
+      lightnessSlider.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const bgValue = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]')?.value || '';
+        if (bgValue && bgValue.toLowerCase() !== '#f8fafc') break;
       }
       const refreshedSectionPaddingInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="padding_y"]');
       if (!refreshedSectionPaddingInput) return { ok: false, reason: 'Canvas section padding input not found after background update' };

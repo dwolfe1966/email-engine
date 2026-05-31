@@ -4646,6 +4646,16 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     radius: cssClassKind !== 'text',
   };
   const cssColorSwatches = ['#ffffff', '#f8fafc', '#f5f7fb', '#111827', '#334155', '#64748b', '#2563eb', '#0f766e', '#10b981', '#f59e0b', '#dc2626', '#7c3aed'];
+  const designBackgroundPresets = [
+    { name: 'Paper', value: '#ffffff' },
+    { name: 'Mist', value: '#f8fafc' },
+    { name: 'Blue', value: '#eff6ff' },
+    { name: 'Mint', value: '#ecfdf5' },
+    { name: 'Lavender', value: '#f5f3ff' },
+    { name: 'Warm', value: '#fff7ed' },
+    { name: 'Slate', value: '#111827' },
+    { name: 'Brand', value: '#2563eb' },
+  ];
   function updateCssPresetColor(key: 'background' | 'text' | 'accent', value: string) {
     setCssPreset((current) => ({ ...current, [key]: value }));
   }
@@ -4694,6 +4704,52 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function normalizeCssColor(value: string, fallback: string) {
     return /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  }
+
+  function hexToHsl(hex: string) {
+    const normalized = normalizeCssColor(hex, '#ffffff').replace('#', '');
+    const red = parseInt(normalized.slice(0, 2), 16) / 255;
+    const green = parseInt(normalized.slice(2, 4), 16) / 255;
+    const blue = parseInt(normalized.slice(4, 6), 16) / 255;
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const lightness = (max + min) / 2;
+    if (max === min) return { h: 0, s: 0, l: Math.round(lightness * 100) };
+    const delta = max - min;
+    const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    let hue = 0;
+    if (max === red) hue = (green - blue) / delta + (green < blue ? 6 : 0);
+    else if (max === green) hue = (blue - red) / delta + 2;
+    else hue = (red - green) / delta + 4;
+    return { h: Math.round(hue * 60), s: Math.round(saturation * 100), l: Math.round(lightness * 100) };
+  }
+
+  function hslToHex(hue: number, saturation: number, lightness: number) {
+    const normalizedHue = (((hue % 360) + 360) % 360) / 360;
+    const normalizedSaturation = Math.max(0, Math.min(100, saturation)) / 100;
+    const normalizedLightness = Math.max(0, Math.min(100, lightness)) / 100;
+    const hueToRgb = (p: number, q: number, tValue: number) => {
+      let t = tValue;
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const channelToHex = (channel: number) => Math.round(channel * 255).toString(16).padStart(2, '0');
+    if (normalizedSaturation === 0) {
+      const gray = channelToHex(normalizedLightness);
+      return `#${gray}${gray}${gray}`;
+    }
+    const q = normalizedLightness < 0.5
+      ? normalizedLightness * (1 + normalizedSaturation)
+      : normalizedLightness + normalizedSaturation - normalizedLightness * normalizedSaturation;
+    const p = 2 * normalizedLightness - q;
+    const red = hueToRgb(p, q, normalizedHue + 1 / 3);
+    const green = hueToRgb(p, q, normalizedHue);
+    const blue = hueToRgb(p, q, normalizedHue - 1 / 3);
+    return `#${channelToHex(red)}${channelToHex(green)}${channelToHex(blue)}`;
   }
 
   function inferCssClassKind(className: string, rule = '') {
@@ -5199,29 +5255,65 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const backgroundControl = () => {
       const rawValue = String(block.bg || '');
       const color = normalizeCssColor(rawValue, '#ffffff');
+      const hsl = hexToHsl(color);
+      const updateHsl = (updates: Partial<typeof hsl>) => updateDesignBlock(block.id, { bg: hslToHex(updates.h ?? hsl.h, updates.s ?? hsl.s, updates.l ?? hsl.l) });
       return (
         <label className="design-color-control wide-field">
           Background
-          <div className="design-color-picker">
-            <span className={`design-color-preview ${rawValue ? '' : 'empty'}`} style={{ backgroundColor: rawValue || 'transparent' }} aria-hidden="true" />
-            <input
-              aria-label="Design background hex color"
-              placeholder="transparent"
-              value={rawValue}
-              onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
-              onBlur={(event) => updateDesignBlock(block.id, { bg: event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '' })}
-            />
-            <input
-              aria-label="Design background color picker"
-              className="native-color-input"
-              type="color"
-              value={color}
-              onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
-            />
-          </div>
-          <div className="design-color-swatches" aria-label="Design background color swatches">
-            <button className={!rawValue ? 'selected transparent' : 'transparent'} onClick={() => updateDesignBlock(block.id, { bg: '' })} title="Transparent" type="button">None</button>
-            {cssColorSwatches.map((swatch) => (
+          <div className="design-background-picker">
+            <div className="design-color-main">
+              <span className={`design-color-preview ${rawValue ? '' : 'empty'}`} style={{ backgroundColor: rawValue || 'transparent' }} aria-hidden="true" />
+              <div>
+                <strong>{rawValue || 'Transparent'}</strong>
+                <small>{rawValue ? `H ${hsl.h} / S ${hsl.s} / L ${hsl.l}` : 'No background fill'}</small>
+              </div>
+              <button className="ghost" onClick={() => updateDesignBlock(block.id, { bg: '' })} type="button">None</button>
+            </div>
+            <div className="design-color-presets" aria-label="Design background presets">
+              {designBackgroundPresets.map((preset) => (
+                <button
+                  className={preset.value.toLowerCase() === rawValue.toLowerCase() ? 'selected' : ''}
+                  key={preset.name}
+                  onClick={() => updateDesignBlock(block.id, { bg: preset.value })}
+                  type="button"
+                >
+                  <span style={{ backgroundColor: preset.value }} />
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+            <div className="design-color-sliders">
+              <label>
+                Hue
+                <input aria-label="Design background hue" max="360" min="0" type="range" value={hsl.h} onChange={(event) => updateHsl({ h: Number(event.target.value) })} />
+              </label>
+              <label>
+                Saturation
+                <input aria-label="Design background saturation" max="100" min="0" type="range" value={hsl.s} onChange={(event) => updateHsl({ s: Number(event.target.value) })} />
+              </label>
+              <label>
+                Lightness
+                <input aria-label="Design background lightness" max="100" min="0" type="range" value={hsl.l} onChange={(event) => updateHsl({ l: Number(event.target.value) })} />
+              </label>
+            </div>
+            <div className="design-color-picker compact">
+              <input
+                aria-label="Design background hex color"
+                placeholder="transparent"
+                value={rawValue}
+                onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
+                onBlur={(event) => updateDesignBlock(block.id, { bg: event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '' })}
+              />
+              <input
+                aria-label="Design background color picker"
+                className="native-color-input"
+                type="color"
+                value={color}
+                onChange={(event) => updateDesignBlock(block.id, { bg: event.target.value })}
+              />
+            </div>
+            <div className="design-color-swatches" aria-label="Design background color swatches">
+              {cssColorSwatches.map((swatch) => (
               <button
                 aria-label={`Use ${swatch}`}
                 className={swatch.toLowerCase() === rawValue.toLowerCase() ? 'selected' : ''}
@@ -5231,7 +5323,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 title={swatch}
                 type="button"
               />
-            ))}
+              ))}
+            </div>
           </div>
         </label>
       );
