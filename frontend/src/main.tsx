@@ -3542,12 +3542,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const wrapAction = block.type !== 'section'
       ? '<button type="button" data-design-action="wrap">Wrap</button>'
       : '';
+    const parentAction = findDesignBlockParent(block.id)
+      ? '<button type="button" data-design-action="outdent">Outdent</button><button type="button" data-design-action="root">Root</button>'
+      : '';
     const selectedActions = block.id === selectedDesignBlockId
       ? `<div class="ee-design-actions">
           <button type="button" data-design-action="edit">Edit</button>
           <button type="button" data-design-action="style">Style</button>
           <button type="button" data-design-action="up">Up</button>
           <button type="button" data-design-action="down">Down</button>
+          <button type="button" data-design-action="indent">Indent</button>
+          ${parentAction}
           ${wrapAction}
           <button type="button" data-design-action="duplicate">Duplicate</button>
           <button type="button" data-design-action="delete">Delete</button>
@@ -3579,7 +3584,7 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-design-block.ee-drop-target-before { border-top-color: #10b981; border-top-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-block.ee-drop-target-after { border-bottom-color: #10b981; border-bottom-width: 3px; background: rgba(16, 185, 129, 0.06); }
       .ee-design-block .ee-design-block { margin: 8px 0; }
-      .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
+      .ee-design-actions { position: absolute; z-index: 10; top: -18px; right: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; max-width: min(96%, 520px); gap: 4px; padding: 3px; border: 1px solid #bfdbfe; border-radius: 12px; background: #ffffff; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14); }
       .ee-design-actions button { border: 0; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 700 10px/1 Arial, sans-serif; padding: 6px 8px; cursor: pointer; }
       .ee-design-actions button:hover { background: #2563eb; color: #ffffff; }
       [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
@@ -4029,6 +4034,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data.action === 'down') {
         moveDesignBlock(block.id, 1);
         setStatus(`Moved ${block.type.replace('_', ' ')} block down from canvas.`);
+        return;
+      }
+      if (data.action === 'indent') {
+        if (canIndentDesignBlock(block.id)) {
+          indentDesignBlock(block.id);
+        } else {
+          setStatus('Select a block below a section to indent it into that section.');
+        }
+        return;
+      }
+      if (data.action === 'outdent') {
+        outdentDesignBlock(block.id);
+        return;
+      }
+      if (data.action === 'root') {
+        reorderDesignBlock(block.id, '');
+        setStatus('Moved block to root from canvas.');
         return;
       }
       if (data.action === 'wrap') {
