@@ -134,7 +134,7 @@ try {
     <p class="email-copy">Hello {{ first_name }}, your {{ plan }} plan is ready.</p>
   </div>
 </div>`,
-      css_body: '.email-title { color: #2563eb; } .email-copy { color: #111827; }',
+      css_body: '.email-container { max-width: 640px; margin: 0 auto; } .promo-section { padding: 24px; } .email-title { color: #2563eb; } .email-copy { color: #111827; }',
       text_body: null,
       document_json: {},
     }),
@@ -213,6 +213,8 @@ try {
       const nestedTreeRowCount = () => document.querySelectorAll('.design-tree-row.nested, .design-tree-row[aria-level="2"], .design-tree-row[aria-level="3"]').length;
       const deepestTreeLevel = () => Math.max(0, ...Array.from(document.querySelectorAll('.design-tree-row'))
         .map((row) => Number(row.getAttribute('aria-level') || 0)));
+      const designStatusText = () => (document.querySelector('.design-sync-strip')?.textContent || '').trim();
+      const nextActionText = () => (document.querySelector('.design-next-action')?.textContent || '').trim();
       window.location.hash = '#templates/${tempTemplateId}';
       for (let index = 0; index < 50; index += 1) {
         await wait(150);
@@ -237,6 +239,12 @@ try {
       }
       if (deepestLevel < 3) {
         return { ok: false, reason: 'Template design hierarchy did not render multiple nesting levels', initialState, designBlockCount, nestedRows, deepestLevel };
+      }
+      if (!/design synced/i.test(designStatusText()) || !/preview needed/i.test(designStatusText())) {
+        return { ok: false, reason: 'Design status strip did not report synced design and preview state', initialState, designStatusText: designStatusText() };
+      }
+      if (!/next: preview render/i.test(nextActionText())) {
+        return { ok: false, reason: 'Design next-action card did not guide preview render', initialState, nextActionText: nextActionText() };
       }
       const afterDesignState = savedState();
       if (!/saved/i.test(afterDesignState) || /unsaved/i.test(afterDesignState)) {
@@ -378,6 +386,14 @@ try {
       textInput.dispatchEvent(new Event('input', { bubbles: true }));
       textInput.dispatchEvent(new Event('change', { bubbles: true }));
       await wait(300);
+      const designStatusText = (document.querySelector('.design-sync-strip')?.textContent || '').trim();
+      const nextActionText = (document.querySelector('.design-next-action')?.textContent || '').trim();
+      if (!/sync needed/i.test(designStatusText)) {
+        return { ok: false, reason: 'Design status strip did not report sync-needed after block edit', designStatusText };
+      }
+      if (!/next: sync visual edits/i.test(nextActionText)) {
+        return { ok: false, reason: 'Design next-action card did not guide sync after block edit', nextActionText };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
