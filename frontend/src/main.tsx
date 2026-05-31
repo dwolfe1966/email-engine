@@ -3203,14 +3203,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designBlockToHtml(block: TemplateDesignBlock) {
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
+    const textBlockStyle = (base = '') => [
+      base,
+      block.color ? `color:${block.color};` : '',
+      block.bg ? `background:${block.bg};` : '',
+      block.padding_y || block.padding_x ? `padding:${Number(block.padding_y || 0)}px ${Number(block.padding_x || 0)}px;` : '',
+    ].filter(Boolean).join('');
     if (block.type === 'heading') {
       const level = Math.min(3, Math.max(1, Number(block.level || 1)));
-      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      const style = textBlockStyle(`text-align:${block.align || 'left'};`);
       return `<h${level}${classAttr} style="${style}">${escapeTemplateText(block.text)}</h${level}>`;
     }
     if (block.type === 'paragraph') {
       if (block.html) return `<p${classAttr}>${block.html}</p>`;
-      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      const style = textBlockStyle(`text-align:${block.align || 'left'};`);
       return `<p${classAttr} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
     }
     if (block.type === 'button') {
@@ -3220,7 +3226,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'list') {
       const tag = block.ordered ? 'ol' : 'ul';
       const items = (block.items || []).map((item) => `<li>${escapeTemplateText(item)}</li>`).join('');
-      return `<${tag}${classAttr}>${items}</${tag}>`;
+      const style = textBlockStyle();
+      return `<${tag}${classAttr}${style ? ` style="${style}"` : ''}>${items}</${tag}>`;
     }
     if (block.type === 'image') {
       const image = `<img${classAttr} src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
@@ -3247,7 +3254,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       if (!outerPadding) return table;
       return `<div style="padding:${outerPadding}px;">\n${table.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
-    if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;${block.color ? `color:${block.color};` : ''}">${escapeTemplateText(block.text)}</p>`;
+    if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="${textBlockStyle('text-align:center;')}">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
   }
 
@@ -3616,14 +3623,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
     const editableAttrs = (value: unknown) => `contenteditable="true" spellcheck="false" data-design-edit-field="text" data-design-original-value="${escapeTemplateText(value)}"`;
+    const textBlockStyle = (base = '') => [
+      base,
+      block.color ? `color:${block.color};` : '',
+      block.bg ? `background:${block.bg};` : '',
+      block.padding_y || block.padding_x ? `padding:${Number(block.padding_y || 0)}px ${Number(block.padding_x || 0)}px;` : '',
+    ].filter(Boolean).join('');
     if (block.type === 'heading') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
       const level = Math.min(3, Math.max(1, Number(block.level || 1)));
-      return `<h${level}${classAttr} ${editableAttrs(block.text)} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+      return `<h${level}${classAttr} ${editableAttrs(block.text)} style="${textBlockStyle(`text-align:${block.align || 'left'};`)}">${escapeTemplateText(block.text)}</h${level}>`;
     }
     if (block.type === 'paragraph' && !block.html) {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
-      const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
+      const style = textBlockStyle(`text-align:${block.align || 'left'};`);
       return `<p${classAttr} ${editableAttrs(block.text)} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
     }
     if (block.type === 'button') {
@@ -3640,15 +3653,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     if (block.type === 'trust_signal') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
-      return `<p${classAttr} ${editableAttrs(block.text)} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+      return `<p${classAttr} ${editableAttrs(block.text)} style="${textBlockStyle('text-align:center;')}">${escapeTemplateText(block.text)}</p>`;
     }
     if (block.type === 'list') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
       const tag = block.ordered ? 'ol' : 'ul';
+      const style = textBlockStyle();
       const items = (block.items || []).map((item, index) => (
         `<li contenteditable="true" spellcheck="false" data-design-edit-field="item" data-design-edit-index="${index}" data-design-original-value="${escapeTemplateText(item)}">${escapeTemplateText(item)}</li>`
       )).join('');
-      return `<${tag}${classAttr}>${items}</${tag}>`;
+      return `<${tag}${classAttr}${style ? ` style="${style}"` : ''}>${items}</${tag}>`;
     }
     if (block.type === 'image') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
@@ -5362,6 +5376,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         { name: 'Purple', value: '#7c3aed' },
       ],
     });
+    const paddingControls = () => (
+      <>
+        {textInput('Vertical padding', 'padding_y', 'number')}
+        {textInput('Horizontal padding', 'padding_x', 'number')}
+      </>
+    );
     if (block.type === 'heading') {
       return (
         <>
@@ -5370,6 +5390,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('Level', 'level', 'number')}
           <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
           {textColorControl()}
+          {backgroundControl()}
+          {paddingControls()}
         </>
       );
     }
@@ -5390,6 +5412,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         <>
           <label>List type<select value={block.ordered ? 'ordered' : 'bulleted'} onChange={(event) => updateDesignBlock(block.id, { ordered: event.target.value === 'ordered' })}><option value="bulleted">Bulleted</option><option value="ordered">Numbered</option></select></label>
           {classInput()}
+          {textColorControl()}
+          {backgroundControl()}
+          {paddingControls()}
           {textArea('Items', 'items')}
         </>
       );
@@ -5441,7 +5466,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }
     if (block.type === 'divider') return <>{classInput()}{textColorControl('Line color', 'Design line color')}</>;
     if (block.type === 'spacer') return <>{classInput()}{textInput('Height', 'height', 'number')}</>;
-    if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}{textColorControl()}</>;
+    if (block.type === 'trust_signal') return <>{classInput()}{textArea('Text', 'text')}{textColorControl()}{backgroundControl()}{paddingControls()}</>;
     if (block.type === 'html') return <>{textArea('HTML / Jinja', 'code')}</>;
     return (
       <>
@@ -5449,6 +5474,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         {classInput()}
         <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         {textColorControl()}
+        {backgroundControl()}
+        {paddingControls()}
       </>
     );
   }

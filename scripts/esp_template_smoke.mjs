@@ -394,6 +394,21 @@ try {
       if (!document.querySelector('.mode-switch .design-mode.active') || !selectedTextControl()) {
         return { ok: false, reason: 'Back to Design did not reselect editable block' };
       }
+      const headingBackgroundPreset = Array.from(document.querySelectorAll('.design-inspector-panel .design-color-control'))
+        .find((control) => (control.textContent || '').includes('Background'))
+        ?.querySelector('.design-color-presets button:nth-child(4)');
+      if (headingBackgroundPreset) {
+        headingBackgroundPreset.click();
+        for (let index = 0; index < 40; index += 1) {
+          await wait(150);
+          const headingBgValue = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]')?.value || '';
+          if (headingBgValue.toLowerCase() === '#ecfdf5') break;
+        }
+        const headingBgValue = document.querySelector('.design-inspector-panel input[aria-label="Design background hex color"]')?.value || '';
+        if (headingBgValue.toLowerCase() !== '#ecfdf5') {
+          return { ok: false, reason: 'Design heading background preset did not update content block', headingBgValue };
+        }
+      }
       const marker = 'Smoke canvas headline ' + Date.now();
       const inspector = document.querySelector('.design-inspector-panel');
       if (!inspector) return { ok: false, reason: 'Selected block inspector not found' };
