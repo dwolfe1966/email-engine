@@ -615,6 +615,23 @@ try {
       if (!/edit columns style/i.test(currentEditHint())) {
         return { ok: false, reason: 'Canvas columns edit hint was not contextual', editHint: currentEditHint() };
       }
+      const columnsGapInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="gap"]');
+      if (!columnsGapInput) return { ok: false, reason: 'Canvas columns gap input not found' };
+      columnsGapInput.value = '24';
+      columnsGapInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const gapControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Column gap'))
+          ?.querySelector('input');
+        if ((gapControl?.value || '') === '24') break;
+      }
+      const gapControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Column gap'))
+        ?.querySelector('input');
+      if ((gapControl?.value || '') !== '24') {
+        return { ok: false, reason: 'Canvas columns gap edit did not update inspector field', gapValue: gapControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
@@ -627,6 +644,7 @@ try {
             ok: true,
             srcDocLength: srcDoc.length,
             hasExpectedContent: srcDoc.includes(marker),
+            hasTableColumns: /<table[^>]+class="email-columns"/i.test(srcDoc) && /role="presentation"/i.test(srcDoc),
           };
         }
       }
@@ -644,6 +662,8 @@ try {
     errors.push(`Design preview failed: ${designPreview.reason || 'unknown failure'}`);
   } else if (!designPreview.hasExpectedContent) {
     errors.push(`Design preview rendered unexpected content (${designPreview.srcDocLength || 0} chars).`);
+  } else if (!designPreview.hasTableColumns) {
+    errors.push('Design preview did not render columns as presentation-table HTML.');
   }
 
   await cdp.ws.close();

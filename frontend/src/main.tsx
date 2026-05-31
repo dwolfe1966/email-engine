@@ -62,6 +62,7 @@ type TemplateDesignBlock = {
   alt?: string;
   width?: number;
   height?: number;
+  gap?: number;
   children?: TemplateDesignBlock[];
 };
 
@@ -3189,6 +3190,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       className: 'email-columns',
       bg: '',
       padding_y: 8,
+      gap: 16,
       children: [
         { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] },
         { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('paragraph'), newDesignBlock('button')] },
@@ -3231,9 +3233,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return `<div${classAttr} style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
     if (block.type === 'columns') {
-      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;`;
-      const children = (block.children || []).map(designBlockToHtml).join('\n');
-      return `<div${classAttr || ' class="email-columns"'} style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
+      const columns = (block.children || []).length ? (block.children || []) : [newDesignBlock('section'), newDesignBlock('section')];
+      const gap = Math.max(0, Number(block.gap ?? 16));
+      const tableStyle = `width:100%;border-collapse:collapse;${block.bg ? `background:${block.bg};` : ''}`;
+      const outerPadding = Number(block.padding_y || 0);
+      const cells = columns.map((child) => {
+        const width = Math.floor(100 / columns.length);
+        const childHtml = designBlockToHtml(child);
+        return `<td width="${width}%" valign="top" style="width:${width}%;vertical-align:top;padding:${Math.floor(gap / 2)}px;">\n${childHtml.split('\n').map((line) => `      ${line}`).join('\n')}\n    </td>`;
+      }).join('\n');
+      const table = `<table${classAttr || ' class="email-columns"'} role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${tableStyle}">\n  <tr>\n    ${cells}\n  </tr>\n</table>`;
+      if (!outerPadding) return table;
+      return `<div style="padding:${outerPadding}px;">\n${table.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
     if (block.type === 'trust_signal') return `<p${classAttr || ' class="secondary-text"'} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     return block.code || '';
@@ -3673,13 +3684,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     if (block.type === 'columns') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="email-columns"';
-      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;`;
+      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:${Number(block.gap ?? 16)}px;`;
       const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
       const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
       const columnControls = block.id === selectedDesignBlockId
         ? `<div class="ee-section-edit-panel">
             <label>Background<input type="color" data-design-block-field="bg" value="${escapeTemplateText(block.bg || '#ffffff')}" /></label>
             <label>Padding<input type="number" min="0" max="80" data-design-block-field="padding_y" value="${Number(block.padding_y || 0)}" /></label>
+            <label>Gap<input type="number" min="0" max="48" data-design-block-field="gap" value="${Number(block.gap ?? 16)}" /></label>
           </div>`
         : '';
       return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${columnControls}\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
@@ -4309,16 +4321,18 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           : data.field === 'bg' ? 'bg'
             : data.field === 'padding_y' ? 'padding_y'
               : data.field === 'height' ? 'height'
-                : data.field === 'color' ? 'color'
-                  : '';
+                : data.field === 'gap' ? 'gap'
+                  : data.field === 'color' ? 'color'
+                    : '';
         if (!field) return;
-        const nextValue = ['padding_y', 'height'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
+        const nextValue = ['padding_y', 'height', 'gap'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
         updateDesignBlock(data.blockId, { [field]: nextValue });
         const fieldLabel = field === 'href' ? 'button URL'
           : field === 'bg' ? 'section background'
             : field === 'padding_y' ? 'section padding'
               : field === 'height' ? 'spacer height'
-                : 'divider color';
+                : field === 'gap' ? 'column gap'
+                  : 'divider color';
         setStatus(`Updated ${fieldLabel} from the canvas.`);
         return;
       }
@@ -5144,6 +5158,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {classInput()}
           {textInput('Background', 'bg', 'color')}
           {textInput('Padding', 'padding_y', 'number')}
+          {block.type === 'columns' ? textInput('Column gap', 'gap', 'number') : null}
           <label className="wide-field">
             Contents
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
