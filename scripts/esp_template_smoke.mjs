@@ -501,6 +501,31 @@ try {
       if (!(hrefControl?.value || '').includes(buttonUrlMarker)) {
         return { ok: false, reason: 'Canvas button URL edit did not update inspector field', hrefValue: hrefControl?.value || '' };
       }
+      const sectionButton = buttonByText('section');
+      if (!sectionButton) return { ok: false, reason: 'Section design block button not found' };
+      sectionButton.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const sectionPaddingInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="padding_y"]');
+        if (sectionPaddingInput) break;
+      }
+      const sectionPaddingInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="padding_y"]');
+      if (!sectionPaddingInput) return { ok: false, reason: 'Canvas section padding input not found' };
+      sectionPaddingInput.value = '32';
+      sectionPaddingInput.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const paddingControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+          .find((label) => (label.textContent || '').trim().startsWith('Padding'))
+          ?.querySelector('input');
+        if ((paddingControl?.value || '') === '32') break;
+      }
+      const paddingControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
+        .find((label) => (label.textContent || '').trim().startsWith('Padding'))
+        ?.querySelector('input');
+      if ((paddingControl?.value || '') !== '32') {
+        return { ok: false, reason: 'Canvas section padding edit did not update inspector field', paddingValue: paddingControl?.value || '' };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();

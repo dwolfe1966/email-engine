@@ -3634,7 +3634,13 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}`;
     const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
     const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
-    return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
+    const sectionControls = block.id === selectedDesignBlockId
+      ? `<div class="ee-section-edit-panel">
+          <label>Background<input type="color" data-design-block-field="bg" value="${escapeTemplateText(block.bg || '#ffffff')}" /></label>
+          <label>Padding<input type="number" min="0" max="80" data-design-block-field="padding_y" value="${Number(block.padding_y || 0)}" /></label>
+        </div>`
+      : '';
+    return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${sectionControls}\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
   }
 
   function canEditDesignBlockTextOnCanvas(block: TemplateDesignBlock) {
@@ -3705,9 +3711,10 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
 	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
       .ee-image-edit-wrap, .ee-button-edit-wrap { display: grid; gap: 8px; }
-      .ee-image-edit-panel, .ee-field-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
-      .ee-image-edit-panel label, .ee-field-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
-      .ee-image-edit-panel input, .ee-field-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
+      .ee-image-edit-panel, .ee-field-edit-panel, .ee-section-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
+      .ee-section-edit-panel { grid-template-columns: minmax(0, 1fr) 96px; margin-bottom: 8px; }
+      .ee-image-edit-panel label, .ee-field-edit-panel label, .ee-section-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
+      .ee-image-edit-panel input, .ee-field-edit-panel input, .ee-section-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
 	      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       ${cssBody || ''}
@@ -4230,10 +4237,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return;
       }
       if (data?.type === 'ee-design-block-field-edit' && typeof data.blockId === 'string') {
-        const field = data.field === 'href' ? 'href' : '';
+        const field = data.field === 'href' ? 'href' : data.field === 'bg' ? 'bg' : data.field === 'padding_y' ? 'padding_y' : '';
         if (!field) return;
-        updateDesignBlock(data.blockId, { [field]: String(data.value || '').trim() });
-        setStatus('Updated button URL from the canvas.');
+        const nextValue = field === 'padding_y' ? Number(data.value || 0) : String(data.value || '').trim();
+        updateDesignBlock(data.blockId, { [field]: nextValue });
+        setStatus(field === 'href' ? 'Updated button URL from the canvas.' : `Updated section ${field === 'bg' ? 'background' : 'padding'} from the canvas.`);
         return;
       }
       if (data?.type === 'ee-design-block-edit-focus' && typeof data.blockId === 'string') {
