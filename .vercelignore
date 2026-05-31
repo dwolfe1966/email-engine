@@ -12,3 +12,4 @@ __pycache__
 .env.production.local
 docs
 tests
+frontend/dist/assets/* 2.*
