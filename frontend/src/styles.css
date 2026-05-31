@@ -1402,13 +1402,14 @@ th {
 
 .design-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(520px, 1fr) minmax(300px, 0.38fr);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
   gap: 12px;
   align-items: start;
+  min-width: 0;
 }
 
 .design-workspace-grid.hierarchy-open {
-  grid-template-columns: minmax(190px, 0.28fr) minmax(460px, 1fr) minmax(300px, 0.38fr);
+  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) minmax(280px, 320px);
 }
 
 .design-hierarchy-panel {
@@ -1416,6 +1417,7 @@ th {
   top: 12px;
   display: grid;
   gap: 10px;
+  min-width: 0;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #ffffff;
@@ -1799,6 +1801,7 @@ th {
   top: 12px;
   display: grid;
   gap: 10px;
+  min-width: 0;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #ffffff;
@@ -1867,6 +1870,7 @@ th {
 }
 
 .design-canvas-frame {
+  display: block;
   width: 100%;
   min-height: 520px;
   border: 1px solid var(--line);
@@ -1879,6 +1883,7 @@ th {
   top: 12px;
   display: grid;
   gap: 10px;
+  min-width: 0;
   border: 1px solid #dce8f7;
   border-radius: 8px;
   background: #ffffff;
