@@ -5874,11 +5874,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                      markPreviewStale();
 	                    }}
                   />
-	                  <div className="editor-tool-panel">
-	                    <div className="tool-panel-head">
-	                      <button className="tool-panel-toggle" type="button" onClick={() => setHtmlToolsOpen((current) => !current)}>{htmlToolsOpen ? 'Hide HTML tools' : 'Show HTML tools'}</button>
-	                      <span>{classableHtmlTagCount ? `${formatInt(classableHtmlTagCount)} element(s) need classes` : 'These controls insert formatted HTML/Jinja at the cursor.'}</span>
-	                    </div>
+		                  <div className="editor-tool-panel">
+		                    <div className="tool-panel-head">
+                          <div className="pane-title-row">
+                            <strong>HTML Tools</strong>
+		                        <button className="pane-toggle-button" type="button" onClick={() => setHtmlToolsOpen((current) => !current)} title={htmlToolsOpen ? 'Hide HTML Tools' : 'Show HTML Tools'}>{htmlToolsOpen ? '-' : '+'}</button>
+                          </div>
+		                      <span>{classableHtmlTagCount ? `${formatInt(classableHtmlTagCount)} element(s) need classes` : 'These controls insert formatted HTML/Jinja at the cursor.'}</span>
+		                    </div>
                     {htmlToolsOpen ? (
                       <div className="insert-tool-groups">
                         <div className="insert-tool-group">
@@ -5964,11 +5967,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    setCssBody(event.target.value);
 	                    markPreviewStale();
 	                  }} rows={7} />
-	                  <div className="editor-tool-panel">
-	                    <div className="tool-panel-head">
-	                      <button className="tool-panel-toggle" type="button" onClick={() => setCssToolsOpen((current) => !current)}>{cssToolsOpen ? 'Hide CSS tools' : 'Show CSS tools'}</button>
-	                      <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rule(s)` : 'Select an HTML class, tune controls, then update CSS.'}</span>
-	                    </div>
+		                  <div className="editor-tool-panel">
+		                    <div className="tool-panel-head">
+                          <div className="pane-title-row">
+                            <strong>CSS Helper</strong>
+		                        <button className="pane-toggle-button" type="button" onClick={() => setCssToolsOpen((current) => !current)} title={cssToolsOpen ? 'Hide CSS Helper' : 'Show CSS Helper'}>{cssToolsOpen ? '-' : '+'}</button>
+                          </div>
+		                      <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing CSS rule(s)` : 'Select an HTML class, tune controls, then update CSS.'}</span>
+		                    </div>
 	                    {cssToolsOpen ? (
 	                      <>
 			                    <div className="css-tool-actions">
