@@ -389,7 +389,7 @@ try {
       if (!inlineEditable) return { ok: false, reason: 'Canvas inline editable text field not found' };
       inlineEditable.focus();
       inlineEditable.textContent = marker;
-      inlineEditable.dispatchEvent(new Event('blur', { bubbles: true }));
+      inlineEditable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
         await wait(150);
         const inspectorValue = selectedTextControl()?.value || selectedTextControl()?.textContent || '';

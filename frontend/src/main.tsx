@@ -3683,11 +3683,25 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
   <body>
     <div class="email-container" data-design-drop-root="true">
 ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
-    </div>
-    <script>
-	      document.addEventListener('click', function(event) {
-	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
-	        if (!block) return;
+	    </div>
+	    <script>
+		      var editOriginalValues = new WeakMap();
+		      function editableValue(editable) {
+		        return editable.innerText || editable.textContent || '';
+		      }
+		      function commitEditable(editable) {
+		        var block = editable && editable.closest ? editable.closest('[data-design-block-id]') : null;
+		        if (!block) return;
+		        parent.postMessage({
+		          type: 'ee-design-block-edit',
+		          blockId: block.getAttribute('data-design-block-id'),
+		          field: editable.getAttribute('data-design-edit-field') || 'text',
+		          value: editableValue(editable)
+		        }, '*');
+		      }
+		      document.addEventListener('click', function(event) {
+		        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
+		        if (!block) return;
 	        if (event.target.closest('[data-design-edit-field]')) {
 	          parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: 'select' }, '*');
 	          return;
@@ -3698,28 +3712,38 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	        parent.postMessage({ type: 'ee-design-block-select', blockId: block.getAttribute('data-design-block-id'), action: action || 'select' }, '*');
 	      });
 	      document.addEventListener('blur', function(event) {
-	        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
-	        if (!editable) return;
-	        var block = editable.closest('[data-design-block-id]');
-	        if (!block) return;
-	        parent.postMessage({
-	          type: 'ee-design-block-edit',
-	          blockId: block.getAttribute('data-design-block-id'),
-	          field: editable.getAttribute('data-design-edit-field') || 'text',
-	          value: editable.innerText || editable.textContent || ''
-	        }, '*');
-	      }, true);
-	      document.addEventListener('focus', function(event) {
-	        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
-	        if (!editable) return;
-	        var block = editable.closest('[data-design-block-id]');
-	        if (!block) return;
-	        parent.postMessage({
-	          type: 'ee-design-block-edit-focus',
-	          blockId: block.getAttribute('data-design-block-id')
-	        }, '*');
-	      }, true);
-	      document.addEventListener('dragstart', function(event) {
+		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
+		        if (!editable) return;
+		        commitEditable(editable);
+		      }, true);
+		      document.addEventListener('focus', function(event) {
+		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
+		        if (!editable) return;
+		        var block = editable.closest('[data-design-block-id]');
+		        if (!block) return;
+		        editOriginalValues.set(editable, editableValue(editable));
+		        parent.postMessage({
+		          type: 'ee-design-block-edit-focus',
+		          blockId: block.getAttribute('data-design-block-id')
+		        }, '*');
+		      }, true);
+		      document.addEventListener('keydown', function(event) {
+		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
+		        if (!editable) return;
+		        if (event.key === 'Escape') {
+		          event.preventDefault();
+		          editable.textContent = editOriginalValues.get(editable) || '';
+		          editable.blur();
+		          parent.postMessage({ type: 'ee-design-block-edit-cancel' }, '*');
+		          return;
+		        }
+		        if (event.key === 'Enter' && !event.shiftKey) {
+		          event.preventDefault();
+		          commitEditable(editable);
+		          editable.blur();
+		        }
+		      });
+		      document.addEventListener('dragstart', function(event) {
 	        var block = event.target && event.target.closest ? event.target.closest('[data-design-block-id]') : null;
 	        if (!block || event.target.closest('.ee-design-actions') || event.target.closest('[data-design-edit-field]')) return;
 	        event.dataTransfer.effectAllowed = 'move';
@@ -4139,7 +4163,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
         if (!block) return;
         selectDesignBlock(block.id);
-        setStatus(`Editing ${block.type.replace('_', ' ')} text on the canvas. Click outside the text to capture changes.`);
+        setStatus(`Editing ${block.type.replace('_', ' ')} text on the canvas. Press Enter to commit, Escape to cancel, or click outside to capture changes.`);
+        return;
+      }
+      if (data?.type === 'ee-design-block-edit-cancel') {
+        setStatus('Canceled canvas text edit.');
         return;
       }
       if (!data || data.type !== 'ee-design-block-select' || typeof data.blockId !== 'string') return;
