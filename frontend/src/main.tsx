@@ -3581,25 +3581,25 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function designCanvasBlockContentHtml(block: TemplateDesignBlock) {
-    const editableAttrs = 'contenteditable="true" spellcheck="false" data-design-edit-field="text"';
+    const editableAttrs = (value: unknown) => `contenteditable="true" spellcheck="false" data-design-edit-field="text" data-design-original-value="${escapeTemplateText(value)}"`;
     if (block.type === 'heading') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
       const level = Math.min(3, Math.max(1, Number(block.level || 1)));
-      return `<h${level}${classAttr} ${editableAttrs} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
+      return `<h${level}${classAttr} ${editableAttrs(block.text)} style="text-align:${block.align || 'left'};">${escapeTemplateText(block.text)}</h${level}>`;
     }
     if (block.type === 'paragraph' && !block.html) {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
       const style = `text-align:${block.align || 'left'};${block.color ? `color:${block.color};` : ''}`;
-      return `<p${classAttr} ${editableAttrs} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
+      return `<p${classAttr} ${editableAttrs(block.text)} style="${style}">${escapeTemplateText(block.text).replace(/\n/g, '<br>')}</p>`;
     }
     if (block.type === 'button') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="button"';
       const style = `display:inline-block;background:${block.bg || '#2563eb'};color:${block.color || '#ffffff'};padding:${Number(block.padding_y || 11)}px ${Number(block.padding_x || 16)}px;text-decoration:none;border-radius:${Number(block.radius || 6)}px;font-weight:700;`;
-      return `<p class="email-action"><a${classAttr} ${editableAttrs} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
+      return `<p class="email-action"><a${classAttr} ${editableAttrs(block.text || 'Call to Action')} href="${escapeTemplateText(block.href || '{{ tracking_click }}')}" style="${style}">${escapeTemplateText(block.text || 'Call to Action')}</a></p>`;
     }
     if (block.type === 'trust_signal') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
-      return `<p${classAttr} ${editableAttrs} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
+      return `<p${classAttr} ${editableAttrs(block.text)} style="text-align:center;">${escapeTemplateText(block.text)}</p>`;
     }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
@@ -3686,8 +3686,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	    </div>
 	    <script>
 		      var editOriginalValues = new WeakMap();
-		      function editableValue(editable) {
-		        return editable.innerText || editable.textContent || '';
+			      function editableValue(editable) {
+			        return editable.innerText || editable.textContent || '';
+			      }
+		      function originalEditableValue(editable) {
+		        if (editOriginalValues.has(editable)) return editOriginalValues.get(editable) || '';
+		        return editable.getAttribute('data-design-original-value') || '';
 		      }
 		      function commitEditable(editable) {
 		        var block = editable && editable.closest ? editable.closest('[data-design-block-id]') : null;
@@ -3730,11 +3734,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 		      document.addEventListener('keydown', function(event) {
 		        var editable = event.target && event.target.closest ? event.target.closest('[data-design-edit-field]') : null;
 		        if (!editable) return;
-		        if (event.key === 'Escape') {
-		          event.preventDefault();
-		          editable.textContent = editOriginalValues.get(editable) || '';
-		          editable.blur();
-		          parent.postMessage({ type: 'ee-design-block-edit-cancel' }, '*');
+			        if (event.key === 'Escape') {
+			          event.preventDefault();
+			          editable.textContent = originalEditableValue(editable);
+			          editable.blur();
+			          parent.postMessage({ type: 'ee-design-block-edit-cancel' }, '*');
 		          return;
 		        }
 		        if (event.key === 'Enter' && !event.shiftKey) {

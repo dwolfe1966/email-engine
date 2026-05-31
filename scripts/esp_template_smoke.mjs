@@ -32,20 +32,26 @@ async function fetchJson(url, attempts = 40) {
   throw lastError || new Error(`Unable to fetch ${url}`);
 }
 
-async function apiJson(path, options = {}) {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  if (!response.ok) {
+async function apiJson(path, options = {}, attempts = 3) {
+  let lastError;
+  for (let index = 0; index < attempts; index += 1) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+    if (response.ok) {
+      if (response.status === 204) return null;
+      return response.json();
+    }
     const body = await response.text().catch(() => '');
-    throw new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${body}`);
+    lastError = new Error(`${options.method || 'GET'} ${path} failed: ${response.status} ${body}`);
+    if (![429, 500, 502, 503, 504].includes(response.status)) throw lastError;
+    await sleep(300 * (index + 1));
   }
-  if (response.status === 204) return null;
-  return response.json();
+  throw lastError;
 }
 
 async function removeTempDir(path, attempts = 5) {
@@ -387,6 +393,19 @@ try {
       const inlineEditable = canvasDoc?.querySelector('.ee-design-block.selected [data-design-edit-field]')
         || canvasDoc?.querySelector('[data-design-edit-field]');
       if (!inlineEditable) return { ok: false, reason: 'Canvas inline editable text field not found' };
+      const originalCanvasText = inlineEditable.textContent || '';
+      const canceledMarker = 'Canceled canvas headline ' + Date.now();
+      inlineEditable.focus();
+      inlineEditable.textContent = canceledMarker;
+      inlineEditable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await wait(300);
+      const canceledInspectorValue = selectedTextControl()?.value || selectedTextControl()?.textContent || '';
+      if (canceledInspectorValue.includes(canceledMarker)) {
+        return { ok: false, reason: 'Escape did not cancel canvas inline edit', canceledInspectorValue };
+      }
+      if ((inlineEditable.textContent || '') !== originalCanvasText) {
+        return { ok: false, reason: 'Escape did not restore canvas inline edit text', canvasText: inlineEditable.textContent, originalCanvasText };
+      }
       inlineEditable.focus();
       inlineEditable.textContent = marker;
       inlineEditable.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
