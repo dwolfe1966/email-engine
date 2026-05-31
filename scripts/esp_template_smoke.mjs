@@ -547,8 +547,10 @@ try {
       if ((bgControl?.value || '').toLowerCase() !== '#f8fafc') {
         return { ok: false, reason: 'Design background swatch did not update selected block background', bgValue: bgControl?.value || '' };
       }
-      sectionPaddingInput.value = '32';
-      sectionPaddingInput.dispatchEvent(new Event('change', { bubbles: true }));
+      const refreshedSectionPaddingInput = document.querySelector('iframe.design-canvas-frame')?.contentDocument?.querySelector('.ee-design-block.selected [data-design-block-field="padding_y"]');
+      if (!refreshedSectionPaddingInput) return { ok: false, reason: 'Canvas section padding input not found after background update' };
+      refreshedSectionPaddingInput.value = '32';
+      refreshedSectionPaddingInput.dispatchEvent(new Event('change', { bubbles: true }));
       for (let index = 0; index < 40; index += 1) {
         await wait(150);
         const paddingControl = Array.from(document.querySelectorAll('.design-inspector-panel label'))
