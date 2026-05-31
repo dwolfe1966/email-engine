@@ -2840,6 +2840,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     };
   });
   const missingCssClasses = cssClassCoverage.filter((item) => !item.hasRule).map((item) => item.name);
+  const designWorkflowStatus = designDocEdited
+    ? 'Design changes are not synced to HTML/Jinja yet.'
+    : hasUnsavedTemplateChanges
+      ? 'Template has unsaved code, CSS, or metadata changes.'
+      : 'Design and saved template state are aligned.';
   const classableHtmlTagCount = Array.from(htmlBody.matchAll(/<([a-z][a-z0-9-]*)(\s[^<>]*)?>/gi))
     .filter((match) => {
       const tag = match[1].toLowerCase();
@@ -5490,9 +5495,28 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           {designBlockTypeLabel(type)}
                         </button>
 	                    ))}
-	                  </div>
-		                </div>
-		                {designDoc.blocks.length ? (
+		                  </div>
+			                </div>
+                      <div className="design-sync-strip">
+                        <div className={designDocEdited ? 'warn' : 'good'}>
+                          <strong>{designDocEdited ? 'Sync needed' : 'Design synced'}</strong>
+                          <span>{designWorkflowStatus}</span>
+                        </div>
+                        <div className={missingCssClasses.length ? 'warn' : 'good'}>
+                          <strong>{missingCssClasses.length ? 'CSS gaps' : 'CSS covered'}</strong>
+                          <span>{missingCssClasses.length ? `${formatInt(missingCssClasses.length)} class rule(s) missing.` : 'Detected design classes have rules.'}</span>
+                        </div>
+                        <div className={previewFreshness === 'current' ? 'good' : 'warn'}>
+                          <strong>{previewFreshness === 'current' ? 'Preview current' : 'Preview needed'}</strong>
+                          <span>{previewStatusText}</span>
+                        </div>
+                        <div className="button-row">
+                          <button className={designDocEdited ? 'primary' : 'ghost'} type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync to Code</button>
+                          {missingCssClasses.length ? <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Fix CSS</button> : null}
+                          <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
+                        </div>
+                      </div>
+			                {designDoc.blocks.length ? (
                     <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''}`}>
                       {designHierarchyOpen ? (
                         <aside className="design-hierarchy-panel" ref={designHierarchyRef}>
@@ -5612,17 +5636,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    <p>Add a block or load an existing block-based template to start designing visually.</p>
 	                  </div>
 	                )}
-	                <div className="design-builder-toolbar compact-design-toolbar">
-	                  <div>
-	                    <strong>Code sync</strong>
-	                    <span>Sync generates HTML/Jinja from the current block model for code editing or saving.</span>
-	                  </div>
-	                  <div className="button-row">
-	                    <button className="ghost" type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync to Code</button>
-	                    <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview Design</button>
-	                  </div>
-	                </div>
-	              </div>
+		              </div>
 	            ) : previewHtml ? (
 	              <div className="preview-shell">
 	                {previewFreshness === 'stale' ? (

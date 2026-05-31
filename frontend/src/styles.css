@@ -1298,6 +1298,53 @@ th {
   align-items: center;
 }
 
+.design-sync-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  align-items: stretch;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.design-sync-strip > div:not(.button-row) {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+}
+
+.design-sync-strip > div.good {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.design-sync-strip > div.warn {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.design-sync-strip strong {
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.design-sync-strip span {
+  color: #52637a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.design-sync-strip .button-row {
+  align-content: center;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .design-palette-chip {
   cursor: grab;
 }
@@ -1888,6 +1935,14 @@ th {
   .design-inspector-panel {
     position: static;
     max-height: none;
+  }
+
+  .design-sync-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .design-sync-strip .button-row {
+    justify-content: flex-start;
   }
 }
 
