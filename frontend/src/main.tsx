@@ -9365,6 +9365,31 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
   const baseUrl = diagnostics?.public_base_url || 'not configured';
   const tables = diagnostics?.database_tables || [];
   const counts = Object.entries(diagnostics?.entity_counts || {}).sort((a, b) => b[1] - a[1]);
+  const schemaReady = Boolean(diagnostics?.schema.ok && !diagnostics.schema.needs_migration);
+  const providerReady = smtpReady || sgReady || emailProvider === 'console';
+  const publicUrlReady = /^https?:\/\//.test(baseUrl);
+  const aiReady = Boolean(diagnostics?.ai.openai_configured);
+  const errorCount = diagnostics?.errors.length || 0;
+  const readinessChecks = [
+    schemaReady,
+    providerReady,
+    publicUrlReady,
+    aiReady,
+    tables.length > 0,
+    errorCount === 0,
+  ];
+  const readyCount = readinessChecks.filter(Boolean).length;
+  const integrationNextAction = !schemaReady
+    ? 'Run or verify database migrations before launching new workflow changes.'
+    : !providerReady
+      ? 'Configure SendGrid or SMTP before relying on production campaign delivery.'
+      : !publicUrlReady
+        ? 'Set PUBLIC_BASE_URL so tracking, unsubscribe, and webhook links resolve correctly.'
+        : errorCount > 0
+          ? 'Review diagnostics errors before the next production test.'
+          : !aiReady
+            ? 'OpenAI is using fallback mode; configure it when AI output quality matters.'
+            : 'Core integrations are ready. Continue testing data import, delivery, and reporting flows.';
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -9385,6 +9410,33 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
         <MetricCard metric={{ label: 'Email provider', value: emailProvider, change: smtpReady ? 'SMTP configured' : sgReady ? 'SG configured' : 'console or pending', tone: smtpReady || sgReady || emailProvider === 'console' ? 'good' : 'warn' }} />
         <MetricCard metric={{ label: 'Public URL', value: baseUrl.replace(/^https?:\/\//, ''), change: 'tracking and unsubscribe base' }} />
         <MetricCard metric={{ label: 'Database tables', value: formatInt(diagnostics?.database_tables.length || 0), change: 'schema inventory' }} />
+      </section>
+      <section className="integration-command-strip full-span" aria-label="Integration readiness summary">
+        <article className={schemaReady ? 'good' : 'warn'}>
+          <span>Schema</span>
+          <strong>{schemaReady ? 'Ready' : 'Review'}</strong>
+          <small>{diagnostics?.schema.current_revision || 'no revision'} / {diagnostics?.schema.expected_revision || 'expected unknown'}</small>
+        </article>
+        <article className={providerReady ? 'good' : 'warn'}>
+          <span>Provider</span>
+          <strong>{providerReady ? emailProvider : 'Pending'}</strong>
+          <small>{smtpReady ? 'SMTP ready' : sgReady ? 'SendGrid ready' : 'No outbound provider'}</small>
+        </article>
+        <article className={publicUrlReady ? 'good' : 'warn'}>
+          <span>Public URL</span>
+          <strong>{publicUrlReady ? 'Configured' : 'Missing'}</strong>
+          <small>{baseUrl.replace(/^https?:\/\//, '')}</small>
+        </article>
+        <article className={errorCount ? 'warn' : 'good'}>
+          <span>Diagnostics</span>
+          <strong>{formatInt(readyCount)} / {formatInt(readinessChecks.length)} ready</strong>
+          <small>{formatInt(errorCount)} active errors</small>
+        </article>
+        <article className="wide">
+          <span>Recommended next action</span>
+          <strong>{integrationNextAction}</strong>
+          <small>{aiReady ? `${diagnostics?.ai.provider || 'AI'} ${diagnostics?.ai.model || ''}` : 'AI fallback mode available'}</small>
+        </article>
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
