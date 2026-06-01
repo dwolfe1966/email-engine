@@ -2579,8 +2579,9 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const isCreatingAudience = !isPersistedAudience;
   const ruleJsonValid = isRuleJsonValid();
   const availableFields = metadata?.fields || [];
-  const attributeFields = (metadata?.attribute_keys || []).map((key) => `attributes.${key}`);
-  const fieldHints = [...availableFields, ...attributeFields].slice(0, 18);
+  const attributeKeys = metadata?.attribute_keys || [];
+  const attributeFields = attributeKeys.map((key) => `attributes.${key}`);
+  const fieldHints = [...availableFields, ...attributeFields].slice(0, 24);
   const workflowSteps = [
     { label: 'Define', detail: name.trim() ? name.trim() : 'Name the audience', ready: Boolean(name.trim()) },
     { label: 'Rule', detail: ruleJsonValid ? 'Valid JSON rule' : 'Fix rule JSON', ready: ruleJsonValid },
@@ -2609,6 +2610,45 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
       ready: Boolean(selectedAudienceId && Number(matchedCount || 0) > 0),
     },
   ];
+  const parsedRulePreview = (() => {
+    try {
+      return parsedRuleTree();
+    } catch {
+      return null;
+    }
+  })();
+  const activeRuleField = typeof parsedRulePreview?.field === 'string' ? parsedRulePreview.field : '';
+  const activeRuleComparator = typeof parsedRulePreview?.comparator === 'string' ? parsedRulePreview.comparator : '';
+  const activeRuleValue = parsedRulePreview && 'value' in parsedRulePreview ? parsedRulePreview.value : undefined;
+  const matchRate = metadata?.total && matchedCount !== null ? matchedCount / Math.max(metadata.total, 1) : null;
+  const audienceNextAction = !name.trim()
+    ? 'Name the audience before saving.'
+    : !ruleJsonValid
+      ? 'Fix the rule JSON before previewing.'
+      : matchedCount === null
+        ? 'Preview this rule to confirm reach and sample contacts.'
+        : matchedCount <= 0
+          ? 'Adjust the rule or import contacts before using this audience.'
+          : !selectedAudienceId
+            ? 'Save the audience so campaigns can use it.'
+            : 'Create a snapshot before campaign launch when the segment is ready.';
+
+  function sampleValueForField(field: string) {
+    const contact = metadata?.sample_contacts?.find((item) => {
+      if (field.startsWith('attributes.')) {
+        const key = field.replace(/^attributes\./, '');
+        return item.attributes && item.attributes[key] !== undefined && item.attributes[key] !== null;
+      }
+      return (item as unknown as Record<string, unknown>)[field] !== undefined && (item as unknown as Record<string, unknown>)[field] !== null;
+    });
+    if (!contact) return '';
+    const value = field.startsWith('attributes.')
+      ? contact.attributes[field.replace(/^attributes\./, '')]
+      : (contact as unknown as Record<string, unknown>)[field];
+    if (Array.isArray(value)) return value.slice(0, 2).map((item) => String(item)).join(', ');
+    if (value && typeof value === 'object') return 'object';
+    return String(value ?? '').slice(0, 32);
+  }
 
   function loadAudienceIntoEditor(audience: AudienceRead) {
     setSelectedAudienceId(audience.id);
@@ -2866,6 +2906,28 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
           </div>
         </section>
       ) : null}
+      <section className="audience-builder-map full-span" aria-label="Audience builder summary">
+        <article className={metadata?.total ? 'good' : 'warn'}>
+          <span>Contact data</span>
+          <strong>{formatInt(metadata?.total || 0)} contacts</strong>
+          <small>{formatInt(availableFields.length + attributeKeys.length)} fields available</small>
+        </article>
+        <article className={ruleJsonValid ? 'good' : 'warn'}>
+          <span>Rule</span>
+          <strong>{activeRuleField || 'No field selected'}</strong>
+          <small>{activeRuleComparator || 'Choose comparator'}{activeRuleValue !== undefined ? ` ${String(activeRuleValue).slice(0, 28)}` : ''}</small>
+        </article>
+        <article className={matchedCount === null ? 'warn' : matchedCount > 0 ? 'good' : 'warn'}>
+          <span>Preview impact</span>
+          <strong>{matchedCount === null ? 'Not previewed' : `${formatInt(matchedCount)} matched`}</strong>
+          <small>{matchRate === null ? 'Run preview' : `${formatPct(matchRate)} of known contacts`}</small>
+        </article>
+        <article className={selectedAudienceId && Number(matchedCount || 0) > 0 ? 'good' : 'warn'}>
+          <span>Next action</span>
+          <strong>{selectedAudienceId ? 'Campaign-ready check' : 'Save required'}</strong>
+          <small>{audienceNextAction}</small>
+        </article>
+      </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <div>
@@ -2915,12 +2977,25 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
         <div className="workflow-section">
           <h3>2. Rule definition</h3>
           {fieldHints.length ? (
-            <div className="field-chip-row" aria-label="Available audience fields">
-              {fieldHints.map((field) => (
-                <button type="button" className="field-chip" key={field} onClick={() => insertFieldRule(field)}>
-                  {field}
-                </button>
-              ))}
+            <div className="audience-field-picker">
+              <div className="field-chip-row" aria-label="Available contact fields">
+                {availableFields.slice(0, 12).map((field) => (
+                  <button type="button" className={activeRuleField === field ? 'field-chip selected' : 'field-chip'} key={field} onClick={() => insertFieldRule(field)}>
+                    <span>{field}</span>
+                    {sampleValueForField(field) ? <small>{sampleValueForField(field)}</small> : null}
+                  </button>
+                ))}
+              </div>
+              {attributeFields.length ? (
+                <div className="field-chip-row" aria-label="Available attribute fields">
+                  {attributeFields.slice(0, 12).map((field) => (
+                    <button type="button" className={activeRuleField === field ? 'field-chip selected attribute' : 'field-chip attribute'} key={field} onClick={() => insertFieldRule(field)}>
+                      <span>{field}</span>
+                      {sampleValueForField(field) ? <small>{sampleValueForField(field)}</small> : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="muted">Import contacts to expose fields and attribute keys for rule building.</p>
@@ -2940,13 +3015,14 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
           <div className="workflow-section">
             <h3>Matched Contacts Preview</h3>
             <table>
-              <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Status</th></tr></thead>
+              <thead><tr><th>Email</th><th>Name</th><th>Source</th><th>Attributes</th><th>Status</th></tr></thead>
               <tbody>
                 {sampleContacts.map((contact) => (
                   <tr key={contact.id}>
                     <td>{contact.email}</td>
                     <td>{[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '-'}</td>
                     <td>{contact.source || '-'}</td>
+                    <td>{Object.entries(contact.attributes || {}).slice(0, 3).map(([key, value]) => `${key}: ${String(value)}`).join(', ') || '-'}</td>
                     <td><span className="pill">{contact.is_unsubscribed ? 'unsubscribed' : 'subscribed'}</span></td>
                   </tr>
                 ))}
