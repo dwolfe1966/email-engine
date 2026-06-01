@@ -4,4 +4,19 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: '/esp/',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@codemirror') || id.includes('node_modules/codemirror') || id.includes('node_modules/@lezer')) {
+            return 'editor';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
 });

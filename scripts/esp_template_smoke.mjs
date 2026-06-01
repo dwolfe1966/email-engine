@@ -781,11 +781,22 @@ try {
       if (savedDocumentWidths.join(',') !== '30,45,25') {
         return { ok: false, reason: 'Structured design document did not persist column widths', savedDocumentWidths };
       }
-      const preview = includesButton('Preview Design') || buttonByText('Preview');
+      const designMode = modeButtonByText('Design');
+      if (designMode && !document.querySelector('.mode-switch .design-mode.active')) {
+        designMode.click();
+        await wait(300);
+      }
+      let preview = null;
+      for (let index = 0; index < 60; index += 1) {
+        preview = Array.from(document.querySelectorAll('.design-sync-strip button, .design-next-action button, .mode-switch button'))
+          .find((button) => ['preview', 'preview now'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+        if (preview) break;
+        await wait(150);
+      }
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
-      for (let index = 0; index < 50; index += 1) {
-        await wait(150);
+      for (let index = 0; index < 90; index += 1) {
+        await wait(200);
         const iframe = document.querySelector('iframe.email-preview');
         const srcDoc = iframe?.getAttribute('srcdoc') || iframe?.srcdoc || iframe?.contentDocument?.documentElement?.outerHTML || '';
         if (iframe && srcDoc.trim().length > 80) {
@@ -793,7 +804,7 @@ try {
             ok: true,
             srcDocLength: srcDoc.length,
             hasExpectedContent: srcDoc.includes(marker),
-            hasTableColumns: /<table[^>]+class="email-columns"/i.test(srcDoc) && /role="presentation"/i.test(srcDoc),
+            hasTableColumns: /<table[^>]+class="[^"]*email-columns/i.test(srcDoc) && /role="presentation"/i.test(srcDoc),
           };
         }
       }
@@ -801,6 +812,7 @@ try {
         ok: false,
         reason: 'Preview iframe did not render non-empty srcdoc',
         modeText: document.body?.innerText || '',
+        activeMode: document.querySelector('.mode-switch .active')?.textContent || '',
       };
     })()`,
     awaitPromise: true,
@@ -811,6 +823,7 @@ try {
     errors.push(`Design preview failed: ${designPreview.reason || 'unknown failure'} (${JSON.stringify({
       reloadedWidths: designPreview.reloadedWidths,
       savedDocumentWidths: designPreview.savedDocumentWidths,
+      activeMode: designPreview.activeMode,
     })})`);
   } else if (!designPreview.hasExpectedContent) {
     errors.push(`Design preview rendered unexpected content (${designPreview.srcDocLength || 0} chars).`);

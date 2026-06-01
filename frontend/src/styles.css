@@ -2104,7 +2104,7 @@ th {
 }
 
 .column-width-tools label {
-  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-columns: 78px minmax(64px, 1fr);
   align-items: center;
 }
 
@@ -2112,6 +2112,54 @@ th {
   color: #64748b;
   font-size: 11px;
   font-weight: 800;
+}
+
+.column-width-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 6px;
+}
+
+.column-width-actions button {
+  padding: 5px 7px;
+}
+
+.template-version-list {
+  display: grid;
+  gap: 8px;
+}
+
+.template-version-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 9px;
+}
+
+.template-version-list > div.current {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.template-version-list strong,
+.template-version-list span {
+  display: block;
+}
+
+.template-version-list strong {
+  color: #29405f;
+  font-size: 12px;
+}
+
+.template-version-list span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
 }
 
 .design-empty-dropzone {
@@ -3100,6 +3148,18 @@ th {
 .operation-banner.unsaved-template-banner {
   border-color: #f0c978;
   background: #fff8e8;
+}
+
+.operation-banner.local-draft-banner {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.operation-banner.local-draft-banner strong,
+.operation-banner.local-draft-banner span {
+  grid-column: 1;
 }
 
 .operation-banner span,

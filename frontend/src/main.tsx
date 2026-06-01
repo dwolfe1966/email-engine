@@ -63,6 +63,7 @@ type TemplateDesignBlock = {
   width?: number;
   height?: number;
   gap?: number;
+  mobile_stack?: 'stack' | 'keep' | 'reverse';
   children?: TemplateDesignBlock[];
 };
 
@@ -83,6 +84,7 @@ type DesignPaneWidths = {
 const DEFAULT_DESIGN_PANE_WIDTHS: DesignPaneWidths = { hierarchy: 180, inspector: 300 };
 const DESIGN_PANE_WIDTHS_STORAGE_KEY = 'email-engine.designPaneWidths';
 const DESIGN_CANVAS_ZOOM_STORAGE_KEY = 'email-engine.designCanvasZoom';
+const TEMPLATE_DRAFT_STORAGE_PREFIX = 'email-engine.templateDraft.';
 const DESIGN_CANVAS_ZOOM_OPTIONS = [
   { label: '75%', value: '0.75' },
   { label: '100%', value: '1' },
@@ -107,6 +109,20 @@ function readStoredDesignCanvasZoom(): string {
   if (typeof window === 'undefined') return '1';
   const stored = window.localStorage.getItem(DESIGN_CANVAS_ZOOM_STORAGE_KEY);
   return DESIGN_CANVAS_ZOOM_OPTIONS.some((option) => option.value === stored) ? stored || '1' : '1';
+}
+
+type TemplateLocalDraft = {
+  name: string;
+  subject: string;
+  htmlBody: string;
+  cssBody: string;
+  designDoc: TemplateDesignDocument;
+  editorMode: 'edit' | 'design' | 'preview';
+  updatedAt: number;
+};
+
+function templateDraftStorageKey(templateId: string) {
+  return `${TEMPLATE_DRAFT_STORAGE_PREFIX}${templateId || 'new'}`;
 }
 
 type TemplateCodeEditorProps = {
@@ -730,6 +746,18 @@ type TemplateDocumentRead = {
   version_id: string | null;
   version_number: number | null;
   document_json: Record<string, unknown>;
+};
+
+type TemplateVersionRead = {
+  id: string;
+  template_id: string;
+  version_number: number;
+  subject: string;
+  html_body: string;
+  css_body: string | null;
+  text_body: string | null;
+  document_json: Record<string, unknown>;
+  is_current: boolean;
 };
 
 type TemplateVariable = {
@@ -2775,6 +2803,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [aiNotes, setAiNotes] = useState<string[]>([]);
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [appliedAiDraftLabel, setAppliedAiDraftLabel] = useState('');
+  const [templateVersions, setTemplateVersions] = useState<TemplateVersionRead[]>([]);
   const [editorMode, setEditorMode] = useState<'edit' | 'design' | 'preview'>('edit');
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
@@ -2788,6 +2817,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [designInspectorOpen, setDesignInspectorOpen] = useState(true);
   const [designPaneWidths, setDesignPaneWidths] = useState<DesignPaneWidths>(readStoredDesignPaneWidths);
   const [designCanvasZoom, setDesignCanvasZoom] = useState(readStoredDesignCanvasZoom);
+  const [localTemplateDraft, setLocalTemplateDraft] = useState<TemplateLocalDraft | null>(null);
   const [templateFeedbackOpen, setTemplateFeedbackOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
@@ -2831,6 +2861,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     || currentTemplateSnapshot.htmlBody !== savedTemplateSnapshot.htmlBody
     || currentTemplateSnapshot.cssBody !== savedTemplateSnapshot.cssBody
     || currentTemplateSnapshot.designDocJson !== savedTemplateSnapshot.designDocJson;
+  useEffect(() => {
+    if (!hasUnsavedTemplateChanges) return;
+    const draft: TemplateLocalDraft = {
+      name,
+      subject,
+      htmlBody,
+      cssBody,
+      designDoc: cloneDesignDocument(designDoc),
+      editorMode,
+      updatedAt: Date.now(),
+    };
+    window.localStorage.setItem(templateDraftStorageKey(selectedTemplateId), JSON.stringify(draft));
+    setLocalTemplateDraft(draft);
+  }, [cssBody, designDoc, editorMode, hasUnsavedTemplateChanges, htmlBody, name, selectedTemplateId, subject]);
   const aiInstructionPresets = [
     {
       label: 'Tighten copy',
@@ -3022,6 +3066,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       // Fall back below so older templates and transient document endpoint failures still open.
     }
     return designDocFromTemplate(template);
+  }
+
+  async function loadTemplateVersions(templateId: string) {
+    if (!templateId) {
+      setTemplateVersions([]);
+      return;
+    }
+    try {
+      const versions = await fetchJson<TemplateVersionRead[]>(`/api/v1/templates/${templateId}/versions`);
+      setTemplateVersions(versions);
+    } catch {
+      setTemplateVersions([]);
+    }
   }
 
   function semanticDesignDocJson(document: TemplateDesignDocument) {
@@ -3255,6 +3312,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       bg: '',
       padding_y: 8,
       gap: 16,
+      mobile_stack: 'stack',
       children: [
         { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] },
         { ...newDesignBlock('section'), className: 'email-column', padding_y: 14, children: [newDesignBlock('paragraph'), newDesignBlock('button')] },
@@ -3307,6 +3365,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'columns') {
       const columns = (block.children || []).length ? (block.children || []) : [newDesignBlock('section'), newDesignBlock('section')];
       const gap = Math.max(0, Number(block.gap ?? 16));
+      const mobileStack = block.mobile_stack || 'stack';
+      const mobileClass = mobileStack === 'reverse' ? 'stack-mobile-reverse' : mobileStack === 'keep' ? 'keep-mobile' : 'stack-mobile';
+      const columnClass = `${block.className || 'email-columns'} ${mobileClass}`.trim();
+      const columnClassAttr = ` class="${escapeTemplateText(columnClass)}"`;
       const tableStyle = `width:100%;border-collapse:collapse;${block.bg ? `background:${block.bg};` : ''}`;
       const outerPadding = Number(block.padding_y || 0);
       const explicitTotal = columns.reduce((total, child) => total + Math.max(0, Number(child.width || 0)), 0);
@@ -3318,7 +3380,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         const childHtml = designBlockToHtml(child);
         return `<td width="${width}%" valign="top" style="width:${width}%;vertical-align:top;padding:${Math.floor(gap / 2)}px;">\n${childHtml.split('\n').map((line) => `      ${line}`).join('\n')}\n    </td>`;
       }).join('\n');
-      const table = `<table${classAttr || ' class="email-columns"'} role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${tableStyle}">\n  <tr>\n    ${cells}\n  </tr>\n</table>`;
+      const table = `<table${columnClassAttr} data-mobile-stack="${mobileStack}" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${tableStyle}">\n  <tr>\n    ${cells}\n  </tr>\n</table>`;
       if (!outerPadding) return table;
       return `<div style="padding:${outerPadding}px;">\n${table.split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
     }
@@ -3850,6 +3912,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const columnTemplate = (block.children || []).length
         ? (block.children || []).map((child) => `${Math.max(1, Number(child.width || 1))}fr`).join(' ')
         : 'repeat(2,minmax(0,1fr))';
+      const mobileStack = block.mobile_stack || 'stack';
+      const mobileNote = mobileStack === 'reverse' ? 'Mobile: reverse stack' : mobileStack === 'keep' ? 'Mobile: keep columns' : 'Mobile: stack columns';
       const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:${columnTemplate};gap:${Number(block.gap ?? 16)}px;`;
       const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
       const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
@@ -3860,7 +3924,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
             <label>Gap<input type="number" min="0" max="48" data-design-block-field="gap" value="${Number(block.gap ?? 16)}" /></label>
           </div>`
         : '';
-      return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" style="${style}">\n${columnControls}\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
+      return `<div${classAttr} data-design-section-body="${escapeTemplateText(block.id)}" data-mobile-stack="${mobileStack}" style="${style}">\n<span class="ee-design-mobile-note">${mobileNote}</span>\n${columnControls}\n${children.split('\n').map((line) => `  ${line}`).join('\n')}\n${emptyHint}\n</div>`;
     }
     if (block.type !== 'section') return designBlockToHtml(block);
     const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
@@ -3898,7 +3962,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function designCanvasBlockHtml(block: TemplateDesignBlock) {
     const meta = designTreeMeta(block);
-    const selectedClass = block.id === selectedDesignBlockId ? ' selected' : '';
+    const selectedClass = block.id === selectedDesignBlockId ? ' selected' : selectedDesignAncestorIds.includes(block.id) ? ' ancestor' : '';
     const wrapAction = !isDesignContainerBlock(block)
       ? '<button type="button" data-design-action="wrap">Wrap</button>'
       : '';
@@ -3943,6 +4007,7 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       img { max-width: 100%; }
       .ee-design-block { position: relative; margin: 0 0 10px; padding: 4px; border: 1px solid transparent; border-radius: 6px; cursor: grab; transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease; }
       .ee-design-block:hover { border-color: #8bb7ff; background: rgba(37, 99, 235, 0.04); }
+      .ee-design-block.ancestor { border-color: #bfdbfe; background: rgba(37, 99, 235, 0.035); }
       .ee-design-block.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.08); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
       .ee-design-block-label { position: absolute; z-index: 9; top: -18px; left: 8px; display: none; border: 1px solid #bfdbfe; border-radius: 999px; background: #ffffff; color: #1d4ed8; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12); pointer-events: none; }
       .ee-design-block:hover > .ee-design-block-label, .ee-design-block.selected > .ee-design-block-label { display: block; }
@@ -3963,6 +4028,13 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
       .ee-image-edit-panel input, .ee-field-edit-panel input, .ee-section-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
 	      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
+      .ee-design-mobile-note { display: inline-block; margin: 0 0 8px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #475569; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; }
+      @media (max-width: 520px) {
+        [data-mobile-stack="stack"] { display: block !important; }
+        [data-mobile-stack="reverse"] { display: flex !important; flex-direction: column-reverse; }
+        [data-mobile-stack="stack"] > .ee-design-block,
+        [data-mobile-stack="reverse"] > .ee-design-block { margin-bottom: 10px; }
+      }
       ${cssBody || ''}
     </style>
   </head>
@@ -4208,6 +4280,41 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setDesignDocEdited(true);
     markPreviewStale();
     setStatus('Added column.');
+  }
+
+  function moveDesignColumn(parentId: string, columnId: string, direction: -1 | 1) {
+    moveDesignBlock(columnId, direction);
+    selectDesignBlock(parentId);
+    setStatus(direction < 0 ? 'Moved column left.' : 'Moved column right.');
+  }
+
+  function duplicateDesignColumn(parentId: string, columnId: string) {
+    rememberDesignState();
+    let duplicated = false;
+    const duplicateColumn = (blocks: TemplateDesignBlock[]): TemplateDesignBlock[] => blocks.map((block) => {
+      if (block.id === parentId && block.type === 'columns') {
+        const children = block.children || [];
+        const index = children.findIndex((child) => child.id === columnId);
+        if (index < 0) return block;
+        const duplicate = cloneDesignBlock(children[index]);
+        duplicated = true;
+        const nextChildren = [...children];
+        nextChildren.splice(index + 1, 0, duplicate);
+        return { ...block, children: nextChildren };
+      }
+      if (block.children?.length) return { ...block, children: duplicateColumn(block.children) };
+      return block;
+    });
+    setDesignDoc((current) => {
+      const blocks = duplicateColumn(current.blocks);
+      return duplicated ? { blocks } : current;
+    });
+    if (duplicated) {
+      selectDesignBlock(parentId);
+      setDesignDocEdited(true);
+      markPreviewStale();
+      setStatus('Duplicated column.');
+    }
   }
 
   function removeLastDesignColumn(parentId: string) {
@@ -4683,8 +4790,43 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     return confirmed;
   }
 
+  function clearTemplateLocalDraft(templateId = selectedTemplateId) {
+    window.localStorage.removeItem(templateDraftStorageKey(templateId));
+    setLocalTemplateDraft(null);
+  }
+
+  function readTemplateLocalDraft(templateId = selectedTemplateId): TemplateLocalDraft | null {
+    try {
+      const raw = window.localStorage.getItem(templateDraftStorageKey(templateId));
+      if (!raw) return null;
+      const draft = JSON.parse(raw) as TemplateLocalDraft;
+      if (!draft || typeof draft.updatedAt !== 'number') return null;
+      if (!draft.designDoc || !Array.isArray(draft.designDoc.blocks)) return null;
+      return draft;
+    } catch {
+      return null;
+    }
+  }
+
+  function restoreTemplateLocalDraft() {
+    if (!localTemplateDraft) return;
+    const nextDesignDoc = cloneDesignDocument(localTemplateDraft.designDoc);
+    setName(localTemplateDraft.name);
+    setSubject(localTemplateDraft.subject);
+    setHtmlBody(localTemplateDraft.htmlBody);
+    setCssBody(localTemplateDraft.cssBody);
+    setDesignDoc(nextDesignDoc);
+    setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
+    setDesignDocEdited(true);
+    setEditorMode(localTemplateDraft.editorMode);
+    setPreviewSourceMode(localTemplateDraft.editorMode === 'design' ? 'design' : 'edit');
+    markPreviewStale();
+    setStatus('Restored local autosave draft. Save changes to persist it.');
+  }
+
   function resetTemplateEditor(options: { force?: boolean } = {}) {
     if (!options.force && !confirmDiscardTemplateChanges('start a new template')) return false;
+    clearTemplateLocalDraft(selectedTemplateId);
     setSelectedTemplateId('');
     setName(defaultTemplateSnapshot.name);
     setSubject(defaultTemplateSnapshot.subject);
@@ -4705,6 +4847,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setPreviewSourceMode('edit');
+    setTemplateVersions([]);
     setStatus('Ready to create a new template.');
     return true;
   }
@@ -4733,6 +4876,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setDesignRedoStack([]);
     setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
     setSavedTemplateSnapshot(snapshot);
+    setLocalTemplateDraft(readTemplateLocalDraft(template.id));
     clearTemplatePreview();
     setAiRecommendations([]);
     setAiNotes([]);
@@ -4740,6 +4884,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setAppliedAiDraftLabel('');
     setEditorMode('edit');
     setPreviewSourceMode('edit');
+    void loadTemplateVersions(template.id);
     setStatus(`Loaded template: ${template.name}`);
     return true;
   }
@@ -5618,6 +5763,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {backgroundControl()}
           {textInput('Padding', 'padding_y', 'number')}
           {block.type === 'columns' ? textInput('Column gap', 'gap', 'number') : null}
+          {block.type === 'columns' ? (
+            <label>Mobile behavior<select value={block.mobile_stack || 'stack'} onChange={(event) => updateDesignBlock(block.id, { mobile_stack: event.target.value as TemplateDesignBlock['mobile_stack'] })}><option value="stack">Stack columns</option><option value="reverse">Reverse stack</option><option value="keep">Keep columns</option></select></label>
+          ) : null}
           <label className="wide-field">
             Contents
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
@@ -5644,6 +5792,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                     value={Number(child.width || Math.round(100 / (block.children?.length || 1)))}
                     onChange={(event) => updateDesignBlock(child.id, { width: Number(event.target.value) })}
                   />
+                  <span className="column-width-actions">
+                    <button className="ghost" type="button" onClick={() => moveDesignColumn(block.id, child.id, -1)} disabled={busy || !canMoveDesignBlock(child.id, -1)}>Left</button>
+                    <button className="ghost" type="button" onClick={() => moveDesignColumn(block.id, child.id, 1)} disabled={busy || !canMoveDesignBlock(child.id, 1)}>Right</button>
+                    <button className="ghost" type="button" onClick={() => duplicateDesignColumn(block.id, child.id)} disabled={busy}>Duplicate</button>
+                  </span>
                 </label>
               ))}
             </div>
@@ -5716,6 +5869,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           method: 'POST',
           body: JSON.stringify(payload),
         });
+      clearTemplateLocalDraft(selectedTemplateId);
+      clearTemplateLocalDraft(saved.id);
       setSelectedTemplateId(saved.id);
       setHtmlBody(normalizedHtml);
       setDesignDocEdited(false);
@@ -5730,6 +5885,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       });
       setAppliedAiDraftLabel('');
       window.location.hash = `#templates/${saved.id}`;
+      await loadTemplateVersions(saved.id);
       await onRefresh();
       return `Saved template: ${saved.name}`;
     });
@@ -5743,9 +5899,35 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       }
       const template = await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`);
       const nextDesignDoc = await designDocForTemplate(template);
+      clearTemplateLocalDraft(selectedTemplateId);
       loadTemplateIntoEditor(template, { force: true, designDoc: nextDesignDoc });
       await onRefresh();
       return `Reloaded template: ${template.name}`;
+    });
+  }
+
+  async function restoreTemplateVersion(version: TemplateVersionRead) {
+    if (!selectedTemplateId) return;
+    if (!window.confirm(`Restore template version ${version.version_number}? This creates a new current version.`)) return;
+    await runTemplateOperation(`Restoring version ${version.version_number}`, async () => {
+      await fetchJson<TemplateVersionRead>(`/api/v1/templates/${selectedTemplateId}/versions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: version.subject,
+          html_body: version.html_body,
+          css_body: version.css_body,
+          text_body: version.text_body,
+          document_json: version.document_json || {},
+          set_current: true,
+        }),
+      });
+      const template = await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`);
+      const nextDesignDoc = await designDocForTemplate(template);
+      clearTemplateLocalDraft(selectedTemplateId);
+      loadTemplateIntoEditor(template, { force: true, designDoc: nextDesignDoc });
+      await loadTemplateVersions(selectedTemplateId);
+      await onRefresh();
+      return `Restored version ${version.version_number}.`;
     });
   }
 
@@ -6029,7 +6211,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         {hasUnsavedTemplateChanges && !appliedAiDraftLabel ? (
           <div className="operation-banner unsaved-template-banner">
             <strong>Unsaved changes</strong>
-            <span>The editor differs from the last saved template. Save changes to persist them, or revert changes to reload from the database.</span>
+            <span>The editor differs from the last saved template. Changes are autosaved locally; save to persist them, or revert to reload from the database.</span>
+          </div>
+        ) : null}
+        {localTemplateDraft && !hasUnsavedTemplateChanges ? (
+          <div className="operation-banner local-draft-banner">
+            <strong>Local draft available</strong>
+            <span>Autosaved {new Date(localTemplateDraft.updatedAt).toLocaleString()}. Restore it or revert to keep the database version.</span>
+            <button className="ghost" type="button" onClick={restoreTemplateLocalDraft} disabled={busy}>Restore Local Draft</button>
+            <button className="ghost" type="button" onClick={() => clearTemplateLocalDraft()} disabled={busy}>Discard Local Draft</button>
           </div>
         ) : null}
 	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
@@ -6612,6 +6802,29 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 </div>
               ) : null}
             </section>
+            {isPersistedTemplate ? (
+              <section className="workflow-section">
+                <h3>Version History</h3>
+                {templateVersions.length ? (
+                  <div className="template-version-list">
+                    {templateVersions.slice(0, 6).map((version) => (
+                      <div className={version.is_current ? 'current' : ''} key={version.id}>
+                        <div>
+                          <strong>Version {version.version_number}</strong>
+                          <span>{version.is_current ? 'Current version' : `${formatInt((version.html_body || '').length)} HTML chars`}</span>
+                        </div>
+                        <button className="ghost" type="button" onClick={() => restoreTemplateVersion(version)} disabled={busy || version.is_current}>Restore</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state compact-empty">
+                    <strong>No versions loaded</strong>
+                    <p>Save this template to create version history.</p>
+                  </div>
+                )}
+              </section>
+            ) : null}
             {isPersistedTemplate ? (
               <section className="workflow-section">
                 <h3>AI Edit Request</h3>

@@ -149,7 +149,8 @@ class EmailTemplate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     versions: Mapped[list['EmailTemplateVersion']] = relationship(
-        order_by='EmailTemplateVersion.version_number.desc()'
+        back_populates='template',
+        order_by='EmailTemplateVersion.version_number.desc()',
     )
 
 
@@ -172,7 +173,7 @@ class EmailTemplateVersion(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    template: Mapped[EmailTemplate] = relationship()
+    template: Mapped[EmailTemplate] = relationship(back_populates='versions')
 
 
 class DataSource(Base):
