@@ -1653,7 +1653,7 @@ th {
 .design-tree-row {
   display: grid;
   position: relative;
-  grid-template-columns: 14px 16px 22px 28px minmax(0, 1fr) 42px;
+  grid-template-columns: 14px 22px 28px minmax(0, 1fr) 42px 18px;
   gap: 7px;
   align-items: center;
   width: 100%;
@@ -1798,6 +1798,7 @@ th {
 
 .design-tree-branch {
   display: grid;
+  justify-self: end;
   place-items: center;
   width: 16px;
   height: 16px;

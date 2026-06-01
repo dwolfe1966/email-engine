@@ -38,6 +38,18 @@ type AuthResponse = {
   user: AuthUser;
 };
 
+type OperatorUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  is_active: boolean;
+  last_login_at: string | null;
+  failed_login_count: number;
+  locked_until: string | null;
+  created_at: string;
+};
+
 type TemplateCodeEditorHandle = {
   focus: () => void;
   getSelectionRange: () => { from: number; to: number };
@@ -3889,16 +3901,6 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
           <span className="design-tree-drag-handle" title="Drag to reorder">::</span>
-          <span
-            className={`design-tree-branch ${hasChildren ? 'has-children' : 'leaf'}`}
-            title={hasChildren ? `${collapsed ? 'Expand' : 'Collapse'} ${meta.label}` : undefined}
-            onClick={hasChildren ? (event) => {
-              event.stopPropagation();
-              toggleDesignTreeNode(block.id);
-            } : undefined}
-          >
-            {hasChildren ? (collapsed ? '+' : '-') : ''}
-          </span>
           <span className="design-tree-level" title={`Hierarchy level ${depth + 1}`}>{depth + 1}</span>
           <span className="design-tree-icon">{meta.label.slice(0, 2)}</span>
           <span className="design-tree-copy">
@@ -3918,6 +3920,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 	          >
 	            {isDesignContainerBlock(block) ? 'Add' : ''}
 	          </span>
+          <span
+            className={`design-tree-branch ${hasChildren ? 'has-children' : 'leaf'}`}
+            title={hasChildren ? `${collapsed ? 'Expand' : 'Collapse'} ${meta.label}` : undefined}
+            onClick={hasChildren ? (event) => {
+              event.stopPropagation();
+              toggleDesignTreeNode(block.id);
+            } : undefined}
+          >
+            {hasChildren ? (collapsed ? '+' : '-') : ''}
+          </span>
           {activeDropPosition ? <span className="design-tree-drop-label">{designTreeDropLabel(activeDropPosition)}</span> : null}
 	        </button>,
         ...(addMenuOpen ? [
@@ -9396,6 +9408,17 @@ function SettingsPage({ diagnostics, onRefresh }: {
   const [selectedTable, setSelectedTable] = useState('');
   const [status, setStatus] = useState('System settings view loaded.');
   const [busy, setBusy] = useState(false);
+  const [users, setUsers] = useState<OperatorUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userStatus, setUserStatus] = useState('Operator users have not been refreshed yet.');
+  const [newUser, setNewUser] = useState({
+    email: '',
+    displayName: '',
+    role: 'admin',
+    password: '',
+    isActive: true,
+  });
+  const [passwordReset, setPasswordReset] = useState<Record<string, string>>({});
   const counts = Object.entries(diagnostics?.entity_counts || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8);
@@ -9413,6 +9436,103 @@ function SettingsPage({ diagnostics, onRefresh }: {
       setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadUsers() {
+    setUsersLoading(true);
+    setUserStatus('Refreshing operator users...');
+    try {
+      const data = await fetchJson<ListResponse<OperatorUser>>('/api/v1/users/list?limit=100&offset=0');
+      setUsers(data.items || []);
+      setUserStatus(`${formatInt(data.total)} operator users loaded.`);
+    } catch (error) {
+      setUserStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setUsersLoading(true);
+    setUserStatus('Creating operator user...');
+    try {
+      await fetchJson<OperatorUser>('/api/v1/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: newUser.email,
+          display_name: newUser.displayName,
+          role: newUser.role,
+          password: newUser.password,
+          is_active: newUser.isActive,
+        }),
+      });
+      setNewUser({ email: '', displayName: '', role: 'admin', password: '', isActive: true });
+      await loadUsers();
+      setUserStatus('Operator user created.');
+    } catch (error) {
+      setUserStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function updateUser(user: OperatorUser, updates: Partial<Pick<OperatorUser, 'display_name' | 'role' | 'is_active'>>) {
+    setUsersLoading(true);
+    setUserStatus(`Updating ${user.email}...`);
+    try {
+      await fetchJson<OperatorUser>(`/api/v1/users/${user.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      await loadUsers();
+      setUserStatus(`${user.email} updated.`);
+    } catch (error) {
+      setUserStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function resetPassword(user: OperatorUser) {
+    const password = passwordReset[user.id] || '';
+    if (password.length < 8) {
+      setUserStatus('Error: Password must be at least 8 characters.');
+      return;
+    }
+    setUsersLoading(true);
+    setUserStatus(`Resetting password for ${user.email}...`);
+    try {
+      await fetchJson<OperatorUser>(`/api/v1/users/${user.id}/password`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      });
+      setPasswordReset((current) => ({ ...current, [user.id]: '' }));
+      await loadUsers();
+      setUserStatus(`${user.email} password reset.`);
+    } catch (error) {
+      setUserStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function unlockUser(user: OperatorUser) {
+    setUsersLoading(true);
+    setUserStatus(`Unlocking ${user.email}...`);
+    try {
+      await fetchJson<OperatorUser>(`/api/v1/users/${user.id}/unlock`, { method: 'POST' });
+      await loadUsers();
+      setUserStatus(`${user.email} unlocked.`);
+    } catch (error) {
+      setUserStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setUsersLoading(false);
     }
   }
 
@@ -9476,6 +9596,118 @@ function SettingsPage({ diagnostics, onRefresh }: {
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
         </div>
+      </section>
+      <section className="panel full-span campaign-workbench">
+        <div className="panel-head"><h2>Operator Accounts</h2><button className="ghost" onClick={loadUsers} disabled={usersLoading}>Refresh Users</button></div>
+        <form className="form-grid" onSubmit={createUser}>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
+              required
+              type="email"
+              value={newUser.email}
+            />
+          </label>
+          <label>
+            Display name
+            <input
+              onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
+              required
+              value={newUser.displayName}
+            />
+          </label>
+          <label>
+            Role
+            <select
+              onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
+              value={newUser.role}
+            >
+              <option value="admin">admin</option>
+              <option value="operator">operator</option>
+              <option value="viewer">viewer</option>
+            </select>
+          </label>
+          <label>
+            Temporary password
+            <input
+              autoComplete="new-password"
+              minLength={8}
+              onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
+              required
+              type="password"
+              value={newUser.password}
+            />
+          </label>
+          <label className="checkbox-label">
+            <input
+              checked={newUser.isActive}
+              onChange={(event) => setNewUser((current) => ({ ...current, isActive: event.target.checked }))}
+              type="checkbox"
+            />
+            Active account
+          </label>
+          <div className="button-row">
+            <button className="primary" disabled={usersLoading} type="submit">Create User</button>
+          </div>
+        </form>
+        <div className={`operation-banner ${userStatus.startsWith('Error:') ? 'warn' : ''}`}>
+          <strong>{usersLoading ? 'Working' : 'Status'}</strong>
+          <span>{userStatus}</span>
+        </div>
+      </section>
+      <section className="panel table-panel full-span">
+        <div className="panel-head"><h2>Operator Directory</h2><span className="muted">{formatInt(users.length)} users</span></div>
+        {users.length ? (
+          <table>
+            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th>Failures</th><th>Password</th><th>Actions</th></tr></thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td><strong>{user.display_name}</strong><br /><span className="muted">{user.email}</span></td>
+                  <td>
+                    <select
+                      aria-label={`Role for ${user.email}`}
+                      onChange={(event) => updateUser(user, { role: event.target.value })}
+                      value={user.role}
+                    >
+                      <option value="admin">admin</option>
+                      <option value="operator">operator</option>
+                      <option value="viewer">viewer</option>
+                    </select>
+                  </td>
+                  <td><span className="pill">{user.is_active ? 'active' : 'inactive'}</span></td>
+                  <td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'never'}</td>
+                  <td>{user.locked_until ? `locked until ${new Date(user.locked_until).toLocaleString()}` : formatInt(user.failed_login_count)}</td>
+                  <td>
+                    <input
+                      aria-label={`New password for ${user.email}`}
+                      minLength={8}
+                      onChange={(event) => setPasswordReset((current) => ({ ...current, [user.id]: event.target.value }))}
+                      placeholder="New password"
+                      type="password"
+                      value={passwordReset[user.id] || ''}
+                    />
+                  </td>
+                  <td>
+                    <div className="button-row compact-actions">
+                      <button className="ghost" disabled={usersLoading} onClick={() => updateUser(user, { is_active: !user.is_active })}>
+                        {user.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button className="ghost" disabled={usersLoading || !(passwordReset[user.id] || '')} onClick={() => resetPassword(user)}>
+                        Reset
+                      </button>
+                      <button className="ghost" disabled={usersLoading || (!user.locked_until && user.failed_login_count === 0)} onClick={() => unlockUser(user)}>
+                        Unlock
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <EmptyState title="No operator users loaded" detail="Refresh users or create the first account." />}
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head"><h2>Entity Counts</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
