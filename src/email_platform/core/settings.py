@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     bootstrap_operator_password: str | None = None
     bootstrap_operator_display_name: str = 'Production Operator'
     bootstrap_operator_role: str = 'admin'
+    visitor_access_enabled: bool = False
+    visitor_access_email: EmailStr = 'visitor@email-engine.app'
+    visitor_access_display_name: str = 'Visitor'
 
     @field_validator('database_url', 'database_migration_url', mode='before')
     @classmethod

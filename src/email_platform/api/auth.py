@@ -48,7 +48,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 CookieToken = Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)]
 
 
-def _set_session_cookie(response: Response, raw_token: str) -> None:
+def set_session_cookie(response: Response, raw_token: str) -> None:
     """Apply the standard cookie shape. Secure flag is conditioned on
     the deployment env so local HTTP dev still receives the cookie."""
     # Settings imported lazily to avoid a circular at module load.
@@ -108,7 +108,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: DbSessio
     _row, raw_token = create_session(db, user=user, ip=client_ip, user_agent=user_agent)
     db.commit()
 
-    _set_session_cookie(response, raw_token)
+    set_session_cookie(response, raw_token)
     return LoginResponse(user=AuthUserRead.model_validate(user))
 
 

@@ -43,3 +43,27 @@ def bootstrap_operator_user(db: Session, settings: Settings) -> User | None:
     db.commit()
     db.refresh(user)
     return user
+
+
+def ensure_visitor_user(db: Session, settings: Settings) -> User:
+    email = str(settings.visitor_access_email)
+    user = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+    if user is None:
+        user = User(
+            email=email,
+            display_name=settings.visitor_access_display_name,
+            role='visitor',
+            password_hash=None,
+            is_active=True,
+            failed_login_count=0,
+        )
+        db.add(user)
+    else:
+        user.display_name = settings.visitor_access_display_name
+        user.role = 'visitor'
+        user.is_active = True
+        user.failed_login_count = 0
+        user.locked_until = None
+
+    db.flush()
+    return user

@@ -5,7 +5,11 @@ import pytest
 from email_platform.core.settings import Settings
 from email_platform.models.entities import User
 from email_platform.services.auth import verify_password
-from email_platform.services.bootstrap import bootstrap_operator_user, should_bootstrap_operator
+from email_platform.services.bootstrap import (
+    bootstrap_operator_user,
+    ensure_visitor_user,
+    should_bootstrap_operator,
+)
 
 
 def test_bootstrap_operator_is_disabled_without_complete_credentials() -> None:
@@ -81,3 +85,50 @@ def test_bootstrap_operator_updates_existing_user_and_clears_lockout() -> None:
     assert verify_password('replacement-password', user.password_hash or '')
     db.add.assert_not_called()
     db.commit.assert_called_once()
+
+
+def test_ensure_visitor_user_creates_passwordless_visitor() -> None:
+    db = Mock()
+    db.execute.return_value.scalar_one_or_none.return_value = None
+    settings = Settings(
+        visitor_access_email='visitor@example.com',
+        visitor_access_display_name='Demo Visitor',
+    )
+
+    user = ensure_visitor_user(db, settings)
+
+    assert user.email == 'visitor@example.com'
+    assert user.display_name == 'Demo Visitor'
+    assert user.role == 'visitor'
+    assert user.password_hash is None
+    assert user.is_active is True
+    db.add.assert_called_once_with(user)
+    db.flush.assert_called_once()
+
+
+def test_ensure_visitor_user_updates_existing_user() -> None:
+    existing = User(
+        email='visitor@example.com',
+        display_name='Old Visitor',
+        role='admin',
+        password_hash='not-used',
+        is_active=False,
+        failed_login_count=4,
+    )
+    db = Mock()
+    db.execute.return_value.scalar_one_or_none.return_value = existing
+    settings = Settings(
+        visitor_access_email='visitor@example.com',
+        visitor_access_display_name='Demo Visitor',
+    )
+
+    user = ensure_visitor_user(db, settings)
+
+    assert user is existing
+    assert user.display_name == 'Demo Visitor'
+    assert user.role == 'visitor'
+    assert user.is_active is True
+    assert user.failed_login_count == 0
+    assert user.locked_until is None
+    db.add.assert_not_called()
+    db.flush.assert_called_once()

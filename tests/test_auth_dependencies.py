@@ -6,6 +6,7 @@ from email_platform.api.deps import (
     optional_user,
     require_user,
     requires_operator_auth_path,
+    visitor_method_allowed,
 )
 from email_platform.main import app, settings
 
@@ -70,3 +71,21 @@ def test_user_management_routes_always_require_operator_session(monkeypatch) -> 
     response = client.get('/api/v1/users/list')
     assert response.status_code == 401
     assert response.json() == {'detail': 'Not authenticated'}
+
+
+def test_visitor_access_allows_read_and_safe_preview_posts_only() -> None:
+    assert visitor_method_allowed('GET', '/api/v1/templates/list')
+    assert visitor_method_allowed('HEAD', '/api/v1/templates/list')
+    assert visitor_method_allowed('POST', '/api/v1/templates/preview')
+    assert visitor_method_allowed('POST', '/api/v1/audiences/preview')
+    assert not visitor_method_allowed('POST', '/api/v1/templates')
+    assert not visitor_method_allowed('PATCH', '/api/v1/templates/template-id')
+    assert not visitor_method_allowed('DELETE', '/api/v1/templates/template-id')
+
+
+def test_visitor_link_is_disabled_by_default(monkeypatch) -> None:
+    monkeypatch.setattr(settings, 'visitor_access_enabled', False)
+    client = TestClient(app, follow_redirects=False)
+
+    response = client.get('/esp/visitor')
+    assert response.status_code == 404

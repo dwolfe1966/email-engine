@@ -23,6 +23,16 @@ PUBLIC_API_PREFIXES = (
     '/api/v1/tracking/click/',
     '/api/v1/unsubscribe/',
 )
+VISITOR_SAFE_POST_PATHS = {
+    '/api/v1/audiences/preview',
+    '/api/v1/templates/document/render',
+    '/api/v1/templates/document/validate',
+    '/api/v1/templates/document/variables',
+    '/api/v1/templates/lint',
+    '/api/v1/templates/preview',
+    '/api/v1/templates/validate',
+    '/api/v1/templates/variables',
+}
 
 
 def is_public_api_path(path: str) -> bool:
@@ -35,6 +45,16 @@ def requires_operator_auth_path(path: str) -> bool:
     if is_public_api_path(path):
         return False
     return path == '/api/v1' or path.startswith('/api/v1/')
+
+
+def visitor_method_allowed(method: str, path: str) -> bool:
+    """Return true when a visitor role may call this operator API path."""
+    normalized_method = method.upper()
+    if normalized_method in {'GET', 'HEAD', 'OPTIONS'}:
+        return True
+    if normalized_method == 'POST' and path in VISITOR_SAFE_POST_PATHS:
+        return True
+    return False
 
 
 def user_from_session_token(db: Session, token: str | None) -> User | None:
