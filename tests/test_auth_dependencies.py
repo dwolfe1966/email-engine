@@ -61,3 +61,12 @@ def test_require_gui_auth_blocks_operator_api_but_not_public_api(monkeypatch) ->
 
     public = client.get('/api/v1/tracking/open/not-a-real-token')
     assert public.status_code != 401
+
+
+def test_user_management_routes_always_require_operator_session(monkeypatch) -> None:
+    monkeypatch.setattr(settings, 'require_gui_auth', False)
+    client = TestClient(app, follow_redirects=False)
+
+    response = client.get('/api/v1/users/list')
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'Not authenticated'}

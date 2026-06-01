@@ -9,7 +9,7 @@ from email_platform.models.entities import User
 from email_platform.services.auth import SESSION_COOKIE_NAME, lookup_session
 
 DbSession = Annotated[Session, Depends(get_db)]
-SessionCookie = Annotated[str | None, Cookie(default=None, alias=SESSION_COOKIE_NAME)]
+SessionCookie = Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)]
 
 PUBLIC_API_EXACT_PATHS = {
     '/api/auth',

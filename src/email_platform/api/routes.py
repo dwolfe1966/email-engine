@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from email_platform.api.deps import require_user
 from email_platform.core.settings import Settings, get_settings
 from email_platform.db.session import get_db
 from email_platform.models.entities import (
@@ -190,7 +191,7 @@ def read_system_diagnostics(db: DbSession, settings: SettingsDep) -> JsonObject:
     return system_diagnostics(db, settings)
 
 
-@router.get('/users/list', response_model=ListResponse[OperatorUserRead])
+@router.get('/users/list', response_model=ListResponse[OperatorUserRead], dependencies=[Depends(require_user)])
 def list_operator_users(
     db: DbSession,
     limit: Limit = 100,
@@ -205,7 +206,7 @@ def list_operator_users(
     return ListResponse[OperatorUserRead](items=users, limit=limit, offset=offset, total=total)
 
 
-@router.post('/users', response_model=OperatorUserRead)
+@router.post('/users', response_model=OperatorUserRead, dependencies=[Depends(require_user)])
 def create_operator_user(payload: OperatorUserCreate, db: DbSession) -> User:
     existing = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if existing is not None:
@@ -224,7 +225,7 @@ def create_operator_user(payload: OperatorUserCreate, db: DbSession) -> User:
     return user
 
 
-@router.get('/users/{user_id}', response_model=OperatorUserRead)
+@router.get('/users/{user_id}', response_model=OperatorUserRead, dependencies=[Depends(require_user)])
 def get_operator_user(user_id: UUID, db: DbSession) -> User:
     user = db.get(User, user_id)
     if user is None:
@@ -232,7 +233,7 @@ def get_operator_user(user_id: UUID, db: DbSession) -> User:
     return user
 
 
-@router.patch('/users/{user_id}', response_model=OperatorUserRead)
+@router.patch('/users/{user_id}', response_model=OperatorUserRead, dependencies=[Depends(require_user)])
 def update_operator_user(user_id: UUID, payload: OperatorUserUpdate, db: DbSession) -> User:
     user = db.get(User, user_id)
     if user is None:
@@ -248,7 +249,7 @@ def update_operator_user(user_id: UUID, payload: OperatorUserUpdate, db: DbSessi
     return user
 
 
-@router.post('/users/{user_id}/password', response_model=OperatorUserRead)
+@router.post('/users/{user_id}/password', response_model=OperatorUserRead, dependencies=[Depends(require_user)])
 def update_operator_user_password(
     user_id: UUID,
     payload: OperatorUserPasswordUpdate,
@@ -265,7 +266,7 @@ def update_operator_user_password(
     return user
 
 
-@router.post('/users/{user_id}/unlock', response_model=OperatorUserRead)
+@router.post('/users/{user_id}/unlock', response_model=OperatorUserRead, dependencies=[Depends(require_user)])
 def unlock_operator_user(user_id: UUID, db: DbSession) -> User:
     user = db.get(User, user_id)
     if user is None:
