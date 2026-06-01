@@ -337,6 +337,42 @@ h2 {
   gap: 10px;
 }
 
+.topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.topbar-profile strong,
+.topbar-profile span {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-profile strong {
+  font-size: 13px;
+}
+
+.topbar-profile span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.topbar-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+}
+
 .search {
   position: relative;
 }
@@ -3347,6 +3383,13 @@ th {
   .topbar-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+  .topbar-profile {
+    justify-content: space-between;
+  }
+  .topbar-profile strong,
+  .topbar-profile span {
+    max-width: 56vw;
   }
   .workflow-rail { grid-template-columns: 1fr; }
   .search input { width: 100%; }

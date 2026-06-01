@@ -59,9 +59,11 @@ async def enforce_operator_api_auth(request: Request, call_next):
     if operator_path:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         user = None
+        user_role = None
         with SessionLocal() as db:
             user = user_from_session_token(db, token)
             if user is not None:
+                user_role = user.role
                 db.commit()
         if settings.require_gui_auth and user is None:
             return JSONResponse(
@@ -69,7 +71,7 @@ async def enforce_operator_api_auth(request: Request, call_next):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 headers={'WWW-Authenticate': 'Cookie'},
             )
-        if user is not None and user.role == 'visitor' and not visitor_method_allowed(
+        if user is not None and user_role == 'visitor' and not visitor_method_allowed(
             request.method,
             request.url.path,
         ):

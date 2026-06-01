@@ -78,6 +78,8 @@ def test_visitor_access_allows_read_and_safe_preview_posts_only() -> None:
     assert visitor_method_allowed('HEAD', '/api/v1/templates/list')
     assert visitor_method_allowed('POST', '/api/v1/templates/preview')
     assert visitor_method_allowed('POST', '/api/v1/audiences/preview')
+    assert not visitor_method_allowed('GET', '/api/v1/users/list')
+    assert not visitor_method_allowed('GET', '/api/v1/users/user-id')
     assert not visitor_method_allowed('POST', '/api/v1/templates')
     assert not visitor_method_allowed('PATCH', '/api/v1/templates/template-id')
     assert not visitor_method_allowed('DELETE', '/api/v1/templates/template-id')

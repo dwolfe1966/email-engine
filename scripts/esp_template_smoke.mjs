@@ -6,12 +6,15 @@ import { join } from 'node:path';
 
 const baseUrl = (process.argv[2] || process.env.ESP_BASE_URL || 'https://email-engine.app').replace(/\/$/, '');
 const targetUrl = `${baseUrl}/esp/templates`;
+const smokeEmail = process.env.ESP_SMOKE_EMAIL || '';
+const smokePassword = process.env.ESP_SMOKE_PASSWORD || '';
 const chromePath = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const port = Number(process.env.CHROME_DEBUG_PORT || 9223);
 const userDataDir = await mkdtemp(join(tmpdir(), 'ee-esp-smoke-'));
 const errors = [];
 let tempTemplateId = '';
 let chrome;
+let sessionCookieHeader = '';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,6 +42,7 @@ async function apiJson(path, options = {}, attempts = 3) {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(sessionCookieHeader ? { Cookie: sessionCookieHeader } : {}),
         ...(options.headers || {}),
       },
     });
@@ -52,6 +56,25 @@ async function apiJson(path, options = {}, attempts = 3) {
     await sleep(300 * (index + 1));
   }
   throw lastError;
+}
+
+async function loginForSmoke() {
+  if (!smokeEmail || !smokePassword) return null;
+  const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: smokeEmail, password: smokePassword }),
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Smoke login failed: ${response.status} ${body}`);
+  }
+  const setCookie = response.headers.get('set-cookie') || '';
+  const pair = setCookie.split(';')[0];
+  if (!pair.includes('=')) throw new Error('Smoke login did not return a session cookie.');
+  sessionCookieHeader = pair;
+  const [name, value] = pair.split('=');
+  return { name, value };
 }
 
 async function removeTempDir(path, attempts = 5) {
@@ -128,6 +151,7 @@ function failOnLogError(params) {
 }
 
 try {
+  const smokeCookie = await loginForSmoke();
   const smokeMarker = `Smoke saved design ${Date.now()}`;
   const tempTemplate = await apiJson('/api/v1/templates', {
     method: 'POST',
@@ -172,7 +196,19 @@ try {
 
   await cdp.send('Runtime.enable');
   await cdp.send('Page.enable');
+  await cdp.send('Network.enable');
   await cdp.send('Log.enable');
+  if (smokeCookie) {
+    await cdp.send('Network.setCookie', {
+      name: smokeCookie.name,
+      value: smokeCookie.value,
+      url: baseUrl,
+      path: '/',
+      secure: baseUrl.startsWith('https://'),
+      httpOnly: true,
+      sameSite: 'Lax',
+    });
+  }
 
   let loaded = false;
   cdp.on('Page.loadEventFired', () => {

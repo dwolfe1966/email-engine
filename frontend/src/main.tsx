@@ -1008,13 +1008,22 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+  const detail =
+    data && typeof data === 'object' && 'detail' in data
+      ? String((data as { detail?: unknown }).detail || '')
+      : text;
   if (response.status === 401) {
     authRequiredHandler?.();
-    throw new AuthRequiredError(data?.detail || 'Not authenticated');
+    throw new AuthRequiredError(detail || 'Not authenticated');
   }
   if (!response.ok) {
-    throw new Error(data?.detail || `${path} failed`);
+    throw new Error(detail || `${path} failed`);
   }
   return data as T;
 }
@@ -1107,7 +1116,7 @@ function initialsForUser(user: AuthUser | null) {
     .join('') || 'OP';
 }
 
-function Sidebar({ activePage, user, onLogout }: { activePage: PageKey; user: AuthUser | null; onLogout: () => void }) {
+function Sidebar({ activePage }: { activePage: PageKey }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -1132,14 +1141,6 @@ function Sidebar({ activePage, user, onLogout }: { activePage: PageKey; user: Au
         <strong>12,450 / 25,000 emails</strong>
         <div className="usage-track"><span /></div>
       </section>
-      <div className="profile">
-        <div className="avatar">{initialsForUser(user)}</div>
-        <div>
-          <strong>{user?.display_name || 'Operator'}</strong>
-          <span>{user?.email || 'email-engine.app'}</span>
-        </div>
-        {user ? <button type="button" className="profile-logout" onClick={onLogout}>Sign out</button> : null}
-      </div>
     </aside>
   );
 }
@@ -1159,7 +1160,21 @@ function headerAction(page: PageKey) {
   return actions[page] || null;
 }
 
-function Header({ title, status, operation, activePage }: { title: string; status: string; operation: OperationNotice; activePage: PageKey }) {
+function Header({
+  title,
+  status,
+  operation,
+  activePage,
+  user,
+  onLogout,
+}: {
+  title: string;
+  status: string;
+  operation: OperationNotice;
+  activePage: PageKey;
+  user: AuthUser | null;
+  onLogout: () => void;
+}) {
   const action = headerAction(activePage);
   return (
     <header className="topbar">
@@ -1176,6 +1191,14 @@ function Header({ title, status, operation, activePage }: { title: string; statu
         {action ? (
           <button className="primary" onClick={() => { window.location.hash = action.href; }}>{action.label}</button>
         ) : null}
+        <div className="topbar-profile">
+          <div className="avatar topbar-avatar">{initialsForUser(user)}</div>
+          <div>
+            <strong>{user?.display_name || 'Operator'}</strong>
+            <span>{user?.email || 'email-engine.app'}</span>
+          </div>
+          {user ? <button type="button" className="profile-logout" onClick={onLogout}>Sign out</button> : null}
+        </div>
       </div>
     </header>
   );
@@ -9401,9 +9424,10 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
   );
 }
 
-function SettingsPage({ diagnostics, onRefresh }: {
+function SettingsPage({ diagnostics, onRefresh, currentUser }: {
   diagnostics: SystemDiagnostics | null;
   onRefresh: () => Promise<void>;
+  currentUser: AuthUser | null;
 }) {
   const [selectedTable, setSelectedTable] = useState('');
   const [status, setStatus] = useState('System settings view loaded.');
@@ -9425,6 +9449,7 @@ function SettingsPage({ diagnostics, onRefresh }: {
   const tables = diagnostics?.database_tables || [];
   const tableName = selectedTable || tables[0] || '';
   const columns = tableName ? diagnostics?.database_table_columns?.[tableName] || [] : [];
+  const canManageUsers = currentUser?.role === 'admin';
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -9454,8 +9479,13 @@ function SettingsPage({ diagnostics, onRefresh }: {
   }
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (canManageUsers) {
+      loadUsers();
+    } else {
+      setUsers([]);
+      setUserStatus('Sign in as an admin to manage operator users.');
+    }
+  }, [canManageUsers]);
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -9597,118 +9627,127 @@ function SettingsPage({ diagnostics, onRefresh }: {
           <span>{status}</span>
         </div>
       </section>
-      <section className="panel full-span campaign-workbench">
-        <div className="panel-head"><h2>Operator Accounts</h2><button className="ghost" onClick={loadUsers} disabled={usersLoading}>Refresh Users</button></div>
-        <form className="form-grid" onSubmit={createUser}>
-          <label>
-            Email
-            <input
-              autoComplete="email"
-              onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
-              required
-              type="email"
-              value={newUser.email}
-            />
-          </label>
-          <label>
-            Display name
-            <input
-              onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
-              required
-              value={newUser.displayName}
-            />
-          </label>
-          <label>
-            Role
-            <select
-              onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
-              value={newUser.role}
-            >
-              <option value="admin">admin</option>
-              <option value="operator">operator</option>
-              <option value="viewer">viewer</option>
-            </select>
-          </label>
-          <label>
-            Temporary password
-            <input
-              autoComplete="new-password"
-              minLength={8}
-              onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
-              required
-              type="password"
-              value={newUser.password}
-            />
-          </label>
-          <label className="checkbox-label">
-            <input
-              checked={newUser.isActive}
-              onChange={(event) => setNewUser((current) => ({ ...current, isActive: event.target.checked }))}
-              type="checkbox"
-            />
-            Active account
-          </label>
-          <div className="button-row">
-            <button className="primary" disabled={usersLoading} type="submit">Create User</button>
-          </div>
-        </form>
-        <div className={`operation-banner ${userStatus.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{usersLoading ? 'Working' : 'Status'}</strong>
-          <span>{userStatus}</span>
-        </div>
-      </section>
-      <section className="panel table-panel full-span">
-        <div className="panel-head"><h2>Operator Directory</h2><span className="muted">{formatInt(users.length)} users</span></div>
-        {users.length ? (
-          <table>
-            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th>Failures</th><th>Password</th><th>Actions</th></tr></thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td><strong>{user.display_name}</strong><br /><span className="muted">{user.email}</span></td>
-                  <td>
-                    <select
-                      aria-label={`Role for ${user.email}`}
-                      onChange={(event) => updateUser(user, { role: event.target.value })}
-                      value={user.role}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="operator">operator</option>
-                      <option value="viewer">viewer</option>
-                    </select>
-                  </td>
-                  <td><span className="pill">{user.is_active ? 'active' : 'inactive'}</span></td>
-                  <td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'never'}</td>
-                  <td>{user.locked_until ? `locked until ${new Date(user.locked_until).toLocaleString()}` : formatInt(user.failed_login_count)}</td>
-                  <td>
-                    <input
-                      aria-label={`New password for ${user.email}`}
-                      minLength={8}
-                      onChange={(event) => setPasswordReset((current) => ({ ...current, [user.id]: event.target.value }))}
-                      placeholder="New password"
-                      type="password"
-                      value={passwordReset[user.id] || ''}
-                    />
-                  </td>
-                  <td>
-                    <div className="button-row compact-actions">
-                      <button className="ghost" disabled={usersLoading} onClick={() => updateUser(user, { is_active: !user.is_active })}>
-                        {user.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button className="ghost" disabled={usersLoading || !(passwordReset[user.id] || '')} onClick={() => resetPassword(user)}>
-                        Reset
-                      </button>
-                      <button className="ghost" disabled={usersLoading || (!user.locked_until && user.failed_login_count === 0)} onClick={() => unlockUser(user)}>
-                        Unlock
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : <EmptyState title="No operator users loaded" detail="Refresh users or create the first account." />}
-      </section>
+      {canManageUsers ? (
+        <>
+          <section className="panel full-span campaign-workbench">
+            <div className="panel-head"><h2>Operator Accounts</h2><button className="ghost" onClick={loadUsers} disabled={usersLoading}>Refresh Users</button></div>
+            <form className="form-grid" onSubmit={createUser}>
+              <label>
+                Email
+                <input
+                  autoComplete="email"
+                  onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))}
+                  required
+                  type="email"
+                  value={newUser.email}
+                />
+              </label>
+              <label>
+                Display name
+                <input
+                  onChange={(event) => setNewUser((current) => ({ ...current, displayName: event.target.value }))}
+                  required
+                  value={newUser.displayName}
+                />
+              </label>
+              <label>
+                Role
+                <select
+                  onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))}
+                  value={newUser.role}
+                >
+                  <option value="admin">admin</option>
+                  <option value="operator">operator</option>
+                  <option value="viewer">viewer</option>
+                </select>
+              </label>
+              <label>
+                Temporary password
+                <input
+                  autoComplete="new-password"
+                  minLength={8}
+                  onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))}
+                  required
+                  type="password"
+                  value={newUser.password}
+                />
+              </label>
+              <label className="checkbox-label">
+                <input
+                  checked={newUser.isActive}
+                  onChange={(event) => setNewUser((current) => ({ ...current, isActive: event.target.checked }))}
+                  type="checkbox"
+                />
+                Active account
+              </label>
+              <div className="button-row">
+                <button className="primary" disabled={usersLoading} type="submit">Create User</button>
+              </div>
+            </form>
+            <div className={`operation-banner ${userStatus.startsWith('Error:') ? 'warn' : ''}`}>
+              <strong>{usersLoading ? 'Working' : 'Status'}</strong>
+              <span>{userStatus}</span>
+            </div>
+          </section>
+          <section className="panel table-panel full-span">
+            <div className="panel-head"><h2>Operator Directory</h2><span className="muted">{formatInt(users.length)} users</span></div>
+            {users.length ? (
+              <table>
+                <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last login</th><th>Failures</th><th>Password</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td><strong>{user.display_name}</strong><br /><span className="muted">{user.email}</span></td>
+                      <td>
+                        <select
+                          aria-label={`Role for ${user.email}`}
+                          onChange={(event) => updateUser(user, { role: event.target.value })}
+                          value={user.role}
+                        >
+                          <option value="admin">admin</option>
+                          <option value="operator">operator</option>
+                          <option value="viewer">viewer</option>
+                        </select>
+                      </td>
+                      <td><span className="pill">{user.is_active ? 'active' : 'inactive'}</span></td>
+                      <td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'never'}</td>
+                      <td>{user.locked_until ? `locked until ${new Date(user.locked_until).toLocaleString()}` : formatInt(user.failed_login_count)}</td>
+                      <td>
+                        <input
+                          aria-label={`New password for ${user.email}`}
+                          minLength={8}
+                          onChange={(event) => setPasswordReset((current) => ({ ...current, [user.id]: event.target.value }))}
+                          placeholder="New password"
+                          type="password"
+                          value={passwordReset[user.id] || ''}
+                        />
+                      </td>
+                      <td>
+                        <div className="button-row compact-actions">
+                          <button className="ghost" disabled={usersLoading} onClick={() => updateUser(user, { is_active: !user.is_active })}>
+                            {user.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button className="ghost" disabled={usersLoading || !(passwordReset[user.id] || '')} onClick={() => resetPassword(user)}>
+                            Reset
+                          </button>
+                          <button className="ghost" disabled={usersLoading || (!user.locked_until && user.failed_login_count === 0)} onClick={() => unlockUser(user)}>
+                            Unlock
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <EmptyState title="No operator users loaded" detail="Refresh users or create the first account." />}
+          </section>
+        </>
+      ) : (
+        <section className="panel full-span">
+          <div className="panel-head"><h2>Operator Accounts</h2><span className="muted">Admin only</span></div>
+          <EmptyState title="Operator users require admin access" detail={userStatus} />
+        </section>
+      )}
       <section className="panel table-panel full-span">
         <div className="panel-head"><h2>Entity Counts</h2><a href="/api/v1/system/diagnostics">Raw diagnostics</a></div>
         {counts.length ? (
@@ -10207,6 +10246,7 @@ function App() {
     if (activePage === 'settings') {
       return (
         <SettingsPage
+          currentUser={authUser}
           diagnostics={dashboard.diagnostics}
           onRefresh={async () => {
             const diagnostics = await fetchJson<SystemDiagnostics>('/api/v1/system/diagnostics');
@@ -10222,11 +10262,18 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} user={authUser} onLogout={handleLogout} />
-		      <main className="workspace">
-		        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} activePage={activePage} />
-		        {content}
-		      </main>
+      <Sidebar activePage={activePage} />
+      <main className="workspace">
+        <Header
+          activePage={activePage}
+          operation={operationNotice}
+          onLogout={handleLogout}
+          status={status}
+          title={pageTitle(activePage)}
+          user={authUser}
+        />
+        {content}
+      </main>
     </div>
   );
 }

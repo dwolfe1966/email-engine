@@ -33,6 +33,9 @@ VISITOR_SAFE_POST_PATHS = {
     '/api/v1/templates/validate',
     '/api/v1/templates/variables',
 }
+VISITOR_BLOCKED_PREFIXES = (
+    '/api/v1/users',
+)
 
 
 def is_public_api_path(path: str) -> bool:
@@ -50,6 +53,10 @@ def requires_operator_auth_path(path: str) -> bool:
 def visitor_method_allowed(method: str, path: str) -> bool:
     """Return true when a visitor role may call this operator API path."""
     normalized_method = method.upper()
+    if path in VISITOR_BLOCKED_PREFIXES or any(
+        path.startswith(f'{prefix}/') for prefix in VISITOR_BLOCKED_PREFIXES
+    ):
+        return False
     if normalized_method in {'GET', 'HEAD', 'OPTIONS'}:
         return True
     if normalized_method == 'POST' and path in VISITOR_SAFE_POST_PATHS:
