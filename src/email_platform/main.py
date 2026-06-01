@@ -1,20 +1,21 @@
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from email_platform.api.admin_console import router as admin_console_router
 from email_platform.api.auth import router as auth_router
 from email_platform.api.compat import router as compat_router
-from email_platform.api.deps import require_user
+from email_platform.api.deps import require_user, requires_operator_auth_path, user_from_session_token
 from email_platform.api.routes import router
 from email_platform.api.template_editor import router as template_editor_router
 from email_platform.api.test_console import router as test_console_router
 from email_platform.core.settings import get_settings
 from email_platform.db.session import SessionLocal
+from email_platform.services.auth import SESSION_COOKIE_NAME
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
@@ -28,6 +29,23 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+
+@app.middleware('http')
+async def enforce_operator_api_auth(request: Request, call_next):
+    if settings.require_gui_auth and requires_operator_auth_path(request.url.path):
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        with SessionLocal() as db:
+            user = user_from_session_token(db, token)
+            if user is not None:
+                db.commit()
+        if user is None:
+            return JSONResponse(
+                {'detail': 'Not authenticated'},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                headers={'WWW-Authenticate': 'Cookie'},
+            )
+    return await call_next(request)
 
 
 @app.get('/', include_in_schema=False)

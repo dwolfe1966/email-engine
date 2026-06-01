@@ -12,8 +12,9 @@ remains a supported external client and a useful source of UX patterns, but new 
 default to Email Engine's own admin and API model.
 
 Recent work has focused heavily on the template editor and design workflow. The latest commits added
-or refined design background controls, color pickers, content-block styling, column management,
-layout containment, pane toggles, and standardized editor tool toggles.
+or refined resizable design panes, canvas zoom, selected-block breadcrumbs, nested-block parent
+navigation, live-canvas ancestor highlights, column resize/move/duplicate controls, mobile column
+behavior, autosaved local drafts, and version-history restore from the editor.
 
 The platform also has meaningful shipped foundations across:
 
@@ -30,6 +31,8 @@ The platform also has meaningful shipped foundations across:
 - Data-source validation, schema discovery, mappings, and import-job records.
 - Dual auth mount for both `/api/v1/auth/*` and `/api/auth/*`, keeping the shared SentientMail UI
   compatible with Email Engine.
+- Optional `REQUIRE_GUI_AUTH` enforcement for operator `/api/v1` routes while keeping auth,
+  tracking open/click, unsubscribe, and SendGrid webhook endpoints publicly callable.
 
 ## Working Tree
 
@@ -48,7 +51,7 @@ SentientMail where contracts are already shared.
 
 Near-term priorities remain:
 
-1. Production auth and route protection for operator/admin API calls.
+1. Turn on production auth after confirming account provisioning and login UX for the native ESP app.
 2. Account, role, permission, credential, and API-key management.
 3. Global activity and audit logging for GUI actions, API calls, background jobs, auth events,
    imports, template changes, campaign operations, delivery actions, tracking events, AI actions,
@@ -60,8 +63,7 @@ Near-term priorities remain:
 
 ## Immediate Engineering Note
 
-Auth infrastructure exists, but broad enforcement needs route classification before it is turned on
-globally. The current `/api/v1` router includes both protected operator surfaces and public delivery
-surfaces such as tracking pixels/clicks, unsubscribe, and provider webhooks. The correct next step is
-to add reusable auth dependencies and then either split public routes into separate routers or apply
-dependencies route-by-route to operator-only endpoints.
+Auth infrastructure and `/api/v1` route classification now exist behind `REQUIRE_GUI_AUTH`. The
+guard protects operator API traffic while exempting auth, tracking pixels/click redirects,
+unsubscribe, and provider webhooks. The remaining auth work is operational: seed/provision real
+users, confirm the native ESP login flow, then enable `REQUIRE_GUI_AUTH=true` in production.
