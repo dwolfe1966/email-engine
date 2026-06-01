@@ -6070,7 +6070,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           variables: variableData.renderVariables,
         }),
       });
-      setPreviewHtml(data.html_body || '');
+      setPreviewHtml(data.html_body || sourceHtml);
       setPreviewSubject(data.subject || '');
       setPreviewFreshness('current');
       setPreviewSourceMode(editorMode === 'design' ? 'design' : 'edit');

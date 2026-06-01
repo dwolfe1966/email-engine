@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -16,9 +18,20 @@ from email_platform.api.test_console import router as test_console_router
 from email_platform.core.settings import get_settings
 from email_platform.db.session import SessionLocal
 from email_platform.services.auth import SESSION_COOKIE_NAME
+from email_platform.services.bootstrap import bootstrap_operator_user, should_bootstrap_operator
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if should_bootstrap_operator(settings):
+        with SessionLocal() as db:
+            bootstrap_operator_user(db, settings)
+    yield
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ESP_DIST_DIR = ROOT_DIR / 'frontend' / 'dist'
 ESP_INDEX = ESP_DIST_DIR / 'index.html'

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = 'gpt-4o-mini'
     require_gui_auth: bool = False
+    bootstrap_operator_email: EmailStr | None = None
+    bootstrap_operator_password: str | None = None
+    bootstrap_operator_display_name: str = 'Production Operator'
+    bootstrap_operator_role: str = 'admin'
 
     @field_validator('database_url', 'database_migration_url', mode='before')
     @classmethod
