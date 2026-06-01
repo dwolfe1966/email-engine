@@ -6346,6 +6346,69 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     );
   }
 
+  const templateWorkspaceModules = [
+    {
+      key: 'code',
+      label: 'Code',
+      status: `${formatInt(htmlBody.length)} HTML chars`,
+      detail: `${formatInt(cssBody.length)} CSS chars`,
+      tone: editorMode === 'edit' ? 'active' : '',
+      actionLabel: 'Edit',
+      onClick: () => switchTemplateEditorMode('edit'),
+      disabled: busy,
+    },
+    {
+      key: 'design',
+      label: 'Design',
+      status: `${formatInt(designDoc.blocks.length)} block(s)`,
+      detail: `${formatInt(designClassNames.length)} class(es)`,
+      tone: editorMode === 'design' ? 'active' : '',
+      actionLabel: 'Design',
+      onClick: () => switchTemplateEditorMode('design'),
+      disabled: busy,
+    },
+    {
+      key: 'variables',
+      label: 'Variables',
+      status: variablesJsonError ? 'JSON error' : `${formatInt(sampleVariableRows.length)} value(s)`,
+      detail: variables.length ? `${formatInt(variables.length)} detected` : 'Not inspected',
+      tone: variablesJsonError ? 'warn' : sampleVariableRows.length ? 'good' : '',
+      actionLabel: 'Refresh',
+      onClick: () => { void refreshVariables(true); },
+      disabled: busy || Boolean(variablesJsonError),
+    },
+    {
+      key: 'preview',
+      label: 'Preview',
+      status: previewFreshness === 'current' ? 'Current' : previewFreshness === 'stale' ? 'Stale' : 'Not rendered',
+      detail: previewSubject || 'No rendered subject',
+      tone: editorMode === 'preview' ? 'active' : previewFreshness === 'current' ? 'good' : 'warn',
+      actionLabel: 'Preview',
+      onClick: () => { void previewTemplate(); },
+      disabled: busy,
+    },
+    {
+      key: 'css',
+      label: 'CSS',
+      status: missingCssClasses.length ? `${formatInt(missingCssClasses.length)} missing` : `${formatInt(cssClassCoverage.length)} covered`,
+      detail: `${formatInt(designLinkedCssClassCount)} design linked`,
+      tone: missingCssClasses.length ? 'warn' : cssClassCoverage.length ? 'good' : '',
+      actionLabel: missingCssClasses.length ? 'Fix CSS' : 'Open',
+      onClick: openCssGapTools,
+      disabled: busy,
+    },
+    {
+      key: 'ai',
+      label: 'AI',
+      status: pendingAiDraft ? 'Draft ready' : `${formatInt(aiRecommendations.length)} suggestion(s)`,
+      detail: appliedAiDraftLabel ? `Applied ${appliedAiDraftLabel}` : aiInstructionMode,
+      tone: pendingAiDraft || aiRecommendations.length || appliedAiDraftLabel ? 'good' : '',
+      actionLabel: 'Feedback',
+      onClick: () => setTemplateFeedbackOpen(true),
+      disabled: busy,
+    },
+  ];
+
   return (
     <section className="page-grid">
       <section className="campaign-flow full-span">
@@ -6417,6 +6480,18 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <button className="ghost" type="button" onClick={() => clearTemplateLocalDraft()} disabled={busy}>Discard Local Draft</button>
           </div>
         ) : null}
+        <section className="template-workspace-map" aria-label="Template workspace modules">
+          {templateWorkspaceModules.map((module) => (
+            <article className={`${module.tone} ${module.key === editorMode ? 'active' : ''}`} key={module.key}>
+              <div>
+                <span>{module.label}</span>
+                <strong>{module.status}</strong>
+                <small>{module.detail}</small>
+              </div>
+              <button className="ghost" type="button" onClick={module.onClick} disabled={module.disabled}>{module.actionLabel}</button>
+            </article>
+          ))}
+        </section>
 	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
           <section className="template-editor-main">
             <div className="tab-row mode-switch">
