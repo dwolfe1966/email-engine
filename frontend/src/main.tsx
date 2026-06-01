@@ -9636,6 +9636,23 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
   ];
   const passedChecks = Object.values(checkResults).filter((result) => result.ok).length;
   const totalChecks = smokeChecks.length;
+  const contractEndpointCount = contractGroups.reduce((sum, group) => sum + group.endpoints.length, 0);
+  const schemaReady = Boolean(diagnostics?.schema.ok && !diagnostics.schema.needs_migration);
+  const providerReady = Boolean(
+    diagnostics?.email_provider.smtp_configured ||
+    diagnostics?.email_provider.sendgrid_configured ||
+    diagnostics?.email_provider.provider === 'console',
+  );
+  const checksHaveRun = Object.keys(checkResults).length > 0;
+  const docsNextAction = !schemaReady
+    ? 'Resolve schema readiness before treating the API contract as stable.'
+    : !providerReady
+      ? 'Configure a delivery provider before external clients rely on launch workflows.'
+      : checksHaveRun && passedChecks < totalChecks
+        ? 'Open the failing workflow card and verify the backing API endpoint.'
+        : !checksHaveRun
+          ? 'Run workflow checks to validate the live ESP contract from this browser session.'
+          : 'Contract is ready for UI integration. Continue using Email Engine as the system of record.';
 
   async function runSmokeChecks() {
     setChecking(true);
@@ -9674,6 +9691,33 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
         <MetricCard metric={{ label: 'Tables', value: formatInt(diagnostics?.database_tables.length || 0), change: 'schema inventory' }} />
         <MetricCard metric={{ label: 'Schema', value: diagnostics?.schema.ok ? 'Ready' : 'Review', change: diagnostics?.schema.current_revision || 'unknown', tone: diagnostics?.schema.ok ? 'good' : 'warn' }} />
         <MetricCard metric={{ label: 'Workflow checks', value: `${passedChecks}/${totalChecks}`, change: checking ? 'checking now' : 'live APIs reachable', tone: passedChecks === totalChecks ? 'good' : 'warn' }} />
+      </section>
+      <section className="docs-command-strip full-span" aria-label="ESP contract summary">
+        <article className="good">
+          <span>API surface</span>
+          <strong>{formatInt(contractEndpointCount)} endpoints</strong>
+          <small>{formatInt(contractGroups.length)} workflow groups</small>
+        </article>
+        <article className={schemaReady ? 'good' : 'warn'}>
+          <span>Schema contract</span>
+          <strong>{schemaReady ? 'Current' : 'Review'}</strong>
+          <small>{diagnostics?.schema.current_revision || 'revision unknown'}</small>
+        </article>
+        <article className={providerReady ? 'good' : 'warn'}>
+          <span>Delivery contract</span>
+          <strong>{providerReady ? diagnostics?.email_provider.provider || 'Ready' : 'Pending'}</strong>
+          <small>{diagnostics?.email_provider.default_from_email || 'default sender unavailable'}</small>
+        </article>
+        <article className={checksHaveRun && passedChecks === totalChecks ? 'good' : 'warn'}>
+          <span>Live checks</span>
+          <strong>{formatInt(passedChecks)} / {formatInt(totalChecks)}</strong>
+          <small>{checking ? 'checking now' : checksHaveRun ? 'last browser run' : 'not checked'}</small>
+        </article>
+        <article className="wide">
+          <span>Recommended next action</span>
+          <strong>{docsNextAction}</strong>
+          <small>SentientMail should integrate through Email Engine APIs, not duplicate ESP state.</small>
+        </article>
       </section>
       <section className="panel full-span">
         <div className="panel-head"><h2>Workflow Readiness</h2><span className="muted">simple health checks for the ESP experience</span></div>
