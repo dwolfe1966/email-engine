@@ -30,6 +30,7 @@ from email_platform.models.entities import (
     JourneyEnrollmentStatus,
     JourneyStep,
     Suppression,
+    User,
 )
 from email_platform.schemas.contracts import (
     AIAnalyticsAnalysisRead,
@@ -118,6 +119,10 @@ from email_platform.schemas.contracts import (
     JourneyUpdate,
     JsonObject,
     ListResponse,
+    OperatorUserCreate,
+    OperatorUserPasswordUpdate,
+    OperatorUserRead,
+    OperatorUserUpdate,
     ProviderWebhookIngestRead,
     SendGridWebhookEvent,
     SendResponse,
@@ -144,6 +149,7 @@ from email_platform.schemas.contracts import (
     UnsubscribeTokenRead,
 )
 from email_platform.services.analytics import AnalyticsService
+from email_platform.services.auth import hash_password
 from email_platform.services.audience_imports import AudienceImportService
 from email_platform.services.audiences import AudienceService
 from email_platform.services.campaigns import CampaignService
@@ -182,6 +188,93 @@ def read_schema_status(db: DbSession) -> JsonObject:
 @router.get('/system/diagnostics')
 def read_system_diagnostics(db: DbSession, settings: SettingsDep) -> JsonObject:
     return system_diagnostics(db, settings)
+
+
+@router.get('/users/list', response_model=ListResponse[OperatorUserRead])
+def list_operator_users(
+    db: DbSession,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> ListResponse[OperatorUserRead]:
+    total = db.scalar(select(func.count()).select_from(User)) or 0
+    users = (
+        db.execute(select(User).order_by(User.created_at.desc()).offset(offset).limit(limit))
+        .scalars()
+        .all()
+    )
+    return ListResponse[OperatorUserRead](items=users, limit=limit, offset=offset, total=total)
+
+
+@router.post('/users', response_model=OperatorUserRead)
+def create_operator_user(payload: OperatorUserCreate, db: DbSession) -> User:
+    existing = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail='User email already exists')
+    user = User(
+        email=str(payload.email),
+        display_name=payload.display_name,
+        role=payload.role,
+        password_hash=hash_password(payload.password),
+        is_active=payload.is_active,
+        failed_login_count=0,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.get('/users/{user_id}', response_model=OperatorUserRead)
+def get_operator_user(user_id: UUID, db: DbSession) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    return user
+
+
+@router.patch('/users/{user_id}', response_model=OperatorUserRead)
+def update_operator_user(user_id: UUID, payload: OperatorUserUpdate, db: DbSession) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    if payload.display_name is not None:
+        user.display_name = payload.display_name
+    if payload.role is not None:
+        user.role = payload.role
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post('/users/{user_id}/password', response_model=OperatorUserRead)
+def update_operator_user_password(
+    user_id: UUID,
+    payload: OperatorUserPasswordUpdate,
+    db: DbSession,
+) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    user.password_hash = hash_password(payload.password)
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post('/users/{user_id}/unlock', response_model=OperatorUserRead)
+def unlock_operator_user(user_id: UUID, db: DbSession) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail='User not found')
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def _deterministic_template_draft(payload: AITemplateDraftRequest) -> dict[str, object]:

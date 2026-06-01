@@ -27,6 +27,11 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/ai/journeys/analyze',
         '/api/v1/system/diagnostics',
         '/api/v1/system/schema-status',
+        '/api/v1/users',
+        '/api/v1/users/list',
+        '/api/v1/users/{user_id}',
+        '/api/v1/users/{user_id}/password',
+        '/api/v1/users/{user_id}/unlock',
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
@@ -154,6 +159,17 @@ def test_openapi_exposes_gui_integration_paths() -> None:
     }
 
     assert expected_paths.issubset(paths.keys())
+
+
+def test_operator_user_schema_does_not_expose_password_hash() -> None:
+    client = TestClient(app)
+    schema = client.get('/openapi.json').json()['components']['schemas']['OperatorUserRead']
+    properties = schema['properties']
+
+    assert 'password_hash' not in properties
+    assert {'email', 'display_name', 'role', 'is_active', 'failed_login_count'}.issubset(
+        properties.keys()
+    )
 
 
 def test_api_tester_page() -> None:
