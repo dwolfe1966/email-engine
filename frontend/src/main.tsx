@@ -1,4 +1,4 @@
-import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { html } from '@codemirror/lang-html';
@@ -74,6 +74,40 @@ type TemplateDesignHistoryEntry = {
   document: TemplateDesignDocument;
   selectedBlockId: string;
 };
+
+type DesignPaneWidths = {
+  hierarchy: number;
+  inspector: number;
+};
+
+const DEFAULT_DESIGN_PANE_WIDTHS: DesignPaneWidths = { hierarchy: 180, inspector: 300 };
+const DESIGN_PANE_WIDTHS_STORAGE_KEY = 'email-engine.designPaneWidths';
+const DESIGN_CANVAS_ZOOM_STORAGE_KEY = 'email-engine.designCanvasZoom';
+const DESIGN_CANVAS_ZOOM_OPTIONS = [
+  { label: '75%', value: '0.75' },
+  { label: '100%', value: '1' },
+  { label: '125%', value: '1.25' },
+  { label: 'Fit', value: 'fit' },
+] as const;
+
+function readStoredDesignPaneWidths(): DesignPaneWidths {
+  if (typeof window === 'undefined') return DEFAULT_DESIGN_PANE_WIDTHS;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(DESIGN_PANE_WIDTHS_STORAGE_KEY) || '');
+    return {
+      hierarchy: typeof parsed?.hierarchy === 'number' ? parsed.hierarchy : DEFAULT_DESIGN_PANE_WIDTHS.hierarchy,
+      inspector: typeof parsed?.inspector === 'number' ? parsed.inspector : DEFAULT_DESIGN_PANE_WIDTHS.inspector,
+    };
+  } catch {
+    return DEFAULT_DESIGN_PANE_WIDTHS;
+  }
+}
+
+function readStoredDesignCanvasZoom(): string {
+  if (typeof window === 'undefined') return '1';
+  const stored = window.localStorage.getItem(DESIGN_CANVAS_ZOOM_STORAGE_KEY);
+  return DESIGN_CANVAS_ZOOM_OPTIONS.some((option) => option.value === stored) ? stored || '1' : '1';
+}
 
 type TemplateCodeEditorProps = {
   value: string;
@@ -688,6 +722,13 @@ type TemplateRead = {
   html_body: string;
   css_body: string | null;
   text_body: string | null;
+  document_json: Record<string, unknown>;
+};
+
+type TemplateDocumentRead = {
+  template_id: string;
+  version_id: string | null;
+  version_number: number | null;
   document_json: Record<string, unknown>;
 };
 
@@ -2745,6 +2786,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [draggedPaletteBlockType, setDraggedPaletteBlockType] = useState('');
   const [designHierarchyOpen, setDesignHierarchyOpen] = useState(true);
   const [designInspectorOpen, setDesignInspectorOpen] = useState(true);
+  const [designPaneWidths, setDesignPaneWidths] = useState<DesignPaneWidths>(readStoredDesignPaneWidths);
+  const [designCanvasZoom, setDesignCanvasZoom] = useState(readStoredDesignCanvasZoom);
   const [templateFeedbackOpen, setTemplateFeedbackOpen] = useState(true);
   const [collapsedDesignTreeIds, setCollapsedDesignTreeIds] = useState<string[]>([]);
   const [activeDesignTreeAddId, setActiveDesignTreeAddId] = useState('');
@@ -2770,6 +2813,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
   const isPersistedTemplate = Boolean(selectedTemplateId);
   const isCreatingTemplate = !isPersistedTemplate;
+  useEffect(() => {
+    window.localStorage.setItem(DESIGN_PANE_WIDTHS_STORAGE_KEY, JSON.stringify(designPaneWidths));
+  }, [designPaneWidths]);
+  useEffect(() => {
+    window.localStorage.setItem(DESIGN_CANVAS_ZOOM_STORAGE_KEY, designCanvasZoom);
+  }, [designCanvasZoom]);
   const currentTemplateSnapshot: TemplateEditSnapshot = {
     name,
     subject,
@@ -2960,6 +3009,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       return { blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)) };
     }
     return htmlToDesignDocument(template.html_body || '');
+  }
+
+  async function designDocForTemplate(template: TemplateRead): Promise<TemplateDesignDocument> {
+    try {
+      const documentData = await fetchJson<TemplateDocumentRead>(`/api/v1/templates/${template.id}/document`);
+      const blocks = documentData.document_json?.blocks;
+      if (Array.isArray(blocks) && blocks.length) {
+        return { blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)) };
+      }
+    } catch {
+      // Fall back below so older templates and transient document endpoint failures still open.
+    }
+    return designDocFromTemplate(template);
   }
 
   function semanticDesignDocJson(document: TemplateDesignDocument) {
@@ -3247,8 +3309,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const gap = Math.max(0, Number(block.gap ?? 16));
       const tableStyle = `width:100%;border-collapse:collapse;${block.bg ? `background:${block.bg};` : ''}`;
       const outerPadding = Number(block.padding_y || 0);
+      const explicitTotal = columns.reduce((total, child) => total + Math.max(0, Number(child.width || 0)), 0);
+      const defaultWidth = Math.floor(100 / columns.length);
       const cells = columns.map((child) => {
-        const width = Math.floor(100 / columns.length);
+        const width = explicitTotal > 0
+          ? Math.max(1, Math.round((Math.max(0, Number(child.width || 0)) || defaultWidth) / Math.max(explicitTotal, 1) * 100))
+          : defaultWidth;
         const childHtml = designBlockToHtml(child);
         return `<td width="${width}%" valign="top" style="width:${width}%;vertical-align:top;padding:${Math.floor(gap / 2)}px;">\n${childHtml.split('\n').map((line) => `      ${line}`).join('\n')}\n    </td>`;
       }).join('\n');
@@ -3322,6 +3388,79 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const maxDesignTreeDepth = designTreeMaxDepth(designDoc.blocks);
   const selectedDesignBlock = flatDesignBlocks.find((block) => block.id === selectedDesignBlockId) || flatDesignBlocks[0];
   const selectedDesignBlockIndex = selectedDesignBlock ? flatDesignBlocks.findIndex((block) => block.id === selectedDesignBlock.id) : -1;
+  const designWorkspaceStyle = {
+    '--design-hierarchy-width': `${designPaneWidths.hierarchy}px`,
+    '--design-inspector-width': `${designPaneWidths.inspector}px`,
+  } as CSSProperties;
+  const designCanvasZoomValue = designCanvasZoom === 'fit' ? 0.86 : Number(designCanvasZoom);
+  const designCanvasFrameStyle = {
+    '--design-canvas-zoom': String(designCanvasZoomValue || 1),
+  } as CSSProperties;
+  function setDesignPaneWidth(pane: 'hierarchy' | 'inspector', width: number) {
+    const minWidth = pane === 'hierarchy' ? 132 : 260;
+    const maxWidth = pane === 'hierarchy' ? 360 : 480;
+    setDesignPaneWidths((current) => ({
+      ...current,
+      [pane]: Math.max(minWidth, Math.min(maxWidth, Math.round(width))),
+    }));
+  }
+
+  function handleDesignPaneResizeKey(
+    pane: 'hierarchy' | 'inspector',
+    event: KeyboardEvent<HTMLDivElement>,
+  ) {
+    const direction = pane === 'hierarchy' ? 1 : -1;
+    const step = event.shiftKey ? 24 : 12;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setDesignPaneWidth(pane, designPaneWidths[pane] - step * direction);
+    }
+    else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setDesignPaneWidth(pane, designPaneWidths[pane] + step * direction);
+    }
+    else if (event.key === 'Home') {
+      event.preventDefault();
+      setDesignPaneWidth(pane, pane === 'hierarchy' ? 132 : 260);
+    }
+    else if (event.key === 'End') {
+      event.preventDefault();
+      setDesignPaneWidth(pane, pane === 'hierarchy' ? 360 : 480);
+    }
+    else if (event.key === 'Enter') {
+      event.preventDefault();
+      setDesignPaneWidth(pane, pane === 'hierarchy' ? 180 : 300);
+    }
+  }
+
+  function startDesignPaneResize(
+    pane: 'hierarchy' | 'inspector',
+    event: PointerEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = designPaneWidths[pane];
+    const direction = pane === 'hierarchy' ? 1 : -1;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function handlePointerMove(moveEvent: globalThis.PointerEvent) {
+      const delta = (moveEvent.clientX - startX) * direction;
+      setDesignPaneWidth(pane, startWidth + delta);
+    }
+
+    function handlePointerUp() {
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    }
+
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp, { once: true });
+  }
   function findDesignBlockParent(id: string, blocks = designDoc.blocks, parent: TemplateDesignBlock | null = null): TemplateDesignBlock | null {
     for (const block of blocks) {
       if (block.id === id) return parent;
@@ -3535,6 +3674,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           onKeyDown={(event) => handleDesignTreeKeyDown(event, block)}
           onDragStart={(event) => {
             if (busy) return;
+            const dragHandle = (event.target as HTMLElement).closest('.design-tree-drag-handle');
+            if (!dragHandle) {
+              event.preventDefault();
+              setStatus('Use the hierarchy drag handle to reorder blocks.');
+              return;
+            }
             selectDesignBlock(block.id);
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', block.id);
@@ -3577,6 +3722,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           }}
           style={{ '--tree-depth': depth } as Record<string, number>}
         >
+          <span className="design-tree-drag-handle" title="Drag to reorder">::</span>
           <span
             className={`design-tree-branch ${hasChildren ? 'has-children' : 'leaf'}`}
             title={hasChildren ? `${collapsed ? 'Expand' : 'Collapse'} ${meta.label}` : undefined}
@@ -3701,7 +3847,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     }
     if (block.type === 'columns') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="email-columns"';
-      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:${Number(block.gap ?? 16)}px;`;
+      const columnTemplate = (block.children || []).length
+        ? (block.children || []).map((child) => `${Math.max(1, Number(child.width || 1))}fr`).join(' ')
+        : 'repeat(2,minmax(0,1fr))';
+      const style = `${block.bg ? `background:${block.bg};` : ''}${block.padding_y ? `padding:${Number(block.padding_y)}px;` : ''}display:grid;grid-template-columns:${columnTemplate};gap:${Number(block.gap ?? 16)}px;`;
       const children = (block.children || []).map(designCanvasBlockHtml).join('\n');
       const emptyHint = children ? '' : '<div class="ee-section-empty">Drop blocks here</div>';
       const columnControls = block.id === selectedDesignBlockId
@@ -3754,7 +3903,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       ? '<button type="button" data-design-action="wrap">Wrap</button>'
       : '';
     const parentAction = findDesignBlockParent(block.id)
-      ? '<button type="button" data-design-action="outdent">Outdent</button><button type="button" data-design-action="root">Root</button>'
+      ? '<button type="button" data-design-action="parent">Parent</button><button type="button" data-design-action="outdent">Outdent</button><button type="button" data-design-action="root">Root</button>'
       : '';
     const selectedActions = block.id === selectedDesignBlockId
       ? `<div class="ee-design-actions">
@@ -4278,7 +4427,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   function switchTemplateEditorMode(nextMode: 'edit' | 'design') {
     if (nextMode === 'design' && editorMode !== 'design' && (editorMode !== 'preview' || previewSourceMode !== 'design')) {
-      setDesignDoc(htmlToDesignDocument(htmlBody));
+      if (!designDoc.blocks.length || htmlBody !== savedTemplateSnapshot.htmlBody) {
+        setDesignDoc(htmlToDesignDocument(htmlBody));
+      }
       setDesignDocEdited(false);
       setDesignUndoStack([]);
       setDesignRedoStack([]);
@@ -4441,6 +4592,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         }
         return;
       }
+      if (data.action === 'parent') {
+        const parent = findDesignBlockParent(block.id);
+        if (parent) {
+          selectDesignBlock(parent.id);
+          setStatus(`Selected parent ${parent.type.replace('_', ' ')} block from canvas.`);
+        }
+        return;
+      }
       if (data.action === 'outdent') {
         outdentDesignBlock(block.id);
         return;
@@ -4475,7 +4634,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (routeTemplateId && selectedTemplateId !== routeTemplateId) {
         const template = templates.find((item) => item.id === routeTemplateId);
         if (template) {
-          if (!loadTemplateIntoEditor(template)) {
+          if (!await openTemplateInEditor(template)) {
             window.location.hash = selectedTemplateId ? `#templates/${selectedTemplateId}` : '#templates';
           }
           return;
@@ -4488,7 +4647,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         setStatus('Loading template details...');
         try {
           const fetchedTemplate = await fetchJson<TemplateRead>(`/api/v1/templates/${routeTemplateId}`);
-          if (!cancelled) loadTemplateIntoEditor(fetchedTemplate, { force: true });
+          const fetchedDesignDoc = await designDocForTemplate(fetchedTemplate);
+          if (!cancelled) loadTemplateIntoEditor(fetchedTemplate, { force: true, designDoc: fetchedDesignDoc });
         } catch (error) {
           if (!cancelled) {
             setStatus(`Unable to load template: ${apiErrorMessage(error)}`);
@@ -4549,9 +4709,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     return true;
   }
 
-  function loadTemplateIntoEditor(template: TemplateRead, options: { force?: boolean } = {}) {
+  function loadTemplateIntoEditor(
+    template: TemplateRead,
+    options: { force?: boolean; designDoc?: TemplateDesignDocument } = {},
+  ) {
     if (template.id !== selectedTemplateId && !options.force && !confirmDiscardTemplateChanges(`open "${template.name}"`)) return false;
-    const nextDesignDoc = designDocFromTemplate(template);
+    const nextDesignDoc = options.designDoc || designDocFromTemplate(template);
     const snapshot = {
       name: template.name,
       subject: template.subject,
@@ -4579,6 +4742,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setPreviewSourceMode('edit');
     setStatus(`Loaded template: ${template.name}`);
     return true;
+  }
+
+  async function openTemplateInEditor(template: TemplateRead, options: { force?: boolean } = {}) {
+    if (template.id !== selectedTemplateId && !options.force && !confirmDiscardTemplateChanges(`open "${template.name}"`)) return false;
+    setBusy(true);
+    setStatus('Loading template design document...');
+    try {
+      const nextDesignDoc = await designDocForTemplate(template);
+      return loadTemplateIntoEditor(template, { force: true, designDoc: nextDesignDoc });
+    } catch (error) {
+      setStatus(`Unable to load template design document: ${apiErrorMessage(error)}`);
+      return false;
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function applyAiDraft(draft: AITemplateDraft) {
@@ -5453,6 +5631,23 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               </div>
             </div>
           ) : null}
+          {block.type === 'columns' && block.children?.length ? (
+            <div className="column-width-tools wide-field">
+              <span>Column widths</span>
+              {block.children.map((child, index) => (
+                <label key={child.id}>
+                  <small>Column {index + 1}</small>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={Number(child.width || Math.round(100 / (block.children?.length || 1)))}
+                    onChange={(event) => updateDesignBlock(child.id, { width: Number(event.target.value) })}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
           <div className="section-child-tools wide-field">
             <span>Add to {designBlockTypeLabel(block.type).toLowerCase()}</span>
             <div>
@@ -5547,7 +5742,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return 'Discarded unsaved draft changes.';
       }
       const template = await fetchJson<TemplateRead>(`/api/v1/templates/${selectedTemplateId}`);
-      loadTemplateIntoEditor(template, { force: true });
+      const nextDesignDoc = await designDocForTemplate(template);
+      loadTemplateIntoEditor(template, { force: true, designDoc: nextDesignDoc });
       await onRefresh();
       return `Reloaded template: ${template.name}`;
     });
@@ -5733,7 +5929,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  <tr
 	                    className={`selectable-row ${template.id === selectedTemplateId ? 'selected-row' : ''}`}
 	                    key={template.id}
-	                    onClick={() => loadTemplateIntoEditor(template)}
+	                    onClick={() => { void openTemplateInEditor(template); }}
 	                    onDoubleClick={() => { window.location.hash = `#templates/${template.id}`; }}
 	                  >
                     <td>{template.name}</td>
@@ -6157,9 +6353,22 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         ) : null}
                       </div>
 			                {designDoc.blocks.length ? (
-	                    <div className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''} ${designInspectorOpen ? 'inspector-open' : 'inspector-closed'}`}>
+	                    <div
+                        className={`design-workspace-grid ${designHierarchyOpen ? 'hierarchy-open' : ''} ${designInspectorOpen ? 'inspector-open' : 'inspector-closed'}`}
+                        style={designWorkspaceStyle}
+                      >
 	                      {designHierarchyOpen ? (
 	                        <aside className="design-hierarchy-panel" ref={designHierarchyRef}>
+                            <div
+                              className="design-pane-resizer right"
+                              role="separator"
+                              aria-label="Resize hierarchy panel"
+                              aria-orientation="vertical"
+                              tabIndex={0}
+                              onPointerDown={(event) => startDesignPaneResize('hierarchy', event)}
+                              onKeyDown={(event) => handleDesignPaneResizeKey('hierarchy', event)}
+                              onDoubleClick={() => setDesignPaneWidth('hierarchy', 180)}
+                            />
 	                          <div className="design-hierarchy-head">
 	                            <div className="design-canvas-head">
 	                              <strong>Hierarchy</strong>
@@ -6185,29 +6394,75 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                       ) : null}
 		                      <aside className="design-canvas-panel">
 		                        <div className="design-canvas-head">
-		                          <strong>Live Canvas</strong>
+                              <div className="pane-title-row">
+		                            <strong>Live Canvas</strong>
+                                <div className="tab-row compact-tabs design-zoom-tabs" aria-label="Canvas zoom">
+                                  {DESIGN_CANVAS_ZOOM_OPTIONS.map((option) => (
+                                    <button
+                                      key={option.value}
+                                      className={designCanvasZoom === option.value ? 'active' : ''}
+                                      type="button"
+                                      onClick={() => setDesignCanvasZoom(option.value)}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
 		                          <span>Updates immediately from Design blocks and CSS. Use Preview for final Jinja rendering.</span>
 		                        </div>
                             {selectedDesignBlock ? (
-                              <div className="design-canvas-selection">
-                                <div>
-                                  <small>Selected</small>
-                                  <strong>{designTreeMeta(selectedDesignBlock).label}</strong>
-                                  <span>
-                                    {selectedDesignBlockPath.length ? `Level ${selectedDesignBlockPath.length}` : 'Root'}
-                                    {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
-                                  </span>
+                              <>
+                                <div className="design-canvas-selection">
+                                  <div>
+                                    <small>Selected</small>
+                                    <strong>{designTreeMeta(selectedDesignBlock).label}</strong>
+                                    <span>
+                                      {selectedDesignBlockPath.length ? `Level ${selectedDesignBlockPath.length}` : 'Root'}
+                                      {selectedDesignBlock.className ? ` · .${selectedDesignBlock.className.split(/\s+/)[0]}` : ''}
+                                    </span>
+                                  </div>
+                                  <div className="button-row">
+                                    <button className="ghost" type="button" onClick={() => setDesignInspectorFocusNonce((current) => current + 1)} disabled={busy}>Edit</button>
+                                    <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy}>{selectedDesignBlock.className ? 'Style' : 'Add Class'}</button>
+                                  </div>
                                 </div>
-                                <div className="button-row">
-                                  <button className="ghost" type="button" onClick={() => setDesignInspectorFocusNonce((current) => current + 1)} disabled={busy}>Edit</button>
-                                  <button className="ghost" type="button" onClick={() => focusDesignBlockCss(selectedDesignBlock)} disabled={busy}>{selectedDesignBlock.className ? 'Style' : 'Add Class'}</button>
+                              {selectedDesignBlockPath.length > 1 ? (
+                                <div className="design-selected-path canvas-path" aria-label="Canvas selected block path">
+                                  {selectedDesignBlockPath.map((block, index) => (
+                                    <span key={block.id}>
+                                      {index > 0 ? <em>/</em> : null}
+                                      <button
+                                        className={block.id === selectedDesignBlock.id ? 'current' : ''}
+                                        type="button"
+                                        onClick={() => selectDesignBlock(block.id)}
+                                        disabled={block.id === selectedDesignBlock.id}
+                                      >
+                                        <small>L{index + 1}</small>
+                                        {designTreeMeta(block).label}
+                                      </button>
+                                    </span>
+                                  ))}
                                 </div>
-                              </div>
+                              ) : null}
+                              </>
                             ) : null}
-		                        <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+                            <div className="design-canvas-viewport" style={designCanvasFrameStyle}>
+		                          <iframe className="design-canvas-frame" title="Live template design canvas" srcDoc={designCanvasSrcDoc()} />
+                            </div>
 		                      </aside>
                       {designInspectorOpen ? (
 			                      <aside className={`design-inspector-panel ${designInspectorFocusNonce ? 'inspector-prompted' : ''}`} ref={designInspectorRef}>
+                            <div
+                              className="design-pane-resizer left"
+                              role="separator"
+                              aria-label="Resize selected block panel"
+                              aria-orientation="vertical"
+                              tabIndex={0}
+                              onPointerDown={(event) => startDesignPaneResize('inspector', event)}
+                              onKeyDown={(event) => handleDesignPaneResizeKey('inspector', event)}
+                              onDoubleClick={() => setDesignPaneWidth('inspector', 300)}
+                            />
 		                        {selectedDesignBlock ? (
 		                          <>
 			                            <div className="design-canvas-head">

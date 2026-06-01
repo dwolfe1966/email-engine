@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     ai_template_provider: str = 'auto'
     openai_api_key: str | None = None
     openai_model: str = 'gpt-4o-mini'
+    require_gui_auth: bool = False
 
     @field_validator('database_url', 'database_migration_url', mode='before')
     @classmethod

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,6 +9,7 @@ from sqlalchemy import text
 from email_platform.api.admin_console import router as admin_console_router
 from email_platform.api.auth import router as auth_router
 from email_platform.api.compat import router as compat_router
+from email_platform.api.deps import require_user
 from email_platform.api.routes import router
 from email_platform.api.template_editor import router as template_editor_router
 from email_platform.api.test_console import router as test_console_router
@@ -72,8 +73,9 @@ def ready() -> dict[str, str]:
 # is a routing affordance only, not a duplicated implementation.
 app.include_router(auth_router, prefix='/api/v1/auth')
 app.include_router(auth_router, prefix='/api/auth')
+gui_dependencies = [Depends(require_user)] if settings.require_gui_auth else []
 app.include_router(router)
-app.include_router(compat_router)
-app.include_router(admin_console_router)
-app.include_router(test_console_router)
-app.include_router(template_editor_router)
+app.include_router(compat_router, dependencies=gui_dependencies)
+app.include_router(admin_console_router, dependencies=gui_dependencies)
+app.include_router(test_console_router, dependencies=gui_dependencies)
+app.include_router(template_editor_router, dependencies=gui_dependencies)

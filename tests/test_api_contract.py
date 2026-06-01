@@ -1,4 +1,8 @@
+from uuid import uuid4
+
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 
 from email_platform.api.compat import _template_create_payload
 from email_platform.api.operation_feedback import with_operation_feedback
@@ -807,6 +811,55 @@ def test_template_payload_accepts_document_json() -> None:
     )
 
     assert payload.document_json == document
+
+
+def test_template_document_json_round_trips_through_current_version() -> None:
+    client = TestClient(app)
+    name = f'document-roundtrip-{uuid4()}'
+    initial_document = {
+        'blocks': [
+            {'type': 'section', 'children': [{'type': 'paragraph', 'text': 'Initial block'}]}
+        ]
+    }
+    updated_document = {
+        'blocks': [
+            {
+                'type': 'columns',
+                'gap': 18,
+                'children': [
+                    {'type': 'section', 'width': 35, 'children': [{'type': 'heading', 'text': 'Left'}]},
+                    {'type': 'section', 'width': 65, 'children': [{'type': 'button', 'text': 'Right'}]},
+                ],
+            }
+        ]
+    }
+
+    try:
+        create_response = client.post(
+            '/api/v1/templates',
+            json={
+                'name': name,
+                'subject': 'Structured document',
+                'html_body': '<p>Fallback</p>',
+                'document_json': initial_document,
+            },
+        )
+    except OperationalError as exc:
+        pytest.skip(f'database is unavailable for document_json round-trip test: {exc}')
+    assert create_response.status_code == 200
+    template_id = create_response.json()['id']
+
+    update_response = client.patch(
+        f'/api/v1/templates/{template_id}',
+        json={'document_json': updated_document},
+    )
+    assert update_response.status_code == 200
+
+    document_response = client.get(f'/api/v1/templates/{template_id}/document')
+    assert document_response.status_code == 200
+    data = document_response.json()
+    assert data['version_number'] is not None
+    assert data['document_json'] == updated_document
 
 
 def test_template_variables_endpoint_extracts_samples_and_native_variables() -> None:

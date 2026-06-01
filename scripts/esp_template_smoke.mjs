@@ -726,6 +726,61 @@ try {
         }
       }
       if (!addedColumnReady) return { ok: false, reason: 'Add Column did not create another nested column section' };
+      const columnsTreeRow = Array.from(document.querySelectorAll('.design-tree-row'))
+        .find((row) => /columns/i.test(row.textContent || ''));
+      if (!columnsTreeRow) return { ok: false, reason: 'Columns hierarchy row not found before width edit' };
+      columnsTreeRow.click();
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const selectedColumnsText = document.querySelector('.design-inspector-panel')?.textContent || '';
+        if (/column widths/i.test(selectedColumnsText)) break;
+      }
+      const widthInputs = Array.from(document.querySelectorAll('.design-inspector-panel .column-width-tools input'));
+      if (widthInputs.length < 3) return { ok: false, reason: 'Column width controls did not render for all columns', widthCount: widthInputs.length };
+      const setInputValue = (input, value) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      ['30', '45', '25'].forEach((value, index) => {
+        setInputValue(widthInputs[index], value);
+      });
+      for (let index = 0; index < 40; index += 1) {
+        await wait(150);
+        const currentWidths = Array.from(document.querySelectorAll('.design-inspector-panel .column-width-tools input')).map((input) => input.value);
+        if (currentWidths.join(',') === '30,45,25') break;
+      }
+      const updatedWidths = Array.from(document.querySelectorAll('.design-inspector-panel .column-width-tools input')).map((input) => input.value);
+      if (updatedWidths.join(',') !== '30,45,25') {
+        return { ok: false, reason: 'Column width controls did not retain edited values before save', updatedWidths };
+      }
+      const syncButton = Array.from(document.querySelectorAll('button'))
+        .find((button) => ['sync to code', 'sync now'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+      if (!syncButton) return { ok: false, reason: 'Sync button not available before structured save' };
+      syncButton.click();
+      for (let index = 0; index < 60; index += 1) {
+        await wait(150);
+        if (/design synced/i.test(document.querySelector('.design-sync-strip')?.textContent || '')) break;
+      }
+      const saveButton = Array.from(document.querySelectorAll('button'))
+        .find((button) => ['save template', 'save changes'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+      if (!saveButton) return { ok: false, reason: 'Save Template button not available after structured sync' };
+      saveButton.click();
+      for (let index = 0; index < 80; index += 1) {
+        await wait(200);
+        if (/saved/i.test(document.querySelector('.edit-state-pill')?.textContent || '') && !/unsaved/i.test(document.querySelector('.edit-state-pill')?.textContent || '')) break;
+      }
+      const savedStateAfterStructuredSave = document.querySelector('.edit-state-pill')?.textContent || '';
+      if (!/saved/i.test(savedStateAfterStructuredSave) || /unsaved/i.test(savedStateAfterStructuredSave)) {
+        return { ok: false, reason: 'Structured design save did not return to saved state', savedStateAfterStructuredSave };
+      }
+      const savedDocument = await fetch('/api/v1/templates/${tempTemplateId}/document').then((response) => response.json());
+      const savedColumnBlock = (savedDocument.document_json?.blocks || []).find((block) => block.type === 'columns');
+      const savedDocumentWidths = (savedColumnBlock?.children || []).map((child) => String(child.width || ''));
+      if (savedDocumentWidths.join(',') !== '30,45,25') {
+        return { ok: false, reason: 'Structured design document did not persist column widths', savedDocumentWidths };
+      }
       const preview = includesButton('Preview Design') || buttonByText('Preview');
       if (!preview) return { ok: false, reason: 'Preview Design button not found' };
       preview.click();
@@ -753,11 +808,60 @@ try {
   });
   const designPreview = designPreviewCheck.result?.value || {};
   if (!designPreview.ok) {
-    errors.push(`Design preview failed: ${designPreview.reason || 'unknown failure'}`);
+    errors.push(`Design preview failed: ${designPreview.reason || 'unknown failure'} (${JSON.stringify({
+      reloadedWidths: designPreview.reloadedWidths,
+      savedDocumentWidths: designPreview.savedDocumentWidths,
+    })})`);
   } else if (!designPreview.hasExpectedContent) {
     errors.push(`Design preview rendered unexpected content (${designPreview.srcDocLength || 0} chars).`);
   } else if (!designPreview.hasTableColumns) {
     errors.push('Design preview did not render columns as presentation-table HTML.');
+  }
+
+  if (!errors.length) {
+    await cdp.send('Page.navigate', { url: `${targetUrl}#templates/${tempTemplateId}` });
+    await sleep(1400);
+    const structuredReloadCheck = await cdp.send('Runtime.evaluate', {
+      expression: `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const modeButtonByText = (text) => Array.from(document.querySelectorAll('.mode-switch button'))
+          .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase())
+          || Array.from(document.querySelectorAll('button'))
+            .find((button) => (button.textContent || '').trim().toLowerCase() === text.toLowerCase());
+        for (let index = 0; index < 80; index += 1) {
+          await wait(150);
+          if ((document.body?.innerText || '').includes(${JSON.stringify(smokeMarker)})) break;
+        }
+        const design = modeButtonByText('Design');
+        if (!design) return { ok: false, reason: 'Design button not found after full page reload' };
+        design.click();
+        for (let index = 0; index < 80; index += 1) {
+          await wait(150);
+          const columnsRow = Array.from(document.querySelectorAll('.design-tree-row'))
+            .find((row) => /columns/i.test(row.textContent || ''));
+          if (columnsRow) {
+            columnsRow.click();
+            await wait(150);
+            const widths = Array.from(document.querySelectorAll('.design-inspector-panel .column-width-tools input')).map((input) => input.value);
+            if (widths.join(',') === '30,45,25') return { ok: true, widths };
+          }
+        }
+        return {
+          ok: false,
+          reason: 'Structured design document did not preserve column widths after full page reload',
+          widths: Array.from(document.querySelectorAll('.design-inspector-panel .column-width-tools input')).map((input) => input.value),
+          bodyText: document.body?.innerText || '',
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const structuredReload = structuredReloadCheck.result?.value || {};
+    if (!structuredReload.ok) {
+      errors.push(`Structured design reload failed: ${structuredReload.reason || 'unknown failure'} (${JSON.stringify({
+        widths: structuredReload.widths,
+      })})`);
+    }
   }
 
   await cdp.ws.close();
