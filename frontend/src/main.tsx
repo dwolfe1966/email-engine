@@ -8578,10 +8578,12 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   }, [campaignItems, selectedCampaignId]);
 
   const totalSent = campaigns.reduce((sum, item) => sum + Number(item.sent_count || 0), 0);
+  const totalFailures = campaigns.reduce((sum, item) => sum + Number(item.failed_count || 0), 0);
   const totalOpens = campaigns.reduce((sum, item) => sum + Number(item.opened_count || 0), 0);
   const totalClicks = campaigns.reduce((sum, item) => sum + Number(item.clicked_count || 0), 0);
   const totalAudienceReach = audiences.reduce((sum, item) => sum + Number(item.estimated_count || 0), 0);
   const activeEnrollments = journeys.reduce((sum, item) => sum + Number(item.active_count || 0), 0);
+  const journeyFailureCount = journeys.reduce((sum, item) => sum + Number(item.failed_count || 0) + Number(item.step_failed_count || 0), 0);
   const topCampaigns = [...campaigns].sort((a, b) => Number(b.open_rate || 0) - Number(a.open_rate || 0)).slice(0, 5);
   const topAudiences = [...audiences].sort((a, b) => Number(b.open_rate || 0) - Number(a.open_rate || 0)).slice(0, 5);
   const journeyRisks = [...journeys].sort((a, b) => {
@@ -8603,6 +8605,18 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
     failureRate: Number(campaign.failed_count || 0) / Math.max(Number(campaign.requested_count || campaign.sent_count || 0), 1),
   }));
   const maxRate = Math.max(...rateRows.flatMap((row) => [row.openRate, row.clickRate, row.failureRate]), 0.01);
+  const aggregateOpenRate = totalOpens / Math.max(totalSent, 1);
+  const aggregateClickRate = totalClicks / Math.max(totalSent, 1);
+  const aggregateFailureRate = totalFailures / Math.max(totalSent + totalFailures, 1);
+  const reportsNextAction = totalFailures > 0
+    ? 'Review failed delivery records and requeue or suppress bad contacts.'
+    : !campaignDetail && selectedCampaignId
+      ? 'Load the selected campaign report to inspect timeline and domain delivery.'
+      : aggregateClickRate < 0.02 && totalSent > 0
+        ? 'Compare top campaigns and improve offer clarity or call-to-action placement.'
+        : journeyFailureCount > 0
+          ? 'Review journey failures before the next campaign launch.'
+          : 'Performance is stable. Continue monitoring campaign and audience comparisons.';
 
   async function loadReport() {
     setBusy(true);
@@ -8640,6 +8654,33 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
         {metricsFromOverview(overview).map((metric) => <MetricCard metric={metric} key={metric.label} />)}
+      </section>
+      <section className="analytics-command-strip full-span" aria-label="Reports command summary">
+        <article className={aggregateFailureRate > 0.05 ? 'warn' : 'good'}>
+          <span>Delivery health</span>
+          <strong>{formatPct(1 - aggregateFailureRate)}</strong>
+          <small>{formatInt(totalFailures)} failed / {formatInt(totalSent)} sent</small>
+        </article>
+        <article className={aggregateOpenRate > 0 ? 'good' : 'warn'}>
+          <span>Engagement</span>
+          <strong>{formatPct(aggregateOpenRate)} open</strong>
+          <small>{formatPct(aggregateClickRate)} click rate</small>
+        </article>
+        <article className={totalAudienceReach ? 'good' : 'warn'}>
+          <span>Audience reach</span>
+          <strong>{formatInt(totalAudienceReach)}</strong>
+          <small>{formatInt(audiences.length)} saved audiences</small>
+        </article>
+        <article className={journeyFailureCount ? 'warn' : 'good'}>
+          <span>Journey risk</span>
+          <strong>{formatInt(journeyFailureCount)} failures</strong>
+          <small>{formatInt(activeEnrollments)} active enrollments</small>
+        </article>
+        <article className="wide">
+          <span>Recommended next action</span>
+          <strong>{reportsNextAction}</strong>
+          <small>{selectedCampaign?.name || 'Select a campaign for detail reporting'}</small>
+        </article>
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head"><h2>Campaign Performance</h2><a href="#campaigns">Manage campaigns</a></div>
