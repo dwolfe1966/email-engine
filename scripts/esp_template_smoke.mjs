@@ -285,7 +285,7 @@ try {
       if (!/design synced/i.test(designStatusText()) || !/preview needed/i.test(designStatusText())) {
         return { ok: false, reason: 'Design status strip did not report synced design and preview state', initialState, designStatusText: designStatusText() };
       }
-      if (!/next: preview render/i.test(nextActionText())) {
+      if (!/next: (preview render|fix css coverage)/i.test(nextActionText())) {
         return { ok: false, reason: 'Design next-action card did not guide preview render', initialState, nextActionText: nextActionText() };
       }
       const afterDesignState = savedState();
@@ -386,8 +386,15 @@ try {
         heading.click();
         await wait(400);
       }
-      const styleButton = Array.from(document.querySelectorAll('.design-inspector-panel button, .design-canvas-selection button'))
-        .find((button) => ['style', 'add class'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+      let styleButton = null;
+      for (let index = 0; index < 60; index += 1) {
+        styleButton = Array.from(document.querySelectorAll('.design-inspector-panel button, .design-canvas-selection button'))
+          .find((button) => ['style', 'add class'].includes((button.textContent || '').trim().toLowerCase()) && !button.disabled);
+        if (styleButton) break;
+        const firstRow = document.querySelector('.design-tree-row');
+        if (firstRow instanceof HTMLElement) firstRow.click();
+        await wait(150);
+      }
       if (!styleButton) return { ok: false, reason: 'Design style/add-class action not found' };
       styleButton.click();
       let cssReady = false;

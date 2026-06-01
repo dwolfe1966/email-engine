@@ -31,8 +31,9 @@ The platform also has meaningful shipped foundations across:
 - Data-source validation, schema discovery, mappings, and import-job records.
 - Dual auth mount for both `/api/v1/auth/*` and `/api/auth/*`, keeping the shared SentientMail UI
   compatible with Email Engine.
-- Optional `REQUIRE_GUI_AUTH` enforcement for operator `/api/v1` routes while keeping auth,
-  tracking open/click, unsubscribe, and SendGrid webhook endpoints publicly callable.
+- Production `REQUIRE_GUI_AUTH` enforcement for operator `/api/v1` routes while keeping auth,
+  tracking open/click, unsubscribe, visitor demo access, and SendGrid webhook endpoints publicly
+  callable.
 
 ## Working Tree
 
@@ -51,19 +52,19 @@ SentientMail where contracts are already shared.
 
 Near-term priorities remain:
 
-1. Turn on production auth after confirming account provisioning and login UX for the native ESP app.
+1. Continue Admin-v2 workflow polish across campaigns, overview, templates, audiences, analytics,
+   journeys, delivery, suppressions, and data sources.
 2. Account, role, permission, credential, and API-key management.
 3. Global activity and audit logging for GUI actions, API calls, background jobs, auth events,
    imports, template changes, campaign operations, delivery actions, tracking events, AI actions,
    provider callbacks, errors, and admin changes.
 4. Consistent list envelopes, update/delete coverage, request IDs, structured logging, and deploy
    migration automation.
-5. Admin-v2 workflow polish across campaigns, templates, audiences, analytics, journeys, delivery,
-   suppressions, and data sources.
+5. Folder organization for campaigns, templates, and audiences.
 
 ## Immediate Engineering Note
 
-Auth infrastructure and `/api/v1` route classification now exist behind `REQUIRE_GUI_AUTH`. The
-guard protects operator API traffic while exempting auth, tracking pixels/click redirects,
-unsubscribe, and provider webhooks. The remaining auth work is operational: seed/provision real
-users, confirm the native ESP login flow, then enable `REQUIRE_GUI_AUTH=true` in production.
+Auth infrastructure and `/api/v1` route classification are active in production behind
+`REQUIRE_GUI_AUTH=true`. The guard protects operator API traffic while exempting auth, tracking
+pixels/click redirects, unsubscribe, visitor demo access, and provider webhooks. Visitor access is
+read-oriented and blocks user-management API access.

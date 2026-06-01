@@ -21,6 +21,13 @@ type Insight = {
   tone?: 'good' | 'warn';
 };
 
+type OverviewAction = {
+  title: string;
+  detail: string;
+  href: string;
+  tone: 'good' | 'warn';
+};
+
 type OperationNotice = {
   label: string;
   message: string;
@@ -1363,7 +1370,7 @@ function InsightsPanel({ insights }: { insights: Insight[] }) {
 
 function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
   return (
-    <section className="panel table-panel">
+    <section className="panel table-panel overview-campaigns">
       <div className="panel-head">
         <h2>Recent campaigns</h2>
         <a href="#campaigns">Manage campaigns</a>
@@ -1396,14 +1403,64 @@ function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
   );
 }
 
-function QuickCreate() {
+function OverviewStatusStrip({
+  provider,
+  providerReady,
+  schemaOk,
+  queuedRecords,
+  failedRecords,
+  failedImports,
+  activeEnrollments,
+}: {
+  provider: string;
+  providerReady: boolean;
+  schemaOk: boolean;
+  queuedRecords: number;
+  failedRecords: number;
+  failedImports: number;
+  activeEnrollments: number;
+}) {
   return (
-    <section className="panel quick-create">
-      <h2>Quick create</h2>
-      <a href="#campaigns">Email Campaign</a>
-      <a href="#automations">Automation</a>
-      <a href="#audience">Segment</a>
-      <a href="#templates">Template</a>
+    <section className="overview-status-strip">
+      <a className={providerReady ? 'good' : 'warn'} href="#integrations">
+        <span>Provider</span>
+        <strong>{providerLabel(provider)}</strong>
+      </a>
+      <a className={schemaOk ? 'good' : 'warn'} href="#settings">
+        <span>System</span>
+        <strong>{schemaOk ? 'Schema ready' : 'Schema review'}</strong>
+      </a>
+      <a className={queuedRecords || failedRecords ? 'warn' : 'good'} href="#delivery">
+        <span>Delivery</span>
+        <strong>{formatInt(queuedRecords)} queued / {formatInt(failedRecords)} failed</strong>
+      </a>
+      <a className={failedImports ? 'warn' : 'good'} href="#data">
+        <span>Imports</span>
+        <strong>{formatInt(failedImports)} failed</strong>
+      </a>
+      <a className="good" href="#automations">
+        <span>Journeys</span>
+        <strong>{formatInt(activeEnrollments)} active</strong>
+      </a>
+    </section>
+  );
+}
+
+function NextActionPanel({ actions }: { actions: OverviewAction[] }) {
+  const primary = actions.find((item) => item.tone === 'warn') || actions[0];
+  return (
+    <section className={`panel overview-next-action ${primary.tone}`}>
+      <div className="panel-head"><h2>Recommended next action</h2><a href={primary.href}>Open</a></div>
+      <strong>{primary.title}</strong>
+      <p>{primary.detail}</p>
+      <div className="overview-action-list">
+        {actions.slice(0, 4).map((item) => (
+          <a className={item.tone} href={item.href} key={item.title}>
+            <span>{item.title}</span>
+            <small>{item.detail}</small>
+          </a>
+        ))}
+      </div>
     </section>
   );
 }
@@ -1429,7 +1486,8 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
     provider === 'console',
   );
   const schemaOk = Boolean(dashboard.diagnostics?.schema.ok);
-  const riskItems = [
+  const readinessMetrics = metrics.slice(0, 4);
+  const riskItems: OverviewAction[] = [
     {
       title: queuedRecords ? 'Delivery queue needs processing' : 'Delivery queue is clear',
       detail: queuedRecords ? `${formatInt(queuedRecords)} queued records are visible.` : 'No queued records in the current result set.',
@@ -1455,56 +1513,43 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
       tone: failedExecutions ? 'warn' : 'good',
     },
   ];
+  const workflowLinks = [
+    { label: 'Import contacts', href: '#data', detail: `${formatInt(dashboard.dataSources.length)} sources` },
+    { label: 'Create template', href: '#templates', detail: `${formatInt(dashboard.templates.length)} templates` },
+    { label: 'Build audience', href: '#audience', detail: `${formatInt(dashboard.audienceItems.length)} audiences` },
+    { label: 'Launch campaign', href: '#campaigns', detail: `${formatInt(dashboard.campaignItems.length)} campaigns` },
+    { label: 'Review reports', href: '#analytics', detail: `${formatInt(dashboard.overview?.event_count || 0)} events` },
+  ];
 
   return (
     <>
-      <section className="metric-grid">
-        {metrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
+      <section className="overview-hero">
+        <div>
+          <span>Executive overview</span>
+          <h2>Email program command center</h2>
+          <p>Live campaign, audience, delivery, and system health in one workspace.</p>
+        </div>
+        <div className="overview-hero-actions">
+          <a className="primary" href="#campaigns/new">Create Campaign</a>
+          <a className="ghost" href="#analytics">Open Reports</a>
+        </div>
       </section>
-      <section className="workflow-grid full-span">
-        <article className={`workflow-card ${providerReady ? '' : 'warn'}`}>
-          <span>Provider</span>
-          <strong>{providerLabel(provider)}</strong>
-          <p>{providerReady ? 'Outbound provider path is configured for sends.' : 'Outbound provider configuration needs review before live sends.'}</p>
-          <a href="#integrations">Open integrations</a>
-        </article>
-        <article className={`workflow-card ${schemaOk ? '' : 'warn'}`}>
-          <span>System</span>
-          <strong>{schemaOk ? 'Schema ready' : 'Schema review'}</strong>
-          <p>{dashboard.diagnostics?.schema.current_revision || 'No schema revision reported.'}</p>
-          <a href="#settings">Open diagnostics</a>
-        </article>
-        <article className={`workflow-card ${activeJobs || queuedRecords ? 'warn' : ''}`}>
-          <span>Delivery</span>
-          <strong>{formatInt(activeJobs)} active jobs</strong>
-          <p>{formatInt(queuedRecords)} queued and {formatInt(failedRecords)} failed records visible.</p>
-          <a href="#delivery">Open delivery</a>
-        </article>
-        <article className={`workflow-card ${failedImports ? 'warn' : ''}`}>
-          <span>Data</span>
-          <strong>{formatInt(importedRows)} imported</strong>
-          <p>{formatInt(dashboard.dataSources.length)} sources, {formatInt(dashboard.dataMappings.length)} mappings, {formatInt(failedImports)} failed jobs.</p>
-          <a href="#data">Open data</a>
-        </article>
+      <section className="metric-grid overview-metrics">
+        {readinessMetrics.map((metric) => <MetricCard metric={metric} key={metric.label} />)}
       </section>
-      <section className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-head"><h2>Operations Radar</h2><a href="#analytics">Reports</a></div>
-          <div className="insights">
-            {riskItems.map((item) => (
-              <article className={`insight ${item.tone === 'warn' ? 'warn' : 'good'}`} key={item.title}>
-                <Icon label={item.title} />
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
-                  <a className="link-button" href={item.href}>Review</a>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panel-head"><h2>Audience Readiness</h2><a href="#contacts">Contacts</a></div>
+      <OverviewStatusStrip
+        activeEnrollments={activeEnrollments}
+        failedImports={failedImports}
+        failedRecords={failedRecords}
+        provider={provider}
+        providerReady={providerReady}
+        queuedRecords={queuedRecords}
+        schemaOk={schemaOk}
+      />
+      <section className="overview-main-grid">
+        <NextActionPanel actions={riskItems} />
+        <section className="panel overview-audience-card">
+          <div className="panel-head"><h2>Audience readiness</h2><a href="#contacts">Contacts</a></div>
           <p className="large-number">{formatInt(dashboard.contactMeta?.total || dashboard.contacts.length)}</p>
           <span className="muted">contacts across {formatInt(dashboard.contactMeta?.sources.length || 0)} sources</span>
           <div className="module-links">
@@ -1513,17 +1558,28 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
             <a href="#data">{topSource ? `${topSource.source}: ${formatInt(topSource.count)}` : 'No top source'}</a>
           </div>
         </section>
+        <section className="panel overview-workflows">
+          <div className="panel-head"><h2>Run workflow</h2><a href="#docs">API docs</a></div>
+          <div>
+            {workflowLinks.map((item) => (
+              <a href={item.href} key={item.label}>
+                <span>{item.label}</span>
+                <small>{item.detail}</small>
+              </a>
+            ))}
+          </div>
+        </section>
       </section>
-      <section className="lower-grid">
+      <section className="overview-lower-grid">
         <CampaignTable campaigns={campaigns} />
-        <section className="panel quick-create">
-          <h2>Run Workflow</h2>
-          <a href="#data">Import contacts</a>
-          <a href="#templates">Create template</a>
-          <a href="#audience">Build audience</a>
-          <a href="#campaigns">Launch campaign</a>
-          <a href="#automations">Enroll journey</a>
-          <a href="#analytics">Review reports</a>
+        <section className="panel overview-snapshot">
+          <div className="panel-head"><h2>Platform snapshot</h2><a href="#settings">Settings</a></div>
+          <dl>
+            <div><dt>Provider</dt><dd>{providerLabel(provider)}</dd></div>
+            <div><dt>Schema</dt><dd>{dashboard.diagnostics?.schema.current_revision || 'unknown'}</dd></div>
+            <div><dt>Send jobs</dt><dd>{formatInt(activeJobs)} active</dd></div>
+            <div><dt>Imported rows</dt><dd>{formatInt(importedRows)}</dd></div>
+          </dl>
         </section>
       </section>
     </>

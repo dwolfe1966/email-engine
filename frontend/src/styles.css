@@ -183,12 +183,16 @@ nav a.active {
 
 .assistant-card button,
 .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--blue), var(--purple));
   color: #fff;
   padding: 10px 14px;
   font-weight: 750;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -447,6 +451,164 @@ h2 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.overview-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 18px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.overview-hero span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.overview-hero h2 {
+  margin-top: 5px;
+  font-size: 24px;
+}
+
+.overview-hero p {
+  margin: 7px 0 0;
+  color: var(--muted);
+}
+
+.overview-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.overview-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.overview-status-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.overview-status-strip a {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 11px 12px;
+  text-decoration: none;
+}
+
+.overview-status-strip a.warn {
+  border-color: #f5d49a;
+  background: #fffaf0;
+}
+
+.overview-status-strip a.good {
+  border-color: #bfe8d0;
+  background: #f4fff8;
+}
+
+.overview-status-strip span,
+.overview-workflows small,
+.overview-action-list small,
+.overview-snapshot dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.overview-status-strip strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.overview-main-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.15fr) minmax(280px, .85fr) minmax(240px, .55fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.overview-next-action {
+  display: grid;
+  align-content: start;
+}
+
+.overview-next-action > strong {
+  font-size: 20px;
+}
+
+.overview-next-action > p {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.overview-next-action.warn {
+  border-color: #f5d49a;
+}
+
+.overview-action-list,
+.overview-workflows > div,
+.overview-snapshot dl {
+  display: grid;
+  gap: 9px;
+}
+
+.overview-action-list a,
+.overview-workflows a,
+.overview-snapshot dl > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px 11px;
+  text-decoration: none;
+}
+
+.overview-action-list a.warn {
+  border-color: #f5d49a;
+  background: #fffaf0;
+}
+
+.overview-action-list span,
+.overview-workflows span {
+  color: #29405f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.overview-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+}
+
+.overview-snapshot dl {
+  margin: 0;
+}
+
+.overview-snapshot dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .metric-card,
@@ -3359,12 +3521,15 @@ th {
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid,
   .lower-grid,
+  .overview-main-grid,
+  .overview-lower-grid,
   .form-grid,
   .campaign-action-bar,
   .template-editor-shell,
   .campaign-flow,
   .workflow-grid,
   .page-grid { grid-template-columns: 1fr; }
+  .overview-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -3384,6 +3549,16 @@ th {
     align-items: stretch;
     flex-direction: column;
   }
+  .overview-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .overview-hero-actions {
+    justify-content: stretch;
+  }
+  .overview-hero-actions a {
+    flex: 1 1 160px;
+  }
   .topbar-profile {
     justify-content: space-between;
   }
@@ -3394,5 +3569,10 @@ th {
   .workflow-rail { grid-template-columns: 1fr; }
   .search input { width: 100%; }
   .metric-grid { grid-template-columns: 1fr; }
+  .overview-status-strip,
+  .overview-main-grid,
+  .overview-lower-grid {
+    grid-template-columns: 1fr;
+  }
   .summary-grid { grid-template-columns: 1fr; }
 }
