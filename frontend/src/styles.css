@@ -3605,7 +3605,8 @@ th {
 }
 
 .integration-command-strip,
-.docs-command-strip {
+.docs-command-strip,
+.settings-command-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(280px, 1.4fr);
   gap: 10px;
@@ -3622,7 +3623,8 @@ th {
 }
 
 .integration-command-strip article,
-.docs-command-strip article {
+.docs-command-strip article,
+.settings-command-strip article {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -3638,7 +3640,8 @@ th {
 }
 
 .integration-command-strip article.good,
-.docs-command-strip article.good {
+.docs-command-strip article.good,
+.settings-command-strip article.good {
   border-color: #bfe8d0;
   background: #f4fff8;
 }
@@ -3649,7 +3652,8 @@ th {
 }
 
 .integration-command-strip article.warn,
-.docs-command-strip article.warn {
+.docs-command-strip article.warn,
+.settings-command-strip article.warn {
   border-color: #f5d49a;
   background: #fffaf0;
 }
@@ -3659,7 +3663,9 @@ th {
 .integration-command-strip span,
 .integration-command-strip small,
 .docs-command-strip span,
-.docs-command-strip small {
+.docs-command-strip small,
+.settings-command-strip span,
+.settings-command-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -3668,7 +3674,8 @@ th {
 
 .analytics-command-strip strong,
 .integration-command-strip strong,
-.docs-command-strip strong {
+.docs-command-strip strong,
+.settings-command-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -3736,10 +3743,12 @@ th {
   .audience-builder-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-command-strip,
   .integration-command-strip,
-  .docs-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .docs-command-strip,
+  .settings-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-command-strip article.wide,
   .integration-command-strip article.wide,
-  .docs-command-strip article.wide { grid-column: 1 / -1; }
+  .docs-command-strip article.wide,
+  .settings-command-strip article.wide { grid-column: 1 / -1; }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -3786,11 +3795,13 @@ th {
   .analytics-command-strip,
   .integration-command-strip,
   .docs-command-strip,
+  .settings-command-strip,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }
   .analytics-command-strip article.wide,
   .integration-command-strip article.wide,
-  .docs-command-strip article.wide { grid-column: auto; }
+  .docs-command-strip article.wide,
+  .settings-command-strip article.wide { grid-column: auto; }
   .summary-grid { grid-template-columns: 1fr; }
 }

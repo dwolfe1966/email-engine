@@ -9821,6 +9821,22 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
   const tableName = selectedTable || tables[0] || '';
   const columns = tableName ? diagnostics?.database_table_columns?.[tableName] || [] : [];
   const canManageUsers = currentUser?.role === 'admin';
+  const activeUsers = users.filter((user) => user.is_active).length;
+  const adminUsers = users.filter((user) => user.role === 'admin').length;
+  const lockedUsers = users.filter((user) => Boolean(user.locked_until)).length;
+  const failedLoginCount = users.reduce((sum, user) => sum + Number(user.failed_login_count || 0), 0);
+  const schemaCurrent = Boolean(diagnostics?.schema.ok && !diagnostics.schema.needs_migration);
+  const settingsNextAction = !currentUser
+    ? 'Sign in to inspect operator account and system readiness.'
+    : !canManageUsers
+      ? 'Admin access is required to create users or reset operator passwords.'
+      : lockedUsers > 0
+        ? 'Review locked operator accounts and unlock only after confirming identity.'
+        : failedLoginCount > 0
+          ? 'Review failed login attempts and reset passwords for affected operators if needed.'
+          : !schemaCurrent
+            ? 'Resolve schema migration status before changing production account settings.'
+            : 'Operator access is stable. Keep admin count tight and refresh users before demos.';
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -9943,6 +9959,33 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
         <MetricCard metric={{ label: 'System', value: diagnostics?.ok ? 'Healthy' : 'Review', change: diagnostics?.environment || 'environment unknown', tone: diagnostics?.ok ? 'good' : 'warn' }} />
         <MetricCard metric={{ label: 'Schema', value: diagnostics?.schema.needs_migration ? 'Migration needed' : 'Current', change: diagnostics?.schema.current_revision || 'no revision', tone: diagnostics?.schema.needs_migration ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Errors', value: formatInt(diagnostics?.errors.length || 0), change: 'diagnostic findings', tone: diagnostics?.errors.length ? 'warn' : 'good' }} />
+      </section>
+      <section className="settings-command-strip full-span" aria-label="Settings readiness summary">
+        <article className={currentUser ? 'good' : 'warn'}>
+          <span>Signed in</span>
+          <strong>{currentUser?.display_name || 'Anonymous'}</strong>
+          <small>{currentUser?.role || 'no active role'}</small>
+        </article>
+        <article className={canManageUsers ? 'good' : 'warn'}>
+          <span>Admin access</span>
+          <strong>{canManageUsers ? 'Enabled' : 'Read only'}</strong>
+          <small>{formatInt(adminUsers)} admin users loaded</small>
+        </article>
+        <article className={lockedUsers ? 'warn' : 'good'}>
+          <span>Account health</span>
+          <strong>{formatInt(activeUsers)} active</strong>
+          <small>{formatInt(lockedUsers)} locked / {formatInt(failedLoginCount)} failures</small>
+        </article>
+        <article className={schemaCurrent ? 'good' : 'warn'}>
+          <span>Schema</span>
+          <strong>{schemaCurrent ? 'Current' : 'Review'}</strong>
+          <small>{diagnostics?.schema.current_revision || 'revision unknown'}</small>
+        </article>
+        <article className="wide">
+          <span>Recommended next action</span>
+          <strong>{settingsNextAction}</strong>
+          <small>{userStatus}</small>
+        </article>
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
