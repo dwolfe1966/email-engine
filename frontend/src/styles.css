@@ -229,6 +229,81 @@ nav a.active {
   font-weight: 800;
 }
 
+.profile-logout {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-panel {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: var(--shadow);
+}
+
+.login-brand {
+  justify-content: center;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form h1 {
+  text-align: center;
+}
+
+.login-form label {
+  display: grid;
+  gap: 7px;
+  color: #29405f;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.login-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  padding: 11px 12px;
+}
+
+.login-error {
+  border: 1px solid #f3c8c5;
+  border-radius: 8px;
+  background: #fff7f7;
+  color: var(--red);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.primary:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
 .workspace {
   min-width: 0;
   padding: 26px;

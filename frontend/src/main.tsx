@@ -1,4 +1,4 @@
-import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type PointerEvent } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { html } from '@codemirror/lang-html';
@@ -25,6 +25,17 @@ type OperationNotice = {
   label: string;
   message: string;
   tone?: 'working' | 'success' | 'warn';
+};
+
+type AuthUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+};
+
+type AuthResponse = {
+  user: AuthUser;
 };
 
 type TemplateCodeEditorHandle = {
@@ -965,13 +976,31 @@ function countByName(rows: CountRow[] | undefined, name: string) {
   return Number((rows || []).find((row) => row.name === name)?.count || 0);
 }
 
+class AuthRequiredError extends Error {
+  constructor(message = 'Not authenticated') {
+    super(message);
+    this.name = 'AuthRequiredError';
+  }
+}
+
+let authRequiredHandler: (() => void) | null = null;
+
+function onAuthRequired(handler: (() => void) | null) {
+  authRequiredHandler = handler;
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
     ...options,
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
+  if (response.status === 401) {
+    authRequiredHandler?.();
+    throw new AuthRequiredError(data?.detail || 'Not authenticated');
+  }
   if (!response.ok) {
     throw new Error(data?.detail || `${path} failed`);
   }
@@ -1056,7 +1085,17 @@ function Icon({ label }: { label: string }) {
   return <span className="icon" aria-hidden="true">{label.slice(0, 1)}</span>;
 }
 
-function Sidebar({ activePage }: { activePage: PageKey }) {
+function initialsForUser(user: AuthUser | null) {
+  const source = user?.display_name || user?.email || 'Operator';
+  return source
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'OP';
+}
+
+function Sidebar({ activePage, user, onLogout }: { activePage: PageKey; user: AuthUser | null; onLogout: () => void }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -1082,11 +1121,12 @@ function Sidebar({ activePage }: { activePage: PageKey }) {
         <div className="usage-track"><span /></div>
       </section>
       <div className="profile">
-        <div className="avatar">DW</div>
+        <div className="avatar">{initialsForUser(user)}</div>
         <div>
-          <strong>David Wolfe</strong>
-          <span>email-engine.app</span>
+          <strong>{user?.display_name || 'Operator'}</strong>
+          <span>{user?.email || 'email-engine.app'}</span>
         </div>
+        {user ? <button type="button" className="profile-logout" onClick={onLogout}>Sign out</button> : null}
       </div>
     </aside>
   );
@@ -1126,6 +1166,70 @@ function Header({ title, status, operation, activePage }: { title: string; statu
         ) : null}
       </div>
     </header>
+  );
+}
+
+function LoginScreen({ onLogin }: { onLogin: (user: AuthUser) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const data = await fetchJson<AuthResponse>('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      onLogin(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="login-shell">
+      <section className="login-panel">
+        <div className="brand login-brand">
+          <div className="mark">E</div>
+          <span>Email Engine</span>
+        </div>
+        <form className="login-form" onSubmit={submitLogin}>
+          <h1>Sign in</h1>
+          <label>
+            Email
+            <input
+              autoComplete="email"
+              autoFocus
+              inputMode="email"
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </label>
+          <label>
+            Password
+            <input
+              autoComplete="current-password"
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+          {error ? <div className="login-error">{error}</div> : null}
+          <button className="primary" disabled={submitting} type="submit">
+            {submitting ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+      </section>
+    </main>
   );
 }
 
@@ -9429,6 +9533,9 @@ function SimpleModulePage({ title, detail, links }: {
 function App() {
   const [activePage, setActivePage] = useState<PageKey>(pageFromHash);
   const [route, setRoute] = useState(routeFromHash);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authRefreshKey, setAuthRefreshKey] = useState(0);
   const [operationNotice, setOperationNotice] = useState<OperationNotice>({
     label: 'Workspace',
     message: 'Ready for campaign, template, and optimization workflows.',
@@ -9467,6 +9574,32 @@ function App() {
     window.addEventListener('hashchange', syncPage);
     return () => window.removeEventListener('hashchange', syncPage);
   }, []);
+
+  useEffect(() => {
+    onAuthRequired(() => {
+      setAuthUser(null);
+      setAuthRequired(true);
+    });
+    return () => onAuthRequired(null);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch('/api/v1/auth/me', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = await response.json() as AuthResponse;
+        if (active) setAuthUser(data.user);
+      } catch {
+        // Anonymous mode is allowed until REQUIRE_GUI_AUTH is enabled.
+      }
+    }
+    loadCurrentUser();
+    return () => {
+      active = false;
+    };
+  }, [authRefreshKey]);
 
   useEffect(() => {
     let active = true;
@@ -9542,6 +9675,13 @@ function App() {
           });
         }
       } catch (error) {
+        if (error instanceof AuthRequiredError) {
+          if (active) {
+            setAuthRequired(true);
+            setDashboard((current) => ({ ...current, loading: false, error: null }));
+          }
+          return;
+        }
         if (active) {
           setDashboard({
             overview: null,
@@ -9575,7 +9715,13 @@ function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authRefreshKey]);
+
+  async function handleLogout() {
+    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+    setAuthUser(null);
+    setAuthRequired(true);
+  }
 
   const liveMetrics = useMemo(() => metricsFromOverview(dashboard.overview), [dashboard.overview]);
   const liveCampaigns = useMemo(
@@ -9583,6 +9729,19 @@ function App() {
     [dashboard.campaigns],
   );
   const status = pageSubtitle(activePage, dashboard);
+  if (authRequired) {
+    return (
+      <LoginScreen
+        onLogin={(user) => {
+          setAuthUser(user);
+          setAuthRequired(false);
+          setDashboard((current) => ({ ...current, loading: true, error: null }));
+          setAuthRefreshKey((value) => value + 1);
+        }}
+      />
+    );
+  }
+
   const content = (() => {
     if (activePage === 'campaigns') {
       return (
@@ -9831,7 +9990,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar activePage={activePage} />
+      <Sidebar activePage={activePage} user={authUser} onLogout={handleLogout} />
 		      <main className="workspace">
 		        <Header title={pageTitle(activePage)} status={status} operation={operationNotice} activePage={activePage} />
 		        {content}
