@@ -873,6 +873,8 @@ const navItems: NavItem[] = [
   { label: 'Settings', key: 'settings', href: '#settings' },
 ];
 
+const AI_ACTION_BRIEF_STORAGE_KEY = 'esp_ai_action_brief';
+
 const fallbackMetrics: Metric[] = [
   { label: 'Total sends', value: '128,540', change: '+18.4%' },
   { label: 'Open rate', value: '42.6%', change: '+7.3%' },
@@ -8618,6 +8620,20 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
           ? 'Review journey failures before the next campaign launch.'
           : 'Performance is stable. Continue monitoring campaign and audience comparisons.';
 
+  function openAiActionBrief() {
+    const briefLines = [
+      `Recommended action: ${reportsNextAction}`,
+      `Delivery health: ${formatPct(1 - aggregateFailureRate)} (${formatInt(totalFailures)} failed / ${formatInt(totalSent)} sent).`,
+      `Engagement: ${formatPct(aggregateOpenRate)} open rate and ${formatPct(aggregateClickRate)} click rate.`,
+      `Audience reach: ${formatInt(totalAudienceReach)} contacts across ${formatInt(audiences.length)} saved audiences.`,
+      `Journey risk: ${formatInt(journeyFailureCount)} failures and ${formatInt(activeEnrollments)} active enrollments.`,
+      selectedCampaign ? `Selected campaign: ${selectedCampaign.name} (${selectedCampaign.status}).` : 'No campaign selected.',
+    ];
+    window.localStorage.setItem(AI_ACTION_BRIEF_STORAGE_KEY, briefLines.join('\n'));
+    onOperation({ label: 'AI workflow', message: 'Prepared analytics brief for AI Studio.', tone: 'success' });
+    window.location.hash = '#ai-studio/analytics-brief';
+  }
+
   async function loadReport() {
     setBusy(true);
     setStatus('Loading report...');
@@ -8680,6 +8696,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
           <span>Recommended next action</span>
           <strong>{reportsNextAction}</strong>
           <small>{selectedCampaign?.name || 'Select a campaign for detail reporting'}</small>
+          <button className="ghost compact-button" onClick={openAiActionBrief}>Send to AI Studio</button>
         </article>
       </section>
       <section className="panel table-panel full-span">
@@ -8970,6 +8987,16 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
   const [workflowRecommendations, setWorkflowRecommendations] = useState<AIWorkflowRecommendation[]>([]);
   const [workflowSummary, setWorkflowSummary] = useState<string[]>([]);
   const [previewHtml, setPreviewHtml] = useState('');
+
+  useEffect(() => {
+    const storedBrief = window.localStorage.getItem(AI_ACTION_BRIEF_STORAGE_KEY);
+    if (!storedBrief) return;
+    window.localStorage.removeItem(AI_ACTION_BRIEF_STORAGE_KEY);
+    setBrief(`Use this ESP analytics brief to recommend the next operator action.\n\n${storedBrief}`);
+    setInstruction('Turn the analytics brief into a concise action plan. Prioritize delivery/compliance risk first, then campaign content, audience targeting, and journey follow-up.');
+    setStatus('Analytics brief loaded from Reports. Run Review Workflow or draft a focused improvement.');
+    onOperation({ label: 'AI workflow', message: 'Analytics brief loaded in AI Studio.', tone: 'success' });
+  }, [onOperation]);
 
   function parsedSample() {
     try {

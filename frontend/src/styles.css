@@ -446,6 +446,13 @@ h2 {
   font-weight: 650;
 }
 
+.compact-button {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
