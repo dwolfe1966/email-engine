@@ -8276,6 +8276,18 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
   const isCreatingContact = !isPersistedContact;
   const sourceRows = metadata?.sources || [];
   const attributeKeys = metadata?.attribute_keys || [];
+  const totalContacts = metadata?.total || contacts.length;
+  const metadataCoverage = totalContacts ? attributedCount / Math.max(contacts.length, 1) : 0;
+  const unsubscribedRate = contacts.length ? unsubscribedCount / contacts.length : 0;
+  const contactsNextAction = totalContacts === 0
+    ? 'Import contacts before building audiences or launching campaigns.'
+    : attributeKeys.length < 3
+      ? 'Import or enrich attributes so audiences and templates have useful personalization fields.'
+      : unsubscribedRate > 0.2
+        ? 'Review unsubscribed contacts and suppressions before launching a new campaign.'
+        : !selectedContact
+          ? 'Select a contact to inspect profile data and compliance status.'
+          : 'Contacts are ready for audience rules, template variables, and journey testing.';
 
   function parseAttributes() {
     try {
@@ -8388,11 +8400,38 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
     return (
       <section className="page-grid">
         <section className="metric-grid full-span compact-metrics">
-          <MetricCard metric={{ label: 'Contacts', value: formatInt(metadata?.total || contacts.length), change: `${formatInt(metadata?.scanned_count || contacts.length)} scanned` }} />
+          <MetricCard metric={{ label: 'Contacts', value: formatInt(totalContacts), change: `${formatInt(metadata?.scanned_count || contacts.length)} scanned` }} />
           <MetricCard metric={{ label: 'Visible', value: formatInt(contacts.length), change: 'loaded rows' }} />
           <MetricCard metric={{ label: 'Attributed', value: formatInt(attributedCount), change: `${formatInt(attributeKeys.length)} keys` }} />
           <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
           <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
+        </section>
+        <section className="contacts-command-strip full-span" aria-label="Contacts readiness summary">
+          <article className={totalContacts ? 'good' : 'warn'}>
+            <span>Contact base</span>
+            <strong>{formatInt(totalContacts)}</strong>
+            <small>{formatInt(contacts.length)} visible rows</small>
+          </article>
+          <article className={attributeKeys.length >= 3 ? 'good' : 'warn'}>
+            <span>Personalization</span>
+            <strong>{formatInt(attributeKeys.length)} keys</strong>
+            <small>{formatPct(metadataCoverage)} attributed in view</small>
+          </article>
+          <article className={(uniqueSources || sourceRows.length) ? 'good' : 'warn'}>
+            <span>Sources</span>
+            <strong>{formatInt(uniqueSources || sourceRows.length)}</strong>
+            <small>{sourceRows[0]?.source || 'no source metadata'}</small>
+          </article>
+          <article className={unsubscribedRate > 0.2 ? 'warn' : 'good'}>
+            <span>Compliance</span>
+            <strong>{formatPct(unsubscribedRate)}</strong>
+            <small>{formatInt(unsubscribedCount)} unsubscribed visible</small>
+          </article>
+          <article className="wide">
+            <span>Recommended next action</span>
+            <strong>{contactsNextAction}</strong>
+            <small>{selectedContact?.email || 'No contact selected'}</small>
+          </article>
         </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
