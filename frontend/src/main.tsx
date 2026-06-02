@@ -7829,6 +7829,22 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   const dryRunJobs = importJobs.filter((job) => job.status === 'dry_run').length;
   const failedJobs = importJobs.filter((job) => job.status === 'failed').length;
   const importedCount = importJobs.reduce((sum, job) => sum + Number(job.imported_count || 0), 0);
+  const activeSources = dataSources.filter((source) => source.status === 'active').length;
+  const mappedSourceCount = new Set(mappings.map((mapping) => mapping.data_source_id)).size;
+  const skippedCount = importJobs.reduce((sum, job) => sum + Number(job.skipped_count || 0), 0);
+  const importErrorCount = importJobs.reduce((sum, job) => sum + Number(job.errors?.length || 0), 0);
+  const mappingCoverage = dataSources.length ? mappedSourceCount / dataSources.length : 0;
+  const dataNextAction = !dataSources.length
+    ? 'Create a data source before importing contacts into the ESP.'
+    : mappedSourceCount < dataSources.length
+      ? 'Open unmapped sources and save contact field mappings before import.'
+      : failedJobs > 0 || importErrorCount > 0
+        ? 'Review failed import jobs and row errors before running another import.'
+        : !completedJobs
+          ? 'Run a dry run, inspect skipped rows, then import contacts.'
+          : !selectedSource
+            ? 'Select a source to inspect mapping and schema readiness.'
+            : 'Data workflow is ready. Continue importing contacts or open Contacts to inspect results.';
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -7993,6 +8009,33 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
           <MetricCard metric={{ label: 'Imported rows', value: formatInt(importedCount), change: `${formatInt(completedJobs)} completed jobs` }} />
           <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
           <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
+        </section>
+        <section className="data-command-strip full-span" aria-label="Data readiness summary">
+          <article className={activeSources ? 'good' : 'warn'}>
+            <span>Sources</span>
+            <strong>{formatInt(activeSources)} active</strong>
+            <small>{formatInt(dataSources.length)} configured</small>
+          </article>
+          <article className={mappingCoverage >= 1 && dataSources.length ? 'good' : 'warn'}>
+            <span>Mapping coverage</span>
+            <strong>{formatPct(mappingCoverage)}</strong>
+            <small>{formatInt(mappedSourceCount)} mapped sources</small>
+          </article>
+          <article className={failedJobs || importErrorCount ? 'warn' : 'good'}>
+            <span>Import health</span>
+            <strong>{formatInt(completedJobs)} completed</strong>
+            <small>{formatInt(failedJobs)} failed / {formatInt(importErrorCount)} errors</small>
+          </article>
+          <article className={skippedCount ? 'warn' : 'good'}>
+            <span>Rows</span>
+            <strong>{formatInt(importedCount)} imported</strong>
+            <small>{formatInt(skippedCount)} skipped</small>
+          </article>
+          <article className="wide">
+            <span>Recommended next action</span>
+            <strong>{dataNextAction}</strong>
+            <small>{selectedSource?.name || 'No source selected'}</small>
+          </article>
         </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">

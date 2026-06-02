@@ -3607,7 +3607,8 @@ th {
 .integration-command-strip,
 .docs-command-strip,
 .settings-command-strip,
-.contacts-command-strip {
+.contacts-command-strip,
+.data-command-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(280px, 1.4fr);
   gap: 10px;
@@ -3626,7 +3627,8 @@ th {
 .integration-command-strip article,
 .docs-command-strip article,
 .settings-command-strip article,
-.contacts-command-strip article {
+.contacts-command-strip article,
+.data-command-strip article {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -3644,7 +3646,8 @@ th {
 .integration-command-strip article.good,
 .docs-command-strip article.good,
 .settings-command-strip article.good,
-.contacts-command-strip article.good {
+.contacts-command-strip article.good,
+.data-command-strip article.good {
   border-color: #bfe8d0;
   background: #f4fff8;
 }
@@ -3657,7 +3660,8 @@ th {
 .integration-command-strip article.warn,
 .docs-command-strip article.warn,
 .settings-command-strip article.warn,
-.contacts-command-strip article.warn {
+.contacts-command-strip article.warn,
+.data-command-strip article.warn {
   border-color: #f5d49a;
   background: #fffaf0;
 }
@@ -3671,7 +3675,9 @@ th {
 .settings-command-strip span,
 .settings-command-strip small,
 .contacts-command-strip span,
-.contacts-command-strip small {
+.contacts-command-strip small,
+.data-command-strip span,
+.data-command-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -3682,7 +3688,8 @@ th {
 .integration-command-strip strong,
 .docs-command-strip strong,
 .settings-command-strip strong,
-.contacts-command-strip strong {
+.contacts-command-strip strong,
+.data-command-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -3752,12 +3759,14 @@ th {
   .integration-command-strip,
   .docs-command-strip,
   .settings-command-strip,
-  .contacts-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contacts-command-strip,
+  .data-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-command-strip article.wide,
   .integration-command-strip article.wide,
   .docs-command-strip article.wide,
   .settings-command-strip article.wide,
-  .contacts-command-strip article.wide { grid-column: 1 / -1; }
+  .contacts-command-strip article.wide,
+  .data-command-strip article.wide { grid-column: 1 / -1; }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -3806,6 +3815,7 @@ th {
   .docs-command-strip,
   .settings-command-strip,
   .contacts-command-strip,
+  .data-command-strip,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }
@@ -3813,6 +3823,7 @@ th {
   .integration-command-strip article.wide,
   .docs-command-strip article.wide,
   .settings-command-strip article.wide,
-  .contacts-command-strip article.wide { grid-column: auto; }
+  .contacts-command-strip article.wide,
+  .data-command-strip article.wide { grid-column: auto; }
   .summary-grid { grid-template-columns: 1fr; }
 }
