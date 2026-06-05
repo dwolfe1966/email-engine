@@ -88,6 +88,8 @@ type TemplateDesignBlock = {
   padding_x?: number;
   ordered?: boolean;
   items?: string[];
+  table_headers?: string[];
+  table_rows?: string[][];
   src?: string;
   alt?: string;
   width?: number;
@@ -3469,7 +3471,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function nextDesignToken(source: string, cursor: number) {
-    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<hr\b|<div\b)/i);
+    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<table\b|<hr\b|<div\b)/i);
     if (!nextMatch || nextMatch.index === undefined) return null;
     const start = cursor + nextMatch.index;
     const tokenStart = nextMatch[0];
@@ -3539,6 +3541,21 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         items: Array.from(markup.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)).map((item) => htmlText(item[1])),
       }];
     }
+    if (/^<table\b/i.test(markup)) {
+      const rows = Array.from(markup.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((row) => (
+        Array.from(row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)).map((cell) => htmlText(cell[1]))
+      )).filter((row) => row.length);
+      const firstRowIsHeader = /<tr\b[^>]*>[\s\S]*?<th\b/i.test(markup);
+      return [{
+        id,
+        type: 'table',
+        className: className || 'email-table',
+        table_headers: firstRowIsHeader ? rows[0] || [] : [],
+        table_rows: firstRowIsHeader ? rows.slice(1) : rows,
+        bg: styleValue(style, 'background') || '#f8fafc',
+        color: styleValue(style, 'color') || '#111827',
+      }];
+    }
     if (/^<hr\b/i.test(markup)) return [{ id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className }];
     if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return [{ id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className }];
     if (/^<div\b/i.test(markup)) {
@@ -3567,6 +3584,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       ...block,
       id: designBlockId(),
       items: block.items ? [...block.items] : block.items,
+      table_headers: block.table_headers ? [...block.table_headers] : block.table_headers,
+      table_rows: block.table_rows ? block.table_rows.map((row) => [...row]) : block.table_rows,
       children: block.children?.map(cloneDesignBlock),
     };
   }
@@ -3575,6 +3594,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return {
       ...block,
       items: block.items ? [...block.items] : block.items,
+      table_headers: block.table_headers ? [...block.table_headers] : block.table_headers,
+      table_rows: block.table_rows ? block.table_rows.map((row) => [...row]) : block.table_rows,
       children: block.children?.map(snapshotDesignBlock),
     };
   }
@@ -3586,6 +3607,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       id: block.id || `b_${index}`,
       type: block.type || 'paragraph',
       items: Array.isArray(block.items) ? block.items.map((item) => String(item)) : block.items,
+      table_headers: Array.isArray(block.table_headers) ? block.table_headers.map((item) => String(item)) : block.table_headers,
+      table_rows: Array.isArray(block.table_rows)
+        ? block.table_rows.map((row) => Array.isArray(row) ? row.map((cell) => String(cell)) : [String(row)])
+        : block.table_rows,
       children: Array.isArray(block.children) ? block.children.map((child, childIndex) => normalizeDesignBlock(child, childIndex)) : block.children,
     };
   }
@@ -3596,6 +3621,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (type === 'button') return { id, type, text: 'Call to Action', href: '{{ tracking_click }}', className: 'button', bg: '#2563eb', color: '#ffffff', radius: 6, padding_y: 11, padding_x: 16 };
     if (type === 'list') return { id, type, ordered: false, items: ['First point', 'Second point'], className: 'email-list' };
     if (type === 'image') return { id, type, src: '{{ hero_image_url }}', alt: 'Image', href: '', width: 600, className: 'email-image' };
+    if (type === 'table') return {
+      id,
+      type,
+      className: 'email-table',
+      table_headers: ['Metric', 'Current', 'Goal'],
+      table_rows: [
+        ['Open rate', '{{ open_rate }}', '28%'],
+        ['Click rate', '{{ click_rate }}', '4%'],
+      ],
+      bg: '#f8fafc',
+      color: '#111827',
+      padding_y: 10,
+      padding_x: 12,
+    };
     if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
     if (type === 'spacer') return { id, type, height: 24, className: 'email-spacer' };
     if (type === 'section') return { id, type, className: 'email-section', bg: '', padding_y: 18, children: [newDesignBlock('heading'), newDesignBlock('paragraph')] };
@@ -3615,6 +3654,25 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (type === 'trust_signal') return { id, type, text: 'Trusted by teams building better email workflows.', className: 'secondary-text' };
     if (type === 'html') return { id, type, code: '<p class="email-copy">Custom HTML or Jinja</p>' };
     return { id, type: 'paragraph', text: 'Add body copy with {{ first_name }}.', align: 'left', color: '', className: 'email-copy' };
+  }
+
+  function normalizedTableRows(block: TemplateDesignBlock) {
+    const headers = (block.table_headers || []).map((item) => String(item));
+    const columnCount = Math.max(headers.length, ...(block.table_rows || []).map((row) => row.length), 1);
+    const rows = (block.table_rows?.length ? block.table_rows : [['Label', 'Value']]).map((row) => (
+      Array.from({ length: columnCount }, (_, index) => String(row[index] ?? ''))
+    ));
+    return { headers, rows, columnCount };
+  }
+
+  function tableRowsText(block: TemplateDesignBlock) {
+    return (block.table_rows || []).map((row) => row.join(' | ')).join('\n');
+  }
+
+  function parseTableRowsText(value: string) {
+    return value.split('\n')
+      .map((row) => row.split('|').map((cell) => cell.trim()))
+      .filter((row) => row.some(Boolean));
   }
 
   function designBlockToHtml(block: TemplateDesignBlock) {
@@ -3648,6 +3706,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'image') {
       const image = `<img${classAttr} src="${escapeTemplateText(block.src)}" alt="${escapeTemplateText(block.alt)}" width="${Number(block.width || 600)}" style="display:block;border:0;width:100%;max-width:${Number(block.width || 600)}px;height:auto;" />`;
       return block.href ? `<a href="${escapeTemplateText(block.href)}">${image}</a>` : image;
+    }
+    if (block.type === 'table') {
+      const { headers, rows } = normalizedTableRows(block);
+      const cellPadding = `${Number(block.padding_y ?? 10)}px ${Number(block.padding_x ?? 12)}px`;
+      const tableStyle = `width:100%;border-collapse:collapse;color:${block.color || '#111827'};`;
+      const headerHtml = headers.length
+        ? `<thead><tr>${headers.map((header) => `<th style="border:1px solid #d8dee6;background:${block.bg || '#f8fafc'};padding:${cellPadding};text-align:left;">${escapeTemplateText(header)}</th>`).join('')}</tr></thead>`
+        : '';
+      const bodyHtml = `<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td style="border:1px solid #d8dee6;padding:${cellPadding};vertical-align:top;">${escapeTemplateText(cell)}</td>`).join('')}</tr>`).join('')}</tbody>`;
+      return `<table${classAttr || ' class="email-table"'} role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${tableStyle}">${headerHtml}${bodyHtml}</table>`;
     }
     if (block.type === 'divider') return `<hr${classAttr} style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
     if (block.type === 'spacer') return `<div${classAttr} style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
@@ -3886,7 +3954,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const siblingContext = designBlockSiblingContext(id);
     return Boolean(siblingContext && siblingContext.index > 0 && isDesignContainerBlock(siblingContext.blocks[siblingContext.index - 1]));
   }
-  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
+  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
       section: 'Section',
@@ -3895,6 +3963,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       paragraph: 'Paragraph',
       button: 'Button',
       image: 'Image',
+      table: 'Table',
       list: 'List',
       divider: 'Divider',
       spacer: 'Spacer',
@@ -3915,13 +3984,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       paragraph: 'Paragraph',
       button: 'Button',
       image: 'Image',
+      table: 'Table',
       list: block.ordered ? 'Numbered list' : 'List',
       divider: 'Divider',
       spacer: 'Spacer',
       trust_signal: 'Trust signal',
       html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
     };
-    const preview = block.type === 'list'
+    const preview = block.type === 'table'
+      ? `${(block.table_rows || []).length} row(s)`
+      : block.type === 'list'
       ? `${(block.items || []).length} item(s)`
       : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 64);
     return {
@@ -4113,7 +4185,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
             <button className="close" type="button" onClick={() => setActiveDesignTreeAddId('')} title="Close chooser">x</button>
-            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'list', 'divider', 'spacer', 'html'].map((type) => (
+            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'html'].map((type) => (
               <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
                 {designBlockTypeLabel(type)}
               </button>
@@ -4178,6 +4250,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         <div class="ee-image-edit-panel">
           <label>Image URL<input data-design-image-field="src" value="${escapeTemplateText(block.src)}" /></label>
           <label>Alt text<input data-design-image-field="alt" value="${escapeTemplateText(block.alt)}" /></label>
+        </div>
+      </div>`;
+    }
+    if (block.type === 'table') {
+      const tableHtml = designBlockToHtml(block);
+      if (block.id !== selectedDesignBlockId) return tableHtml;
+      return `<div class="ee-table-edit-wrap">
+        ${tableHtml}
+        <div class="ee-table-edit-panel">
+          <label>Header background<input type="color" data-design-block-field="bg" value="${escapeTemplateText(block.bg || '#f8fafc')}" /></label>
+          <label>Text color<input type="color" data-design-block-field="color" value="${escapeTemplateText(block.color || '#111827')}" /></label>
+          <label>Cell vertical padding<input type="number" min="0" max="48" data-design-block-field="padding_y" value="${Number(block.padding_y ?? 10)}" /></label>
+          <label>Cell horizontal padding<input type="number" min="0" max="48" data-design-block-field="padding_x" value="${Number(block.padding_x ?? 12)}" /></label>
         </div>
       </div>`;
     }
@@ -4246,6 +4331,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'list') return 'Click list item to edit';
     if (block.type === 'button') return 'Edit text or URL';
     if (block.type === 'image') return 'Edit image details';
+    if (block.type === 'table') return 'Edit table in inspector';
     if (block.type === 'section') return 'Edit section style';
     if (block.type === 'columns') return 'Edit columns style';
     if (block.type === 'spacer') return 'Edit spacer height';
@@ -4315,11 +4401,11 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 	      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
 	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
 	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
-      .ee-image-edit-wrap, .ee-button-edit-wrap, .ee-spacing-edit-wrap { display: grid; gap: 8px; }
-      .ee-image-edit-panel, .ee-field-edit-panel, .ee-section-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
+      .ee-image-edit-wrap, .ee-button-edit-wrap, .ee-spacing-edit-wrap, .ee-table-edit-wrap { display: grid; gap: 8px; }
+      .ee-image-edit-panel, .ee-field-edit-panel, .ee-section-edit-panel, .ee-table-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
       .ee-section-edit-panel { grid-template-columns: minmax(0, 1fr) 96px; margin-bottom: 8px; }
-      .ee-image-edit-panel label, .ee-field-edit-panel label, .ee-section-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
-      .ee-image-edit-panel input, .ee-field-edit-panel input, .ee-section-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
+      .ee-image-edit-panel label, .ee-field-edit-panel label, .ee-section-edit-panel label, .ee-table-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
+      .ee-image-edit-panel input, .ee-field-edit-panel input, .ee-section-edit-panel input, .ee-table-edit-panel input { min-width: 0; border: 1px solid #bfdbfe; border-radius: 6px; color: #0f172a; font: 12px/1.3 Arial, sans-serif; padding: 7px 8px; }
 	      [data-design-section-body].ee-section-drop-target { outline: 2px dashed #10b981; outline-offset: 4px; background: rgba(16, 185, 129, 0.06); }
       .ee-section-empty { border: 1px dashed #93c5fd; border-radius: 6px; color: #64748b; font: 700 12px/1.4 Arial, sans-serif; padding: 14px; text-align: center; }
       .ee-design-mobile-note { display: inline-block; margin: 0 0 8px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #475569; font: 800 10px/1 Arial, sans-serif; padding: 5px 7px; }
@@ -4935,19 +5021,21 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         const field = data.field === 'href' ? 'href'
           : data.field === 'bg' ? 'bg'
             : data.field === 'padding_y' ? 'padding_y'
-              : data.field === 'height' ? 'height'
-                : data.field === 'gap' ? 'gap'
-                  : data.field === 'color' ? 'color'
-                    : '';
+              : data.field === 'padding_x' ? 'padding_x'
+                : data.field === 'height' ? 'height'
+                  : data.field === 'gap' ? 'gap'
+                    : data.field === 'color' ? 'color'
+                      : '';
         if (!field) return;
-        const nextValue = ['padding_y', 'height', 'gap'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
+        const nextValue = ['padding_y', 'padding_x', 'height', 'gap'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
         updateDesignBlock(data.blockId, { [field]: nextValue });
         const fieldLabel = field === 'href' ? 'button URL'
           : field === 'bg' ? 'section background'
-            : field === 'padding_y' ? 'section padding'
-              : field === 'height' ? 'spacer height'
-                : field === 'gap' ? 'column gap'
-                  : 'divider color';
+            : field === 'padding_y' ? 'vertical padding'
+              : field === 'padding_x' ? 'horizontal padding'
+                : field === 'height' ? 'spacer height'
+                  : field === 'gap' ? 'column gap'
+                    : 'color';
         setStatus(`Updated ${fieldLabel} from the canvas.`);
         return;
       }
@@ -5392,6 +5480,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const normalized = `${className} ${rule}`.toLowerCase();
     if (/button|btn|cta|link|display:\s*inline-block/.test(normalized)) return 'button';
     if (/image|img|photo|hero-image|<img|object-fit|height:\s*auto/.test(normalized)) return 'image';
+    if (/table|thead|tbody|tr|td|th|border-collapse/.test(normalized)) return 'section';
     if (/title|heading|headline|copy|text|muted|eyebrow|font-size|line-height/.test(normalized)) return 'text';
     if (/section|card|panel|hero|banner|block|border:|box-shadow/.test(normalized)) return 'section';
     return 'container';
@@ -5421,6 +5510,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (block.type === 'paragraph') return 'email-copy';
     if (block.type === 'button') return 'button';
     if (block.type === 'image') return 'email-image';
+    if (block.type === 'table') return 'email-table';
     if (block.type === 'list') return 'email-list';
     if (block.type === 'divider') return 'email-divider';
     if (block.type === 'spacer') return 'email-spacer';
@@ -5565,6 +5655,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const width = Number(cssPreset.container) || 640;
     const padding = Number(cssPreset.padding) || 24;
     const radius = Number(cssPreset.radius) || 8;
+    const compactPadding = Math.max(8, Math.round(padding / 2));
     return [
       `body { margin: 0; background: ${cssPreset.background}; color: ${cssPreset.text}; font-family: ${cssPreset.font}; }`,
       `.email-container { max-width: ${width}px; margin: 0 auto; background: #ffffff; padding: ${padding}px; border-radius: ${radius}px; }`,
@@ -5572,6 +5663,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       `p { line-height: 1.55; }`,
       `a { color: ${cssPreset.accent}; }`,
       `.button, .cta { display: inline-block; background: ${cssPreset.accent}; color: #ffffff; padding: 12px 18px; border-radius: ${radius}px; text-decoration: none; font-weight: 700; }`,
+      `.email-table { width: 100%; border-collapse: collapse; color: ${cssPreset.text}; }`,
+      `.email-table th, .email-table td { border: 1px solid #d8dee6; padding: ${compactPadding}px; text-align: left; vertical-align: top; }`,
+      `.email-table th { background: ${cssPreset.background}; }`,
       `.muted { color: #6b7280; font-size: 13px; }`,
       `@media only screen and (max-width: 640px) { .email-container { width: auto !important; padding: 18px !important; border-radius: 0 !important; } }`,
     ].join('\n');
@@ -6048,6 +6142,33 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('Link URL', 'href')}
           {classInput()}
           {textInput('Width', 'width', 'number')}
+        </>
+      );
+    }
+    if (block.type === 'table') {
+      return (
+        <>
+          {classInput()}
+          <label className="wide-field">
+            Headers
+            <input
+              value={(block.table_headers || []).join(' | ')}
+              onChange={(event) => updateDesignBlock(block.id, {
+                table_headers: event.target.value.split('|').map((cell) => cell.trim()).filter(Boolean),
+              })}
+            />
+          </label>
+          <label className="wide-field">
+            Rows
+            <textarea
+              rows={5}
+              value={tableRowsText(block)}
+              onChange={(event) => updateDesignBlock(block.id, { table_rows: parseTableRowsText(event.target.value) })}
+            />
+          </label>
+          {backgroundControl()}
+          {textColorControl()}
+          {paddingControls()}
         </>
       );
     }
