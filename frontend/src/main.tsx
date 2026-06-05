@@ -6286,6 +6286,29 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     });
   }
 
+  async function previewTemplateVersion(version: TemplateVersionRead) {
+    await runTemplateOperation(`Rendering version ${version.version_number} preview`, async () => {
+      const variableData = await refreshVariables(true);
+      const data = await fetchJson<{ ok: boolean; subject: string; html_body: string; errors: string[]; undeclared_variables: string[] }>('/api/v1/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: version.subject || subject,
+          html_body: version.html_body || htmlBody,
+          css_body: version.css_body || null,
+          variables: variableData.renderVariables,
+        }),
+      });
+      setPreviewHtml(data.html_body || version.html_body || '');
+      setPreviewSubject(data.subject || version.subject || subject);
+      setPreviewFreshness('current');
+      setPreviewSourceMode('edit');
+      setEditorMode('preview');
+      setSelectedVersionReviewId(version.id);
+      const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
+      return `Rendered version ${version.version_number} preview: ${data.subject || version.subject}.${issueText}`;
+    });
+  }
+
   async function refreshVariables(fillMissingSamples = true) {
     const currentVariables = parsedVariables();
     const data = await fetchJson<{ variables: TemplateVariable[]; sample_variables: Record<string, unknown>; errors: string[] }>('/api/v1/templates/variables', {
@@ -7224,6 +7247,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           </div>
                           <div className="button-row">
                             <button className="ghost" type="button" onClick={() => setSelectedVersionReviewId(isReviewing ? '' : version.id)} disabled={busy}>Review</button>
+                            <button className="ghost" type="button" onClick={() => previewTemplateVersion(version)} disabled={busy || !isReviewing}>Preview</button>
                             <button className="ghost" type="button" onClick={() => restoreTemplateVersion(version)} disabled={busy || version.is_current || !isReviewing}>Restore</button>
                           </div>
                           {isReviewing ? (
