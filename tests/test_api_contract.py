@@ -667,6 +667,80 @@ def test_v1_render_document_renders_design_blocks() -> None:
     assert 'border-radius:10px' in data['html_body']
 
 
+def test_document_to_html_renders_nested_design_layout_blocks() -> None:
+    html = document_to_html(
+        {
+            'blocks': [
+                {
+                    'type': 'section',
+                    'className': 'email-section',
+                    'bg': '#f8fafc',
+                    'padding_y': 20,
+                    'children': [
+                        {
+                            'type': 'heading',
+                            'className': 'email-title',
+                            'text': 'Hello {{ first_name }}',
+                        },
+                        {
+                            'type': 'columns',
+                            'gap': 20,
+                            'mobile_stack': 'reverse',
+                            'children': [
+                                {
+                                    'type': 'section',
+                                    'className': 'email-column',
+                                    'width': 40,
+                                    'children': [
+                                        {'type': 'paragraph', 'text': 'Plan {{ plan }}'}
+                                    ],
+                                },
+                                {
+                                    'type': 'section',
+                                    'className': 'email-column',
+                                    'width': 60,
+                                    'children': [
+                                        {
+                                            'type': 'button',
+                                            'text': 'Open',
+                                            'href': '{{ tracking_click }}',
+                                        }
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            'type': 'conditional',
+                            'variable': 'is_trial',
+                            'children': [{'type': 'paragraph', 'text': 'Trial offer'}],
+                            'else_children': [
+                                {'type': 'paragraph', 'text': 'Account update'}
+                            ],
+                        },
+                        {
+                            'type': 'loop',
+                            'item_name': 'item',
+                            'collection': 'recommendations',
+                            'children': [{'type': 'paragraph', 'text': '{{ item }}'}],
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+
+    assert '<div class="email-section" style="background:#f8fafc;padding:20px;">' in html
+    assert '<table class="email-columns stack-mobile-reverse"' in html
+    assert 'data-mobile-stack="reverse"' in html
+    assert '<td width="40%"' in html
+    assert '<td width="60%"' in html
+    assert '<a class="button" href="{{ tracking_click }}"' in html
+    assert '{% if is_trial %}' in html
+    assert '{% else %}' in html
+    assert '{% for item in recommendations %}' in html
+    assert '{% endfor %}' in html
+
+
 def test_v1_document_render_handles_table_loop_sample_variables() -> None:
     client = TestClient(app)
     payload = {
@@ -876,6 +950,50 @@ def test_template_document_json_round_trips_through_current_version() -> None:
     data = document_response.json()
     assert data['version_number'] is not None
     assert data['document_json'] == updated_document
+
+
+def test_template_document_update_refreshes_current_template_html() -> None:
+    client = TestClient(app)
+    name = f'document-current-html-{uuid4()}'
+
+    try:
+        create_response = client.post(
+            '/api/v1/templates',
+            json={
+                'name': name,
+                'subject': 'Current document',
+                'html_body': '<p>Old body</p>',
+                'document_json': {
+                    'blocks': [{'type': 'paragraph', 'text': 'Old design body'}],
+                },
+            },
+        )
+    except OperationalError as exc:
+        pytest.skip(f'database is unavailable for current document test: {exc}')
+    assert create_response.status_code == 200
+    template_id = create_response.json()['id']
+
+    update_response = client.put(
+        f'/api/v1/templates/{template_id}/document',
+        json={
+            'document_json': {
+                'blocks': [
+                    {
+                        'type': 'section',
+                        'children': [{'type': 'paragraph', 'text': 'New design body'}],
+                    }
+                ]
+            },
+            'set_current': True,
+        },
+    )
+    assert update_response.status_code == 200
+
+    template_response = client.get(f'/api/v1/templates/{template_id}')
+    assert template_response.status_code == 200
+    template = template_response.json()
+    assert 'New design body' in template['html_body']
+    assert 'Old body' not in template['html_body']
 
 
 def test_template_variables_endpoint_extracts_samples_and_native_variables() -> None:

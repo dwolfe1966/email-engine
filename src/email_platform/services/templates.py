@@ -21,6 +21,7 @@ from email_platform.models.entities import (
     JourneyStepExecution,
 )
 from email_platform.schemas.contracts import (
+    JsonObject,
     TemplateCreate,
     TemplateDocumentRead,
     TemplateDocumentUpdate,
@@ -518,6 +519,8 @@ class TemplateService:
         document_json = payload_values.pop('document_json', None)
         for key, value in payload_values.items():
             setattr(template, key, value)
+        if document_json is not None and self._has_document_blocks(document_json):
+            template.html_body = document_to_html(document_json)
         version_fields = {'subject', 'html_body', 'css_body', 'text_body', 'document_json'}
         if version_fields & payload.model_fields_set:
             self._add_version(
@@ -580,8 +583,13 @@ class TemplateService:
                 set_current=payload.set_current,
             ),
         )
+        if payload.set_current:
+            template.html_body = version.html_body
+            template.css_body = version.css_body
+            template.text_body = version.text_body
         self.db.commit()
         self.db.refresh(version)
+        self.db.refresh(template)
         return TemplateDocumentRead(
             template_id=template_id,
             version_id=version.id,
