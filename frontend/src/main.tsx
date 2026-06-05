@@ -3471,7 +3471,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function nextDesignToken(source: string, cursor: number) {
-    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<table\b|<hr\b|<div\b)/i);
+    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<table\b|<footer\b|<hr\b|<div\b)/i);
     if (!nextMatch || nextMatch.index === undefined) return null;
     const start = cursor + nextMatch.index;
     const tokenStart = nextMatch[0];
@@ -3556,6 +3556,17 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         color: styleValue(style, 'color') || '#111827',
       }];
     }
+    if (/^<footer\b/i.test(markup)) {
+      return [{
+        id,
+        type: 'footer',
+        text: htmlText(htmlInner(markup, 'footer')) || 'You are receiving this email because you subscribed to updates.',
+        href: htmlAttribute(markup.match(/<a\b[\s\S]*?<\/a>/i)?.[0] || '', 'href') || '{{ unsubscribe_url }}',
+        className: className || 'email-footer',
+        color: styleValue(style, 'color') || '#64748b',
+        padding_y: Number.parseInt(styleValue(style, 'padding'), 10) || 18,
+      }];
+    }
     if (/^<hr\b/i.test(markup)) return [{ id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className }];
     if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return [{ id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className }];
     if (/^<div\b/i.test(markup)) {
@@ -3634,6 +3645,16 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       color: '#111827',
       padding_y: 10,
       padding_x: 12,
+    };
+    if (type === 'footer') return {
+      id,
+      type,
+      text: 'You are receiving this email because you subscribed to updates.',
+      href: '{{ unsubscribe_url }}',
+      className: 'email-footer',
+      color: '#64748b',
+      padding_y: 18,
+      padding_x: 0,
     };
     if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
     if (type === 'spacer') return { id, type, height: 24, className: 'email-spacer' };
@@ -3716,6 +3737,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         : '';
       const bodyHtml = `<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td style="border:1px solid #d8dee6;padding:${cellPadding};vertical-align:top;">${escapeTemplateText(cell)}</td>`).join('')}</tr>`).join('')}</tbody>`;
       return `<table${classAttr || ' class="email-table"'} role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="${tableStyle}">${headerHtml}${bodyHtml}</table>`;
+    }
+    if (block.type === 'footer') {
+      const style = textBlockStyle(`text-align:${block.align || 'center'};font-size:12px;line-height:1.5;`);
+      const footerText = escapeTemplateText(block.text || 'You are receiving this email because you subscribed to updates.');
+      const link = `<a href="${escapeTemplateText(block.href || '{{ unsubscribe_url }}')}">Unsubscribe</a>`;
+      return `<footer${classAttr || ' class="email-footer"'} style="${style}">${footerText}<br>${link}</footer>`;
     }
     if (block.type === 'divider') return `<hr${classAttr} style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
     if (block.type === 'spacer') return `<div${classAttr} style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
@@ -3954,7 +3981,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const siblingContext = designBlockSiblingContext(id);
     return Boolean(siblingContext && siblingContext.index > 0 && isDesignContainerBlock(siblingContext.blocks[siblingContext.index - 1]));
   }
-  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'trust_signal', 'html'];
+  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'trust_signal', 'footer', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
       section: 'Section',
@@ -3968,6 +3995,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       divider: 'Divider',
       spacer: 'Spacer',
       trust_signal: 'Trust signal',
+      footer: 'Footer',
       html: 'HTML / Jinja',
     };
     return labels[type] || type.replace('_', ' ');
@@ -3989,6 +4017,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       divider: 'Divider',
       spacer: 'Spacer',
       trust_signal: 'Trust signal',
+      footer: 'Footer',
       html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
     };
     const preview = block.type === 'table'
@@ -4185,7 +4214,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
             <button className="close" type="button" onClick={() => setActiveDesignTreeAddId('')} title="Close chooser">x</button>
-            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'html'].map((type) => (
+            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'footer', 'html'].map((type) => (
               <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
                 {designBlockTypeLabel(type)}
               </button>
@@ -4230,6 +4259,18 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'trust_signal') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="secondary-text"';
       return `<p${classAttr} ${editableAttrs(block.text)} style="${textBlockStyle('text-align:center;')}">${escapeTemplateText(block.text)}</p>`;
+    }
+    if (block.type === 'footer') {
+      const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : ' class="email-footer"';
+      const style = textBlockStyle(`text-align:${block.align || 'center'};font-size:12px;line-height:1.5;`);
+      const footerHtml = `<footer${classAttr} style="${style}"><span ${editableAttrs(block.text || 'You are receiving this email because you subscribed to updates.')}>${escapeTemplateText(block.text || 'You are receiving this email because you subscribed to updates.')}</span><br><a href="${escapeTemplateText(block.href || '{{ unsubscribe_url }}')}">Unsubscribe</a></footer>`;
+      if (block.id !== selectedDesignBlockId) return footerHtml;
+      return `<div class="ee-footer-edit-wrap">
+        ${footerHtml}
+        <div class="ee-field-edit-panel">
+          <label>Unsubscribe URL<input data-design-block-field="href" value="${escapeTemplateText(block.href || '{{ unsubscribe_url }}')}" /></label>
+        </div>
+      </div>`;
     }
     if (block.type === 'list') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
@@ -4324,6 +4365,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       || block.type === 'button'
       || block.type === 'list'
       || block.type === 'trust_signal'
+      || block.type === 'footer'
       || (block.type === 'paragraph' && !block.html);
   }
 
@@ -4332,6 +4374,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'button') return 'Edit text or URL';
     if (block.type === 'image') return 'Edit image details';
     if (block.type === 'table') return 'Edit table in inspector';
+    if (block.type === 'footer') return 'Edit footer text or URL';
     if (block.type === 'section') return 'Edit section style';
     if (block.type === 'columns') return 'Edit columns style';
     if (block.type === 'spacer') return 'Edit spacer height';
@@ -4401,7 +4444,7 @@ ${designCanvasBlockContentHtml(block).split('\n').map((line) => `        ${line}
 	      [data-design-edit-field] { min-height: 1em; outline: 1px dashed transparent; outline-offset: 3px; cursor: text; }
 	      [data-design-edit-field]:hover { outline-color: #bfdbfe; background: rgba(37, 99, 235, 0.04); }
 	      [data-design-edit-field]:focus { outline-color: #2563eb; background: rgba(37, 99, 235, 0.08); }
-      .ee-image-edit-wrap, .ee-button-edit-wrap, .ee-spacing-edit-wrap, .ee-table-edit-wrap { display: grid; gap: 8px; }
+      .ee-image-edit-wrap, .ee-button-edit-wrap, .ee-spacing-edit-wrap, .ee-table-edit-wrap, .ee-footer-edit-wrap { display: grid; gap: 8px; }
       .ee-image-edit-panel, .ee-field-edit-panel, .ee-section-edit-panel, .ee-table-edit-panel { display: grid; gap: 6px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 8px; }
       .ee-section-edit-panel { grid-template-columns: minmax(0, 1fr) 96px; margin-bottom: 8px; }
       .ee-image-edit-panel label, .ee-field-edit-panel label, .ee-section-edit-panel label, .ee-table-edit-panel label { display: grid; gap: 4px; color: #1d4ed8; font: 800 10px/1.2 Arial, sans-serif; text-transform: uppercase; }
@@ -5517,6 +5560,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (block.type === 'section') return 'email-section';
     if (block.type === 'columns') return 'email-columns';
     if (block.type === 'trust_signal') return 'secondary-text';
+    if (block.type === 'footer') return 'email-footer';
     if (block.type === 'html') return 'email-custom-html';
     return `email-${block.type.replace(/_/g, '-')}`;
   }
@@ -5666,6 +5710,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       `.email-table { width: 100%; border-collapse: collapse; color: ${cssPreset.text}; }`,
       `.email-table th, .email-table td { border: 1px solid #d8dee6; padding: ${compactPadding}px; text-align: left; vertical-align: top; }`,
       `.email-table th { background: ${cssPreset.background}; }`,
+      `.email-footer { color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; padding: ${compactPadding}px 0 0; }`,
       `.muted { color: #6b7280; font-size: 13px; }`,
       `@media only screen and (max-width: 640px) { .email-container { width: auto !important; padding: 18px !important; border-radius: 0 !important; } }`,
     ].join('\n');
@@ -6168,6 +6213,19 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           </label>
           {backgroundControl()}
           {textColorControl()}
+          {paddingControls()}
+        </>
+      );
+    }
+    if (block.type === 'footer') {
+      return (
+        <>
+          {classInput()}
+          {textArea('Footer text', 'text')}
+          {textInput('Unsubscribe URL', 'href')}
+          <label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+          {textColorControl()}
+          {backgroundControl()}
           {paddingControls()}
         </>
       );
