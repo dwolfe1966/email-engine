@@ -1529,10 +1529,8 @@ th {
 }
 
 .tool-panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -1545,7 +1543,8 @@ th {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
-  text-align: right;
+  min-width: 0;
+  text-align: left;
 }
 
 .tool-panel-toggle {
@@ -1593,15 +1592,19 @@ th {
 }
 
 .pane-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 8px;
   min-width: 0;
 }
 
 .pane-title-row strong {
+  overflow: hidden;
   min-width: 0;
+  padding-top: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pane-toggle-button {
@@ -1952,16 +1955,21 @@ th {
 }
 
 .design-hierarchy-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .design-tree-tools {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
+}
+
+.design-tree-tools .pane-toggle-button {
+  order: 10;
 }
 
 .design-tree-tools .icon-button {
