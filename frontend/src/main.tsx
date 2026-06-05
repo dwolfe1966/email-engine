@@ -778,6 +778,12 @@ type TemplateDocumentRead = {
   document_json: Record<string, unknown>;
 };
 
+type TemplateDocumentImportRead = {
+  document_json: Record<string, unknown>;
+  block_count: number;
+  raw_block_count: number;
+};
+
 type TemplateVersionRead = {
   id: string;
   template_id: string;
@@ -6292,6 +6298,40 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     });
   }
 
+  async function importSourceToDesignBlocks() {
+    await runTemplateOperation('Importing source to design', async () => {
+      const source = htmlBody.trim();
+      if (!source) return 'Add HTML/Jinja source before importing design blocks.';
+      let nextDesignDoc: TemplateDesignDocument;
+      let rawBlockCount = 0;
+      try {
+        const data = await fetchJson<TemplateDocumentImportRead>('/api/v1/templates/document/import-html', {
+          method: 'POST',
+          body: JSON.stringify({ html_body: source }),
+        });
+        const blocks = data.document_json?.blocks;
+        if (!Array.isArray(blocks) || !blocks.length) throw new Error('Import returned no blocks');
+        nextDesignDoc = {
+          blocks: blocks.map((block, index) => normalizeDesignBlock(block, index)),
+        };
+        rawBlockCount = data.raw_block_count || 0;
+      } catch {
+        nextDesignDoc = htmlToDesignDocument(source);
+        rawBlockCount = flattenDesignBlocks(nextDesignDoc.blocks)
+          .filter((block) => block.type === 'html' || block.type === 'raw')
+          .length;
+      }
+      setDesignDoc(nextDesignDoc);
+      setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
+      setDesignDocEdited(true);
+      setDesignUndoStack([]);
+      setDesignRedoStack([]);
+      setEditorMode('design');
+      markPreviewStale();
+      return `Imported ${formatInt(flattenDesignBlocks(nextDesignDoc.blocks).length)} design block(s). ${formatInt(rawBlockCount)} raw block(s) preserved.`;
+    });
+  }
+
   async function draftWithAi() {
     await runTemplateOperation('Drafting with AI', async () => {
       const draft = await fetchJson<AITemplateDraft>('/api/v1/ai/templates/draft', {
@@ -6862,6 +6902,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <span>{previewStatusText}</span>
                         </div>
                         <div className="button-row">
+                          <button className="ghost" type="button" onClick={importSourceToDesignBlocks} disabled={busy || !htmlBody.trim()}>Import Source</button>
                           <button className={designDocEdited ? 'primary' : 'ghost'} type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync to Code</button>
                           {missingCssClasses.length ? <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Fix CSS</button> : null}
                           <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
