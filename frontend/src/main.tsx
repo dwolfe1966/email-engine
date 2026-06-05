@@ -90,6 +90,7 @@ type TemplateDesignBlock = {
   items?: string[];
   table_headers?: string[];
   table_rows?: string[][];
+  social_links?: Array<{ label: string; url: string }>;
   src?: string;
   alt?: string;
   width?: number;
@@ -3471,7 +3472,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function nextDesignToken(source: string, cursor: number) {
-    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<table\b|<footer\b|<hr\b|<div\b)/i);
+    const nextMatch = source.slice(cursor).match(/({%\s*(if|for)\b[\s\S]*?{%\s*end\2\s*%}|<h[1-3]\b|<p\b|<a\b|<img\b|<ul\b|<ol\b|<table\b|<footer\b|<nav\b|<hr\b|<div\b)/i);
     if (!nextMatch || nextMatch.index === undefined) return null;
     const start = cursor + nextMatch.index;
     const tokenStart = nextMatch[0];
@@ -3567,6 +3568,24 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         padding_y: Number.parseInt(styleValue(style, 'padding'), 10) || 18,
       }];
     }
+    if (/^<nav\b/i.test(markup)) {
+      const links = Array.from(markup.matchAll(/<a\b[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)).map((link) => ({
+        label: htmlText(link[2]) || 'Link',
+        url: link[1],
+      }));
+      return [{
+        id,
+        type: 'social_links',
+        className: className || 'email-social-links',
+        social_links: links.length ? links : [
+          { label: 'LinkedIn', url: '{{ linkedin_url }}' },
+          { label: 'Instagram', url: '{{ instagram_url }}' },
+        ],
+        color: styleValue(style, 'color') || '#2563eb',
+        align: styleValue(style, 'text-align') || 'center',
+        padding_y: Number.parseInt(styleValue(style, 'padding'), 10) || 12,
+      }];
+    }
     if (/^<hr\b/i.test(markup)) return [{ id, type: 'divider', color: styleValue(style, 'border-top')?.split(' ').pop() || '#d8dee6', className }];
     if (/^<div\b/i.test(markup) && /height\s*:/.test(style)) return [{ id, type: 'spacer', height: Number.parseInt(styleValue(style, 'height'), 10) || 24, className }];
     if (/^<div\b/i.test(markup)) {
@@ -3597,6 +3616,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       items: block.items ? [...block.items] : block.items,
       table_headers: block.table_headers ? [...block.table_headers] : block.table_headers,
       table_rows: block.table_rows ? block.table_rows.map((row) => [...row]) : block.table_rows,
+      social_links: block.social_links ? block.social_links.map((link) => ({ ...link })) : block.social_links,
       children: block.children?.map(cloneDesignBlock),
     };
   }
@@ -3607,6 +3627,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       items: block.items ? [...block.items] : block.items,
       table_headers: block.table_headers ? [...block.table_headers] : block.table_headers,
       table_rows: block.table_rows ? block.table_rows.map((row) => [...row]) : block.table_rows,
+      social_links: block.social_links ? block.social_links.map((link) => ({ ...link })) : block.social_links,
       children: block.children?.map(snapshotDesignBlock),
     };
   }
@@ -3622,6 +3643,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       table_rows: Array.isArray(block.table_rows)
         ? block.table_rows.map((row) => Array.isArray(row) ? row.map((cell) => String(cell)) : [String(row)])
         : block.table_rows,
+      social_links: Array.isArray(block.social_links)
+        ? block.social_links.map((link) => ({
+          label: String(link?.label || 'Link'),
+          url: String(link?.url || '#'),
+        }))
+        : block.social_links,
       children: Array.isArray(block.children) ? block.children.map((child, childIndex) => normalizeDesignBlock(child, childIndex)) : block.children,
     };
   }
@@ -3654,6 +3681,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       className: 'email-footer',
       color: '#64748b',
       padding_y: 18,
+      padding_x: 0,
+    };
+    if (type === 'social_links') return {
+      id,
+      type,
+      className: 'email-social-links',
+      social_links: [
+        { label: 'LinkedIn', url: '{{ linkedin_url }}' },
+        { label: 'Instagram', url: '{{ instagram_url }}' },
+        { label: 'Website', url: '{{ website_url }}' },
+      ],
+      color: '#2563eb',
+      align: 'center',
+      padding_y: 12,
       padding_x: 0,
     };
     if (type === 'divider') return { id, type, color: '#d8dee6', className: 'email-divider' };
@@ -3694,6 +3735,31 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return value.split('\n')
       .map((row) => row.split('|').map((cell) => cell.trim()))
       .filter((row) => row.some(Boolean));
+  }
+
+  function normalizedSocialLinks(block: TemplateDesignBlock) {
+    const links = block.social_links?.length ? block.social_links : [
+      { label: 'LinkedIn', url: '{{ linkedin_url }}' },
+      { label: 'Instagram', url: '{{ instagram_url }}' },
+    ];
+    return links.map((link) => ({
+      label: String(link.label || 'Link'),
+      url: String(link.url || '#'),
+    }));
+  }
+
+  function socialLinksText(block: TemplateDesignBlock) {
+    return normalizedSocialLinks(block).map((link) => `${link.label} | ${link.url}`).join('\n');
+  }
+
+  function parseSocialLinksText(value: string) {
+    return value.split('\n')
+      .map((row) => {
+        const [label, ...urlParts] = row.split('|');
+        return { label: label.trim(), url: urlParts.join('|').trim() };
+      })
+      .filter((link) => link.label || link.url)
+      .map((link) => ({ label: link.label || 'Link', url: link.url || '#' }));
   }
 
   function designBlockToHtml(block: TemplateDesignBlock) {
@@ -3743,6 +3809,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const footerText = escapeTemplateText(block.text || 'You are receiving this email because you subscribed to updates.');
       const link = `<a href="${escapeTemplateText(block.href || '{{ unsubscribe_url }}')}">Unsubscribe</a>`;
       return `<footer${classAttr || ' class="email-footer"'} style="${style}">${footerText}<br>${link}</footer>`;
+    }
+    if (block.type === 'social_links') {
+      const style = textBlockStyle(`text-align:${block.align || 'center'};font-size:13px;line-height:1.5;`);
+      const links = normalizedSocialLinks(block).map((link) => `<a href="${escapeTemplateText(link.url)}" style="color:${block.color || '#2563eb'};text-decoration:none;font-weight:700;">${escapeTemplateText(link.label)}</a>`).join(' <span style="color:#cbd5e1;">|</span> ');
+      return `<nav${classAttr || ' class="email-social-links"'} style="${style}">${links}</nav>`;
     }
     if (block.type === 'divider') return `<hr${classAttr} style="border:0;border-top:1px solid ${block.color || '#d8dee6'};" />`;
     if (block.type === 'spacer') return `<div${classAttr} style="height:${Number(block.height || 24)}px;line-height:${Number(block.height || 24)}px;font-size:0;">&nbsp;</div>`;
@@ -3981,7 +4052,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     const siblingContext = designBlockSiblingContext(id);
     return Boolean(siblingContext && siblingContext.index > 0 && isDesignContainerBlock(siblingContext.blocks[siblingContext.index - 1]));
   }
-  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'trust_signal', 'footer', 'html'];
+  const designPaletteBlockTypes = ['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'trust_signal', 'social_links', 'footer', 'html'];
   function designBlockTypeLabel(type: string) {
     const labels: Record<string, string> = {
       section: 'Section',
@@ -3995,6 +4066,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       divider: 'Divider',
       spacer: 'Spacer',
       trust_signal: 'Trust signal',
+      social_links: 'Social links',
       footer: 'Footer',
       html: 'HTML / Jinja',
     };
@@ -4017,11 +4089,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       divider: 'Divider',
       spacer: 'Spacer',
       trust_signal: 'Trust signal',
+      social_links: 'Social links',
       footer: 'Footer',
       html: /{%\s*(if|elif|else|endif)\b/.test(raw) ? 'Conditional' : /{%\s*(for|endfor)\b/.test(raw) ? 'Loop' : 'HTML / Jinja',
     };
     const preview = block.type === 'table'
       ? `${(block.table_rows || []).length} row(s)`
+      : block.type === 'social_links'
+        ? `${normalizedSocialLinks(block).length} link(s)`
       : block.type === 'list'
       ? `${(block.items || []).length} item(s)`
       : decodeTemplateText(block.text || block.alt || block.code || block.html || block.src || '').slice(0, 64);
@@ -4214,7 +4289,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         ...(addMenuOpen ? [
           <div className="design-tree-add-menu" key={`${block.id}-add-menu`} style={{ '--tree-depth': depth } as Record<string, number>}>
             <button className="close" type="button" onClick={() => setActiveDesignTreeAddId('')} title="Close chooser">x</button>
-            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'footer', 'html'].map((type) => (
+            {['section', 'columns', 'heading', 'paragraph', 'button', 'image', 'table', 'list', 'divider', 'spacer', 'social_links', 'footer', 'html'].map((type) => (
               <button key={type} type="button" onClick={() => addDesignTreeChildBlock(block.id, type)}>
                 {designBlockTypeLabel(type)}
               </button>
@@ -4272,6 +4347,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         </div>
       </div>`;
     }
+    if (block.type === 'social_links') return designBlockToHtml(block);
     if (block.type === 'list') {
       const classAttr = block.className ? ` class="${escapeTemplateText(block.className)}"` : '';
       const tag = block.ordered ? 'ol' : 'ul';
@@ -4375,6 +4451,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     if (block.type === 'image') return 'Edit image details';
     if (block.type === 'table') return 'Edit table in inspector';
     if (block.type === 'footer') return 'Edit footer text or URL';
+    if (block.type === 'social_links') return 'Edit social links in inspector';
     if (block.type === 'section') return 'Edit section style';
     if (block.type === 'columns') return 'Edit columns style';
     if (block.type === 'spacer') return 'Edit spacer height';
@@ -5560,6 +5637,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (block.type === 'section') return 'email-section';
     if (block.type === 'columns') return 'email-columns';
     if (block.type === 'trust_signal') return 'secondary-text';
+    if (block.type === 'social_links') return 'email-social-links';
     if (block.type === 'footer') return 'email-footer';
     if (block.type === 'html') return 'email-custom-html';
     return `email-${block.type.replace(/_/g, '-')}`;
@@ -5710,6 +5788,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       `.email-table { width: 100%; border-collapse: collapse; color: ${cssPreset.text}; }`,
       `.email-table th, .email-table td { border: 1px solid #d8dee6; padding: ${compactPadding}px; text-align: left; vertical-align: top; }`,
       `.email-table th { background: ${cssPreset.background}; }`,
+      `.email-social-links { color: ${cssPreset.accent}; font-size: 13px; line-height: 1.5; text-align: center; padding: ${compactPadding}px 0; }`,
+      `.email-social-links a { color: ${cssPreset.accent}; text-decoration: none; font-weight: 700; }`,
       `.email-footer { color: #64748b; font-size: 12px; line-height: 1.5; text-align: center; padding: ${compactPadding}px 0 0; }`,
       `.muted { color: #6b7280; font-size: 13px; }`,
       `@media only screen and (max-width: 640px) { .email-container { width: auto !important; padding: 18px !important; border-radius: 0 !important; } }`,
@@ -6225,6 +6305,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           {textInput('Unsubscribe URL', 'href')}
           <label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
           {textColorControl()}
+          {backgroundControl()}
+          {paddingControls()}
+        </>
+      );
+    }
+    if (block.type === 'social_links') {
+      return (
+        <>
+          {classInput()}
+          <label className="wide-field">
+            Links
+            <textarea
+              rows={4}
+              value={socialLinksText(block)}
+              onChange={(event) => updateDesignBlock(block.id, { social_links: parseSocialLinksText(event.target.value) })}
+            />
+          </label>
+          <label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+          {textColorControl('Link color', 'Social link color')}
           {backgroundControl()}
           {paddingControls()}
         </>
