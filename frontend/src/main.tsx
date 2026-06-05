@@ -7195,10 +7195,12 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	          <aside className="template-side-pane">
 	            <div className="tool-panel-head feedback-panel-head">
                 <div className="pane-title-row">
-	                <strong>Feedback</strong>
+                  <div className="pane-title-copy">
+	                  <strong>Feedback</strong>
+	                  <span>Readiness checks, AI drafts, and recommendations for this template.</span>
+                  </div>
                   <button className="pane-toggle-button" type="button" onClick={() => setTemplateFeedbackOpen(false)} title="Hide Feedback">-</button>
                 </div>
-	              <span>Readiness checks, AI drafts, and recommendations for this template.</span>
 	            </div>
             <div className="ai-feedback-summary">
               <div className={pendingAiDraft ? 'active' : ''}>

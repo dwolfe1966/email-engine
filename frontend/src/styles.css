@@ -1607,6 +1607,16 @@ th {
   white-space: nowrap;
 }
 
+.pane-title-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pane-title-copy span {
+  text-align: left;
+}
+
 .pane-toggle-button {
   display: inline-grid;
   flex: 0 0 auto;
