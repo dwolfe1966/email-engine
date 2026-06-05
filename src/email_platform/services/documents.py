@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass, field
+from html.parser import HTMLParser
+
+
+@dataclass
+class HtmlNode:
+    tag: str
+    attrs: dict[str, str] = field(default_factory=dict)
+    children: list[HtmlNode | str] = field(default_factory=list)
+    self_closing: bool = False
 
 
 def document_to_html(document: Mapping[str, object]) -> str:
@@ -14,6 +24,14 @@ def document_to_html(document: Mapping[str, object]) -> str:
         html_parts.append(document_block_to_html(block))
     html_parts.append('</div>')
     return '\n'.join(html_parts)
+
+
+def html_to_document(html: str) -> dict[str, object]:
+    parser = _DesignHtmlParser()
+    parser.feed(html)
+    parser.close()
+    blocks = _nodes_to_blocks(parser.root.children)
+    return {'blocks': blocks or [{'type': 'html', 'code': html.strip()}]}
 
 
 def document_block_to_html(block: Mapping[str, object]) -> str:
@@ -141,6 +159,158 @@ def document_block_to_html(block: Mapping[str, object]) -> str:
     return f'<!-- unknown block type: {_escape_html(block_type)} -->'
 
 
+class _DesignHtmlParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.root = HtmlNode('root')
+        self.stack: list[HtmlNode] = [self.root]
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        node = HtmlNode(tag.lower(), {key: value or '' for key, value in attrs})
+        self.stack[-1].children.append(node)
+        if node.tag not in {'br', 'hr', 'img', 'input', 'meta', 'link'}:
+            self.stack.append(node)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        node = HtmlNode(
+            tag.lower(),
+            {key: value or '' for key, value in attrs},
+            self_closing=True,
+        )
+        self.stack[-1].children.append(node)
+
+    def handle_endtag(self, tag: str) -> None:
+        normalized = tag.lower()
+        for index in range(len(self.stack) - 1, 0, -1):
+            if self.stack[index].tag == normalized:
+                del self.stack[index:]
+                return
+
+    def handle_data(self, data: str) -> None:
+        if data:
+            self.stack[-1].children.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        self.stack[-1].children.append(f'&{name};')
+
+    def handle_charref(self, name: str) -> None:
+        self.stack[-1].children.append(f'&#{name};')
+
+    def handle_comment(self, data: str) -> None:
+        self.stack[-1].children.append(f'<!--{data}-->')
+
+
+def _nodes_to_blocks(nodes: list[HtmlNode | str]) -> list[dict[str, object]]:
+    blocks: list[dict[str, object]] = []
+    text_buffer: list[str] = []
+    for node in nodes:
+        if isinstance(node, str):
+            if node.strip():
+                text_buffer.append(node)
+            continue
+        if text_buffer:
+            blocks.append({'type': 'paragraph', 'text': _collapse_text(''.join(text_buffer))})
+            text_buffer = []
+        block = _node_to_block(node)
+        if block:
+            blocks.append(block)
+    if text_buffer:
+        blocks.append({'type': 'paragraph', 'text': _collapse_text(''.join(text_buffer))})
+    return blocks
+
+
+def _node_to_block(node: HtmlNode) -> dict[str, object]:
+    class_name = node.attrs.get('class', '')
+    if node.tag == 'div' and 'email-document' in class_name.split():
+        return {
+            'type': 'section',
+            'className': class_name,
+            'children': _nodes_to_blocks(node.children),
+        }
+    if node.tag == 'div' and _is_section_like(node):
+        block: dict[str, object] = {
+            'type': 'section',
+            'children': _nodes_to_blocks(node.children),
+        }
+        _copy_common_attrs(node, block)
+        return block
+    if node.tag in {'h1', 'h2', 'h3'}:
+        block = {
+            'type': 'heading',
+            'level': int(node.tag[1]),
+            'text': _collapse_text(_node_text(node)),
+        }
+        _copy_common_attrs(node, block)
+        return block
+    if node.tag == 'p':
+        block = {'type': 'paragraph'}
+        _copy_common_attrs(node, block)
+        if _has_markup_children(node):
+            block['html'] = _inner_html(node)
+        else:
+            block['text'] = _collapse_text(_node_text(node))
+        return block
+    if node.tag == 'a':
+        return {
+            'type': 'button',
+            'text': _collapse_text(_node_text(node)) or 'Call to Action',
+            'href': node.attrs.get('href', ''),
+            'className': node.attrs.get('class', 'button'),
+        }
+    if node.tag == 'img':
+        return {
+            'type': 'image',
+            'src': node.attrs.get('src', ''),
+            'alt': node.attrs.get('alt', ''),
+            'width': _bounded_int(node.attrs.get('width'), default=600, minimum=50, maximum=600),
+            **({'className': node.attrs['class']} if node.attrs.get('class') else {}),
+        }
+    if node.tag in {'ul', 'ol'}:
+        items = [
+            _collapse_text(_node_text(child))
+            for child in node.children
+            if isinstance(child, HtmlNode) and child.tag == 'li'
+        ]
+        block = {
+            'type': 'list',
+            'ordered': node.tag == 'ol',
+            'items': [item for item in items if item],
+        }
+        _copy_common_attrs(node, block)
+        return block
+    if node.tag == 'hr':
+        block = {'type': 'divider'}
+        _copy_common_attrs(node, block)
+        return block
+    if node.tag == 'table' and _is_columns_table(node):
+        return _columns_table_to_block(node)
+    return {'type': 'html', 'code': _outer_html(node)}
+
+
+def _columns_table_to_block(node: HtmlNode) -> dict[str, object]:
+    rows = _child_elements(node, {'tr'})
+    if not rows:
+        tbody = _child_elements(node, {'tbody'})
+        rows = _child_elements(tbody[0], {'tr'}) if tbody else []
+    cells = _child_elements(rows[0], {'td', 'th'}) if rows else []
+    children = []
+    for cell in cells:
+        width = _bounded_int(
+            cell.attrs.get('width', '').rstrip('%'), default=0, minimum=0, maximum=100
+        )
+        child: dict[str, object] = {'type': 'section', 'children': _nodes_to_blocks(cell.children)}
+        if width:
+            child['width'] = width
+        children.append(child)
+    block: dict[str, object] = {
+        'type': 'columns',
+        'children': children,
+        'mobile_stack': node.attrs.get('data-mobile-stack', 'stack'),
+    }
+    _copy_common_attrs(node, block)
+    return block
+
+
 def _columns_to_html(block: Mapping[str, object], class_attr: str) -> str:
     children = block.get('children')
     columns = children if isinstance(children, list) and children else [{}, {}]
@@ -192,6 +362,79 @@ def _columns_to_html(block: Mapping[str, object], class_attr: str) -> str:
     if not padding:
         return table
     return f'<div style="padding:{padding}px;">\n{_indent(table)}\n</div>'
+
+
+def _is_columns_table(node: HtmlNode) -> bool:
+    class_name = node.attrs.get('class', '')
+    return node.tag == 'table' and (
+        'email-columns' in class_name.split()
+        or node.attrs.get('role') == 'presentation'
+        and bool(_child_elements(node, {'tr', 'tbody'}))
+    )
+
+
+def _is_section_like(node: HtmlNode) -> bool:
+    class_name = node.attrs.get('class', '')
+    return 'email-section' in class_name.split() or 'email-column' in class_name.split()
+
+
+def _copy_common_attrs(node: HtmlNode, block: dict[str, object]) -> None:
+    class_name = node.attrs.get('class')
+    if class_name:
+        block['className'] = class_name
+
+
+def _has_markup_children(node: HtmlNode) -> bool:
+    return any(isinstance(child, HtmlNode) and child.tag != 'br' for child in node.children)
+
+
+def _child_elements(node: HtmlNode, tags: set[str]) -> list[HtmlNode]:
+    matches = [
+        child for child in node.children if isinstance(child, HtmlNode) and child.tag in tags
+    ]
+    if matches:
+        return matches
+    nested: list[HtmlNode] = []
+    for child in node.children:
+        if isinstance(child, HtmlNode):
+            nested.extend(_child_elements(child, tags))
+    return nested
+
+
+def _node_text(node: HtmlNode) -> str:
+    parts: list[str] = []
+    for child in node.children:
+        if isinstance(child, str):
+            parts.append(child)
+        elif child.tag == 'br':
+            parts.append('\n')
+        else:
+            parts.append(_node_text(child))
+    return ''.join(parts)
+
+
+def _collapse_text(value: str) -> str:
+    return ' '.join(value.split())
+
+
+def _inner_html(node: HtmlNode) -> str:
+    return ''.join(_serialize_child(child) for child in node.children)
+
+
+def _outer_html(node: HtmlNode) -> str:
+    attrs = ''.join(
+        f' {name}="{_escape_html(value)}"' if value else f' {name}'
+        for name, value in node.attrs.items()
+    )
+    if node.self_closing or node.tag in {'br', 'hr', 'img', 'input', 'meta', 'link'}:
+        return f'<{node.tag}{attrs} />'
+    return f'<{node.tag}{attrs}>{_inner_html(node)}</{node.tag}>'
+
+
+def _serialize_child(child: HtmlNode | str) -> str:
+    if isinstance(child, str):
+        return child
+    return _outer_html(child)
 
 
 def _children_to_html(block: Mapping[str, object]) -> str:

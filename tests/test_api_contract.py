@@ -8,7 +8,7 @@ from email_platform.api.compat import _template_create_payload
 from email_platform.api.operation_feedback import with_operation_feedback
 from email_platform.main import app
 from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateValidationRequest
-from email_platform.services.documents import document_to_html
+from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
 
 
@@ -35,6 +35,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/templates',
         '/api/v1/templates/lint',
         '/api/v1/templates/list',
+        '/api/v1/templates/document/import-html',
         '/api/v1/templates/document/render',
         '/api/v1/templates/document/validate',
         '/api/v1/templates/document/variables',
@@ -739,6 +740,71 @@ def test_document_to_html_renders_nested_design_layout_blocks() -> None:
     assert '{% else %}' in html
     assert '{% for item in recommendations %}' in html
     assert '{% endfor %}' in html
+
+
+def test_html_to_document_imports_common_design_blocks_and_preserves_unknown_html() -> None:
+    document = html_to_document(
+        """
+        <h1 class="email-title">Hello {{ first_name }}</h1>
+        <p class="email-copy">Plain body copy</p>
+        <p><strong>{{ plan }}</strong> with <a href="{{ tracking_click }}">link</a></p>
+        <ul class="email-list"><li>One</li><li>{{ plan }}</li></ul>
+        <img class="email-image" src="https://example.com/hero.png" alt="Hero" width="320" />
+        <table class="summary"><tr><td>{{ item.name }}</td></tr></table>
+        """
+    )
+
+    blocks = document['blocks']
+    assert isinstance(blocks, list)
+    assert blocks[0] == {
+        'type': 'heading',
+        'level': 1,
+        'text': 'Hello {{ first_name }}',
+        'className': 'email-title',
+    }
+    assert blocks[1] == {
+        'type': 'paragraph',
+        'className': 'email-copy',
+        'text': 'Plain body copy',
+    }
+    assert blocks[2]['type'] == 'paragraph'
+    assert '<strong>{{ plan }}</strong>' in str(blocks[2]['html'])
+    assert blocks[3] == {
+        'type': 'list',
+        'ordered': False,
+        'items': ['One', '{{ plan }}'],
+        'className': 'email-list',
+    }
+    assert blocks[4]['type'] == 'image'
+    assert blocks[4]['width'] == 320
+    assert blocks[5]['type'] == 'html'
+    assert '<table class="summary">' in str(blocks[5]['code'])
+
+
+def test_v1_document_import_html_endpoint_returns_safe_document_blocks() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/templates/document/import-html',
+        json={
+            'html_body': (
+                '<div class="email-section">'
+                '<h2>Welcome {{ first_name }}</h2>'
+                '<p>Use {{ tracking_click }}</p>'
+                '</div>'
+                '<table class="summary"><tr><td>Keep raw</td></tr></table>'
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['block_count'] == 2
+    assert data['raw_block_count'] == 1
+    blocks = data['document_json']['blocks']
+    assert blocks[0]['type'] == 'section'
+    assert blocks[0]['children'][0]['type'] == 'heading'
+    assert blocks[0]['children'][1]['text'] == 'Use {{ tracking_click }}'
+    assert blocks[1]['type'] == 'html'
 
 
 def test_v1_document_render_handles_table_loop_sample_variables() -> None:

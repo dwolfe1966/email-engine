@@ -130,6 +130,8 @@ from email_platform.schemas.contracts import (
     SuppressionCreate,
     SuppressionRead,
     TemplateCreate,
+    TemplateDocumentImportRead,
+    TemplateDocumentImportRequest,
     TemplateDocumentRead,
     TemplateDocumentRenderRequest,
     TemplateDocumentUpdate,
@@ -150,14 +152,14 @@ from email_platform.schemas.contracts import (
     UnsubscribeTokenRead,
 )
 from email_platform.services.analytics import AnalyticsService
-from email_platform.services.auth import hash_password
 from email_platform.services.audience_imports import AudienceImportService
 from email_platform.services.audiences import AudienceService
+from email_platform.services.auth import hash_password
 from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
 from email_platform.services.delivery import DeliveryService
-from email_platform.services.documents import document_to_html
+from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.journeys import JourneyService
 from email_platform.services.provider_webhooks import ProviderWebhookService
@@ -2052,6 +2054,25 @@ def render_template_document(
     payload: TemplateDocumentRenderRequest, db: DbSession
 ) -> TemplatePreviewRead:
     return TemplateService(db).preview(_document_preview_request(payload))
+
+
+@router.post('/templates/document/import-html', response_model=TemplateDocumentImportRead)
+def import_template_document_html(
+    payload: TemplateDocumentImportRequest,
+) -> TemplateDocumentImportRead:
+    document = html_to_document(payload.html_body)
+    blocks = document.get('blocks')
+    block_list = blocks if isinstance(blocks, list) else []
+    raw_count = sum(
+        1
+        for block in block_list
+        if isinstance(block, dict) and block.get('type') in {'html', 'raw'}
+    )
+    return TemplateDocumentImportRead(
+        document_json=document,
+        block_count=len(block_list),
+        raw_block_count=raw_count,
+    )
 
 
 @router.post('/templates/document/variables', response_model=TemplateVariablesRead)

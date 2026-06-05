@@ -121,6 +121,16 @@ class TemplateDocumentRenderRequest(BaseModel):
     variables: JsonObject = Field(default_factory=dict)
 
 
+class TemplateDocumentImportRequest(BaseModel):
+    html_body: str
+
+
+class TemplateDocumentImportRead(BaseModel):
+    document_json: JsonObject = Field(default_factory=dict)
+    block_count: int = 0
+    raw_block_count: int = 0
+
+
 class TemplatePreviewRequest(BaseModel):
     subject: str
     html_body: str
