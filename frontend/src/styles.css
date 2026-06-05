@@ -2546,6 +2546,11 @@ th {
   background: #f0fdf4;
 }
 
+.template-version-list > div.reviewing {
+  border-color: #9db7d8;
+  background: #ffffff;
+}
+
 .template-version-list strong,
 .template-version-list span {
   display: block;
@@ -2560,6 +2565,37 @@ th {
   color: #64748b;
   font-size: 11px;
   font-weight: 750;
+}
+
+.template-version-compare {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.template-version-compare > div {
+  border: 1px solid #e4edf8;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 7px;
+}
+
+.template-version-compare > div.changed {
+  border-color: #f8d08d;
+  background: #fffbeb;
+}
+
+.template-version-compare span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.template-version-compare strong {
+  color: #29405f;
+  font-size: 12px;
 }
 
 .design-empty-dropzone {

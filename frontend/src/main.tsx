@@ -3083,6 +3083,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [pendingAiDraft, setPendingAiDraft] = useState<AITemplateDraft | null>(null);
   const [appliedAiDraftLabel, setAppliedAiDraftLabel] = useState('');
   const [templateVersions, setTemplateVersions] = useState<TemplateVersionRead[]>([]);
+  const [selectedVersionReviewId, setSelectedVersionReviewId] = useState('');
   const [editorMode, setEditorMode] = useState<'edit' | 'design' | 'preview'>('edit');
   const [previewSourceMode, setPreviewSourceMode] = useState<'edit' | 'design'>('edit');
   const [designDoc, setDesignDoc] = useState<TemplateDesignDocument>({ blocks: [] });
@@ -3324,6 +3325,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   function formatSignedCount(value: number) {
     if (!value) return '0';
     return `${value > 0 ? '+' : ''}${formatInt(value)}`;
+  }
+
+  function versionReview(version: TemplateVersionRead) {
+    const versionDesignDocJson = version.document_json?.blocks
+      ? semanticDesignDocJson(version.document_json as TemplateDesignDocument)
+      : '{"blocks":[]}';
+    return {
+      subjectChanged: version.subject !== subject,
+      htmlDelta: (version.html_body || '').length - htmlBody.length,
+      cssDelta: (version.css_body || '').length - cssBody.length,
+      cssChanged: (version.css_body || '') !== cssBody,
+      textChanged: (version.text_body || '') !== '',
+      documentChanged: versionDesignDocJson !== semanticDesignDocJson(designDoc),
+    };
   }
 
   function designDocFromTemplate(template: TemplateRead): TemplateDesignDocument {
@@ -5127,6 +5142,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setEditorMode('edit');
     setPreviewSourceMode('edit');
     setTemplateVersions([]);
+    setSelectedVersionReviewId('');
     setStatus('Ready to create a new template.');
     return true;
   }
@@ -5161,6 +5177,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     setAiNotes([]);
     setPendingAiDraft(null);
     setAppliedAiDraftLabel('');
+    setSelectedVersionReviewId('');
     setEditorMode('edit');
     setPreviewSourceMode('edit');
     void loadTemplateVersions(template.id);
@@ -7196,15 +7213,50 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <h3>Version History</h3>
                 {templateVersions.length ? (
                   <div className="template-version-list">
-                    {templateVersions.slice(0, 6).map((version) => (
-                      <div className={version.is_current ? 'current' : ''} key={version.id}>
-                        <div>
-                          <strong>Version {version.version_number}</strong>
-                          <span>{version.is_current ? 'Current version' : `${formatInt((version.html_body || '').length)} HTML chars`}</span>
+                    {templateVersions.slice(0, 6).map((version) => {
+                      const review = versionReview(version);
+                      const isReviewing = selectedVersionReviewId === version.id;
+                      return (
+                        <div className={`${version.is_current ? 'current' : ''} ${isReviewing ? 'reviewing' : ''}`} key={version.id}>
+                          <div>
+                            <strong>Version {version.version_number}</strong>
+                            <span>{version.is_current ? 'Current version' : `${formatInt((version.html_body || '').length)} HTML chars`}</span>
+                          </div>
+                          <div className="button-row">
+                            <button className="ghost" type="button" onClick={() => setSelectedVersionReviewId(isReviewing ? '' : version.id)} disabled={busy}>Review</button>
+                            <button className="ghost" type="button" onClick={() => restoreTemplateVersion(version)} disabled={busy || version.is_current || !isReviewing}>Restore</button>
+                          </div>
+                          {isReviewing ? (
+                            <div className="template-version-compare">
+                              <div className={review.subjectChanged ? 'changed' : ''}>
+                                <span>Subject</span>
+                                <strong>{review.subjectChanged ? 'Changed' : 'Same'}</strong>
+                              </div>
+                              <div className={review.htmlDelta ? 'changed' : ''}>
+                                <span>HTML size</span>
+                                <strong>{formatSignedCount(review.htmlDelta)} chars</strong>
+                              </div>
+                              <div className={review.cssChanged ? 'changed' : ''}>
+                                <span>CSS size</span>
+                                <strong>{formatSignedCount(review.cssDelta)} chars</strong>
+                              </div>
+                              <div className={review.documentChanged ? 'changed' : ''}>
+                                <span>Design doc</span>
+                                <strong>{review.documentChanged ? 'Changed' : 'Same'}</strong>
+                              </div>
+                              <div className={review.textChanged ? 'changed' : ''}>
+                                <span>Text body</span>
+                                <strong>{review.textChanged ? 'Present' : 'Empty'}</strong>
+                              </div>
+                              <div>
+                                <span>Restore</span>
+                                <strong>{version.is_current ? 'Already current' : 'Creates new version'}</strong>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
-                        <button className="ghost" type="button" onClick={() => restoreTemplateVersion(version)} disabled={busy || version.is_current}>Restore</button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="empty-state compact-empty">
