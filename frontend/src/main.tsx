@@ -3449,6 +3449,20 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     return style.match(pattern)?.[1]?.trim() || '';
   }
 
+  function cssNumber(value: string, fallback: number) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function paddingPair(value: string, fallbackY: number, fallbackX: number) {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return { y: fallbackY, x: fallbackX };
+    return {
+      y: cssNumber(parts[0], fallbackY),
+      x: cssNumber(parts[1] || parts[0], fallbackX),
+    };
+  }
+
   function htmlInner(markup: string, tag: string) {
     const match = markup.match(new RegExp(`^<${tag}\\b[^>]*>([\\s\\S]*)<\\/${tag}>$`, 'i'));
     return match?.[1]?.trim() || '';
@@ -3551,14 +3565,19 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
         Array.from(row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)).map((cell) => htmlText(cell[1]))
       )).filter((row) => row.length);
       const firstRowIsHeader = /<tr\b[^>]*>[\s\S]*?<th\b/i.test(markup);
+      const headerStyle = htmlAttribute(markup.match(/<th\b[^>]*>/i)?.[0] || '', 'style');
+      const cellStyle = htmlAttribute(markup.match(/<t[hd]\b[^>]*>/i)?.[0] || '', 'style');
+      const cellPadding = paddingPair(styleValue(cellStyle, 'padding'), 10, 12);
       return [{
         id,
         type: 'table',
         className: className || 'email-table',
         table_headers: firstRowIsHeader ? rows[0] || [] : [],
         table_rows: firstRowIsHeader ? rows.slice(1) : rows,
-        bg: styleValue(style, 'background') || '#f8fafc',
+        bg: styleValue(style, 'background') || styleValue(headerStyle, 'background') || '#f8fafc',
         color: styleValue(style, 'color') || '#111827',
+        padding_y: cellPadding.y,
+        padding_x: cellPadding.x,
       }];
     }
     if (/^<footer\b/i.test(markup)) {
