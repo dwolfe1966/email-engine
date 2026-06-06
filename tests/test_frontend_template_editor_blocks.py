@@ -55,6 +55,11 @@ def assert_template_design_block_contract(source: str) -> None:
         "Latest render",
         "Preview is current with sample variables.",
         "template-render-result",
+        "sample-variable-health",
+        "nativeSampleVariableCount",
+        "jsonSampleVariableCount",
+        "Sample variable health",
+        "Preview-aware variables",
     ]
 
     for token in expected_tokens:
@@ -84,6 +89,8 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'Latest render',
         'Preview is current with sample variables.',
         'CSS gaps',
+        'Sample variable health',
+        'Preview-aware variables',
     ]
 
     for token in expected_tokens:

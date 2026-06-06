@@ -6188,6 +6188,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       source: variable.native ? 'native' : (variable.sources?.[0] || 'template'),
     }))
     : Object.keys(sampleVariables).map((name) => ({ name, value: sampleVariables[name], source: 'sample' }));
+  const nativeSampleVariableCount = sampleVariableRows.filter((item) => item.source === 'native').length;
+  const jsonSampleVariableCount = Object.keys(sampleVariables).length;
   const templateEditorCompletions = Array.from(new Set([
     ...sampleVariableRows.map((item) => item.name),
     'first_name',
@@ -7180,6 +7182,28 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    Sample variables JSON
 	                    <small>{variablesJsonError ? 'Fix JSON before previewing' : 'Field editor updates this JSON'}</small>
 	                  </span>
+                    <div className="sample-variable-health" aria-label="Sample variable health">
+                      <div className={variablesJsonError ? 'warn' : 'good'}>
+                        <span>JSON</span>
+                        <strong>{variablesJsonError ? 'Invalid' : 'Valid'}</strong>
+                        <small>{variablesJsonError || `${formatInt(jsonSampleVariableCount)} value(s)`}</small>
+                      </div>
+                      <div className={variables.length ? 'good' : 'warn'}>
+                        <span>Detected</span>
+                        <strong>{formatInt(variables.length)}</strong>
+                        <small>{variables.length ? 'Preview-aware variables' : 'Run preview or refresh'}</small>
+                      </div>
+                      <div className={nativeSampleVariableCount ? 'good' : ''}>
+                        <span>Native</span>
+                        <strong>{formatInt(nativeSampleVariableCount)}</strong>
+                        <small>{sampleVariableRows.length ? `${formatInt(sampleVariableRows.length)} editable row(s)` : 'No rows yet'}</small>
+                      </div>
+                      <div className={previewFreshness === 'current' ? 'good' : 'warn'}>
+                        <span>Preview</span>
+                        <strong>{previewFreshness === 'current' ? 'Current' : previewFreshness === 'stale' ? 'Stale' : 'Empty'}</strong>
+                        <small>{previewStatusText}</small>
+                      </div>
+                    </div>
 	                  <textarea className={variablesJsonError ? 'field-error' : ''} value={variablesJson} onChange={(event) => {
 	                    setVariablesJson(event.target.value);
 	                    markPreviewStale();

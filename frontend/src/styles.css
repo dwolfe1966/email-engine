@@ -1500,6 +1500,48 @@ th {
   grid-row: 2 / span 2;
 }
 
+.sample-variable-health {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sample-variable-health > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 8px;
+}
+
+.sample-variable-health > div.good {
+  border-color: #b7e8d5;
+  background: #f2fff9;
+}
+
+.sample-variable-health > div.warn {
+  border-color: #f2d5a4;
+  background: #fffaf0;
+}
+
+.sample-variable-health span,
+.sample-variable-health small {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.sample-variable-health strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 13px;
+}
+
 .html-editor-field,
 .css-editor-field {
   grid-column: 1;
