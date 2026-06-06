@@ -478,6 +478,17 @@ type CampaignSendJobRead = {
   metadata_json: Record<string, unknown>;
 };
 
+type CampaignLaunchResult = {
+  job_id: string;
+  campaign_id: string;
+  audience_snapshot_id: string | null;
+  status: string;
+  requested_count: number;
+  queued_count: number;
+  suppressed_count: number;
+  dry_run: boolean;
+};
+
 type CampaignSendJobProgress = {
   send_job_id: string;
   campaign_id: string;
@@ -1637,6 +1648,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const [operationBusy, setOperationBusy] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [workflowStatus, setWorkflowStatus] = useState<CampaignWorkflowStatus | null>(null);
+  const [lastLaunchResult, setLastLaunchResult] = useState<CampaignLaunchResult | null>(null);
 
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
@@ -1853,10 +1865,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   async function dryRunLaunch() {
     await runOperation('Running dry-run launch', async () => {
       if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
-      const data = await fetchJson<{ requested_count: number; queued_count: number; suppressed_count: number }>(`/api/v1/campaigns/${selectedCampaignId}/launch`, {
+      const data = await fetchJson<CampaignLaunchResult>(`/api/v1/campaigns/${selectedCampaignId}/launch`, {
         method: 'POST',
         body: JSON.stringify({ audience_id: audienceId || null, variables: parsedVariables(), dry_run: true }),
       });
+      setLastLaunchResult(data);
       return `Dry run complete. ${formatInt(data.requested_count)} requested, ${formatInt(data.queued_count)} queued, ${formatInt(data.suppressed_count)} suppressed.`;
     });
   }
@@ -2007,6 +2020,19 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
             </div>
           </div>
+          {lastLaunchResult ? (
+            <div className={`launch-result-card ${lastLaunchResult.dry_run ? 'dry-run' : ''}`}>
+              <div>
+                <span>{lastLaunchResult.dry_run ? 'Dry-run result' : 'Launch result'}</span>
+                <strong>{lastLaunchResult.status}</strong>
+                <small>Job {lastLaunchResult.job_id.slice(0, 8)}{lastLaunchResult.audience_snapshot_id ? ` | Snapshot ${lastLaunchResult.audience_snapshot_id.slice(0, 8)}` : ''}</small>
+              </div>
+              <div><span>Requested</span><strong>{formatInt(lastLaunchResult.requested_count)}</strong></div>
+              <div><span>Queued</span><strong>{formatInt(lastLaunchResult.queued_count)}</strong></div>
+              <div><span>Suppressed</span><strong>{formatInt(lastLaunchResult.suppressed_count)}</strong></div>
+              <a href="#delivery">Open delivery</a>
+            </div>
+          ) : null}
           {validationErrors.length || validationWarnings.length ? (
             <div className="launch-issue-list">
               {validationErrors.map((item) => <p className="warn" key={`error-${item}`}>Error: {item}</p>)}

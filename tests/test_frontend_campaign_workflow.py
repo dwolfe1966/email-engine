@@ -30,6 +30,15 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'Guided next step',
         'campaignNextStep.detail',
         'campaignNextStep.run',
+        'type CampaignLaunchResult',
+        'lastLaunchResult',
+        'setLastLaunchResult(data)',
+        'Dry-run result',
+        'Launch result',
+        'lastLaunchResult.requested_count',
+        'lastLaunchResult.queued_count',
+        'lastLaunchResult.suppressed_count',
+        'launch-result-card',
     ]
 
     for token in expected_tokens:
@@ -48,10 +57,13 @@ def test_built_esp_bundle_includes_campaign_guided_next_step_action() -> None:
         'Fix validation blockers',
         'Preview test content',
         'Dry-run launch',
+        'Dry-run result',
+        'Launch result',
         'Refresh Readiness',
         'Check Audience',
         'Preview Email',
         'Dry-Run Launch',
+        'Open delivery',
     ]
 
     for token in expected_tokens:
