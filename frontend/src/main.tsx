@@ -1724,6 +1724,33 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             : !testEmail.trim()
               ? 'Enter a test recipient and send a test email.'
               : 'Ready for test send or dry-run launch.';
+  const campaignNextStep = !workflowStatus
+    ? {
+      label: 'Run readiness',
+      detail: 'Load validation, audience, analytics, and latest delivery state before launch.',
+      actionLabel: 'Refresh Readiness',
+      run: loadCampaignWorkflowStatus,
+    }
+    : validationErrors.length
+      ? {
+        label: 'Fix validation blockers',
+        detail: `${formatInt(validationErrors.length)} error(s) must be cleared before sending.`,
+        actionLabel: 'Check Audience',
+        run: validateCampaign,
+      }
+      : !testEmail.trim()
+        ? {
+          label: 'Preview test content',
+          detail: 'Review rendered campaign content, then add a recipient for test send.',
+          actionLabel: 'Preview Email',
+          run: previewTestEmail,
+        }
+        : {
+          label: 'Dry-run launch',
+          detail: 'Simulate launch volume and suppression counts before production queueing.',
+          actionLabel: 'Dry-Run Launch',
+          run: dryRunLaunch,
+        };
 
   function parsedVariables() {
     try {
@@ -1972,8 +1999,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <p>{latestRequested ? `${formatInt(latestProcessed)} of ${formatInt(latestRequested)} processed` : 'Run readiness or launch dry-run to inspect delivery state'}</p>
             </div>
             <div className="launch-next-action">
-              <span>Next action</span>
-              <strong>{nextCampaignAction}</strong>
+              <span>Guided next step</span>
+              <strong>{campaignNextStep.label}</strong>
+              <p>{nextCampaignAction}</p>
+              <small>{campaignNextStep.detail}</small>
+              <button className="primary" onClick={campaignNextStep.run} disabled={operationBusy}>{campaignNextStep.actionLabel}</button>
               <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
             </div>
           </div>

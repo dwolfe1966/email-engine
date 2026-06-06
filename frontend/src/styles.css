@@ -1197,6 +1197,16 @@ th {
   line-height: 1.4;
 }
 
+.launch-next-action small {
+  color: #51637a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.launch-next-action button {
+  justify-self: start;
+}
+
 .launch-issue-list {
   display: grid;
   gap: 6px;
