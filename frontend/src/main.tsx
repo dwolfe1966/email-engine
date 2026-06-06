@@ -3163,6 +3163,15 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const [previewFreshness, setPreviewFreshness] = useState<'empty' | 'current' | 'stale'>('empty');
   const [previewViewport, setPreviewViewport] = useState<'desktop' | 'mobile'>('desktop');
   const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  const [templateRenderResult, setTemplateRenderResult] = useState<{
+    label: string;
+    subject: string;
+    ok: boolean;
+    errors: string[];
+    variableCount: number;
+    cssGapCount: number;
+    sourceMode: 'edit' | 'design';
+  } | null>(null);
   const [aiInstruction, setAiInstruction] = useState('Improve clarity, preserve all Jinja variables, add a stronger CTA, and keep the design email-safe.');
   const [aiInstructionMode, setAiInstructionMode] = useState('Custom');
   const [aiRecommendations, setAiRecommendations] = useState<AITemplateRecommendation[]>([]);
@@ -6529,6 +6538,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     }
   }
 
+  function recordTemplateRenderResult(input: {
+    label: string;
+    subject: string;
+    ok: boolean;
+    errors?: string[];
+    variableCount: number;
+    sourceMode?: 'edit' | 'design';
+  }) {
+    setTemplateRenderResult({
+      label: input.label,
+      subject: input.subject,
+      ok: input.ok,
+      errors: input.errors || [],
+      variableCount: input.variableCount,
+      cssGapCount: missingCssClasses.length,
+      sourceMode: input.sourceMode || (editorMode === 'design' ? 'design' : 'edit'),
+    });
+  }
+
   async function saveTemplate() {
     await runTemplateOperation(selectedTemplateId ? 'Saving template' : 'Creating template', async () => {
       const designHtml = editorMode === 'design' ? designDocumentTemplateSource() : htmlBody;
@@ -6641,6 +6669,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setPreviewFreshness('current');
       setPreviewSourceMode(editorMode === 'design' ? 'design' : 'edit');
       setEditorMode('preview');
+      recordTemplateRenderResult({
+        label: 'Preview render',
+        subject: data.subject || subject,
+        ok: data.ok,
+        errors: data.errors || [],
+        variableCount: (variableData.variables || []).length,
+        sourceMode: editorMode === 'design' ? 'design' : 'edit',
+      });
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered preview: ${data.subject}.${issueText}`;
     });
@@ -6667,6 +6703,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setPreviewSubject(data.subject || draft.subject || subject);
       setPreviewFreshness('current');
       setEditorMode('preview');
+      recordTemplateRenderResult({
+        label: 'AI draft preview',
+        subject: data.subject || draft.subject || subject,
+        ok: data.ok,
+        errors: data.errors || [],
+        variableCount: (variableData.variables || []).length,
+      });
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered AI draft preview: ${data.subject || draft.subject}.${issueText}`;
     });
@@ -6690,6 +6733,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       setPreviewSourceMode('edit');
       setEditorMode('preview');
       setSelectedVersionReviewId(version.id);
+      recordTemplateRenderResult({
+        label: `Version ${version.version_number} preview`,
+        subject: data.subject || version.subject || subject,
+        ok: data.ok,
+        errors: data.errors || [],
+        variableCount: (variableData.variables || []).length,
+        sourceMode: 'edit',
+      });
       const issueText = data.errors?.length ? ` ${data.errors.join('; ')}` : '';
       return `Rendered version ${version.version_number} preview: ${data.subject || version.subject}.${issueText}`;
     });
@@ -7598,6 +7649,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <span>{aiRecommendations.length ? 'Review recommended changes.' : 'Load AI suggestions when needed.'}</span>
               </div>
             </div>
+            {templateRenderResult ? (
+              <section className={`template-render-result ${templateRenderResult.ok ? 'good' : 'warn'}`}>
+                <div>
+                  <span>Latest render</span>
+                  <strong>{templateRenderResult.label}</strong>
+                  <small>{templateRenderResult.subject || 'No subject'}</small>
+                </div>
+                <div><span>Status</span><strong>{templateRenderResult.ok ? 'Rendered' : 'Review'}</strong></div>
+                <div><span>Variables</span><strong>{formatInt(templateRenderResult.variableCount)}</strong></div>
+                <div><span>CSS gaps</span><strong>{formatInt(templateRenderResult.cssGapCount)}</strong></div>
+                <div><span>Source</span><strong>{templateRenderResult.sourceMode === 'design' ? 'Design' : 'Source'}</strong></div>
+                {templateRenderResult.errors.length ? (
+                  <p>{templateRenderResult.errors.slice(0, 2).join('; ')}</p>
+                ) : (
+                  <p>{previewFreshness === 'current' ? 'Preview is current with sample variables.' : previewStatusText}</p>
+                )}
+                <button className="ghost" type="button" onClick={previewTemplate} disabled={busy}>Refresh Preview</button>
+              </section>
+            ) : null}
             <section className="workflow-section">
               <h3>Readiness</h3>
               <div className="compact-status-list">

@@ -50,6 +50,11 @@ def assert_template_design_block_contract(source: str) -> None:
         "Edit table in inspector",
         "Edit footer text or URL",
         "Edit social links in inspector",
+        "templateRenderResult",
+        "recordTemplateRenderResult",
+        "Latest render",
+        "Preview is current with sample variables.",
+        "template-render-result",
     ]
 
     for token in expected_tokens:
@@ -76,6 +81,9 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'Edit table in inspector',
         'Edit footer text or URL',
         'Edit social links in inspector',
+        'Latest render',
+        'Preview is current with sample variables.',
+        'CSS gaps',
     ]
 
     for token in expected_tokens:
