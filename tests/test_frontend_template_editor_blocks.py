@@ -60,6 +60,12 @@ def assert_template_design_block_contract(source: str) -> None:
         "jsonSampleVariableCount",
         "Sample variable health",
         "Preview-aware variables",
+        "design-inspector-group",
+        "inspectorGroup",
+        "Content', 'Header cells and row data",
+        "Style', 'Class, alignment, and colors",
+        "Layout', 'Cell padding",
+        "Structure', 'Nested block count and insertion controls",
     ]
 
     for token in expected_tokens:
@@ -91,6 +97,8 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'CSS gaps',
         'Sample variable health',
         'Preview-aware variables',
+        'Nested block count and insertion controls',
+        'Header cells and row data',
     ]
 
     for token in expected_tokens:

@@ -1,4 +1,4 @@
-import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent } from 'react';
+import { StrictMode, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { autocompletion, type CompletionContext } from '@codemirror/autocomplete';
 import { html } from '@codemirror/lang-html';
@@ -6341,28 +6341,27 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         {textInput('Horizontal padding', 'padding_x', 'number')}
       </>
     );
+    const inspectorGroup = (title: string, detail: string, children: ReactNode) => (
+      <fieldset className="design-inspector-group">
+        <legend>{title}</legend>
+        <small>{detail}</small>
+        <div>{children}</div>
+      </fieldset>
+    );
     if (block.type === 'heading') {
       return (
         <>
-          {textInput('Text', 'text')}
-          {classInput()}
-          {textInput('Level', 'level', 'number')}
-          <label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-          {textColorControl()}
-          {backgroundControl()}
-          {paddingControls()}
+          {inspectorGroup('Content', 'Text and heading level', <>{textInput('Text', 'text')}{textInput('Level', 'level', 'number')}</>)}
+          {inspectorGroup('Style', 'Class, alignment, and colors', <>{classInput()}<label>Align<select value={block.align || 'left'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>{textColorControl()}{backgroundControl()}</>)}
+          {inspectorGroup('Layout', 'Spacing around this block', <>{paddingControls()}</>)}
         </>
       );
     }
     if (block.type === 'button') {
       return (
         <>
-          {textInput('Text', 'text')}
-          {textInput('URL', 'href')}
-          {classInput()}
-          {backgroundControl()}
-          {textColorControl()}
-          {textInput('Radius', 'radius', 'number')}
+          {inspectorGroup('Content', 'CTA label and destination', <>{textInput('Text', 'text')}{textInput('URL', 'href')}</>)}
+          {inspectorGroup('Style', 'Button class, fill, text color, and radius', <>{classInput()}{backgroundControl()}{textColorControl()}{textInput('Radius', 'radius', 'number')}</>)}
         </>
       );
     }
@@ -6381,19 +6380,15 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (block.type === 'image') {
       return (
         <>
-          {textInput('Image URL', 'src')}
-          {textInput('Alt text', 'alt')}
-          {textInput('Link URL', 'href')}
-          {classInput()}
-          {textInput('Width', 'width', 'number')}
+          {inspectorGroup('Content', 'Image source, alt text, and link', <>{textInput('Image URL', 'src')}{textInput('Alt text', 'alt')}{textInput('Link URL', 'href')}</>)}
+          {inspectorGroup('Layout', 'Class and email-safe width', <>{classInput()}{textInput('Width', 'width', 'number')}</>)}
         </>
       );
     }
     if (block.type === 'table') {
       return (
         <>
-          {classInput()}
-          <label className="wide-field">
+          {inspectorGroup('Content', 'Header cells and row data', <><label className="wide-field">
             Headers
             <input
               value={(block.table_headers || []).join(' | ')}
@@ -6409,42 +6404,34 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               value={tableRowsText(block)}
               onChange={(event) => updateDesignBlock(block.id, { table_rows: parseTableRowsText(event.target.value) })}
             />
-          </label>
-          {backgroundControl()}
-          {textColorControl()}
-          {paddingControls()}
+          </label></>)}
+          {inspectorGroup('Style', 'Class and table colors', <>{classInput()}{backgroundControl()}{textColorControl()}</>)}
+          {inspectorGroup('Layout', 'Cell padding', <>{paddingControls()}</>)}
         </>
       );
     }
     if (block.type === 'footer') {
       return (
         <>
-          {classInput()}
-          {textArea('Footer text', 'text')}
-          {textInput('Unsubscribe URL', 'href')}
-          <label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-          {textColorControl()}
-          {backgroundControl()}
-          {paddingControls()}
+          {inspectorGroup('Content', 'Footer copy and unsubscribe destination', <>{textArea('Footer text', 'text')}{textInput('Unsubscribe URL', 'href')}</>)}
+          {inspectorGroup('Style', 'Class, alignment, and colors', <>{classInput()}<label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>{textColorControl()}{backgroundControl()}</>)}
+          {inspectorGroup('Layout', 'Footer spacing', <>{paddingControls()}</>)}
         </>
       );
     }
     if (block.type === 'social_links') {
       return (
         <>
-          {classInput()}
-          <label className="wide-field">
+          {inspectorGroup('Content', 'One social link per line as label | URL', <><label className="wide-field">
             Links
             <textarea
               rows={4}
               value={socialLinksText(block)}
               onChange={(event) => updateDesignBlock(block.id, { social_links: parseSocialLinksText(event.target.value) })}
             />
-          </label>
-          <label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-          {textColorControl('Link color', 'Social link color')}
-          {backgroundControl()}
-          {paddingControls()}
+          </label></>)}
+          {inspectorGroup('Style', 'Class, alignment, link color, and background', <>{classInput()}<label>Align<select value={block.align || 'center'} onChange={(event) => updateDesignBlock(block.id, { align: event.target.value })}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>{textColorControl('Link color', 'Social link color')}{backgroundControl()}</>)}
+          {inspectorGroup('Layout', 'Spacing around links', <>{paddingControls()}</>)}
         </>
       );
     }
@@ -6452,13 +6439,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const childBlockTypes = designPaletteBlockTypes.filter((type) => type !== 'section' && type !== 'columns');
       return (
         <>
-          {classInput()}
-          {backgroundControl()}
-          {textInput('Padding', 'padding_y', 'number')}
-          {block.type === 'columns' ? textInput('Column gap', 'gap', 'number') : null}
-          {block.type === 'columns' ? (
+          {inspectorGroup('Style', 'Container class and background', <>{classInput()}{backgroundControl()}</>)}
+          {inspectorGroup('Layout', 'Container spacing and mobile behavior', <>{textInput('Padding', 'padding_y', 'number')}{block.type === 'columns' ? textInput('Column gap', 'gap', 'number') : null}{block.type === 'columns' ? (
             <label>Mobile behavior<select value={block.mobile_stack || 'stack'} onChange={(event) => updateDesignBlock(block.id, { mobile_stack: event.target.value as TemplateDesignBlock['mobile_stack'] })}><option value="stack">Stack columns</option><option value="reverse">Reverse stack</option><option value="keep">Keep columns</option></select></label>
-          ) : null}
+          ) : null}</>)}
+          {inspectorGroup('Structure', 'Nested block count and insertion controls', <>
           <label className="wide-field">
             Contents
             <input value={`${formatInt(block.children?.length || 0)} nested block(s)`} readOnly />
@@ -6504,6 +6489,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               ))}
             </div>
           </div>
+          </>)}
         </>
       );
     }

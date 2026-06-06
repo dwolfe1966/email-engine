@@ -2737,6 +2737,37 @@ th {
   gap: 10px;
 }
 
+.design-inspector-group {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.design-inspector-group legend {
+  color: #29405f;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.design-inspector-group > small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.design-inspector-group > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .design-block-fields label {
   display: grid;
   gap: 6px;
@@ -2759,7 +2790,11 @@ th {
 }
 
 .design-block-fields textarea,
-.design-block-fields .wide-field {
+.design-block-fields .wide-field,
+.design-inspector-group .wide-field,
+.design-inspector-group .design-color-control,
+.design-inspector-group .section-child-tools,
+.design-inspector-group .column-width-tools {
   grid-column: 1 / -1;
 }
 
