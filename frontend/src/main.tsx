@@ -489,6 +489,19 @@ type CampaignLaunchResult = {
   dry_run: boolean;
 };
 
+type CampaignTestSendResult = {
+  provider: string;
+  provider_message_id: string | null;
+  status_code: number;
+  subject: string | null;
+  campaign_id: string;
+  template_id: string;
+  send_job_id: string;
+  send_record_id: string;
+  contact_id: string;
+  to_email?: string;
+};
+
 type CampaignSendJobProgress = {
   send_job_id: string;
   campaign_id: string;
@@ -1649,6 +1662,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const [previewHtml, setPreviewHtml] = useState('');
   const [workflowStatus, setWorkflowStatus] = useState<CampaignWorkflowStatus | null>(null);
   const [lastLaunchResult, setLastLaunchResult] = useState<CampaignLaunchResult | null>(null);
+  const [lastTestSendResult, setLastTestSendResult] = useState<CampaignTestSendResult | null>(null);
 
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
@@ -1854,11 +1868,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     await runOperation('Sending test email', async () => {
       if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
       if (!testEmail.trim()) throw new Error('Enter a test recipient email.');
-      const data = await fetchJson<{ status: string; provider_message_id?: string }>(`/api/v1/campaigns/${selectedCampaignId}/test-send`, {
+      const data = await fetchJson<CampaignTestSendResult>(`/api/v1/campaigns/${selectedCampaignId}/test-send`, {
         method: 'POST',
         body: JSON.stringify({ to_email: testEmail.trim(), variables: parsedVariables() }),
       });
-      return `Test send ${data.status}${data.provider_message_id ? ` (${data.provider_message_id})` : ''}.`;
+      setLastTestSendResult({ ...data, to_email: testEmail.trim() });
+      return `Test send ${data.status_code < 400 ? 'sent' : 'failed'}${data.provider_message_id ? ` (${data.provider_message_id})` : ''}.`;
     });
   }
 
@@ -2030,6 +2045,19 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Requested</span><strong>{formatInt(lastLaunchResult.requested_count)}</strong></div>
               <div><span>Queued</span><strong>{formatInt(lastLaunchResult.queued_count)}</strong></div>
               <div><span>Suppressed</span><strong>{formatInt(lastLaunchResult.suppressed_count)}</strong></div>
+              <a href="#delivery">Open delivery</a>
+            </div>
+          ) : null}
+          {lastTestSendResult ? (
+            <div className="test-send-result-card">
+              <div>
+                <span>Test send result</span>
+                <strong>{lastTestSendResult.status_code < 400 ? 'Sent' : 'Review'}</strong>
+                <small>{lastTestSendResult.to_email || 'Test recipient'} | {lastTestSendResult.provider}</small>
+              </div>
+              <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
+              <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
+              <div><span>Record</span><strong>{lastTestSendResult.send_record_id.slice(0, 8)}</strong></div>
               <a href="#delivery">Open delivery</a>
             </div>
           ) : null}
