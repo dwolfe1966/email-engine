@@ -3440,7 +3440,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function htmlAttribute(source: string, name: string) {
-    const pattern = new RegExp(`${name}=["']([^"']*)["']`, 'i');
+    const pattern = new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, 'i');
     return source.match(pattern)?.[1] || '';
   }
 
@@ -3456,6 +3456,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function htmlText(markup: string) {
     return decodeTemplateText(markup.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  }
+
+  function footerTextWithoutLinks(markup: string) {
+    return htmlText(markup.replace(/<a\b[\s\S]*?<\/a>/gi, ''));
   }
 
   function findMatchingHtmlClose(source: string, tag: string, openEnd: number) {
@@ -3558,10 +3562,11 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       }];
     }
     if (/^<footer\b/i.test(markup)) {
+      const footerInner = htmlInner(markup, 'footer');
       return [{
         id,
         type: 'footer',
-        text: htmlText(htmlInner(markup, 'footer')) || 'You are receiving this email because you subscribed to updates.',
+        text: footerTextWithoutLinks(footerInner) || 'You are receiving this email because you subscribed to updates.',
         href: htmlAttribute(markup.match(/<a\b[\s\S]*?<\/a>/i)?.[0] || '', 'href') || '{{ unsubscribe_url }}',
         className: className || 'email-footer',
         color: styleValue(style, 'color') || '#64748b',
@@ -3569,10 +3574,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       }];
     }
     if (/^<nav\b/i.test(markup)) {
-      const links = Array.from(markup.matchAll(/<a\b[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi)).map((link) => ({
-        label: htmlText(link[2]) || 'Link',
-        url: link[1],
-      }));
+      const links = Array.from(markup.matchAll(/<a\b[\s\S]*?>([\s\S]*?)<\/a>/gi)).map((link) => ({
+        label: htmlText(link[1]) || 'Link',
+        url: htmlAttribute(link[0], 'href'),
+      })).filter((link) => link.url);
       return [{
         id,
         type: 'social_links',
