@@ -542,6 +542,84 @@ h2 {
   font-size: 13px;
 }
 
+.overview-triage-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.overview-triage-panel.warn {
+  border-color: #f8c77d;
+  background: #fffaf0;
+}
+
+.overview-triage-panel.good {
+  border-color: #b6e0c1;
+  background: #f6fff8;
+}
+
+.overview-triage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overview-triage-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.overview-triage-head span,
+.overview-triage-head small,
+.overview-triage-grid span,
+.overview-triage-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.overview-triage-head strong,
+.overview-triage-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
+.overview-triage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-triage-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.overview-triage-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.overview-triage-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
 .overview-main-grid {
   display: grid;
   grid-template-columns: minmax(360px, 1.15fr) minmax(280px, .85fr) minmax(240px, .55fr);
@@ -5433,6 +5511,7 @@ th {
   .page-grid { grid-template-columns: 1fr; }
   .template-workspace-map { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .overview-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .audience-builder-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-command-strip,
   .integration-command-strip,
@@ -5505,6 +5584,7 @@ th {
   .search input { width: 100%; }
   .metric-grid { grid-template-columns: 1fr; }
   .overview-status-strip,
+  .overview-triage-grid,
   .overview-main-grid,
   .overview-lower-grid,
   .audience-builder-map,

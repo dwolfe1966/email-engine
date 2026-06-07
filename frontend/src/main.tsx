@@ -1515,9 +1515,12 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
   const attributeKeys = dashboard.contactMeta?.attribute_keys || [];
   const topSource = dashboard.contactMeta?.sources?.[0];
   const provider = dashboard.diagnostics?.email_provider.provider || 'unknown';
+  const smtpReady = Boolean(dashboard.diagnostics?.email_provider.smtp_configured);
+  const sendgridReady = Boolean(dashboard.diagnostics?.email_provider.sendgrid_configured);
+  const aiReady = Boolean(dashboard.diagnostics?.ai.openai_configured);
   const providerReady = Boolean(
-    dashboard.diagnostics?.email_provider.smtp_configured ||
-    dashboard.diagnostics?.email_provider.sendgrid_configured ||
+    smtpReady ||
+    sendgridReady ||
     provider === 'console',
   );
   const schemaOk = Boolean(dashboard.diagnostics?.schema.ok);
@@ -1555,6 +1558,101 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
     { label: 'Launch campaign', href: '#campaigns', detail: `${formatInt(dashboard.campaignItems.length)} campaigns` },
     { label: 'Review reports', href: '#analytics', detail: `${formatInt(dashboard.overview?.event_count || 0)} events` },
   ];
+  const overviewTriageAction = !schemaOk
+    ? {
+      tone: 'warn',
+      title: 'Resolve schema readiness',
+      detail: 'System schema should be current before treating dashboard workflow state as production-ready.',
+      actionLabel: 'Open Settings',
+      href: '#settings',
+    }
+    : !providerReady
+      ? {
+        tone: 'warn',
+        title: 'Configure outbound provider',
+        detail: 'Campaign launch and test-send workflows need a configured delivery provider path.',
+        actionLabel: 'Open Integrations',
+        href: '#integrations',
+      }
+      : !smtpReady
+        ? {
+          tone: 'warn',
+          title: 'Plan owned SMTP',
+          detail: 'Owned SMTP remains a platform foundation gap even while provider adapters are available.',
+          actionLabel: 'Open Integrations',
+          href: '#integrations',
+        }
+        : queuedRecords || failedRecords || activeJobs
+          ? {
+            tone: 'warn',
+            title: 'Review delivery pressure',
+            detail: `${formatInt(queuedRecords)} queued, ${formatInt(failedRecords)} failed, and ${formatInt(activeJobs)} active job(s) need delivery follow-up.`,
+            actionLabel: 'Open Delivery',
+            href: '#delivery',
+          }
+          : failedImports
+            ? {
+              tone: 'warn',
+              title: 'Review import failures',
+              detail: `${formatInt(failedImports)} failed import job(s) can affect contacts, audiences, and personalization.`,
+              actionLabel: 'Open Data Sources',
+              href: '#data',
+            }
+            : failedExecutions
+              ? {
+                tone: 'warn',
+                title: 'Review journey failures',
+                detail: `${formatInt(failedExecutions)} failed journey execution(s) need automation or delivery review.`,
+                actionLabel: 'Open Journeys',
+                href: '#automations',
+              }
+              : !aiReady
+                ? {
+                  tone: 'warn',
+                  title: 'Configure AI handoff',
+                  detail: 'AI Studio is available in fallback mode; configure OpenAI for production agent workflows.',
+                  actionLabel: 'Open AI Studio',
+                  href: '#ai-studio',
+                }
+                : {
+                  tone: 'good',
+                  title: 'Workspace ready',
+                  detail: 'Schema, provider, owned SMTP, delivery, imports, journeys, and AI handoff are clear.',
+                  actionLabel: 'Open Reports',
+                  href: '#analytics',
+                };
+  const overviewTriageItems = [
+    {
+      label: 'Provider',
+      value: providerReady ? providerLabel(provider) : 'Pending',
+      detail: smtpReady ? 'Owned SMTP configured' : sendgridReady ? 'Provider adapter ready' : 'No outbound path configured',
+      tone: providerReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Owned SMTP',
+      value: smtpReady ? 'Ready' : 'Gap',
+      detail: smtpReady ? 'Managed SMTP path configured' : 'First-class SMTP foundation still missing',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Delivery',
+      value: `${formatInt(queuedRecords)} / ${formatInt(failedRecords)}`,
+      detail: `${formatInt(activeJobs)} active send job(s) loaded`,
+      tone: queuedRecords || failedRecords || activeJobs ? 'warn' : 'good',
+    },
+    {
+      label: 'Imports',
+      value: formatInt(failedImports),
+      detail: `${formatInt(importedRows)} imported row(s) loaded`,
+      tone: failedImports ? 'warn' : 'good',
+    },
+    {
+      label: 'AI handoff',
+      value: aiReady ? 'Ready' : 'Fallback',
+      detail: dashboard.diagnostics?.ai.model || 'Deterministic fallback available',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
 
   return (
     <>
@@ -1581,6 +1679,25 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
         queuedRecords={queuedRecords}
         schemaOk={schemaOk}
       />
+      <section className={`overview-triage-panel ${overviewTriageAction.tone}`}>
+        <div className="overview-triage-head">
+          <div>
+            <span>Workspace triage</span>
+            <strong>{overviewTriageAction.title}</strong>
+            <small>{overviewTriageAction.detail}</small>
+          </div>
+          <a className={overviewTriageAction.tone === 'warn' ? 'primary' : 'ghost'} href={overviewTriageAction.href}>{overviewTriageAction.actionLabel}</a>
+        </div>
+        <div className="overview-triage-grid">
+          {overviewTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
       <section className="overview-main-grid">
         <NextActionPanel actions={riskItems} />
         <section className="panel overview-audience-card">
