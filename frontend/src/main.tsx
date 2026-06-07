@@ -12007,6 +12007,7 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
   const hasTemplateRecommendations = recommendations.length > 0;
   const hasWorkflowRecommendations = workflowRecommendations.length > 0;
   const hasPreview = Boolean(previewHtml);
+  const workflowCoverageAreas = Array.from(new Set(workflowRecommendations.map((item) => item.area)));
   const aiStudioTriageAction = !openAiReady
     ? {
       tone: 'warn',
@@ -12090,6 +12091,32 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
       value: hasPreview ? 'Rendered' : 'Pending',
       detail: hasPreview ? 'AI-assisted template preview is available' : 'Render before saving a generated template',
       tone: hasPreview ? 'good' : 'warn',
+    },
+  ];
+  const aiAgentLayerItems = [
+    {
+      label: 'Orchestration',
+      value: hasWorkflowRecommendations ? 'Active' : 'Manual',
+      detail: hasWorkflowRecommendations ? `${formatInt(workflowCoverageAreas.length)} workflow area(s) reviewed` : 'Operator still triggers workflow reviews manually',
+      tone: hasWorkflowRecommendations ? 'good' : 'warn',
+    },
+    {
+      label: 'Context memory',
+      value: 'Gap',
+      detail: 'Persistent agent memory, decisions, and follow-up state need canonical storage.',
+      tone: 'warn',
+    },
+    {
+      label: 'Human handoff',
+      value: hasWorkflowRecommendations ? 'Ready' : 'Pending',
+      detail: hasWorkflowRecommendations ? 'Recommendations can be reviewed before operator action' : 'Run workflow review before handoff',
+      tone: hasWorkflowRecommendations ? 'good' : 'warn',
+    },
+    {
+      label: 'Workflow coverage',
+      value: workflowCoverageAreas.length ? workflowCoverageAreas.join(', ') : 'Not run',
+      detail: 'Agents should remain present across templates, campaigns, audiences, delivery, analytics, and journeys.',
+      tone: workflowCoverageAreas.length >= 5 ? 'good' : 'warn',
     },
   ];
 
@@ -12322,6 +12349,24 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
         </div>
         <div className="ai-studio-triage-grid">
           {aiStudioTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="ai-agent-layer-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Ever-Present Agent Layer</h3>
+            <span className="muted">Cross-workflow orchestration, memory, handoff, and coverage.</span>
+          </div>
+          <button className="link-button" type="button" onClick={reviewWorkflow} disabled={busy}>Review Workflow</button>
+        </div>
+        <div className="ai-agent-layer-grid">
+          {aiAgentLayerItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>

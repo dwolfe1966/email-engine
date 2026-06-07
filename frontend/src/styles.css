@@ -4948,6 +4948,67 @@ th {
   background: #f5fff7;
 }
 
+.ai-agent-layer-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.ai-agent-layer-panel .compact-head {
+  margin: 0;
+}
+
+.ai-agent-layer-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.ai-agent-layer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ai-agent-layer-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.ai-agent-layer-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.ai-agent-layer-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.ai-agent-layer-grid span,
+.ai-agent-layer-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.ai-agent-layer-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .delivery-triage-panel {
   display: grid;
   gap: 12px;
@@ -5916,6 +5977,7 @@ th {
   .analytics-ai-action-grid,
   .docs-triage-grid,
   .ai-studio-triage-grid,
+  .ai-agent-layer-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
   .journey-triage-grid,
@@ -5988,6 +6050,7 @@ th {
   .analytics-ai-action-grid,
   .docs-triage-grid,
   .ai-studio-triage-grid,
+  .ai-agent-layer-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
   .journey-triage-grid,
