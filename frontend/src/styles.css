@@ -1645,6 +1645,48 @@ th {
   background: #f5fff7;
 }
 
+.audience-ai-review-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.audience-ai-review-panel .compact-head {
+  margin: 0;
+}
+
+.audience-ai-review-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.audience-ai-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.audience-ai-summary span {
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5f7a;
+  padding: 9px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.audience-ai-review-panel .recommendation-list small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .audience-impact-summary {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(120px, 160px) minmax(120px, 160px);
@@ -5726,6 +5768,7 @@ th {
   .test-send-result-card,
   .campaign-ai-summary,
   .campaign-triage-grid,
+  .audience-ai-summary,
   .audience-triage-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,
@@ -5795,6 +5838,7 @@ th {
   .data-command-strip,
   .campaign-ai-summary,
   .campaign-triage-grid,
+  .audience-ai-summary,
   .audience-triage-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,

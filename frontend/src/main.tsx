@@ -3158,6 +3158,8 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
   const [busy, setBusy] = useState(false);
   const [matchedCount, setMatchedCount] = useState<number | null>(null);
   const [sampleContacts, setSampleContacts] = useState<ContactRead[]>([]);
+  const [aiAudienceSummary, setAiAudienceSummary] = useState<string[]>([]);
+  const [aiAudienceRecommendations, setAiAudienceRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
 
   useEffect(() => {
     if (isNewAudience && selectedAudienceId) {
@@ -3603,6 +3605,46 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
     });
   }
 
+  async function reviewAudienceWithAi() {
+    await runAudienceOperation('Running AI Audience Review', async () => {
+      const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/audiences/analyze', {
+        method: 'POST',
+        body: JSON.stringify({
+          audience_context: {
+            audience: selectedAudience || { id: selectedAudienceId || null, name },
+            performance: selectedAudiencePerformance,
+            rule_tree: ruleJsonValid ? parsedRuleTree() : null,
+            metadata,
+            preview: {
+              matched_count: matchedCount,
+              match_rate: matchRate,
+              sample_contacts: sampleContacts,
+            },
+            campaigns: selectedAudienceCampaigns,
+            active_campaigns: selectedAudienceActiveCampaigns,
+            impact: audienceImpactSummary,
+            campaign_awareness: campaignAwareSummary,
+            triage: {
+              title: audienceTriageAction.title,
+              detail: audienceTriageAction.detail,
+              contact_total: metadata?.total || 0,
+              available_fields: availableFields,
+              attribute_keys: attributeKeys,
+            },
+          },
+          goals: [
+            'Assess audience targeting readiness',
+            'Find rule, data coverage, match volume, and campaign handoff risks',
+            'Recommend the next operator action before campaign launch',
+          ],
+        }),
+      });
+      setAiAudienceSummary(data.summary || []);
+      setAiAudienceRecommendations(data.recommendations || []);
+      return `AI Audience Review loaded ${formatInt(data.recommendations?.length || 0)} recommendation(s).`;
+    });
+  }
+
   async function deleteAudienceRow(audience: AudienceRead) {
     if (!window.confirm(`Delete audience "${audience.name}"?`)) return;
     await runAudienceOperation('Deleting audience', async () => {
@@ -3840,6 +3882,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             <strong>Preview</strong>
             <button className="ghost" onClick={previewAudience} disabled={busy}>Preview Contacts</button>
             {isPersistedAudience ? <button className="ghost" onClick={snapshotAudience} disabled={busy}>Create Snapshot</button> : null}
+            <button className="ghost" onClick={reviewAudienceWithAi} disabled={busy}>AI Audience Review</button>
           </div>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
@@ -3853,6 +3896,37 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             <small>{audienceNextAction.detail}</small>
           </div>
           <button className={audienceNextAction.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={audienceNextAction.run} disabled={busy}>{audienceNextAction.actionLabel}</button>
+        </div>
+        <div className="audience-ai-review-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>AI Audience Review</h3>
+              <span className="muted">{aiAudienceRecommendations?.length ? `${formatInt(aiAudienceRecommendations.length)} recommendation(s)` : 'Review targeting rule, data coverage, match volume, and campaign handoff.'}</span>
+            </div>
+            <button className="link-button" type="button" onClick={reviewAudienceWithAi} disabled={busy}>Run AI Review</button>
+          </div>
+          {aiAudienceSummary.length ? (
+            <div className="audience-ai-summary">
+              {aiAudienceSummary.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+            </div>
+          ) : null}
+          {aiAudienceRecommendations?.length ? (
+            <div className="recommendation-list">
+              {aiAudienceRecommendations.slice(0, 5).map((item) => (
+                <article key={item.code}>
+                  <span className="pill">{item.priority}</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                  <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ai-empty-state">
+              <strong>No AI audience review loaded</strong>
+              <span>Run AI Audience Review after previewing reach to prioritize data coverage, targeting, and campaign handoff.</span>
+            </div>
+          )}
         </div>
         <div className={`audience-impact-summary ${audienceImpactSummary.tone}`}>
           <div>
