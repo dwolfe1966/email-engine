@@ -5701,6 +5701,67 @@ th {
   background: #f5fff7;
 }
 
+.contact-entity-model-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.contact-entity-model-panel .compact-head {
+  margin: 0;
+}
+
+.contact-entity-model-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.contact-entity-model-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contact-entity-model-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.contact-entity-model-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.contact-entity-model-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.contact-entity-model-grid span,
+.contact-entity-model-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.contact-entity-model-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .contact-attribute-helper-panel {
   display: grid;
   gap: 10px;
@@ -5986,6 +6047,7 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,
+  .contact-entity-model-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .settings-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -6059,6 +6121,7 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,
+  .contact-entity-model-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .settings-triage-grid,

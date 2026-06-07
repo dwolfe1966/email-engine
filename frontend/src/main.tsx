@@ -10895,6 +10895,32 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
   })();
   const activeAttributeKeys = Object.keys(currentAttributePreview);
   const missingAttributeKeys = attributeKeys.filter((key) => !activeAttributeKeys.includes(key));
+  const contactEntityItems = [
+    {
+      label: 'Canonical contact',
+      value: totalContacts ? 'Ready' : 'Empty',
+      detail: `${formatInt(totalContacts)} contact profile(s) available for audiences, templates, and journeys.`,
+      tone: totalContacts ? 'good' : 'warn',
+    },
+    {
+      label: 'Profile attributes',
+      value: `${formatInt(attributeKeys.length)} keys`,
+      detail: attributeKeys.length ? attributeKeys.slice(0, 5).join(', ') : 'Import attributes for personalization and segmentation.',
+      tone: attributeKeys.length >= 3 ? 'good' : 'warn',
+    },
+    {
+      label: 'Client entities',
+      value: 'Gap',
+      detail: 'Client-owned objects such as accounts, stores, orders, memberships, and contracts need canonical storage.',
+      tone: 'warn',
+    },
+    {
+      label: 'Relationships',
+      value: 'Gap',
+      detail: 'Contact-to-entity links still need relationship APIs before multi-entity audiences and joins are first-class.',
+      tone: 'warn',
+    },
+  ];
 
   function parseAttributes() {
     try {
@@ -11030,6 +11056,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contacts-triage-grid">
             {contactsTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="contact-entity-model-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Canonical Entity Model</h3>
+              <span className="muted">Contacts, attributes, client-owned entities, and relationship readiness.</span>
+            </div>
+            <a href="#data">Open Data Sources</a>
+          </div>
+          <div className="contact-entity-model-grid">
+            {contactEntityItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
@@ -11212,6 +11256,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contacts-triage-grid">
             {contactsTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="contact-entity-model-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Canonical Entity Model</h3>
+              <span className="muted">Contacts, attributes, client-owned entities, and relationship readiness.</span>
+            </div>
+            <a href="#data">Open Data Sources</a>
+          </div>
+          <div className="contact-entity-model-grid">
+            {contactEntityItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
