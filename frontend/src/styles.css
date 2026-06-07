@@ -4521,6 +4521,83 @@ th {
   line-height: 1.3;
 }
 
+.journey-triage-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.journey-triage-panel.warn {
+  border-color: #f8c77d;
+  background: #fffaf0;
+}
+
+.journey-triage-panel.good {
+  border-color: #b6e0c1;
+  background: #f6fff8;
+}
+
+.journey-triage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.journey-triage-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.journey-triage-head span,
+.journey-triage-head small,
+.journey-triage-grid span,
+.journey-triage-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.journey-triage-head strong,
+.journey-triage-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
+.journey-triage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.journey-triage-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.journey-triage-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.journey-triage-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
 .nested-panel {
   box-shadow: none;
 }
@@ -4600,7 +4677,8 @@ th {
   .audience-field-intel,
   .analytics-focus-summary,
   .analytics-ai-action-grid,
-  .delivery-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .delivery-triage-grid,
+  .journey-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -4656,6 +4734,7 @@ th {
   .analytics-focus-summary,
   .analytics-ai-action-grid,
   .delivery-triage-grid,
+  .journey-triage-grid,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }

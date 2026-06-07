@@ -2247,6 +2247,90 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     ? executions.filter((item) => item.journey_id === selectedJourneyId)
     : executions;
   const failedExecutions = visibleExecutions.filter((item) => item.status === 'failed').length;
+  const activeEnrollments = visibleEnrollments.filter((item) => item.status === 'active').length;
+  const dueEnrollments = visibleEnrollments.filter((item) => item.status === 'active' && item.due_at).length;
+  const selectedStepCount = selectedJourney?.steps?.length || 0;
+  const selectedFailures = Number(selectedJourneyPerformance?.failed_count || 0) + Number(selectedJourneyPerformance?.step_failed_count || 0);
+  const selectedQueuedSends = Number(selectedJourneyPerformance?.queued_send_count || 0);
+  const journeyTriageAction = failures || failedExecutions
+    ? {
+      tone: 'warn',
+      title: 'Review journey failures',
+      detail: `${formatInt(failures || failedExecutions)} failure signal(s) need step, contact, or delivery review.`,
+      actionLabel: 'Open Delivery',
+      run: () => { window.location.hash = '#delivery'; },
+      disabled: busy,
+    }
+    : queued
+      ? {
+        tone: 'warn',
+        title: 'Process queued sends',
+        detail: `${formatInt(queued)} queued journey send(s) should be monitored in delivery.`,
+        actionLabel: 'Open Delivery',
+        run: () => { window.location.hash = '#delivery'; },
+        disabled: busy,
+      }
+      : dueEnrollments || active
+        ? {
+          tone: 'warn',
+          title: 'Process due enrollments',
+          detail: `${formatInt(dueEnrollments || active)} active enrollment(s) are ready for the next journey step.`,
+          actionLabel: 'Process Due',
+          run: processDue,
+          disabled: busy,
+        }
+        : !selectedJourneyId
+          ? {
+            tone: 'warn',
+            title: 'Select or create journey',
+            detail: 'Choose a journey before adding steps, enrolling contacts, or processing due work.',
+            actionLabel: 'Create Journey',
+            run: () => { window.location.hash = '#automations/new'; },
+            disabled: busy,
+          }
+          : selectedStepCount === 0
+            ? {
+              tone: 'warn',
+              title: 'Add first send step',
+              detail: 'The selected journey has no send steps configured yet.',
+              actionLabel: 'Add Send Step',
+              run: addSendStep,
+              disabled: busy || !templateId,
+            }
+            : {
+              tone: 'good',
+              title: 'Journey ready',
+              detail: 'No loaded failure, queue, or due-enrollment pressure needs immediate action.',
+              actionLabel: 'Refresh',
+              run: onRefresh,
+              disabled: busy,
+            };
+  const journeyTriageItems = [
+    {
+      label: 'Failure pressure',
+      value: formatInt(selectedJourneyId ? selectedFailures : failures),
+      detail: failedExecutions ? `${formatInt(failedExecutions)} visible failed execution(s)` : 'No failed executions visible',
+      tone: (selectedJourneyId ? selectedFailures : failures) ? 'warn' : 'good',
+    },
+    {
+      label: 'Queued sends',
+      value: formatInt(selectedJourneyId ? selectedQueuedSends : queued),
+      detail: queued ? 'Monitor generated send records in Delivery Manager' : 'No journey send backlog visible',
+      tone: (selectedJourneyId ? selectedQueuedSends : queued) ? 'warn' : 'good',
+    },
+    {
+      label: 'Active enrollments',
+      value: formatInt(selectedJourneyId ? activeEnrollments : active),
+      detail: dueEnrollments ? `${formatInt(dueEnrollments)} due or scheduled enrollment(s)` : 'No due enrollment pressure visible',
+      tone: dueEnrollments || activeEnrollments ? 'warn' : 'good',
+    },
+    {
+      label: 'Builder readiness',
+      value: selectedJourneyId ? `${formatInt(selectedStepCount)} step(s)` : 'No journey',
+      detail: selectedJourneyId ? 'Save changes before enrollment testing' : 'Select or create a journey to continue',
+      tone: selectedJourneyId && selectedStepCount ? 'good' : 'warn',
+    },
+  ];
 
   function loadJourneyIntoEditor(journey: JourneyRead) {
     setSelectedJourneyId(journey.id);
@@ -2391,6 +2475,25 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           <MetricCard metric={{ label: 'Queued sends', value: formatInt(queued), change: 'delivery backlog', tone: queued ? 'warn' : 'good' }} />
           <MetricCard metric={{ label: 'Visible runs', value: formatInt(visibleEnrollments.length), change: `${formatInt(visibleExecutions.length)} executions` }} />
         </section>
+        <section className={`journey-triage-panel full-span ${journeyTriageAction.tone}`}>
+          <div className="journey-triage-head">
+            <div>
+              <span>Journey triage</span>
+              <strong>{journeyTriageAction.title}</strong>
+              <small>{journeyTriageAction.detail}</small>
+            </div>
+            <button className={journeyTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={journeyTriageAction.run} disabled={journeyTriageAction.disabled}>{journeyTriageAction.actionLabel}</button>
+          </div>
+          <div className="journey-triage-grid">
+            {journeyTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -2487,6 +2590,25 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           </div>
         </section>
       ) : null}
+      <section className={`journey-triage-panel full-span ${journeyTriageAction.tone}`}>
+        <div className="journey-triage-head">
+          <div>
+            <span>Journey triage</span>
+            <strong>{journeyTriageAction.title}</strong>
+            <small>{journeyTriageAction.detail}</small>
+          </div>
+          <button className={journeyTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={journeyTriageAction.run} disabled={journeyTriageAction.disabled}>{journeyTriageAction.actionLabel}</button>
+        </div>
+        <div className="journey-triage-grid">
+          {journeyTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <h2>{selectedJourney ? 'Journey Builder' : 'Create Journey'}</h2>
