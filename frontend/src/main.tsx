@@ -10036,6 +10036,67 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
       return { directFields: [], attributeFields: [] };
     }
   })();
+  const dataConfigPreview = (() => {
+    try {
+      return parseJsonObject(configJson, 'config preview');
+    } catch {
+      return {};
+    }
+  })();
+  const relationshipSourceType = selectedSource?.source_type || sourceType;
+  const relationshipFieldNames = schemaFieldNames.length
+    ? schemaFieldNames
+    : Object.keys(dataConfigPreview).filter((key) => key !== 'sample_rows' && key !== 'fields');
+  const relationshipJoinFields = relationshipFieldNames.filter((field) => /(^id$|_id$|email|customer|account|company|contact)/i.test(field));
+  const relationshipPlanStatus = ['postgres', 'mysql', 'snowflake', 'bigquery'].includes(relationshipSourceType)
+    ? {
+      tone: schema ? 'good' : 'warn',
+      title: schema ? 'Relational schema ready' : 'Discover relational schema',
+      detail: schema ? 'Use discovered keys to plan joins before canonical contact import.' : 'RDBMS and warehouse joins need schema discovery before entity mapping.',
+    }
+    : relationshipSourceType === 'rest_api'
+      ? {
+        tone: 'warn',
+        title: 'Plan API entity graph',
+        detail: 'REST connectors need endpoint-to-entity mapping before joins can be automated.',
+      }
+      : {
+        tone: 'warn',
+        title: 'Single-entity import',
+        detail: 'Manual and CSV imports currently land as contact rows; model joins as a platform gap.',
+      };
+  const relationshipPlannerItems = [
+    {
+      label: 'Connector class',
+      value: relationshipSourceType,
+      detail: ['postgres', 'mysql'].includes(relationshipSourceType)
+        ? 'RDBMS connector'
+        : ['snowflake', 'bigquery'].includes(relationshipSourceType)
+          ? 'Warehouse connector'
+          : relationshipSourceType === 'rest_api'
+            ? 'API connector'
+            : 'Flat-file/manual connector',
+      tone: ['postgres', 'mysql', 'snowflake', 'bigquery'].includes(relationshipSourceType) ? 'good' : 'warn',
+    },
+    {
+      label: 'Join keys',
+      value: formatInt(relationshipJoinFields.length),
+      detail: relationshipJoinFields.slice(0, 4).join(', ') || 'No join-like keys discovered',
+      tone: relationshipJoinFields.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Entity targets',
+      value: schema?.object_types?.length ? formatInt(schema.object_types.length) : 'Contact',
+      detail: schema?.object_types?.join(', ') || 'Canonical contact only',
+      tone: schema?.object_types?.length && schema.object_types.length > 1 ? 'good' : 'warn',
+    },
+    {
+      label: 'Client entities',
+      value: 'Gap',
+      detail: 'Client-owned entities still need canonical storage and relationship APIs',
+      tone: 'warn',
+    },
+  ];
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -10505,6 +10566,25 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
           </div>
           <div className="data-triage-grid">
             {dataTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className={`data-relationship-planner ${relationshipPlanStatus.tone}`}>
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Relationship Planner</h3>
+              <span className="muted">{relationshipPlanStatus.title}</span>
+            </div>
+            <button className="link-button" type="button" onClick={discoverSchema} disabled={busy || !selectedSourceId}>Discover Schema</button>
+          </div>
+          <p>{relationshipPlanStatus.detail}</p>
+          <div className="data-relationship-grid">
+            {relationshipPlannerItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
