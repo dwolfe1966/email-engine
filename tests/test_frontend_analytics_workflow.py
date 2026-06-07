@@ -27,6 +27,16 @@ def assert_analytics_report_focus_contract(source: str) -> None:
         'Deliverability',
         'reportFocusSummary.domainStatus',
         'analytics-focus-summary',
+        'const analyticsNextStep = !selectedCampaignId',
+        "title: 'Select report campaign'",
+        "title: 'Load campaign detail'",
+        "title: 'Review delivery risk'",
+        "title: 'Compare engagement'",
+        "title: 'Review journey risk'",
+        "title: 'Send brief to AI'",
+        'Guided analytics next step',
+        'analyticsNextStep.run',
+        'analytics-next-step',
     ]
 
     for token in expected_tokens:
@@ -48,6 +58,14 @@ def test_built_esp_bundle_includes_report_focus_summary() -> None:
         'Timeline window',
         'Deliverability',
         'Load Report',
+        'Guided analytics next step',
+        'Select report campaign',
+        'Load campaign detail',
+        'Review delivery risk',
+        'Compare engagement',
+        'Review journey risk',
+        'Send brief to AI',
+        'AI Brief',
     ]
 
     for token in expected_tokens:

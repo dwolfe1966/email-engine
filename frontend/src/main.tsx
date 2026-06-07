@@ -9611,8 +9611,55 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       : aggregateClickRate < 0.02 && totalSent > 0
         ? 'Compare top campaigns and improve offer clarity or call-to-action placement.'
         : journeyFailureCount > 0
-          ? 'Review journey failures before the next campaign launch.'
+        ? 'Review journey failures before the next campaign launch.'
           : 'Performance is stable. Continue monitoring campaign and audience comparisons.';
+  const analyticsNextStep = !selectedCampaignId
+    ? {
+      tone: 'warn',
+      title: 'Select report campaign',
+      detail: 'Choose a campaign before loading timeline and domain analytics.',
+      actionLabel: 'Select Campaign',
+      run: () => setStatus('Select a campaign in Reporting Controls before loading detail.'),
+    }
+    : !campaignDetail
+      ? {
+        tone: 'warn',
+        title: 'Load campaign detail',
+        detail: 'Fetch timeline and domain deliverability for the selected campaign.',
+        actionLabel: 'Load Report',
+        run: loadReport,
+      }
+      : aggregateFailureRate > 0.05 || totalFailures > 0
+        ? {
+          tone: 'warn',
+          title: 'Review delivery risk',
+          detail: `${formatInt(totalFailures)} failed send(s) are visible across campaign analytics.`,
+          actionLabel: 'Open Delivery',
+          run: () => { window.location.hash = '#delivery'; },
+        }
+        : aggregateClickRate < 0.02 && totalSent > 0
+          ? {
+            tone: 'warn',
+            title: 'Compare engagement',
+            detail: 'Click rate is low. Compare campaigns and improve CTA clarity before the next send.',
+            actionLabel: 'Open Campaigns',
+            run: () => { window.location.hash = '#campaigns'; },
+          }
+          : journeyFailureCount > 0
+            ? {
+              tone: 'warn',
+              title: 'Review journey risk',
+              detail: `${formatInt(journeyFailureCount)} journey failure signal(s) need attention.`,
+              actionLabel: 'Open Journeys',
+              run: () => { window.location.hash = '#automations'; },
+            }
+            : {
+              tone: 'good',
+              title: 'Send brief to AI',
+              detail: 'Performance is stable. Use AI Studio for the next optimization plan.',
+              actionLabel: 'AI Brief',
+              run: openAiActionBrief,
+            };
 
   function openAiActionBrief() {
     const briefLines = [
@@ -9801,6 +9848,14 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             <small>{selectedCampaign?.name || 'No campaign selected'}</small>
           </div>
           <button className={reportFocusSummary.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={loadReport} disabled={busy || !selectedCampaignId}>Load Report</button>
+        </div>
+        <div className={`analytics-next-step ${analyticsNextStep.tone}`}>
+          <div>
+            <span>Guided analytics next step</span>
+            <strong>{analyticsNextStep.title}</strong>
+            <small>{analyticsNextStep.detail}</small>
+          </div>
+          <button className={analyticsNextStep.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={analyticsNextStep.run} disabled={busy}>{analyticsNextStep.actionLabel}</button>
         </div>
       </section>
       <section className="panel full-span">
