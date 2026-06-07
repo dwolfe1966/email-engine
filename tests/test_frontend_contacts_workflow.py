@@ -31,6 +31,15 @@ def assert_contacts_triage_contract(source: str) -> None:
         'Attribute coverage',
         'Source diversity',
         'Compliance state',
+        'currentAttributePreview',
+        'activeAttributeKeys',
+        'missingAttributeKeys',
+        'function applyAttributeKey',
+        'Attribute Helper',
+        'Active attributes',
+        'Missing known keys',
+        'Template readiness',
+        'contact-attribute-helper-panel',
         'contacts-triage-panel',
         'contacts-triage-grid',
     ]
@@ -56,6 +65,10 @@ def test_built_esp_bundle_includes_contacts_triage_panel() -> None:
         'Contact base',
         'Attribute coverage',
         'Compliance state',
+        'Attribute Helper',
+        'Active attributes',
+        'Missing known keys',
+        'Template readiness',
     ]
 
     for token in expected_tokens:

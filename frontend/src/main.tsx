@@ -10095,6 +10095,15 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
       tone: unsubscribedRate > 0.2 ? 'warn' : 'good',
     },
   ];
+  const currentAttributePreview = (() => {
+    try {
+      return parseAttributes();
+    } catch {
+      return {} as Record<string, unknown>;
+    }
+  })();
+  const activeAttributeKeys = Object.keys(currentAttributePreview);
+  const missingAttributeKeys = attributeKeys.filter((key) => !activeAttributeKeys.includes(key));
 
   function parseAttributes() {
     try {
@@ -10116,6 +10125,12 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
     setIsUnsubscribed(Boolean(contact.is_unsubscribed));
     setUnsubscribeToken('');
     setStatus(`Loaded contact: ${contact.email}`);
+  }
+
+  function applyAttributeKey(key: string) {
+    const current = parseAttributes();
+    setAttributesJson(JSON.stringify({ ...current, [key]: current[key] ?? `sample ${key}` }, null, 2));
+    setStatus(`Added attribute key ${key} to the contact editor.`);
   }
 
   async function runContactOperation(label: string, operation: () => Promise<string>) {
@@ -10338,16 +10353,30 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
         </section>
       ) : null}
       {attributeKeys.length ? (
-        <section className="panel full-span">
+        <section className="panel full-span contact-attribute-helper-panel">
           <div className="panel-head">
             <div>
-              <h2>Attribute Fields</h2>
-              <span className="muted">{formatInt(attributeKeys.length)} keys available for audience rules and template variables.</span>
+              <h2>Attribute Helper</h2>
+              <span className="muted">{formatInt(attributeKeys.length)} known keys, {formatInt(activeAttributeKeys.length)} active in editor, {formatInt(missingAttributeKeys.length)} missing.</span>
             </div>
             <a href="#templates">Open templates</a>
           </div>
+          <div className="contact-attribute-helper-grid">
+            <article>
+              <span>Active attributes</span>
+              <strong>{activeAttributeKeys.slice(0, 10).join(', ') || 'None'}</strong>
+            </article>
+            <article>
+              <span>Missing known keys</span>
+              <strong>{missingAttributeKeys.slice(0, 10).join(', ') || 'None'}</strong>
+            </article>
+            <article>
+              <span>Template readiness</span>
+              <strong>{activeAttributeKeys.length ? 'Variables available' : 'Add attributes'}</strong>
+            </article>
+          </div>
           <div className="button-row">
-            {attributeKeys.slice(0, 24).map((key) => <button className="ghost" key={key} onClick={() => setAttributesJson(JSON.stringify({ ...parseAttributes(), [key]: `sample ${key}` }, null, 2))}>{key}</button>)}
+            {attributeKeys.slice(0, 24).map((key) => <button className="ghost" key={key} onClick={() => applyAttributeKey(key)}>{key}</button>)}
           </div>
         </section>
       ) : null}
