@@ -11614,6 +11614,94 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           : !aiReady
             ? 'OpenAI is using fallback mode; configure it when AI output quality matters.'
             : 'Core integrations are ready. Continue testing data import, delivery, and reporting flows.';
+  const integrationTriageAction = !providerReady
+    ? {
+      tone: 'warn',
+      title: 'Configure outbound provider',
+      detail: 'Owned SMTP should be first-class; use provider adapters only as delivery paths.',
+      actionLabel: 'Open Settings',
+      run: () => { window.location.hash = '#settings'; },
+      disabled: busy,
+    }
+    : !smtpReady && sgReady
+      ? {
+        tone: 'warn',
+        title: 'Plan owned SMTP',
+        detail: 'SendGrid is ready, but owned SMTP is not configured as a managed platform path.',
+        actionLabel: 'Open Settings',
+        run: () => { window.location.hash = '#settings'; },
+        disabled: busy,
+      }
+      : !publicUrlReady
+        ? {
+          tone: 'warn',
+          title: 'Set public base URL',
+          detail: 'Tracking, unsubscribe, and webhook links need a reachable PUBLIC_BASE_URL.',
+          actionLabel: 'Refresh Diagnostics',
+          run: refreshDiagnostics,
+          disabled: busy,
+        }
+        : !schemaReady
+          ? {
+            tone: 'warn',
+            title: 'Resolve schema state',
+            detail: 'Database schema must be current before integration changes are production-safe.',
+            actionLabel: 'Open Settings',
+            run: () => { window.location.hash = '#settings'; },
+            disabled: busy,
+          }
+          : errorCount > 0
+            ? {
+              tone: 'warn',
+              title: 'Review diagnostics',
+              detail: `${formatInt(errorCount)} diagnostic issue(s) need review before production tests.`,
+              actionLabel: 'Refresh Diagnostics',
+              run: refreshDiagnostics,
+              disabled: busy,
+            }
+            : !aiReady
+              ? {
+                tone: 'warn',
+                title: 'Configure AI provider',
+                detail: 'OpenAI is in fallback mode; configure it for production-quality AI workflows.',
+                actionLabel: 'Open Settings',
+                run: () => { window.location.hash = '#settings'; },
+                disabled: busy,
+              }
+              : {
+                tone: 'good',
+                title: 'Integrations ready',
+                detail: 'Core provider, public URL, schema, diagnostics, and AI checks are ready.',
+                actionLabel: 'Refresh Diagnostics',
+                run: refreshDiagnostics,
+                disabled: busy,
+              };
+  const integrationTriageItems = [
+    {
+      label: 'Owned SMTP',
+      value: smtpReady ? 'Ready' : 'Missing',
+      detail: smtpReady ? 'Managed SMTP path is configured' : 'Owned SMTP remains a platform foundation gap',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Provider adapters',
+      value: sgReady || emailProvider === 'console' ? 'Available' : 'Pending',
+      detail: sgReady ? 'SendGrid adapter configured' : emailProvider === 'console' ? 'Console adapter available for testing' : 'No adapter configured',
+      tone: sgReady || emailProvider === 'console' ? 'good' : 'warn',
+    },
+    {
+      label: 'Public endpoints',
+      value: publicUrlReady ? 'Ready' : 'Missing',
+      detail: baseUrl.replace(/^https?:\/\//, ''),
+      tone: publicUrlReady ? 'good' : 'warn',
+    },
+    {
+      label: 'AI provider',
+      value: aiReady ? 'Ready' : 'Fallback',
+      detail: diagnostics?.ai.model || 'Deterministic fallback available',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -11661,6 +11749,25 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           <strong>{integrationNextAction}</strong>
           <small>{aiReady ? `${diagnostics?.ai.provider || 'AI'} ${diagnostics?.ai.model || ''}` : 'AI fallback mode available'}</small>
         </article>
+      </section>
+      <section className={`integration-triage-panel full-span ${integrationTriageAction.tone}`}>
+        <div className="integration-triage-head">
+          <div>
+            <span>Integration triage</span>
+            <strong>{integrationTriageAction.title}</strong>
+            <small>{integrationTriageAction.detail}</small>
+          </div>
+          <button className={integrationTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={integrationTriageAction.run} disabled={integrationTriageAction.disabled}>{integrationTriageAction.actionLabel}</button>
+        </div>
+        <div className="integration-triage-grid">
+          {integrationTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
