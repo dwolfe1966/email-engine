@@ -12157,6 +12157,11 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
   const lockedUsers = users.filter((user) => Boolean(user.locked_until)).length;
   const failedLoginCount = users.reduce((sum, user) => sum + Number(user.failed_login_count || 0), 0);
   const schemaCurrent = Boolean(diagnostics?.schema.ok && !diagnostics.schema.needs_migration);
+  const smtpReady = Boolean(diagnostics?.email_provider.smtp_configured);
+  const sendgridReady = Boolean(diagnostics?.email_provider.sendgrid_configured);
+  const publicBaseUrl = diagnostics?.public_base_url || 'not configured';
+  const publicUrlReady = /^https?:\/\//.test(publicBaseUrl);
+  const aiReady = Boolean(diagnostics?.ai.openai_configured);
   const settingsNextAction = !currentUser
     ? 'Sign in to inspect operator account and system readiness.'
     : !canManageUsers
@@ -12168,6 +12173,118 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
           : !schemaCurrent
             ? 'Resolve schema migration status before changing production account settings.'
             : 'Operator access is stable. Keep admin count tight and refresh users before demos.';
+  const settingsTriageAction = !currentUser
+    ? {
+      tone: 'warn',
+      title: 'Sign in to manage settings',
+      detail: 'Operator identity is required before changing account, schema, or provider settings.',
+      actionLabel: 'Refresh Diagnostics',
+      run: refreshDiagnostics,
+      disabled: busy,
+    }
+    : !canManageUsers
+      ? {
+        tone: 'warn',
+        title: 'Require admin access',
+        detail: 'Only admins can create operators, unlock accounts, or reset passwords.',
+        actionLabel: 'Refresh Users',
+        run: loadUsers,
+        disabled: usersLoading,
+      }
+      : lockedUsers > 0
+        ? {
+          tone: 'warn',
+          title: 'Review locked accounts',
+          detail: `${formatInt(lockedUsers)} operator account(s) are locked and need identity review.`,
+          actionLabel: 'Refresh Users',
+          run: loadUsers,
+          disabled: usersLoading,
+        }
+        : failedLoginCount > 0
+          ? {
+            tone: 'warn',
+            title: 'Review failed logins',
+            detail: `${formatInt(failedLoginCount)} failed login attempt(s) are present across operators.`,
+            actionLabel: 'Refresh Users',
+            run: loadUsers,
+            disabled: usersLoading,
+          }
+          : !schemaCurrent
+            ? {
+              tone: 'warn',
+              title: 'Resolve schema state',
+              detail: 'Schema readiness should be current before production settings changes.',
+              actionLabel: 'Refresh Diagnostics',
+              run: refreshDiagnostics,
+              disabled: busy,
+            }
+            : !smtpReady
+              ? {
+                tone: 'warn',
+                title: 'Configure owned SMTP',
+                detail: 'Owned SMTP should be managed here as a platform foundation, not only through provider adapters.',
+                actionLabel: 'Refresh Diagnostics',
+                run: refreshDiagnostics,
+                disabled: busy,
+              }
+              : !publicUrlReady
+                ? {
+                  tone: 'warn',
+                  title: 'Set public base URL',
+                  detail: 'Tracking, unsubscribe, and webhook links need a reachable PUBLIC_BASE_URL.',
+                  actionLabel: 'Refresh Diagnostics',
+                  run: refreshDiagnostics,
+                  disabled: busy,
+                }
+                : !aiReady
+                  ? {
+                    tone: 'warn',
+                    title: 'Configure AI provider',
+                    detail: 'OpenAI is in fallback mode; configure it before relying on AI operator workflows.',
+                    actionLabel: 'Refresh Diagnostics',
+                    run: refreshDiagnostics,
+                    disabled: busy,
+                  }
+                  : {
+                    tone: 'good',
+                    title: 'Settings ready',
+                    detail: 'Admin access, schema, owned SMTP, public URL, and AI provider checks are ready.',
+                    actionLabel: 'Refresh Diagnostics',
+                    run: refreshDiagnostics,
+                    disabled: busy,
+                  };
+  const settingsTriageItems = [
+    {
+      label: 'Access',
+      value: canManageUsers ? 'Admin' : currentUser ? 'Limited' : 'Anonymous',
+      detail: currentUser?.email || 'No active operator session',
+      tone: canManageUsers ? 'good' : 'warn',
+    },
+    {
+      label: 'Owned SMTP',
+      value: smtpReady ? 'Ready' : 'Missing',
+      detail: smtpReady ? 'Managed SMTP configured' : sendgridReady ? 'SendGrid adapter is ready, owned SMTP is not' : 'No managed SMTP path configured',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Public URL',
+      value: publicUrlReady ? 'Ready' : 'Missing',
+      detail: publicBaseUrl.replace(/^https?:\/\//, ''),
+      tone: publicUrlReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Schema',
+      value: schemaCurrent ? 'Current' : 'Review',
+      detail: diagnostics?.schema.current_revision || 'revision unknown',
+      tone: schemaCurrent ? 'good' : 'warn',
+    },
+    {
+      label: 'AI provider',
+      value: aiReady ? 'Ready' : 'Fallback',
+      detail: diagnostics?.ai.model || 'Deterministic fallback available',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -12317,6 +12434,25 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
           <strong>{settingsNextAction}</strong>
           <small>{userStatus}</small>
         </article>
+      </section>
+      <section className={`settings-triage-panel full-span ${settingsTriageAction.tone}`}>
+        <div className="settings-triage-head">
+          <div>
+            <span>Settings triage</span>
+            <strong>{settingsTriageAction.title}</strong>
+            <small>{settingsTriageAction.detail}</small>
+          </div>
+          <button className={settingsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={settingsTriageAction.run} disabled={settingsTriageAction.disabled}>{settingsTriageAction.actionLabel}</button>
+        </div>
+        <div className="settings-triage-grid">
+          {settingsTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
