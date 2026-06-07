@@ -11211,6 +11211,96 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
   const [workflowRecommendations, setWorkflowRecommendations] = useState<AIWorkflowRecommendation[]>([]);
   const [workflowSummary, setWorkflowSummary] = useState<string[]>([]);
   const [previewHtml, setPreviewHtml] = useState('');
+  const hasBrief = Boolean(brief.trim());
+  const hasInstruction = Boolean(instruction.trim());
+  const hasTemplateRecommendations = recommendations.length > 0;
+  const hasWorkflowRecommendations = workflowRecommendations.length > 0;
+  const hasPreview = Boolean(previewHtml);
+  const aiStudioTriageAction = !openAiReady
+    ? {
+      tone: 'warn',
+      title: 'Configure AI provider',
+      detail: 'AI Studio is running in deterministic fallback mode; configure OpenAI for production-quality agent workflows.',
+      actionLabel: 'Open Settings',
+      run: () => { window.location.hash = '#settings'; },
+      disabled: busy,
+    }
+    : !hasBrief
+      ? {
+        tone: 'warn',
+        title: 'Write agent brief',
+        detail: 'Start with a clear operator brief before drafting templates or reviewing workflows.',
+        actionLabel: 'Focus Brief',
+        run: () => setStatus('Add an AI brief that describes the desired operator outcome.'),
+        disabled: busy,
+      }
+      : !hasWorkflowRecommendations
+        ? {
+          tone: 'warn',
+          title: 'Run workflow review',
+          detail: 'Use AI Studio as the cross-workflow agent layer across analytics, campaigns, audiences, delivery, and journeys.',
+          actionLabel: 'Review Workflow',
+          run: reviewWorkflow,
+          disabled: busy,
+        }
+        : !hasTemplateRecommendations
+          ? {
+            tone: 'warn',
+            title: 'Load template recommendations',
+            detail: 'Ask AI to inspect the current template content for deliverability, layout, and copy improvements.',
+            actionLabel: 'Recommendations',
+            run: recommendTemplate,
+            disabled: busy,
+          }
+          : !hasPreview
+            ? {
+              tone: 'warn',
+              title: 'Render AI preview',
+              detail: 'Preview the AI-assisted template with sample variables before saving it.',
+              actionLabel: 'Preview',
+              run: previewTemplate,
+              disabled: busy,
+            }
+            : {
+              tone: 'good',
+              title: 'AI Studio ready',
+              detail: 'Provider, workflow review, template recommendations, and preview are ready for operator handoff.',
+              actionLabel: 'Save as Template',
+              run: saveAsTemplate,
+              disabled: busy,
+            };
+  const aiStudioTriageItems = [
+    {
+      label: 'Provider',
+      value: openAiReady ? 'OpenAI' : 'Fallback',
+      detail: openAiReady ? `${provider} ${model}` : 'Deterministic fallback active',
+      tone: openAiReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Agent brief',
+      value: hasBrief ? 'Ready' : 'Missing',
+      detail: hasInstruction ? 'Brief and edit instruction available' : 'Brief available; edit instruction is empty',
+      tone: hasBrief && hasInstruction ? 'good' : 'warn',
+    },
+    {
+      label: 'Workflow review',
+      value: hasWorkflowRecommendations ? formatInt(workflowRecommendations.length) : 'Not run',
+      detail: hasWorkflowRecommendations ? 'Cross-workflow recommendations loaded' : 'No agent review loaded yet',
+      tone: hasWorkflowRecommendations ? 'good' : 'warn',
+    },
+    {
+      label: 'Template review',
+      value: hasTemplateRecommendations ? formatInt(recommendations.length) : 'Not run',
+      detail: hasTemplateRecommendations ? 'Template recommendations loaded' : 'No template recommendations loaded',
+      tone: hasTemplateRecommendations ? 'good' : 'warn',
+    },
+    {
+      label: 'Preview',
+      value: hasPreview ? 'Rendered' : 'Pending',
+      detail: hasPreview ? 'AI-assisted template preview is available' : 'Render before saving a generated template',
+      tone: hasPreview ? 'good' : 'warn',
+    },
+  ];
 
   useEffect(() => {
     const storedBrief = window.localStorage.getItem(AI_ACTION_BRIEF_STORAGE_KEY);
@@ -11429,6 +11519,25 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
         <MetricCard metric={{ label: 'AI provider', value: provider, change: openAiReady ? 'OpenAI configured' : 'deterministic fallback', tone: openAiReady ? 'good' : 'warn' }} />
         <MetricCard metric={{ label: 'Model', value: model, change: 'template and analytics AI' }} />
         <MetricCard metric={{ label: 'Recommendations', value: formatInt(insights.length), change: 'current insights' }} />
+      </section>
+      <section className={`ai-studio-triage-panel full-span ${aiStudioTriageAction.tone}`}>
+        <div className="ai-studio-triage-head">
+          <div>
+            <span>AI Studio triage</span>
+            <strong>{aiStudioTriageAction.title}</strong>
+            <small>{aiStudioTriageAction.detail}</small>
+          </div>
+          <button className={aiStudioTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={aiStudioTriageAction.run} disabled={aiStudioTriageAction.disabled}>{aiStudioTriageAction.actionLabel}</button>
+        </div>
+        <div className="ai-studio-triage-grid">
+          {aiStudioTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="workflow-grid full-span">
         <article className="workflow-card">
