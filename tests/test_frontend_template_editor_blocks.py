@@ -66,6 +66,10 @@ def assert_template_design_block_contract(source: str) -> None:
         "Style', 'Class, alignment, and colors",
         "Layout', 'Cell padding",
         "Structure', 'Nested block count and insertion controls",
+        "designImportConfidence",
+        "designBlockSummary",
+        "raw HTML/Jinja block(s) preserved",
+        "Fully editable",
     ]
 
     for token in expected_tokens:
@@ -99,6 +103,8 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'Preview-aware variables',
         'Nested block count and insertion controls',
         'Header cells and row data',
+        'raw HTML/Jinja block(s) preserved',
+        'Fully editable',
     ]
 
     for token in expected_tokens:

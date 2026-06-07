@@ -3302,6 +3302,30 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   const designClassNames = Array.from(new Set(designBlockClassNames(designDoc.blocks)))
     .sort();
+  const designBlockSummary = (() => {
+    const allBlocks = flattenDesignBlocks(designDoc.blocks);
+    const rawBlocks = allBlocks.filter((block) => block.type === 'html' || block.type === 'raw');
+    const editableBlocks = allBlocks.length - rawBlocks.length;
+    const editablePercent = allBlocks.length ? Math.round((editableBlocks / allBlocks.length) * 100) : 0;
+    return { allBlocks, rawBlocks, editableBlocks, editablePercent };
+  })();
+  const designImportConfidence = !designBlockSummary.allBlocks.length
+    ? {
+      tone: 'warn',
+      title: 'No import',
+      detail: 'Import source or add blocks to inspect editability.',
+    }
+    : designBlockSummary.rawBlocks.length
+      ? {
+        tone: 'warn',
+        title: `${formatInt(designBlockSummary.editablePercent)}% editable`,
+        detail: `${formatInt(designBlockSummary.rawBlocks.length)} raw HTML/Jinja block(s) preserved for Source editing.`,
+      }
+      : {
+        tone: 'good',
+        title: 'Fully editable',
+        detail: `${formatInt(designBlockSummary.editableBlocks)} design block(s) can be edited visually.`,
+      };
   const htmlClassNames = Array.from(new Set([...extractHtmlClassNames(htmlBody), ...designClassNames])).sort();
   const cssClassCoverage = htmlClassNames.map((className) => {
     const rule = cssRuleForClass(className);
@@ -7387,6 +7411,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                         <div className={previewFreshness === 'current' ? 'good' : 'warn'}>
                           <strong>{previewFreshness === 'current' ? 'Preview current' : 'Preview needed'}</strong>
                           <span>{previewStatusText}</span>
+                        </div>
+                        <div className={designImportConfidence.tone}>
+                          <strong>{designImportConfidence.title}</strong>
+                          <span>{designImportConfidence.detail}</span>
                         </div>
                         <div className="button-row">
                           <button className="ghost" type="button" onClick={importSourceToDesignBlocks} disabled={busy || !htmlBody.trim()}>Import Source</button>
