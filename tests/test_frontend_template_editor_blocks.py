@@ -76,6 +76,12 @@ def assert_template_design_block_contract(source: str) -> None:
         "Create Missing Rules",
         "Preview updated styles",
         "CSS ready",
+        "aiAssistNextStep",
+        "AI next step",
+        "AI Command Center",
+        "Pending Draft Review",
+        "Template Readiness",
+        "Template History",
     ]
 
     for token in expected_tokens:
@@ -116,6 +122,11 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'Create Missing Rules',
         'Preview updated styles',
         'CSS ready',
+        'AI next step',
+        'AI Command Center',
+        'Pending Draft Review',
+        'Template Readiness',
+        'Template History',
     ]
 
     for token in expected_tokens:

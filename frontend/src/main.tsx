@@ -3442,6 +3442,45 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     cssDelta: (pendingAiDraft.css_body || '').length - cssBody.length,
     cssChanged: (pendingAiDraft.css_body || '') !== cssBody,
   } : null;
+  const aiAssistNextStep = pendingAiDraft
+    ? {
+      tone: 'warn',
+      title: 'Review pending AI draft',
+      detail: 'Preview the draft, then apply or discard it before requesting another edit.',
+      actionLabel: 'Preview Draft',
+      run: () => { void previewAiDraft(pendingAiDraft); },
+    }
+    : appliedAiDraftLabel
+      ? {
+        tone: 'warn',
+        title: 'Save applied AI edit',
+        detail: `Applied ${appliedAiDraftLabel}. Save to persist the template version.`,
+        actionLabel: 'Save Changes',
+        run: () => { void saveTemplate(); },
+      }
+      : aiRecommendations.length
+        ? {
+          tone: 'good',
+          title: 'Suggestions loaded',
+          detail: `${formatInt(aiRecommendations.length)} recommendation(s) are ready for review below.`,
+          actionLabel: 'Review Suggestions',
+          run: () => setTemplateFeedbackOpen(true),
+        }
+        : isPersistedTemplate
+          ? {
+            tone: 'neutral',
+            title: 'Send an AI edit request',
+            detail: aiInstruction.trim() ? 'Use the selected request preset or custom instruction.' : 'Choose a preset or write a custom instruction first.',
+            actionLabel: 'Review AI Edit',
+            run: () => { void applyAiEdit(); },
+          }
+          : {
+            tone: 'neutral',
+            title: 'Draft from template brief',
+            detail: 'Create templates with AI first, then preview and apply the generated draft.',
+            actionLabel: 'Draft with AI',
+            run: () => { void draftWithAi(); },
+          };
   function formatSignedCount(value: number) {
     if (!value) return '0';
     return `${value > 0 ? '+' : ''}${formatInt(value)}`;
@@ -7726,6 +7765,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <span>{aiRecommendations.length ? 'Review recommended changes.' : 'Load AI suggestions when needed.'}</span>
               </div>
             </div>
+            <section className={`ai-next-step ${aiAssistNextStep.tone}`}>
+              <div>
+                <span>AI next step</span>
+                <strong>{aiAssistNextStep.title}</strong>
+                <small>{aiAssistNextStep.detail}</small>
+              </div>
+              <button className={aiAssistNextStep.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={aiAssistNextStep.run} disabled={busy || (aiAssistNextStep.actionLabel === 'Review AI Edit' && !aiInstruction.trim())}>{aiAssistNextStep.actionLabel}</button>
+            </section>
             {templateRenderResult ? (
               <section className={`template-render-result ${templateRenderResult.ok ? 'good' : 'warn'}`}>
                 <div>
@@ -7745,8 +7792,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <button className="ghost" type="button" onClick={previewTemplate} disabled={busy}>Refresh Preview</button>
               </section>
             ) : null}
-            <section className="workflow-section">
-              <h3>Readiness</h3>
+            <section className="workflow-section template-readiness-section">
+              <h3>Template Readiness</h3>
               <div className="compact-status-list">
                 {liveTemplateGuidance.map((item) => (
                   <div className={item.ready ? 'ready' : 'warn'} key={item.label}>
@@ -7767,8 +7814,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               ) : null}
             </section>
             {isPersistedTemplate ? (
-              <section className="workflow-section">
-                <h3>Version History</h3>
+              <section className="workflow-section template-history-section">
+                <h3>Template History</h3>
                 {templateVersions.length ? (
                   <div className="template-version-list">
                     {templateVersions.slice(0, 6).map((version) => {
@@ -7826,8 +7873,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               </section>
             ) : null}
             {isPersistedTemplate ? (
-              <section className="workflow-section">
-                <h3>AI Edit Request</h3>
+              <section className="workflow-section ai-command-section">
+                <h3>AI Command Center</h3>
                 <div className="ai-request-box">
 	                  <div className="ai-preset-row">
 	                    {aiInstructionPresets.map((preset) => (
@@ -7846,8 +7893,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 </div>
               </section>
             ) : null}
-            <section className="workflow-section">
-              <h3>AI Draft Review</h3>
+            <section className="workflow-section ai-review-section">
+              <h3>Pending Draft Review</h3>
               {pendingAiDraft ? (
                 <div className="ai-draft-preview">
                   <span className="muted">{pendingAiDraft.provider}/{pendingAiDraft.model}</span>
@@ -7897,7 +7944,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <p className="muted">AI drafts and edits appear here for review before they change the editor.</p>
               )}
             </section>
-            <section className="workflow-section">
+            <section className="workflow-section ai-suggestion-section">
               <h3>AI Suggestions</h3>
               {aiNotes.length ? (
                 <div className="module-links">
