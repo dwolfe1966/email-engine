@@ -777,8 +777,44 @@ def test_html_to_document_imports_common_design_blocks_and_preserves_unknown_htm
     }
     assert blocks[4]['type'] == 'image'
     assert blocks[4]['width'] == 320
-    assert blocks[5]['type'] == 'html'
-    assert '<table class="summary">' in str(blocks[5]['code'])
+    assert blocks[5]['type'] == 'table'
+    assert blocks[5]['className'] == 'summary'
+    assert blocks[5]['table_rows'] == [['{{ item.name }}']]
+
+
+def test_html_document_round_trip_preserves_editable_table_footer_and_social_blocks() -> None:
+    source = """
+    <table class="email-table" role="presentation">
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody><tr><td>Open rate</td><td>{{ open_rate }}</td></tr></tbody>
+    </table>
+    <footer class="email-footer">You subscribed.<br><a href="{{ unsubscribe_url }}">Unsubscribe</a></footer>
+    <nav class="email-social-links">
+      <a href="{{ linkedin_url }}">LinkedIn</a>
+      <a href="{{ website_url }}">Website</a>
+    </nav>
+    """
+
+    document = html_to_document(source)
+    blocks = document['blocks']
+
+    assert [block['type'] for block in blocks] == ['table', 'footer', 'social_links']
+    assert blocks[0]['table_headers'] == ['Metric', 'Value']
+    assert blocks[0]['table_rows'] == [['Open rate', '{{ open_rate }}']]
+    assert blocks[1]['href'] == '{{ unsubscribe_url }}'
+    assert blocks[2]['social_links'] == [
+        {'label': 'LinkedIn', 'url': '{{ linkedin_url }}'},
+        {'label': 'Website', 'url': '{{ website_url }}'},
+    ]
+
+    html = document_to_html(document)
+    assert '<table class="email-table" role="presentation"' in html
+    assert '<th style="border:1px solid #d8dee6;background:#f8fafc;' in html
+    assert '<td style="border:1px solid #d8dee6;padding:10px 12px;vertical-align:top;">{{ open_rate }}</td>' in html
+    assert '<footer class="email-footer"' in html
+    assert '<a href="{{ unsubscribe_url }}">Unsubscribe</a>' in html
+    assert '<nav class="email-social-links"' in html
+    assert '<a href="{{ website_url }}" style="color:#2563eb;text-decoration:none;font-weight:700;">Website</a>' in html
 
 
 def test_v1_document_import_html_endpoint_returns_safe_document_blocks() -> None:
@@ -799,12 +835,13 @@ def test_v1_document_import_html_endpoint_returns_safe_document_blocks() -> None
     assert response.status_code == 200
     data = response.json()
     assert data['block_count'] == 2
-    assert data['raw_block_count'] == 1
+    assert data['raw_block_count'] == 0
     blocks = data['document_json']['blocks']
     assert blocks[0]['type'] == 'section'
     assert blocks[0]['children'][0]['type'] == 'heading'
     assert blocks[0]['children'][1]['text'] == 'Use {{ tracking_click }}'
-    assert blocks[1]['type'] == 'html'
+    assert blocks[1]['type'] == 'table'
+    assert blocks[1]['table_rows'] == [['Keep raw']]
 
 
 def test_v1_document_render_handles_table_loop_sample_variables() -> None:

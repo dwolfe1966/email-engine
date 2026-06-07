@@ -116,6 +116,93 @@ def document_block_to_html(block: Mapping[str, object]) -> str:
         )
         styles = _style_attr(_text_styles(block))
         return f'<{tag}{class_attr}{styles}>\n{rendered_items}\n</{tag}>'
+    if block_type == 'table':
+        raw_headers = block.get('table_headers')
+        headers = [str(item) for item in raw_headers] if isinstance(raw_headers, list) else []
+        raw_rows = block.get('table_rows')
+        rows = raw_rows if isinstance(raw_rows, list) and raw_rows else [['Label', 'Value']]
+        normalized_rows = [
+            [str(cell) for cell in row] if isinstance(row, list) else [str(row)]
+            for row in rows
+        ]
+        column_count = max(
+            [len(headers), *(len(row) for row in normalized_rows), 1]
+        )
+        padding_y = _bounded_int(block.get('padding_y'), default=10, minimum=0, maximum=48)
+        padding_x = _bounded_int(block.get('padding_x'), default=12, minimum=0, maximum=64)
+        bg = _escape_html(str(block.get('bg', '#f8fafc')))
+        color = _escape_html(str(block.get('color', '#111827')))
+        table_class_attr = class_attr or ' class="email-table"'
+        cell_padding = f'{padding_y}px {padding_x}px'
+        header_html = ''
+        if headers:
+            padded_headers = [*headers, *([''] * max(0, column_count - len(headers)))]
+            header_html = (
+                '<thead><tr>'
+                + ''.join(
+                    '<th style="border:1px solid #d8dee6;'
+                    f'background:{bg};padding:{cell_padding};text-align:left;">'
+                    f'{_escape_html(header)}</th>'
+                    for header in padded_headers[:column_count]
+                )
+                + '</tr></thead>'
+            )
+        body_html = (
+            '<tbody>'
+            + ''.join(
+                '<tr>'
+                + ''.join(
+                    '<td style="border:1px solid #d8dee6;'
+                    f'padding:{cell_padding};vertical-align:top;">'
+                    f'{_escape_html(str(row[index] if index < len(row) else ""))}</td>'
+                    for index in range(column_count)
+                )
+                + '</tr>'
+                for row in normalized_rows
+            )
+            + '</tbody>'
+        )
+        return (
+            f'<table{table_class_attr} role="presentation" width="100%" cellspacing="0" '
+            f'cellpadding="0" border="0" style="width:100%;border-collapse:collapse;'
+            f'color:{color};">{header_html}{body_html}</table>'
+        )
+    if block_type == 'footer':
+        footer_class_attr = class_attr or ' class="email-footer"'
+        text = _escape_html(
+            str(
+                block.get(
+                    'text',
+                    'You are receiving this email because you subscribed to updates.',
+                )
+            )
+        )
+        href = _escape_html(str(block.get('href', '{{ unsubscribe_url }}')))
+        align = _one_of(block.get('align'), {'left', 'center', 'right'}, 'center')
+        styles = _style_attr(
+            _text_styles(block, f'text-align:{align};font-size:12px;line-height:1.5;')
+        )
+        return f'<footer{footer_class_attr}{styles}>{text}<br><a href="{href}">Unsubscribe</a></footer>'
+    if block_type == 'social_links':
+        raw_links = block.get('social_links')
+        links = raw_links if isinstance(raw_links, list) and raw_links else [
+            {'label': 'LinkedIn', 'url': '{{ linkedin_url }}'},
+            {'label': 'Instagram', 'url': '{{ instagram_url }}'},
+        ]
+        color = _escape_html(str(block.get('color', '#2563eb')))
+        align = _one_of(block.get('align'), {'left', 'center', 'right'}, 'center')
+        link_html = ' <span style="color:#cbd5e1;">|</span> '.join(
+            f'<a href="{_escape_html(str(link.get("url", "#")))}" '
+            f'style="color:{color};text-decoration:none;font-weight:700;">'
+            f'{_escape_html(str(link.get("label", "Link")))}</a>'
+            for link in links
+            if isinstance(link, Mapping)
+        )
+        nav_class_attr = class_attr or ' class="email-social-links"'
+        styles = _style_attr(
+            _text_styles(block, f'text-align:{align};font-size:13px;line-height:1.5;')
+        )
+        return f'<nav{nav_class_attr}{styles}>{link_html}</nav>'
     if block_type == 'divider':
         color = _escape_html(str(block.get('color', '#d8dee6')))
         return f'<hr{class_attr} style="border:0;border-top:1px solid {color};" />'
@@ -284,7 +371,56 @@ def _node_to_block(node: HtmlNode) -> dict[str, object]:
         return block
     if node.tag == 'table' and _is_columns_table(node):
         return _columns_table_to_block(node)
+    if node.tag == 'table':
+        return _table_to_block(node)
+    if node.tag == 'footer':
+        block = {
+            'type': 'footer',
+            'text': _collapse_text(_node_text_without_links(node))
+            or 'You are receiving this email because you subscribed to updates.',
+            'href': _first_link_href(node) or '{{ unsubscribe_url }}',
+        }
+        _copy_common_attrs(node, block)
+        return block
+    if node.tag == 'nav':
+        links = [
+            {
+                'label': _collapse_text(_node_text(child)) or 'Link',
+                'url': child.attrs.get('href', '#'),
+            }
+            for child in _child_elements(node, {'a'})
+        ]
+        block = {
+            'type': 'social_links',
+            'social_links': links or [
+                {'label': 'LinkedIn', 'url': '{{ linkedin_url }}'},
+                {'label': 'Instagram', 'url': '{{ instagram_url }}'},
+            ],
+        }
+        _copy_common_attrs(node, block)
+        return block
     return {'type': 'html', 'code': _outer_html(node)}
+
+
+def _table_to_block(node: HtmlNode) -> dict[str, object]:
+    rows = []
+    header_row_indexes: set[int] = set()
+    for row_index, row in enumerate(_child_elements(node, {'tr'})):
+        cells = _child_elements(row, {'td', 'th'})
+        if not cells:
+            continue
+        if any(cell.tag == 'th' for cell in cells):
+            header_row_indexes.add(row_index)
+        rows.append([_collapse_text(_node_text(cell)) for cell in cells])
+    headers = rows[0] if rows and 0 in header_row_indexes else []
+    body_rows = rows[1:] if headers else rows
+    block: dict[str, object] = {
+        'type': 'table',
+        'table_headers': headers,
+        'table_rows': body_rows,
+    }
+    _copy_common_attrs(node, block)
+    return block
 
 
 def _columns_table_to_block(node: HtmlNode) -> dict[str, object]:
@@ -368,8 +504,7 @@ def _is_columns_table(node: HtmlNode) -> bool:
     class_name = node.attrs.get('class', '')
     return node.tag == 'table' and (
         'email-columns' in class_name.split()
-        or node.attrs.get('role') == 'presentation'
-        and bool(_child_elements(node, {'tr', 'tbody'}))
+        or node.attrs.get('data-mobile-stack') in {'stack', 'reverse', 'keep'}
     )
 
 
@@ -411,6 +546,31 @@ def _node_text(node: HtmlNode) -> str:
         else:
             parts.append(_node_text(child))
     return ''.join(parts)
+
+
+def _node_text_without_links(node: HtmlNode) -> str:
+    parts: list[str] = []
+    for child in node.children:
+        if isinstance(child, str):
+            parts.append(child)
+        elif child.tag == 'a':
+            continue
+        elif child.tag == 'br':
+            parts.append('\n')
+        else:
+            parts.append(_node_text_without_links(child))
+    return ''.join(parts)
+
+
+def _first_link_href(node: HtmlNode) -> str:
+    for child in node.children:
+        if isinstance(child, HtmlNode):
+            if child.tag == 'a' and child.attrs.get('href'):
+                return child.attrs['href']
+            href = _first_link_href(child)
+            if href:
+                return href
+    return ''
 
 
 def _collapse_text(value: str) -> str:
