@@ -10016,6 +10016,85 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
         : !selectedContact
           ? 'Select a contact to inspect profile data and compliance status.'
           : 'Contacts are ready for audience rules, template variables, and journey testing.';
+  const contactsTriageAction = totalContacts === 0
+    ? {
+      tone: 'warn',
+      title: 'Import contacts',
+      detail: 'Load contacts through Data Sources before building audiences, journeys, or campaigns.',
+      actionLabel: 'Open Data',
+      run: () => { window.location.hash = '#data'; },
+      disabled: busy,
+    }
+    : attributeKeys.length < 3
+      ? {
+        tone: 'warn',
+        title: 'Enrich contact attributes',
+        detail: `${formatInt(attributeKeys.length)} attribute key(s) are available; import richer profile fields for targeting and personalization.`,
+        actionLabel: 'Open Data',
+        run: () => { window.location.hash = '#data'; },
+        disabled: busy,
+      }
+      : unsubscribedRate > 0.2
+        ? {
+          tone: 'warn',
+          title: 'Review opt-outs',
+          detail: `${formatPct(unsubscribedRate)} of visible contacts are unsubscribed. Review suppressions before launch.`,
+          actionLabel: 'Open Compliance',
+          run: () => { window.location.hash = '#compliance'; },
+          disabled: busy,
+        }
+        : !selectedContact
+          ? {
+            tone: 'warn',
+            title: 'Select contact',
+            detail: 'Select a contact to inspect attributes, source, and compliance state.',
+            actionLabel: 'Create Contact',
+            run: () => { window.location.hash = '#contacts/new'; },
+            disabled: busy,
+          }
+          : selectedContact.is_unsubscribed
+            ? {
+              tone: 'warn',
+              title: 'Inspect unsubscribe state',
+              detail: `${selectedContact.email} is unsubscribed. Generate a token or review compliance history.`,
+              actionLabel: 'Unsubscribe Token',
+              run: loadUnsubscribeToken,
+              disabled: busy || !selectedContactId,
+            }
+            : {
+              tone: 'good',
+              title: 'Use contact data',
+              detail: 'Contacts are ready for audience rules, template variables, and journey enrollment testing.',
+              actionLabel: 'Open Audiences',
+              run: () => { window.location.hash = '#audience'; },
+              disabled: busy,
+            };
+  const contactsTriageItems = [
+    {
+      label: 'Contact base',
+      value: formatInt(totalContacts),
+      detail: `${formatInt(contacts.length)} visible row(s), ${formatInt(metadata?.scanned_count || contacts.length)} scanned`,
+      tone: totalContacts ? 'good' : 'warn',
+    },
+    {
+      label: 'Attribute coverage',
+      value: `${formatInt(attributeKeys.length)} keys`,
+      detail: `${formatPct(metadataCoverage)} of visible contacts have attributes`,
+      tone: attributeKeys.length >= 3 && attributedCount ? 'good' : 'warn',
+    },
+    {
+      label: 'Source diversity',
+      value: formatInt(uniqueSources || sourceRows.length),
+      detail: sourceRows[0]?.source ? `Top source: ${sourceRows[0].source}` : 'No source metadata loaded',
+      tone: (uniqueSources || sourceRows.length) ? 'good' : 'warn',
+    },
+    {
+      label: 'Compliance state',
+      value: formatPct(unsubscribedRate),
+      detail: `${formatInt(unsubscribedCount)} unsubscribed visible contact(s)`,
+      tone: unsubscribedRate > 0.2 ? 'warn' : 'good',
+    },
+  ];
 
   function parseAttributes() {
     try {
@@ -10133,6 +10212,25 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           <MetricCard metric={{ label: 'Attributed', value: formatInt(attributedCount), change: `${formatInt(attributeKeys.length)} keys` }} />
           <MetricCard metric={{ label: 'Sources', value: formatInt(uniqueSources || sourceRows.length), change: 'source values' }} />
           <MetricCard metric={{ label: 'Unsubscribed', value: formatInt(unsubscribedCount), change: 'visible contacts', tone: unsubscribedCount ? 'warn' : 'good' }} />
+        </section>
+        <section className={`contacts-triage-panel full-span ${contactsTriageAction.tone}`}>
+          <div className="contacts-triage-head">
+            <div>
+              <span>Contacts triage</span>
+              <strong>{contactsTriageAction.title}</strong>
+              <small>{contactsTriageAction.detail}</small>
+            </div>
+            <button className={contactsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={contactsTriageAction.run} disabled={contactsTriageAction.disabled}>{contactsTriageAction.actionLabel}</button>
+          </div>
+          <div className="contacts-triage-grid">
+            {contactsTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
         </section>
         <section className="contacts-command-strip full-span" aria-label="Contacts readiness summary">
           <article className={totalContacts ? 'good' : 'warn'}>
@@ -10282,6 +10380,25 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
+        </div>
+        <div className={`contacts-triage-panel ${contactsTriageAction.tone}`}>
+          <div className="contacts-triage-head">
+            <div>
+              <span>Contacts triage</span>
+              <strong>{contactsTriageAction.title}</strong>
+              <small>{contactsTriageAction.detail}</small>
+            </div>
+            <button className={contactsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={contactsTriageAction.run} disabled={contactsTriageAction.disabled}>{contactsTriageAction.actionLabel}</button>
+          </div>
+          <div className="contacts-triage-grid">
+            {contactsTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
         </div>
         <div className="form-grid">
           <label>

@@ -4877,6 +4877,83 @@ th {
   font-size: 13px;
 }
 
+.contacts-triage-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.contacts-triage-panel.warn {
+  border-color: #f8c77d;
+  background: #fffaf0;
+}
+
+.contacts-triage-panel.good {
+  border-color: #b6e0c1;
+  background: #f6fff8;
+}
+
+.contacts-triage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.contacts-triage-head > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.contacts-triage-head span,
+.contacts-triage-head small,
+.contacts-triage-grid span,
+.contacts-triage-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.contacts-triage-head strong,
+.contacts-triage-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
+.contacts-triage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contacts-triage-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.contacts-triage-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.contacts-triage-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
 .nested-panel {
   box-shadow: none;
 }
@@ -4960,7 +5037,8 @@ th {
   .journey-triage-grid,
   .compliance-triage-grid,
   .data-triage-grid,
-  .data-mapping-helper-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .data-mapping-helper-grid,
+  .contacts-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -5020,6 +5098,7 @@ th {
   .compliance-triage-grid,
   .data-triage-grid,
   .data-mapping-helper-grid,
+  .contacts-triage-grid,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }
