@@ -9355,6 +9355,21 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
       tone: failedJobs || skippedCount || importErrorCount ? 'warn' : 'good',
     },
   ];
+  const schemaFieldNames = schema?.fields?.map((field) => field.name) || [];
+  const mappingPreview = (() => {
+    try {
+      const parsed = parseJsonObject(mappingJson, 'mapping preview');
+      const attributes = parsed.attributes && typeof parsed.attributes === 'object' && !Array.isArray(parsed.attributes)
+        ? parsed.attributes as Record<string, unknown>
+        : {};
+      return {
+        directFields: Object.entries(parsed).filter(([key]) => key !== 'attributes'),
+        attributeFields: Object.entries(attributes),
+      };
+    } catch {
+      return { directFields: [], attributeFields: [] };
+    }
+  })();
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -9406,6 +9421,42 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
     setMappingName(mapping.name);
     setMappingJson(JSON.stringify(mapping.mapping || {}, null, 2));
     setStatus(`Loaded mapping: ${mapping.name}`);
+  }
+
+  function fieldByAliases(aliases: string[]) {
+    const normalized = schemaFieldNames.map((field) => ({ field, key: field.toLowerCase().replace(/[^a-z0-9]/g, '') }));
+    return aliases.map((alias) => alias.toLowerCase().replace(/[^a-z0-9]/g, ''))
+      .map((alias) => normalized.find((item) => item.key === alias || item.key.includes(alias))?.field)
+      .find(Boolean) || '';
+  }
+
+  function applySchemaMappingSuggestion() {
+    if (!schema?.fields?.length) {
+      setStatus('Discover schema before generating a mapping suggestion.');
+      return;
+    }
+    const used = new Set<string>();
+    const directEntries = [
+      ['email', fieldByAliases(['email', 'emailaddress'])],
+      ['first_name', fieldByAliases(['first_name', 'firstname', 'fname', 'givenname'])],
+      ['last_name', fieldByAliases(['last_name', 'lastname', 'lname', 'surname', 'familyname'])],
+      ['source', fieldByAliases(['source', 'origin', 'signupsource'])],
+    ].filter(([, field]) => {
+      if (!field || used.has(field)) return false;
+      used.add(field);
+      return true;
+    });
+    const attributes = schema.fields
+      .map((field) => field.name)
+      .filter((field) => !used.has(field))
+      .slice(0, 12)
+      .reduce((acc, field) => ({ ...acc, [field]: field }), {} as Record<string, string>);
+    const suggested = {
+      ...Object.fromEntries(directEntries),
+      ...(Object.keys(attributes).length ? { attributes } : {}),
+    };
+    setMappingJson(JSON.stringify(suggested, null, 2));
+    setStatus(`Suggested mapping from ${formatInt(schema.fields.length)} discovered field(s).`);
   }
 
   function focusImportJob(job: DataSourceImportJobRead) {
@@ -9759,6 +9810,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
               <div>
                 <strong>Mapping</strong>
                 <button className="ghost" onClick={saveMapping} disabled={busy}>Save Mapping</button>
+                <button className="ghost" onClick={applySchemaMappingSuggestion} disabled={busy || !schema?.fields?.length}>Suggest Mapping</button>
               </div>
               <div>
                 <strong>Import</strong>
@@ -9811,6 +9863,31 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
                   <span>{formatInt(job.imported_count)} imported, {formatInt(job.skipped_count)} skipped, {formatInt(job.errors?.length || 0)} error(s).</span>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : null}
+        {schema?.fields?.length ? (
+          <div className="data-mapping-helper-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Schema Mapping Helper</h3>
+                <span className="muted">{formatInt(schema.fields.length)} discovered field(s), {formatInt(mappingPreview.directFields.length)} direct map(s), {formatInt(mappingPreview.attributeFields.length)} attribute map(s)</span>
+              </div>
+              <button className="link-button" type="button" onClick={applySchemaMappingSuggestion} disabled={busy}>Suggest Mapping</button>
+            </div>
+            <div className="data-mapping-helper-grid">
+              <article>
+                <span>Direct contact fields</span>
+                <strong>{mappingPreview.directFields.map(([key]) => key).join(', ') || 'None'}</strong>
+              </article>
+              <article>
+                <span>Attribute fields</span>
+                <strong>{mappingPreview.attributeFields.slice(0, 8).map(([key]) => key).join(', ') || 'None'}</strong>
+              </article>
+              <article>
+                <span>Unmapped schema fields</span>
+                <strong>{schemaFieldNames.filter((field) => !mappingJson.includes(field)).slice(0, 8).join(', ') || 'None'}</strong>
+              </article>
             </div>
           </div>
         ) : null}

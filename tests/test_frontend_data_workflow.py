@@ -41,6 +41,15 @@ def assert_data_triage_contract(source: str) -> None:
         'Dry Run Selected',
         'Review Job',
         'data-import-review-panel',
+        'schemaFieldNames',
+        'mappingPreview',
+        'function applySchemaMappingSuggestion',
+        'Schema Mapping Helper',
+        'Suggest Mapping',
+        'Direct contact fields',
+        'Attribute fields',
+        'Unmapped schema fields',
+        'data-mapping-helper-panel',
         'data-triage-panel',
         'data-triage-grid',
     ]
@@ -70,6 +79,10 @@ def test_built_esp_bundle_includes_data_triage_panel() -> None:
         'Import Job Review',
         'Dry Run Selected',
         'Review Job',
+        'Schema Mapping Helper',
+        'Suggest Mapping',
+        'Direct contact fields',
+        'Attribute fields',
     ]
 
     for token in expected_tokens:
