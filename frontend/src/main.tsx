@@ -9055,6 +9055,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => record.status === 'queued' && Number(record.attempt_count || 0) > 0).length;
   const blockedRecords = sendRecords.filter((record) => ['failed', 'skipped'].includes(record.status)).length;
+  const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9114,6 +9115,32 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       value: selectedRecord?.status || 'None',
       detail: selectedRecord?.error_message || selectedRecord?.to_email || 'Select a record for retry context',
       tone: selectedRecord?.status === 'failed' ? 'warn' : 'good',
+    },
+  ];
+  const deliveryFoundationItems = [
+    {
+      label: 'Owned SMTP server',
+      value: 'Gap',
+      detail: 'Platform-owned SMTP service still needs MTA, auth, throttling, and domain controls.',
+      tone: 'warn',
+    },
+    {
+      label: 'Send queues',
+      value: sendJobs.length || sendRecords.length ? 'Visible' : 'Gap',
+      detail: `${formatInt(sendJobs.length)} job(s), ${formatInt(queuedRecords)} queued record(s), ${formatInt(activeJobs)} active job(s).`,
+      tone: sendJobs.length || sendRecords.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Bounce queues',
+      value: failedRecords ? 'Signals' : 'Gap',
+      detail: failedRecords ? `${formatInt(failedRecords)} failed record(s) need bounce classification.` : 'Dedicated bounce and complaint queues are still needed.',
+      tone: 'warn',
+    },
+    {
+      label: 'Deliverability feedback',
+      value: providerFootprint.length ? providerFootprint.join(', ') : 'Gap',
+      detail: 'Reputation, complaint, bounce, and inbox-placement feedback need a unified loop.',
+      tone: 'warn',
     },
   ];
 
@@ -9254,6 +9281,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         </div>
         <div className="delivery-triage-grid">
           {deliveryTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="delivery-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Send Engine Foundation</h3>
+            <span className="muted">Owned SMTP, queues, bounces, and deliverability feedback.</span>
+          </div>
+          <a href="#settings">Provider settings</a>
+        </div>
+        <div className="delivery-foundation-grid">
+          {deliveryFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
