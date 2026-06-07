@@ -8918,6 +8918,15 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
     setStatus(`Loaded suppression for ${item.email}.`);
   }
 
+  function draftSuppressionFromRecord(record: EmailSendRecordRead) {
+    setSelectedSuppressionId('');
+    setEmail(record.to_email);
+    setReason('manual');
+    setSource(`delivery_failure:${providerLabel(record.provider)}`);
+    setStatus(`Drafting suppression for failed delivery recipient ${record.to_email}.`);
+    window.location.hash = '#compliance/new';
+  }
+
   async function runComplianceOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
     setStatus(`${label}...`);
@@ -9001,6 +9010,32 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               ))}
             </div>
           </section>
+          {failedWithEmail.length ? (
+            <section className="panel table-panel full-span compliance-candidate-panel">
+              <div className="panel-head">
+                <div>
+                  <h2>Failed Recipient Review</h2>
+                  <span className="muted">Draft suppressions from failed delivery records before retrying.</span>
+                </div>
+                <a href="#delivery">Open delivery</a>
+              </div>
+              <table>
+                <thead><tr><th>Email</th><th>Status</th><th>Provider</th><th>Attempts</th><th>Error</th><th>Suppression</th></tr></thead>
+                <tbody>
+                  {failedWithEmail.map((record) => (
+                    <tr key={record.id}>
+                      <td>{record.to_email}</td>
+                      <td><span className="pill">{record.status}</span></td>
+                      <td>{providerLabel(record.provider)}</td>
+                      <td>{record.attempt_count} / {record.max_attempts}</td>
+                      <td>{record.error_message || '-'}</td>
+                      <td><button className="ghost compact-button" type="button" onClick={() => draftSuppressionFromRecord(record)} disabled={busy}>Draft Suppression</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ) : null}
           <section className="panel table-panel full-span">
             <div className="panel-head">
               <div>

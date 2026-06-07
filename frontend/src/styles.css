@@ -4718,6 +4718,15 @@ th {
   background: #f5fff7;
 }
 
+.compliance-candidate-panel td {
+  vertical-align: middle;
+}
+
+.compliance-candidate-panel td:nth-child(5) {
+  max-width: 340px;
+  overflow-wrap: anywhere;
+}
+
 .nested-panel {
   box-shadow: none;
 }

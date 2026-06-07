@@ -30,6 +30,12 @@ def assert_compliance_triage_contract(source: str) -> None:
         'Bounce protection',
         'Opt-out coverage',
         'Failed candidates',
+        'function draftSuppressionFromRecord',
+        "setSource(`delivery_failure:${providerLabel(record.provider)}`)",
+        'Failed Recipient Review',
+        'Draft suppressions from failed delivery records before retrying.',
+        'Draft Suppression',
+        'compliance-candidate-panel',
         'compliance-triage-panel',
         'compliance-triage-grid',
     ]
@@ -55,6 +61,8 @@ def test_built_esp_bundle_includes_compliance_triage_panel() -> None:
         'Bounce protection',
         'Opt-out coverage',
         'Failed candidates',
+        'Failed Recipient Review',
+        'Draft Suppression',
     ]
 
     for token in expected_tokens:
