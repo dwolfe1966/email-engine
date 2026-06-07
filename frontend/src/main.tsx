@@ -7856,6 +7856,118 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       disabled: busy,
     },
   ];
+  const templateTriageAction = !name.trim()
+    ? {
+      tone: 'warn',
+      title: 'Name template',
+      detail: 'Add a clear template name before saving, versioning, or campaign handoff.',
+      actionLabel: 'Review Setup',
+      run: () => setStatus('Add a template name before saving.'),
+      disabled: busy,
+    }
+    : !subject.trim()
+      ? {
+        tone: 'warn',
+        title: 'Add subject line',
+        detail: 'Campaign sends need a subject before preview, test send, or launch.',
+        actionLabel: 'Review Setup',
+        run: () => setStatus('Add a subject line before preview or save.'),
+        disabled: busy,
+      }
+      : !htmlBody.trim()
+        ? {
+          tone: 'warn',
+          title: 'Add template content',
+          detail: 'HTML/Jinja content is required before preview, variable inspection, or campaign use.',
+          actionLabel: 'Open Editor',
+          run: () => switchTemplateEditorMode('edit'),
+          disabled: busy,
+        }
+        : variablesJsonError
+          ? {
+            tone: 'warn',
+            title: 'Fix sample JSON',
+            detail: 'Sample variables must be valid JSON before preview and variable inspection can run.',
+            actionLabel: 'Review Variables',
+            run: () => setStatus('Fix sample variable JSON before previewing.'),
+            disabled: busy,
+          }
+          : missingCssClasses.length
+            ? {
+              tone: 'warn',
+              title: 'Create missing CSS',
+              detail: `${formatInt(missingCssClasses.length)} detected class rule(s) need CSS coverage before final preview.`,
+              actionLabel: 'Create Missing Rules',
+              run: openCssGapTools,
+              disabled: busy,
+            }
+            : previewFreshness !== 'current'
+              ? {
+                tone: 'warn',
+                title: 'Render current preview',
+                detail: 'Preview with sample variables before saving, version review, or campaign handoff.',
+                actionLabel: 'Preview',
+                run: previewTemplate,
+                disabled: busy,
+              }
+              : pendingAiDraft
+                ? {
+                  tone: 'warn',
+                  title: 'Review pending AI draft',
+                  detail: 'Preview, apply, or discard the pending AI draft before requesting another change.',
+                  actionLabel: 'Preview Draft',
+                  run: () => { void previewAiDraft(pendingAiDraft); },
+                  disabled: busy,
+                }
+                : hasUnsavedTemplateChanges
+                  ? {
+                    tone: 'warn',
+                    title: 'Save template changes',
+                    detail: 'Preview is current; save changes to create the latest persisted version.',
+                    actionLabel: 'Save Changes',
+                    run: saveTemplate,
+                    disabled: busy,
+                  }
+                  : {
+                    tone: 'good',
+                    title: 'Template ready',
+                    detail: 'Setup, content, CSS, preview, saved state, and version history are ready for campaign use.',
+                    actionLabel: 'Open Campaigns',
+                    run: () => { window.location.hash = '#campaigns'; },
+                    disabled: busy,
+                  };
+  const templateTriageItems = [
+    {
+      label: 'Saved state',
+      value: hasUnsavedTemplateChanges ? 'Unsaved' : isPersistedTemplate ? 'Saved' : 'Draft',
+      detail: isPersistedTemplate ? `${formatInt(templateVersions.length)} version(s)` : 'Create template to start history',
+      tone: hasUnsavedTemplateChanges || isCreatingTemplate ? 'warn' : 'good',
+    },
+    {
+      label: 'Preview',
+      value: previewFreshness === 'current' ? 'Current' : previewFreshness === 'stale' ? 'Stale' : 'Missing',
+      detail: previewSubject || previewStatusText,
+      tone: previewFreshness === 'current' ? 'good' : 'warn',
+    },
+    {
+      label: 'Variables',
+      value: variablesJsonError ? 'JSON error' : formatInt(variables.length),
+      detail: variablesJsonError || `${formatInt(sampleVariableRows.length)} sample value(s)`,
+      tone: variablesJsonError ? 'warn' : variables.length || sampleVariableRows.length ? 'good' : 'warn',
+    },
+    {
+      label: 'CSS coverage',
+      value: missingCssClasses.length ? `${formatInt(missingCssClasses.length)} gap(s)` : 'Ready',
+      detail: `${formatInt(cssClassCoverage.length)} detected class(es)`,
+      tone: missingCssClasses.length ? 'warn' : 'good',
+    },
+    {
+      label: 'AI review',
+      value: pendingAiDraft ? 'Draft' : aiRecommendations.length ? formatInt(aiRecommendations.length) : appliedAiDraftLabel ? 'Applied' : 'Idle',
+      detail: pendingAiDraft ? 'Pending draft needs review' : appliedAiDraftLabel || 'AI suggestions optional',
+      tone: pendingAiDraft || appliedAiDraftLabel ? 'warn' : aiRecommendations.length ? 'good' : 'warn',
+    },
+  ];
 
   return (
     <section className="page-grid">
@@ -7903,6 +8015,25 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <span className="muted">{previewStatusText}</span>
           </div>
         </div>
+        <section className={`template-triage-panel ${templateTriageAction.tone}`}>
+          <div className="template-triage-head">
+            <div>
+              <span>Template triage</span>
+              <strong>{templateTriageAction.title}</strong>
+              <small>{templateTriageAction.detail}</small>
+            </div>
+            <button className={templateTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={templateTriageAction.run} disabled={templateTriageAction.disabled}>{templateTriageAction.actionLabel}</button>
+          </div>
+          <div className="template-triage-grid">
+            {templateTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
