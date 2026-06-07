@@ -9542,6 +9542,32 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
   const selectedSuppression = suppressions.find((item) => item.id === selectedSuppressionId);
   const isPersistedSuppression = Boolean(selectedSuppressionId);
   const isCreatingSuppression = !isPersistedSuppression;
+  const complianceFeedbackItems = [
+    {
+      label: 'Provider feedback',
+      value: providerSuppressionCount ? 'Linked' : 'Gap',
+      detail: providerSuppressionCount ? `${formatInt(providerSuppressionCount)} provider-linked suppression(s).` : 'Provider webhooks need to feed durable bounce and complaint events.',
+      tone: providerSuppressionCount ? 'good' : 'warn',
+    },
+    {
+      label: 'Bounce queue',
+      value: bounceCount ? 'Protected' : 'Gap',
+      detail: bounceCount ? `${formatInt(bounceCount)} hard bounce suppression(s) block future sends.` : 'Hard bounces need a dedicated review queue before retry decisions.',
+      tone: bounceCount ? 'good' : 'warn',
+    },
+    {
+      label: 'Complaint loop',
+      value: complaintCount ? 'Risk' : 'Gap',
+      detail: complaintCount ? `${formatInt(complaintCount)} spam complaint suppression(s) require deliverability review.` : 'Spam complaints need a feedback loop tied to reputation and suppression policy.',
+      tone: 'warn',
+    },
+    {
+      label: 'Retry safety',
+      value: failedCandidateCount ? 'Review' : 'Clear',
+      detail: failedCandidateCount ? `${formatInt(failedCandidateCount)} failed recipient(s) should be classified before requeue.` : 'No failed recipient candidates visible for suppression review.',
+      tone: failedCandidateCount ? 'warn' : 'good',
+    },
+  ];
   const complianceTriageAction = complaintCount
     ? {
       tone: 'warn',
@@ -9721,6 +9747,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               ))}
             </div>
           </section>
+          <section className="compliance-feedback-panel full-span">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Deliverability Feedback Loop</h3>
+                <span className="muted">Provider events, bounce queues, complaint handling, and retry safety.</span>
+              </div>
+              <a href="#delivery">Open Delivery</a>
+            </div>
+            <div className="compliance-feedback-grid">
+              {complianceFeedbackItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
           {failedWithEmail.length ? (
             <section className="panel table-panel full-span compliance-candidate-panel">
               <div className="panel-head">
@@ -9837,6 +9881,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
             </div>
             <div className="compliance-triage-grid">
               {complianceTriageItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="compliance-feedback-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Deliverability Feedback Loop</h3>
+                <span className="muted">Provider events, bounce queues, complaint handling, and retry safety.</span>
+              </div>
+              <a href="#delivery">Open Delivery</a>
+            </div>
+            <div className="compliance-feedback-grid">
+              {complianceFeedbackItems.map((item) => (
                 <article className={item.tone} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
