@@ -9672,6 +9672,51 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
               actionLabel: 'AI Brief',
               run: openAiActionBrief,
             };
+  const analyticsAiActions = [
+    {
+      label: 'Delivery risk',
+      value: totalFailures || (campaignDetail?.bounced_count || 0)
+        ? `${formatInt(totalFailures + Number(campaignDetail?.bounced_count || 0))} issue(s)`
+        : 'Stable',
+      detail: totalFailures || (campaignDetail?.bounced_count || 0)
+        ? 'Review failed, bounced, and retry records before the next send.'
+        : 'No loaded delivery failures require immediate review.',
+      tone: totalFailures || (campaignDetail?.bounced_count || 0) ? 'warn' : 'good',
+      actionLabel: 'Open Delivery',
+      run: () => { window.location.hash = '#delivery'; },
+    },
+    {
+      label: 'Engagement',
+      value: `${formatPct(aggregateOpenRate)} open / ${formatPct(aggregateClickRate)} click`,
+      detail: aggregateClickRate < 0.02 && totalSent > 0
+        ? 'Ask AI for CTA, offer, and content changes for the next campaign.'
+        : 'Engagement is ready for AI optimization planning.',
+      tone: aggregateClickRate < 0.02 && totalSent > 0 ? 'warn' : 'good',
+      actionLabel: 'Open Campaigns',
+      run: () => { window.location.hash = '#campaigns'; },
+    },
+    {
+      label: 'Audience fit',
+      value: `${formatInt(totalAudienceReach)} reachable`,
+      detail: totalAudienceReach
+        ? 'Use audience comparisons to refine targeting and exclusions.'
+        : 'Load or build audiences before requesting targeting recommendations.',
+      tone: totalAudienceReach ? 'good' : 'warn',
+      actionLabel: 'Open Audiences',
+      run: () => { window.location.hash = '#audiences'; },
+    },
+    {
+      label: 'Journey follow-up',
+      value: `${formatInt(journeyFailureCount)} risk signal(s)`,
+      detail: journeyFailureCount
+        ? 'Fix failed steps and queued sends before adding more enrollment volume.'
+        : 'Journey reports do not show loaded failure pressure.',
+      tone: journeyFailureCount ? 'warn' : 'good',
+      actionLabel: 'Open Journeys',
+      run: () => { window.location.hash = '#automations'; },
+    },
+  ];
+  const analyticsAiPrimaryAction = analyticsAiActions.find((action) => action.tone === 'warn') || analyticsAiActions[0];
 
   function openAiActionBrief() {
     const topCampaignLines = topCampaigns.map((campaign) => (
@@ -9691,6 +9736,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
     ));
     const briefLines = [
       `Recommended action: ${reportsNextAction}`,
+      `Primary AI action: ${analyticsAiPrimaryAction.label} - ${analyticsAiPrimaryAction.detail}`,
       `Delivery health: ${formatPct(1 - aggregateFailureRate)} (${formatInt(totalFailures)} failed / ${formatInt(totalSent)} sent).`,
       `Engagement: ${formatPct(aggregateOpenRate)} open rate and ${formatPct(aggregateClickRate)} click rate.`,
       `Audience reach: ${formatInt(totalAudienceReach)} contacts across ${formatInt(audiences.length)} saved audiences.`,
@@ -9711,6 +9757,9 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       '',
       'Recent campaign timeline:',
       ...(timelineLines.length ? timelineLines : ['- Load a campaign report to include timeline rows.']),
+      '',
+      'Operator action checklist:',
+      ...analyticsAiActions.map((action) => `- ${action.label}: ${action.value}. ${action.detail}`),
     ];
     window.localStorage.setItem(AI_ACTION_BRIEF_STORAGE_KEY, briefLines.join('\n'));
     onOperation({ label: 'AI workflow', message: `Prepared analytics brief with ${formatInt(analyticsAiBriefSummary.sections.length)} section(s).`, tone: 'success' });
@@ -10002,6 +10051,26 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             <small>{analyticsAiBriefSummary.risk}</small>
           </div>
           <button className="ghost" type="button" onClick={openAiActionBrief} disabled={busy}>Send to AI Studio</button>
+        </div>
+        <div className="analytics-ai-action-panel">
+          <div className="analytics-ai-action-head">
+            <div>
+              <span>AI action panel</span>
+              <strong>{analyticsAiPrimaryAction.label}</strong>
+              <small>{analyticsAiPrimaryAction.detail}</small>
+            </div>
+            <button className={analyticsAiPrimaryAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={analyticsAiPrimaryAction.run} disabled={busy}>{analyticsAiPrimaryAction.actionLabel}</button>
+          </div>
+          <div className="analytics-ai-action-grid">
+            {analyticsAiActions.map((action) => (
+              <article className={action.tone} key={action.label}>
+                <span>{action.label}</span>
+                <strong>{action.value}</strong>
+                <small>{action.detail}</small>
+                <button className="ghost compact-button" type="button" onClick={action.run} disabled={busy}>{action.actionLabel}</button>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
       <section className="panel full-span">
