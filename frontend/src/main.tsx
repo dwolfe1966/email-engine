@@ -2716,6 +2716,8 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const activeRuleComparator = typeof parsedRulePreview?.comparator === 'string' ? parsedRulePreview.comparator : '';
   const activeRuleValue = parsedRulePreview && 'value' in parsedRulePreview ? parsedRulePreview.value : undefined;
   const matchRate = metadata?.total && matchedCount !== null ? matchedCount / Math.max(metadata.total, 1) : null;
+  const selectedFieldProfile = activeRuleField ? fieldProfileForField(activeRuleField) : null;
+  const highlightedFieldProfiles = fieldHints.slice(0, 6).map(fieldProfileForField);
   const audienceImpactSummary = matchedCount === null
     ? {
       tone: 'warn',
@@ -2803,6 +2805,33 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
               run: snapshotAudience,
             };
 
+  function contactFieldValue(contact: ContactRead, field: string) {
+    if (field.startsWith('attributes.')) {
+      return contact.attributes[field.replace(/^attributes\./, '')];
+    }
+    return (contact as unknown as Record<string, unknown>)[field];
+  }
+
+  function displayFieldValue(value: unknown) {
+    if (Array.isArray(value)) return value.slice(0, 2).map((item) => String(item)).join(', ');
+    if (value && typeof value === 'object') return JSON.stringify(value).slice(0, 48);
+    return String(value ?? '').slice(0, 48);
+  }
+
+  function fieldProfileForField(field: string) {
+    const values = (metadata?.sample_contacts || [])
+      .map((contact) => contactFieldValue(contact, field))
+      .filter((value) => value !== undefined && value !== null && String(value).trim() !== '');
+    const uniqueValues = Array.from(new Set(values.map(displayFieldValue))).slice(0, 3);
+    return {
+      field,
+      kind: field.startsWith('attributes.') ? 'Attribute field' : 'Contact field',
+      coverage: metadata?.sample_contacts?.length ? values.length / Math.max(metadata.sample_contacts.length, 1) : null,
+      examples: uniqueValues,
+      sampleCount: values.length,
+    };
+  }
+
   function sampleValueForField(field: string) {
     const contact = metadata?.sample_contacts?.find((item) => {
       if (field.startsWith('attributes.')) {
@@ -2812,12 +2841,7 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
       return (item as unknown as Record<string, unknown>)[field] !== undefined && (item as unknown as Record<string, unknown>)[field] !== null;
     });
     if (!contact) return '';
-    const value = field.startsWith('attributes.')
-      ? contact.attributes[field.replace(/^attributes\./, '')]
-      : (contact as unknown as Record<string, unknown>)[field];
-    if (Array.isArray(value)) return value.slice(0, 2).map((item) => String(item)).join(', ');
-    if (value && typeof value === 'object') return 'object';
-    return String(value ?? '').slice(0, 32);
+    return displayFieldValue(contactFieldValue(contact, field)).slice(0, 32);
   }
 
   function loadAudienceIntoEditor(audience: AudienceRead) {
@@ -3171,8 +3195,29 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
         </div>
         <div className="workflow-section">
           <h3>2. Rule definition</h3>
+          <div className="audience-field-intel">
+            <div>
+              <span>Selected field</span>
+              <strong>{selectedFieldProfile?.field || 'No field selected'}</strong>
+              <small>{selectedFieldProfile ? `${selectedFieldProfile.kind} · ${selectedFieldProfile.coverage === null ? 'No samples' : `${formatPct(selectedFieldProfile.coverage)} sample coverage`}` : 'Choose a field chip to build a starter rule.'}</small>
+            </div>
+            <div>
+              <span>Examples</span>
+              <strong>{selectedFieldProfile?.examples.length ? selectedFieldProfile.examples.join(' · ') : 'No examples'}</strong>
+              <small>{selectedFieldProfile ? `${formatInt(selectedFieldProfile.sampleCount)} sample contact(s) include this field` : `${formatInt(metadata?.sample_contacts?.length || 0)} sample contact(s) loaded`}</small>
+            </div>
+          </div>
           {fieldHints.length ? (
             <div className="audience-field-picker">
+              <div className="field-profile-strip" aria-label="Field sample coverage">
+                {highlightedFieldProfiles.map((profile) => (
+                  <button type="button" className={activeRuleField === profile.field ? 'field-profile selected' : 'field-profile'} key={profile.field} onClick={() => insertFieldRule(profile.field)}>
+                    <span>{profile.kind}</span>
+                    <strong>{profile.field}</strong>
+                    <small>{profile.coverage === null ? 'No samples' : `${formatPct(profile.coverage)} coverage`}</small>
+                  </button>
+                ))}
+              </div>
               <div className="field-chip-row" aria-label="Available contact fields">
                 {availableFields.slice(0, 12).map((field) => (
                   <button type="button" className={activeRuleField === field ? 'field-chip selected' : 'field-chip'} key={field} onClick={() => insertFieldRule(field)}>

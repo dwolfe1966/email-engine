@@ -1418,6 +1418,62 @@ th {
   gap: 10px;
 }
 
+.audience-field-intel {
+  display: grid;
+  grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.2fr);
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.audience-field-intel > div,
+.field-profile {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.audience-field-intel span,
+.audience-field-intel small,
+.field-profile span,
+.field-profile small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.audience-field-intel strong,
+.field-profile strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 13px;
+}
+
+.field-profile-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.field-profile {
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.field-profile.selected,
+.field-profile:hover {
+  border-color: #9db7ff;
+  background: #eef5ff;
+}
+
 .field-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -4194,7 +4250,8 @@ th {
   .data-command-strip article.wide { grid-column: 1 / -1; }
   .launch-result-card,
   .test-send-result-card,
-  .audience-impact-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .audience-impact-summary,
+  .audience-field-intel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -4245,6 +4302,7 @@ th {
   .contacts-command-strip,
   .data-command-strip,
   .audience-impact-summary,
+  .audience-field-intel,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }

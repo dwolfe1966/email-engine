@@ -37,6 +37,14 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'Very narrow audience',
         'Audience impact ready',
         'audience-impact-summary',
+        'selectedFieldProfile',
+        'highlightedFieldProfiles',
+        'fieldProfileForField',
+        'Selected field',
+        'Field sample coverage',
+        'sample coverage',
+        'audience-field-intel',
+        'field-profile-strip',
     ]
 
     for token in expected_tokens:
@@ -67,6 +75,10 @@ def test_built_esp_bundle_includes_audience_guided_next_step_action() -> None:
         'Very broad audience',
         'Very narrow audience',
         'Audience impact ready',
+        'Selected field',
+        'Field sample coverage',
+        'sample coverage',
+        'No field selected',
     ]
 
     for token in expected_tokens:
