@@ -2210,6 +2210,8 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   const [stepName, setStepName] = useState('Send welcome email');
   const [contactId, setContactId] = useState('');
   const [enrollmentVariablesJson, setEnrollmentVariablesJson] = useState('{\n  "source": "esp_automation",\n  "plan": "trial"\n}');
+  const [aiJourneySummary, setAiJourneySummary] = useState<string[]>([]);
+  const [aiJourneyRecommendations, setAiJourneyRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to create or update a journey.');
   const [busy, setBusy] = useState(false);
   const routeParts = route.split('/');
@@ -2445,6 +2447,40 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
     });
   }
 
+  async function reviewJourneyWithAi() {
+    await runJourneyOperation('Running AI Journey Review', async () => {
+      if (!selectedJourneyId) throw new Error('Save or select a journey first.');
+      const graph = await fetchJson<Record<string, unknown>>(`/api/v1/journeys/${selectedJourneyId}/graph`);
+      const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/journeys/analyze', {
+        method: 'POST',
+        body: JSON.stringify({
+          journey_context: {
+            journey: selectedJourney || selectedJourneyPerformance || { id: selectedJourneyId },
+            graph,
+            enrollments: { items: visibleEnrollments },
+            executions: { items: visibleExecutions },
+            triage: {
+              title: journeyTriageAction.title,
+              detail: journeyTriageAction.detail,
+              failures,
+              queued_sends: queued,
+              active_enrollments: activeEnrollments,
+              failed_executions: failedExecutions,
+            },
+          },
+          goals: [
+            'Assess journey structure and execution readiness',
+            'Find failed steps, missing send configuration, and queued send follow-up',
+            'Recommend the next operator action for the journey manager',
+          ],
+        }),
+      });
+      setAiJourneySummary(data.summary || []);
+      setAiJourneyRecommendations(data.recommendations || []);
+      return `AI Journey Review loaded ${formatInt(data.recommendations?.length || 0)} recommendation(s).`;
+    });
+  }
+
   async function deleteJourneyRow(journey: JourneyPerformance) {
     if (!window.confirm(`Delete journey "${journey.name}"?`)) return;
     await runJourneyOperation('Deleting journey', async () => {
@@ -2632,6 +2668,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
                 <strong>Run</strong>
                 <button className="ghost" onClick={enrollContact} disabled={busy || !contactId}>Enroll Contact</button>
                 <button className="ghost" onClick={processDue} disabled={busy}>Process Due</button>
+                <button className="ghost" onClick={reviewJourneyWithAi} disabled={busy}>AI Journey Review</button>
               </div>
             </>
           ) : null}
@@ -2642,6 +2679,39 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           {selectedJourney?.steps?.length ? <small>{selectedJourney.steps.map((step) => `${step.position + 1}. ${step.name}`).join(' | ')}</small> : null}
           {selectedContact ? <small>Selected contact: {selectedContact.email}</small> : null}
         </div>
+        {isPersistedJourney ? (
+          <div className="journey-ai-review-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>AI Journey Review</h3>
+                <span className="muted">{aiJourneyRecommendations?.length ? `${formatInt(aiJourneyRecommendations.length)} recommendation(s)` : 'Review selected journey structure, enrollments, and executions.'}</span>
+              </div>
+              <button className="link-button" type="button" onClick={reviewJourneyWithAi} disabled={busy}>Run AI Review</button>
+            </div>
+            {aiJourneySummary.length ? (
+              <div className="journey-ai-summary">
+                {aiJourneySummary.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+              </div>
+            ) : null}
+            {aiJourneyRecommendations?.length ? (
+              <div className="recommendation-list">
+                {aiJourneyRecommendations.slice(0, 5).map((item) => (
+                  <article key={item.code}>
+                    <span className="pill">{item.priority}</span>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail}</p>
+                    <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="ai-empty-state">
+                <strong>No AI journey review loaded</strong>
+                <span>Run AI Journey Review after selecting a journey to prioritize step fixes, queued sends, and enrollment follow-up.</span>
+              </div>
+            )}
+          </div>
+        ) : null}
         <div className="form-grid">
           <label>
             Journey name

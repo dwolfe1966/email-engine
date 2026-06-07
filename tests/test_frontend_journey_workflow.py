@@ -33,6 +33,17 @@ def assert_journey_triage_contract(source: str) -> None:
         'Builder readiness',
         'journey-triage-panel',
         'journey-triage-grid',
+        'aiJourneySummary',
+        'aiJourneyRecommendations',
+        'function reviewJourneyWithAi',
+        '/api/v1/ai/journeys/analyze',
+        '/api/v1/journeys/${selectedJourneyId}/graph',
+        'journey_context',
+        'AI Journey Review',
+        'Run AI Review',
+        'journey-ai-review-panel',
+        'journey-ai-summary',
+        'No AI journey review loaded',
     ]
 
     for token in expected_tokens:
@@ -56,6 +67,10 @@ def test_built_esp_bundle_includes_journey_triage_panel() -> None:
         'Failure pressure',
         'Active enrollments',
         'Builder readiness',
+        'AI Journey Review',
+        'Run AI Review',
+        '/api/v1/ai/journeys/analyze',
+        'No AI journey review loaded',
     ]
 
     for token in expected_tokens:
