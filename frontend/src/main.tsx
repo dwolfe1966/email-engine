@@ -5614,6 +5614,37 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   const selectedCssRule = cssRuleForClass(selectedCssClass);
   const selectedCssCoverage = cssClassCoverage.find((item) => item.name === selectedCssClass);
+  const cssHelperNextAction = selectedCssClass && !selectedCssRule
+    ? {
+      tone: 'warn',
+      title: `Create .${selectedCssClass}`,
+      detail: `${selectedCssCoverage?.kind || cssClassKind} rule is missing for the selected class.`,
+      actionLabel: 'Create Rule',
+      run: applyCssPreset,
+    }
+    : missingCssClasses.length
+      ? {
+        tone: 'warn',
+        title: 'Create missing CSS',
+        detail: `${formatInt(missingCssClasses.length)} detected class rule(s) are missing before final preview.`,
+        actionLabel: 'Create Missing Rules',
+        run: scaffoldMissingCssClasses,
+      }
+      : previewFreshness !== 'current'
+        ? {
+          tone: 'warn',
+          title: 'Preview updated styles',
+          detail: 'CSS coverage is complete. Render the template to verify layout and variables.',
+          actionLabel: 'Preview',
+          run: previewTemplate,
+        }
+        : {
+          tone: 'good',
+          title: 'CSS ready',
+          detail: `${formatInt(cssClassCoverage.length)} detected class rule(s) are covered.`,
+          actionLabel: 'Open Preview',
+          run: () => setEditorMode('preview'),
+        };
   const cssClassKindHelp = {
     container: 'Creates a centered email-safe wrapper with width, margin, padding, and background.',
     section: 'Creates a reusable content band or card with padding, border, background, and radius.',
@@ -7274,6 +7305,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                                   <small>{selectedCssDesignBlock ? 'Back to Design will reselect this block.' : 'This class exists in HTML/CSS but not the current Design block model.'}</small>
                                 </div>
                               ) : null}
+                              <div className={`css-next-action ${cssHelperNextAction.tone}`}>
+                                <div>
+                                  <span>Next CSS action</span>
+                                  <strong>{cssHelperNextAction.title}</strong>
+                                  <small>{cssHelperNextAction.detail}</small>
+                                </div>
+                                <button className={cssHelperNextAction.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={cssHelperNextAction.run} disabled={busy}>{cssHelperNextAction.actionLabel}</button>
+                              </div>
 		                    {selectedCssClass ? (
 	                      <div className={selectedCssRule ? 'selected-css-rule has-rule' : 'selected-css-rule missing-rule'}>
 	                        <div>

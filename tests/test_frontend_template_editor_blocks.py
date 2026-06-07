@@ -70,6 +70,12 @@ def assert_template_design_block_contract(source: str) -> None:
         "designBlockSummary",
         "raw HTML/Jinja block(s) preserved",
         "Fully editable",
+        "cssHelperNextAction",
+        "Next CSS action",
+        "Create missing CSS",
+        "Create Missing Rules",
+        "Preview updated styles",
+        "CSS ready",
     ]
 
     for token in expected_tokens:
@@ -105,6 +111,11 @@ def test_built_esp_bundle_includes_table_footer_and_social_blocks() -> None:
         'Header cells and row data',
         'raw HTML/Jinja block(s) preserved',
         'Fully editable',
+        'Next CSS action',
+        'Create missing CSS',
+        'Create Missing Rules',
+        'Preview updated styles',
+        'CSS ready',
     ]
 
     for token in expected_tokens:
