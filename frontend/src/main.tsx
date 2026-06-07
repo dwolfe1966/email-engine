@@ -2623,9 +2623,10 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   );
 }
 
-function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, onOperation }: {
+function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, onRefresh, onOperation }: {
   audiences: AudiencePerformance[];
   audienceItems: AudienceRead[];
+  campaigns: CampaignRead[];
   metadata: ContactMetadata | null;
   route: string;
   onRefresh: () => Promise<void>;
@@ -2673,6 +2674,26 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const isPersistedAudience = Boolean(selectedAudienceId);
   const isCreatingAudience = !isPersistedAudience;
   const ruleJsonValid = isRuleJsonValid();
+  const selectedAudienceRuleKey = selectedAudience ? stableAudienceRuleKey(selectedAudience.rule_tree || {}) : '';
+  const selectedAudienceCampaigns = selectedAudienceRuleKey
+    ? campaigns.filter((campaign) => stableAudienceRuleKey(campaign.audience_query || {}) === selectedAudienceRuleKey)
+    : [];
+  const selectedAudienceActiveCampaigns = selectedAudienceCampaigns.filter((campaign) => campaign.status !== 'archived');
+  const campaignAwareSummary = selectedAudience
+    ? {
+      tone: selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
+      title: selectedAudienceActiveCampaigns.length ? 'Campaign usage found' : 'No campaign usage yet',
+      detail: selectedAudienceActiveCampaigns.length
+        ? `${formatInt(selectedAudienceActiveCampaigns.length)} active campaign(s) use this audience rule.`
+        : 'No active campaigns currently use this audience rule snapshot.',
+      latest: selectedAudienceActiveCampaigns[0]?.name || 'No linked campaign',
+    }
+    : {
+      tone: 'warn',
+      title: 'Save audience first',
+      detail: 'Campaign usage appears after the audience is saved and selected.',
+      latest: 'No linked campaign',
+    };
   const availableFields = metadata?.fields || [];
   const attributeKeys = metadata?.attribute_keys || [];
   const attributeFields = attributeKeys.map((key) => `attributes.${key}`);
@@ -2804,6 +2825,17 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
               actionLabel: 'Create Snapshot',
               run: snapshotAudience,
             };
+
+  function stableAudienceRuleKey(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableAudienceRuleKey).join(',')}]`;
+    if (value && typeof value === 'object') {
+      return `{${Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => `${JSON.stringify(key)}:${stableAudienceRuleKey(child)}`)
+        .join(',')}}`;
+    }
+    return JSON.stringify(value);
+  }
 
   function contactFieldValue(contact: ContactRead, field: string) {
     if (field.startsWith('attributes.')) {
@@ -3100,6 +3132,19 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
           </div>
         </section>
       ) : null}
+      <section className={`audience-campaign-awareness full-span ${campaignAwareSummary.tone}`}>
+        <div>
+          <span>Campaign awareness</span>
+          <strong>{campaignAwareSummary.title}</strong>
+          <small>{campaignAwareSummary.detail}</small>
+        </div>
+        <div>
+          <span>Latest campaign</span>
+          <strong>{campaignAwareSummary.latest}</strong>
+          <small>{selectedAudienceCampaigns.length ? `${formatInt(selectedAudienceCampaigns.length)} total campaign(s)` : 'Create a campaign from this audience when ready'}</small>
+        </div>
+        <a href="#campaigns">Open Campaigns</a>
+      </section>
       <section className="audience-builder-map full-span" aria-label="Audience builder summary">
         <article className={metadata?.total ? 'good' : 'warn'}>
           <span>Contact data</span>
@@ -11493,6 +11538,7 @@ function App() {
         <AudiencePage
           audiences={dashboard.audiences}
           audienceItems={dashboard.audienceItems}
+          campaigns={dashboard.campaignItems}
           metadata={dashboard.contactMeta}
           route={route}
           onRefresh={async () => {

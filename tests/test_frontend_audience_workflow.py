@@ -45,6 +45,13 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'sample coverage',
         'audience-field-intel',
         'field-profile-strip',
+        'stableAudienceRuleKey',
+        'selectedAudienceCampaigns',
+        'campaignAwareSummary',
+        'Campaign awareness',
+        'Campaign usage found',
+        'No campaign usage yet',
+        'audience-campaign-awareness',
     ]
 
     for token in expected_tokens:
@@ -79,6 +86,10 @@ def test_built_esp_bundle_includes_audience_guided_next_step_action() -> None:
         'Field sample coverage',
         'sample coverage',
         'No field selected',
+        'Campaign awareness',
+        'Campaign usage found',
+        'No campaign usage yet',
+        'Open Campaigns',
     ]
 
     for token in expected_tokens:
