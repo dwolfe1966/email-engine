@@ -8316,6 +8316,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function deleteRecord() {
+    if (!selectedRecordId) {
+      setStatus('Select a send record before deleting.');
+      return;
+    }
+    const label = selectedRecord?.to_email || selectedRecordId;
+    if (!window.confirm(`Delete send record for "${label}"? This also removes its tracking events.`)) return;
+    await runDeliveryOperation('Deleting send record', async () => {
+      await fetchJson<{ id: string }>(`/api/v1/email-send-records/${selectedRecordId}`, { method: 'DELETE' });
+      setSelectedRecordId('');
+      setTrackingLinks(null);
+      setAiDeliverySummary([]);
+      setAiDeliveryRecommendations([]);
+      await onRefresh();
+      return `Deleted send record for ${label}.`;
+    });
+  }
+
   async function loadTrackingLinks() {
     await runDeliveryOperation('Loading tracking links', async () => {
       if (!selectedRecordId) throw new Error('Select a send record.');
@@ -8524,6 +8542,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={loadProgress} disabled={busy || !selectedJobId}>Load Progress</button>
           <button className="ghost" onClick={requeueRecord} disabled={busy || !selectedRecordId}>Requeue Record</button>
           <button className="ghost" onClick={skipRecord} disabled={busy || !selectedRecordId}>Skip Record</button>
+          <button className="ghost" onClick={deleteRecord} disabled={busy || !selectedRecordId}>Delete Record</button>
           <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
           <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
