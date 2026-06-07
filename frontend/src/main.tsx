@@ -1777,6 +1777,118 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           actionLabel: 'Dry-Run Launch',
           run: dryRunLaunch,
         };
+  const campaignTriageAction = !selectedCampaignId
+    ? {
+      tone: 'warn',
+      title: 'Create campaign draft',
+      detail: 'Save the campaign before previewing, test sending, dry-running, or launching.',
+      actionLabel: 'Create Campaign',
+      run: createDraftCampaign,
+      disabled: operationBusy || !templateId,
+    }
+    : !selectedTemplate
+      ? {
+        tone: 'warn',
+        title: 'Choose template',
+        detail: 'Campaign launch needs a saved template with subject, HTML, tracking, and unsubscribe content.',
+        actionLabel: 'Open Templates',
+        run: () => { window.location.hash = '#templates'; },
+        disabled: operationBusy,
+      }
+      : !selectedAudience
+        ? {
+          tone: 'warn',
+          title: 'Choose audience',
+          detail: 'Campaign launch needs a saved audience so volume, suppressions, and snapshots can be checked.',
+          actionLabel: 'Open Audiences',
+          run: () => { window.location.hash = '#audience'; },
+          disabled: operationBusy,
+        }
+        : !workflowStatus
+          ? {
+            tone: 'warn',
+            title: 'Run readiness',
+            detail: 'Load validation, audience, analytics, and latest delivery state before sending.',
+            actionLabel: 'Refresh Readiness',
+            run: loadCampaignWorkflowStatus,
+            disabled: operationBusy,
+          }
+          : validationErrors.length
+            ? {
+              tone: 'warn',
+              title: 'Fix validation blockers',
+              detail: `${formatInt(validationErrors.length)} validation error(s) must be cleared before test send or launch.`,
+              actionLabel: 'Check Audience',
+              run: validateCampaign,
+              disabled: operationBusy,
+            }
+            : !lastTestSendResult
+              ? {
+                tone: 'warn',
+                title: 'Send proof email',
+                detail: testEmail.trim() ? 'Send a proof to confirm rendered content and provider handoff.' : 'Add a test recipient before proofing this campaign.',
+                actionLabel: testEmail.trim() ? 'Send Test' : 'Preview Email',
+                run: testEmail.trim() ? sendTestEmail : previewTestEmail,
+                disabled: operationBusy,
+              }
+              : !lastLaunchResult
+                ? {
+                  tone: 'warn',
+                  title: 'Dry-run launch',
+                  detail: 'Simulate launch volume, queued count, and suppression impact before production queueing.',
+                  actionLabel: 'Dry-Run Launch',
+                  run: dryRunLaunch,
+                  disabled: operationBusy,
+                }
+                : latestJob
+                  ? {
+                    tone: 'good',
+                    title: 'Monitor delivery',
+                    detail: `${latestJob.status} job loaded; continue delivery follow-up from Delivery Manager.`,
+                    actionLabel: 'Open Delivery',
+                    run: () => { window.location.hash = '#delivery'; },
+                    disabled: operationBusy,
+                  }
+                  : {
+                    tone: 'good',
+                    title: 'Campaign ready',
+                    detail: 'Draft, content, audience, readiness, proof, and dry-run checks are ready.',
+                    actionLabel: 'Open Analytics',
+                    run: () => { window.location.hash = '#analytics'; },
+                    disabled: operationBusy,
+                  };
+  const campaignTriageItems = [
+    {
+      label: 'Draft',
+      value: selectedCampaignId ? 'Saved' : 'Unsaved',
+      detail: selectedCampaign?.status || 'Create or select a campaign',
+      tone: selectedCampaignId ? 'good' : 'warn',
+    },
+    {
+      label: 'Content',
+      value: selectedTemplate ? 'Template' : 'Missing',
+      detail: selectedTemplate?.name || 'No template selected',
+      tone: selectedTemplate ? 'good' : 'warn',
+    },
+    {
+      label: 'Audience',
+      value: selectedAudience ? formatInt(selectedAudience.estimated_count) : 'Missing',
+      detail: selectedAudience?.name || 'No audience selected',
+      tone: selectedAudience ? 'good' : 'warn',
+    },
+    {
+      label: 'Readiness',
+      value: workflowStatus ? `${formatInt(validationErrors.length)} error(s)` : 'Not run',
+      detail: workflowStatus ? `${formatInt(validationWarnings.length)} warning(s) loaded` : 'Refresh readiness before send',
+      tone: workflowStatus && !validationErrors.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Proof and launch',
+      value: lastLaunchResult ? 'Dry-run' : lastTestSendResult ? 'Proof sent' : 'Pending',
+      detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : lastTestSendResult ? `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}` : 'Send proof, then dry-run launch',
+      tone: lastLaunchResult || lastTestSendResult ? 'good' : 'warn',
+    },
+  ];
 
   function parsedVariables() {
     try {
@@ -2003,6 +2115,25 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             <p>{item.detail}</p>
           </article>
         ))}
+      </section>
+      <section className={`campaign-triage-panel full-span ${campaignTriageAction.tone}`}>
+        <div className="campaign-triage-head">
+          <div>
+            <span>Campaign triage</span>
+            <strong>{campaignTriageAction.title}</strong>
+            <small>{campaignTriageAction.detail}</small>
+          </div>
+          <button className={campaignTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={campaignTriageAction.run} disabled={campaignTriageAction.disabled}>{campaignTriageAction.actionLabel}</button>
+        </div>
+        <div className="campaign-triage-grid">
+          {campaignTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       {isPersistedCampaign ? (
         <section className="panel full-span campaign-launch-panel">
