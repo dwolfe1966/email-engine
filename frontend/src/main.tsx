@@ -12209,12 +12209,17 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
   const totalChecks = smokeChecks.length;
   const contractEndpointCount = contractGroups.reduce((sum, group) => sum + group.endpoints.length, 0);
   const schemaReady = Boolean(diagnostics?.schema.ok && !diagnostics.schema.needs_migration);
+  const smtpReady = Boolean(diagnostics?.email_provider.smtp_configured);
+  const sendgridReady = Boolean(diagnostics?.email_provider.sendgrid_configured);
+  const publicBaseUrl = diagnostics?.public_base_url || 'not configured';
+  const publicUrlReady = /^https?:\/\//.test(publicBaseUrl);
   const providerReady = Boolean(
-    diagnostics?.email_provider.smtp_configured ||
-    diagnostics?.email_provider.sendgrid_configured ||
+    smtpReady ||
+    sendgridReady ||
     diagnostics?.email_provider.provider === 'console',
   );
   const checksHaveRun = Object.keys(checkResults).length > 0;
+  const failingSmokeCheck = smokeChecks.find((check) => checkResults[check.key] && !checkResults[check.key].ok);
   const docsNextAction = !schemaReady
     ? 'Resolve schema readiness before treating the API contract as stable.'
     : !providerReady
@@ -12224,6 +12229,100 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
         : !checksHaveRun
           ? 'Run workflow checks to validate the live ESP contract from this browser session.'
           : 'Contract is ready for UI integration. Continue using Email Engine as the system of record.';
+  const docsTriageAction = !schemaReady
+    ? {
+      tone: 'warn',
+      title: 'Resolve schema contract',
+      detail: 'Schema readiness must be current before external clients treat the ESP contract as stable.',
+      actionLabel: 'Open Settings',
+      run: () => { window.location.hash = '#settings'; },
+      disabled: checking,
+    }
+    : !providerReady
+      ? {
+        tone: 'warn',
+        title: 'Configure delivery contract',
+        detail: 'Launch, test-send, tracking, and delivery APIs need a configured outbound provider path.',
+        actionLabel: 'Open Integrations',
+        run: () => { window.location.hash = '#integrations'; },
+        disabled: checking,
+      }
+      : !smtpReady
+        ? {
+          tone: 'warn',
+          title: 'Document owned SMTP gap',
+          detail: 'Owned SMTP remains a first-class platform foundation even when provider adapters are available.',
+          actionLabel: 'Open Integrations',
+          run: () => { window.location.hash = '#integrations'; },
+          disabled: checking,
+        }
+        : !publicUrlReady
+          ? {
+            tone: 'warn',
+            title: 'Set public endpoints',
+            detail: 'Tracking, unsubscribe, and webhook contracts require a reachable PUBLIC_BASE_URL.',
+            actionLabel: 'Open Settings',
+            run: () => { window.location.hash = '#settings'; },
+            disabled: checking,
+          }
+          : !checksHaveRun
+            ? {
+              tone: 'warn',
+              title: 'Run live contract checks',
+              detail: 'Validate the browser-facing ESP workflow APIs before relying on this contract from clients.',
+              actionLabel: 'Run Checks',
+              run: runSmokeChecks,
+              disabled: checking,
+            }
+            : failingSmokeCheck
+              ? {
+                tone: 'warn',
+                title: 'Review failing workflow',
+                detail: `${failingSmokeCheck.label} failed its live endpoint check.`,
+                actionLabel: failingSmokeCheck.action,
+                run: () => { window.location.hash = failingSmokeCheck.href; },
+                disabled: checking,
+              }
+              : {
+                tone: 'good',
+                title: 'Contract ready',
+                detail: 'Schema, delivery, public endpoint, workflow checks, and object ownership guidance are ready.',
+                actionLabel: 'Open API Docs',
+                run: () => { window.location.href = '/docs'; },
+                disabled: checking,
+              };
+  const docsTriageItems = [
+    {
+      label: 'Schema',
+      value: schemaReady ? 'Current' : 'Review',
+      detail: diagnostics?.schema.current_revision || 'revision unknown',
+      tone: schemaReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Owned SMTP',
+      value: smtpReady ? 'Ready' : 'Gap',
+      detail: smtpReady ? 'Managed SMTP path configured' : sendgridReady ? 'Adapter ready; owned SMTP not configured' : 'No managed SMTP path configured',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Public endpoints',
+      value: publicUrlReady ? 'Ready' : 'Missing',
+      detail: publicBaseUrl.replace(/^https?:\/\//, ''),
+      tone: publicUrlReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Live checks',
+      value: `${formatInt(passedChecks)} / ${formatInt(totalChecks)}`,
+      detail: checksHaveRun ? 'Browser workflow checks have run' : 'Run checks before client handoff',
+      tone: checksHaveRun && passedChecks === totalChecks ? 'good' : 'warn',
+    },
+    {
+      label: 'Object ownership',
+      value: formatInt(objectRows.length),
+      detail: 'Email Engine remains system of record for ESP objects',
+      tone: 'good',
+    },
+  ];
 
   async function runSmokeChecks() {
     setChecking(true);
@@ -12289,6 +12388,25 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
           <strong>{docsNextAction}</strong>
           <small>SentientMail should integrate through Email Engine APIs, not duplicate ESP state.</small>
         </article>
+      </section>
+      <section className={`docs-triage-panel full-span ${docsTriageAction.tone}`}>
+        <div className="docs-triage-head">
+          <div>
+            <span>Contract triage</span>
+            <strong>{docsTriageAction.title}</strong>
+            <small>{docsTriageAction.detail}</small>
+          </div>
+          <button className={docsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={docsTriageAction.run} disabled={docsTriageAction.disabled}>{docsTriageAction.actionLabel}</button>
+        </div>
+        <div className="docs-triage-grid">
+          {docsTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="panel full-span">
         <div className="panel-head"><h2>Workflow Readiness</h2><span className="muted">simple health checks for the ESP experience</span></div>
