@@ -1780,6 +1780,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const [workflowStatus, setWorkflowStatus] = useState<CampaignWorkflowStatus | null>(null);
   const [lastLaunchResult, setLastLaunchResult] = useState<CampaignLaunchResult | null>(null);
   const [lastTestSendResult, setLastTestSendResult] = useState<CampaignTestSendResult | null>(null);
+  const [aiCampaignSummary, setAiCampaignSummary] = useState<string[]>([]);
+  const [aiCampaignRecommendations, setAiCampaignRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
 
   useEffect(() => {
     if (!templateId && templates.length) setTemplateId(templates[0].id);
@@ -2118,6 +2120,44 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     });
   }
 
+  async function reviewCampaignWithAi() {
+    await runOperation('Running AI Campaign Review', async () => {
+      if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/campaigns/analyze', {
+        method: 'POST',
+        body: JSON.stringify({
+          campaign_context: {
+            campaign: selectedCampaign || { id: selectedCampaignId, name: campaignName },
+            template: selectedTemplate || { id: templateId },
+            audience: selectedAudience || { id: audienceId },
+            performance: selectedCampaignPerformance,
+            workflow_status: workflowStatus,
+            last_test_send: lastTestSendResult,
+            last_launch_result: lastLaunchResult,
+            validation: workflowStatus?.validation || { errors: validationErrors, warnings: validationWarnings },
+            latest_send_job: latestJob,
+            triage: {
+              title: campaignTriageAction.title,
+              detail: campaignTriageAction.detail,
+              readiness_score: readinessScore,
+              queued_records: latestJob?.queued_count,
+              validation_errors: validationErrors,
+              validation_warnings: validationWarnings,
+            },
+          },
+          goals: [
+            'Assess campaign launch readiness',
+            'Find template, audience, validation, suppression, and delivery risks',
+            'Recommend the next operator action before production launch',
+          ],
+        }),
+      });
+      setAiCampaignSummary(data.summary || []);
+      setAiCampaignRecommendations(data.recommendations || []);
+      return `AI Campaign Review loaded ${formatInt(data.recommendations?.length || 0)} recommendation(s).`;
+    });
+  }
+
   async function deleteCampaignRow(campaign: CampaignRead) {
     if (!window.confirm(`Delete campaign "${campaign.name}"?`)) return;
     await runOperation('Deleting campaign', async () => {
@@ -2315,6 +2355,37 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               {validationWarnings.map((item) => <p key={`warning-${item}`}>Warning: {item}</p>)}
             </div>
           ) : null}
+          <div className="campaign-ai-review-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>AI Campaign Review</h3>
+                <span className="muted">{aiCampaignRecommendations?.length ? `${formatInt(aiCampaignRecommendations.length)} recommendation(s)` : 'Review launch readiness, audience fit, template risk, and delivery handoff.'}</span>
+              </div>
+              <button className="link-button" type="button" onClick={reviewCampaignWithAi} disabled={operationBusy}>Run AI Review</button>
+            </div>
+            {aiCampaignSummary.length ? (
+              <div className="campaign-ai-summary">
+                {aiCampaignSummary.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+              </div>
+            ) : null}
+            {aiCampaignRecommendations?.length ? (
+              <div className="recommendation-list">
+                {aiCampaignRecommendations.slice(0, 5).map((item) => (
+                  <article key={item.code}>
+                    <span className="pill">{item.priority}</span>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail}</p>
+                    <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="ai-empty-state">
+                <strong>No AI campaign review loaded</strong>
+                <span>Run AI Campaign Review after loading readiness to prioritize validation, audience, template, and launch follow-up.</span>
+              </div>
+            )}
+          </div>
         </section>
       ) : null}
       {selectedCampaign ? (
@@ -2359,6 +2430,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 <button className="ghost" onClick={loadCampaignWorkflowStatus} disabled={operationBusy}>Readiness</button>
                 <button className="ghost" onClick={validateCampaign} disabled={operationBusy}>Check Audience</button>
                 <button className="ghost" onClick={previewTestEmail} disabled={operationBusy}>Preview Email</button>
+                <button className="ghost" onClick={reviewCampaignWithAi} disabled={operationBusy}>AI Campaign Review</button>
               </div>
               <div>
                 <strong>Send</strong>

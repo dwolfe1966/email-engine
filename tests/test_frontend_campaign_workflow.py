@@ -49,6 +49,14 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'Proof and launch',
         'campaign-triage-panel',
         'campaign-triage-grid',
+        'aiCampaignSummary',
+        'aiCampaignRecommendations',
+        'reviewCampaignWithAi',
+        "fetchJson<AIWorkflowAnalysis>('/api/v1/ai/campaigns/analyze'",
+        'AI Campaign Review',
+        'campaign-ai-review-panel',
+        'campaign-ai-summary',
+        'Run AI Campaign Review after loading readiness',
         'type CampaignLaunchResult',
         'type CampaignTestSendResult',
         'lastLaunchResult',
@@ -97,6 +105,10 @@ def test_built_esp_bundle_includes_campaign_guided_next_step_action() -> None:
         'Monitor delivery',
         'Campaign ready',
         'Proof and launch',
+        'AI Campaign Review',
+        'Run AI Review',
+        'No AI campaign review loaded',
+        'Run AI Campaign Review after loading readiness',
     ]
 
     for token in expected_tokens:

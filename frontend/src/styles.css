@@ -1347,6 +1347,48 @@ th {
   color: #b42318;
 }
 
+.campaign-ai-review-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.campaign-ai-review-panel .compact-head {
+  margin: 0;
+}
+
+.campaign-ai-review-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.campaign-ai-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.campaign-ai-summary span {
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5f7a;
+  padding: 9px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.campaign-ai-review-panel .recommendation-list small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .campaign-triage-panel {
   display: grid;
   gap: 12px;
@@ -5682,6 +5724,7 @@ th {
   .data-command-strip article.wide { grid-column: 1 / -1; }
   .launch-result-card,
   .test-send-result-card,
+  .campaign-ai-summary,
   .campaign-triage-grid,
   .audience-triage-grid,
   .audience-impact-summary,
@@ -5750,6 +5793,7 @@ th {
   .settings-command-strip,
   .contacts-command-strip,
   .data-command-strip,
+  .campaign-ai-summary,
   .campaign-triage-grid,
   .audience-triage-grid,
   .audience-impact-summary,
