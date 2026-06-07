@@ -29,6 +29,14 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'audienceNextAction.detail',
         'audienceNextAction.run',
         'audience-next-action',
+        'audienceImpactSummary',
+        'Rule impact',
+        'Preview needed',
+        'No matched contacts',
+        'Very broad audience',
+        'Very narrow audience',
+        'Audience impact ready',
+        'audience-impact-summary',
     ]
 
     for token in expected_tokens:
@@ -53,6 +61,12 @@ def test_built_esp_bundle_includes_audience_guided_next_step_action() -> None:
         'Import Contacts',
         'Save Audience',
         'Create Snapshot',
+        'Rule impact',
+        'Preview needed',
+        'No matched contacts',
+        'Very broad audience',
+        'Very narrow audience',
+        'Audience impact ready',
     ]
 
     for token in expected_tokens:

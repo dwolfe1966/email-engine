@@ -2716,6 +2716,45 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const activeRuleComparator = typeof parsedRulePreview?.comparator === 'string' ? parsedRulePreview.comparator : '';
   const activeRuleValue = parsedRulePreview && 'value' in parsedRulePreview ? parsedRulePreview.value : undefined;
   const matchRate = metadata?.total && matchedCount !== null ? matchedCount / Math.max(metadata.total, 1) : null;
+  const audienceImpactSummary = matchedCount === null
+    ? {
+      tone: 'warn',
+      title: 'Preview needed',
+      detail: 'Run preview to estimate reach and inspect sample contacts before using this rule.',
+      reach: 'Not previewed',
+      sample: sampleContacts.length ? `${formatInt(sampleContacts.length)} sample(s)` : 'No samples',
+    }
+    : matchedCount <= 0
+      ? {
+        tone: 'warn',
+        title: 'No matched contacts',
+        detail: 'The rule is valid, but it needs a different field, comparator, value, or more imported contacts.',
+        reach: '0 matched',
+        sample: 'No samples',
+      }
+      : matchRate !== null && matchRate >= 0.8
+        ? {
+          tone: 'warn',
+          title: 'Very broad audience',
+          detail: 'This rule reaches most known contacts. Confirm that broad targeting is intentional before launch.',
+          reach: `${formatPct(matchRate)} of contacts`,
+          sample: `${formatInt(sampleContacts.length)} sample(s)`,
+        }
+        : matchRate !== null && matchRate <= 0.01
+          ? {
+            tone: 'warn',
+            title: 'Very narrow audience',
+            detail: 'This rule reaches a small slice of known contacts. Check samples before investing in a campaign.',
+            reach: `${formatPct(matchRate)} of contacts`,
+            sample: `${formatInt(sampleContacts.length)} sample(s)`,
+          }
+          : {
+            tone: 'good',
+            title: 'Audience impact ready',
+            detail: 'Matched contacts and sample rows are available for rule review.',
+            reach: matchRate === null ? `${formatInt(matchedCount)} matched` : `${formatPct(matchRate)} of contacts`,
+            sample: `${formatInt(sampleContacts.length)} sample(s)`,
+          };
   const audienceNextAction = !name.trim()
     ? {
       tone: 'warn',
@@ -3092,6 +3131,23 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
             <small>{audienceNextAction.detail}</small>
           </div>
           <button className={audienceNextAction.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={audienceNextAction.run} disabled={busy}>{audienceNextAction.actionLabel}</button>
+        </div>
+        <div className={`audience-impact-summary ${audienceImpactSummary.tone}`}>
+          <div>
+            <span>Rule impact</span>
+            <strong>{audienceImpactSummary.title}</strong>
+            <small>{audienceImpactSummary.detail}</small>
+          </div>
+          <div>
+            <span>Reach</span>
+            <strong>{audienceImpactSummary.reach}</strong>
+            <small>{matchedCount === null ? 'Preview pending' : `${formatInt(matchedCount)} contact(s)`}</small>
+          </div>
+          <div>
+            <span>Samples</span>
+            <strong>{audienceImpactSummary.sample}</strong>
+            <small>{sampleContacts.length ? 'Inspect rows below' : 'Preview returns examples'}</small>
+          </div>
         </div>
         <div className="workflow-section">
           <h3>1. Setup</h3>
