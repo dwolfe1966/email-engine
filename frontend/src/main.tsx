@@ -3265,6 +3265,109 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
               actionLabel: 'Create Snapshot',
               run: snapshotAudience,
             };
+  const audienceTriageAction = !metadata?.total
+    ? {
+      tone: 'warn',
+      title: 'Import contact data',
+      detail: 'Audience rules need contact fields and sample rows before targeting can be trusted.',
+      actionLabel: 'Open Data Sources',
+      run: () => { window.location.hash = '#data'; },
+      disabled: busy,
+    }
+    : !name.trim()
+      ? {
+        tone: 'warn',
+        title: 'Name the audience',
+        detail: 'Add a clear audience name before preview, save, snapshot, or campaign use.',
+        actionLabel: 'Review Setup',
+        run: () => setStatus('Add an audience name in setup before saving.'),
+        disabled: busy,
+      }
+      : !ruleJsonValid
+        ? {
+          tone: 'warn',
+          title: 'Fix rule JSON',
+          detail: 'Audience targeting rules must be valid JSON objects before preview or save can run.',
+          actionLabel: 'Review Rule',
+          run: () => setStatus('Fix the audience rule JSON before previewing.'),
+          disabled: busy,
+        }
+        : matchedCount === null
+          ? {
+            tone: 'warn',
+            title: 'Preview audience reach',
+            detail: 'Run preview to validate matched count and sample contacts before campaign use.',
+            actionLabel: 'Preview Contacts',
+            run: previewAudience,
+            disabled: busy,
+          }
+          : matchedCount <= 0
+            ? {
+              tone: 'warn',
+              title: 'Adjust rule or import contacts',
+              detail: 'This audience currently has no reachable contacts for campaign launch.',
+              actionLabel: 'Import Contacts',
+              run: () => { window.location.hash = '#data'; },
+              disabled: busy,
+            }
+            : !selectedAudienceId
+              ? {
+                tone: 'warn',
+                title: 'Save audience',
+                detail: `${formatInt(matchedCount)} contact(s) matched. Save the audience before campaign assignment.`,
+                actionLabel: 'Save Audience',
+                run: saveAudience,
+                disabled: busy,
+              }
+              : !selectedAudienceActiveCampaigns.length
+                ? {
+                  tone: 'warn',
+                  title: 'Create campaign handoff',
+                  detail: 'This audience is saved and previewed, but no active campaign currently uses its rule.',
+                  actionLabel: 'Open Campaigns',
+                  run: () => { window.location.hash = '#campaigns'; },
+                  disabled: busy,
+                }
+                : {
+                  tone: 'good',
+                  title: 'Snapshot before launch',
+                  detail: `${formatInt(matchedCount)} contact(s) matched and campaign usage exists. Snapshot before launch.`,
+                  actionLabel: 'Create Snapshot',
+                  run: snapshotAudience,
+                  disabled: busy,
+                };
+  const audienceTriageItems = [
+    {
+      label: 'Contact data',
+      value: formatInt(metadata?.total || 0),
+      detail: `${formatInt(availableFields.length + attributeKeys.length)} fields available`,
+      tone: metadata?.total ? 'good' : 'warn',
+    },
+    {
+      label: 'Rule',
+      value: ruleJsonValid ? 'Valid' : 'Invalid',
+      detail: activeRuleField || 'No field selected',
+      tone: ruleJsonValid ? 'good' : 'warn',
+    },
+    {
+      label: 'Preview',
+      value: matchedCount === null ? 'Not run' : formatInt(matchedCount),
+      detail: matchRate === null ? 'Preview before campaign use' : `${formatPct(matchRate)} of known contacts`,
+      tone: matchedCount !== null && matchedCount > 0 ? 'good' : 'warn',
+    },
+    {
+      label: 'Samples',
+      value: formatInt(sampleContacts.length),
+      detail: sampleContacts.length ? 'Matched sample contacts loaded' : 'No preview samples loaded',
+      tone: sampleContacts.length || matchedCount !== null ? 'good' : 'warn',
+    },
+    {
+      label: 'Campaign handoff',
+      value: formatInt(selectedAudienceActiveCampaigns.length),
+      detail: selectedAudienceId ? 'Active campaign usage for this rule' : 'Save audience before campaign use',
+      tone: selectedAudienceId && selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
+    },
+  ];
 
   function stableAudienceRuleKey(value: unknown): string {
     if (Array.isArray(value)) return `[${value.map(stableAudienceRuleKey).join(',')}]`;
@@ -3458,6 +3561,25 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
           <MetricCard metric={{ label: 'Sent', value: formatInt(sent), change: 'campaign sends' }} />
           <MetricCard metric={{ label: 'Best open rate', value: bestAudience ? formatPct(bestAudience.open_rate) : '0%', change: bestAudience?.name || 'no activity' }} />
         </section>
+        <section className={`audience-triage-panel full-span ${audienceTriageAction.tone}`}>
+          <div className="audience-triage-head">
+            <div>
+              <span>Audience triage</span>
+              <strong>{audienceTriageAction.title}</strong>
+              <small>{audienceTriageAction.detail}</small>
+            </div>
+            <button className={audienceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={audienceTriageAction.run} disabled={audienceTriageAction.disabled}>{audienceTriageAction.actionLabel}</button>
+          </div>
+          <div className="audience-triage-grid">
+            {audienceTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -3552,6 +3674,25 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             <p>{item.detail}</p>
           </article>
         ))}
+      </section>
+      <section className={`audience-triage-panel full-span ${audienceTriageAction.tone}`}>
+        <div className="audience-triage-head">
+          <div>
+            <span>Audience triage</span>
+            <strong>{audienceTriageAction.title}</strong>
+            <small>{audienceTriageAction.detail}</small>
+          </div>
+          <button className={audienceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={audienceTriageAction.run} disabled={audienceTriageAction.disabled}>{audienceTriageAction.actionLabel}</button>
+        </div>
+        <div className="audience-triage-grid">
+          {audienceTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       {selectedAudience ? (
         <section className="panel full-span selected-summary">
