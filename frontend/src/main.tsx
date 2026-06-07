@@ -2717,16 +2717,52 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
   const activeRuleValue = parsedRulePreview && 'value' in parsedRulePreview ? parsedRulePreview.value : undefined;
   const matchRate = metadata?.total && matchedCount !== null ? matchedCount / Math.max(metadata.total, 1) : null;
   const audienceNextAction = !name.trim()
-    ? 'Name the audience before saving.'
+    ? {
+      tone: 'warn',
+      title: 'Name the audience',
+      detail: 'Add a clear audience name before saving or previewing campaign reach.',
+      actionLabel: 'Review Setup',
+      run: () => setStatus('Add an audience name in setup before saving.'),
+    }
     : !ruleJsonValid
-      ? 'Fix the rule JSON before previewing.'
+      ? {
+        tone: 'warn',
+        title: 'Fix rule JSON',
+        detail: 'The rule must be a JSON object before preview or save can run.',
+        actionLabel: 'Review Rule',
+        run: () => setStatus('Fix the audience rule JSON before previewing.'),
+      }
       : matchedCount === null
-        ? 'Preview this rule to confirm reach and sample contacts.'
+        ? {
+          tone: 'warn',
+          title: 'Preview audience reach',
+          detail: 'Preview this rule to confirm matched count and sample contacts.',
+          actionLabel: 'Preview Contacts',
+          run: previewAudience,
+        }
         : matchedCount <= 0
-          ? 'Adjust the rule or import contacts before using this audience.'
+          ? {
+            tone: 'warn',
+            title: 'Adjust rule or import contacts',
+            detail: 'This rule currently matches no contacts, so it is not campaign-ready.',
+            actionLabel: 'Import Contacts',
+            run: () => { window.location.hash = '#data'; },
+          }
           : !selectedAudienceId
-            ? 'Save the audience so campaigns can use it.'
-            : 'Create a snapshot before campaign launch when the segment is ready.';
+            ? {
+              tone: 'warn',
+              title: 'Save campaign-ready audience',
+              detail: `${formatInt(matchedCount)} contact(s) matched. Save the audience so campaigns can use it.`,
+              actionLabel: 'Save Audience',
+              run: saveAudience,
+            }
+            : {
+              tone: 'good',
+              title: 'Snapshot before launch',
+              detail: `${formatInt(matchedCount)} contact(s) matched. Create a stable snapshot before campaign launch.`,
+              actionLabel: 'Create Snapshot',
+              run: snapshotAudience,
+            };
 
   function sampleValueForField(field: string) {
     const contact = metadata?.sample_contacts?.find((item) => {
@@ -3019,8 +3055,8 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
         </article>
         <article className={selectedAudienceId && Number(matchedCount || 0) > 0 ? 'good' : 'warn'}>
           <span>Next action</span>
-          <strong>{selectedAudienceId ? 'Campaign-ready check' : 'Save required'}</strong>
-          <small>{audienceNextAction}</small>
+          <strong>{audienceNextAction.title}</strong>
+          <small>{audienceNextAction.detail}</small>
         </article>
       </section>
       <section className="panel full-span campaign-workbench">
@@ -3048,6 +3084,14 @@ function AudiencePage({ audiences, audienceItems, metadata, route, onRefresh, on
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
+        </div>
+        <div className={`audience-next-action ${audienceNextAction.tone}`}>
+          <div>
+            <span>Guided audience next step</span>
+            <strong>{audienceNextAction.title}</strong>
+            <small>{audienceNextAction.detail}</small>
+          </div>
+          <button className={audienceNextAction.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={audienceNextAction.run} disabled={busy}>{audienceNextAction.actionLabel}</button>
         </div>
         <div className="workflow-section">
           <h3>1. Setup</h3>

@@ -1329,6 +1329,48 @@ th {
   font-size: 14px;
 }
 
+.audience-next-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.audience-next-action.warn {
+  border-color: #f5d49a;
+  background: #fffaf0;
+}
+
+.audience-next-action.good {
+  border-color: #bfe8d0;
+  background: #f4fff8;
+}
+
+.audience-next-action > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.audience-next-action span,
+.audience-next-action small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.audience-next-action strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .audience-field-picker {
   display: grid;
   gap: 10px;
