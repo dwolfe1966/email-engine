@@ -9581,6 +9581,18 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   const aggregateOpenRate = totalOpens / Math.max(totalSent, 1);
   const aggregateClickRate = totalClicks / Math.max(totalSent, 1);
   const aggregateFailureRate = totalFailures / Math.max(totalSent + totalFailures, 1);
+  const analyticsAiBriefSummary = {
+    sections: [
+      campaigns.length ? `${formatInt(campaigns.length)} campaign(s)` : '',
+      audiences.length ? `${formatInt(audiences.length)} audience(s)` : '',
+      journeys.length ? `${formatInt(journeys.length)} journey report(s)` : '',
+      timeline.length ? `${formatInt(timeline.length)} timeline point(s)` : '',
+      domains.length ? `${formatInt(domains.length)} domain row(s)` : '',
+    ].filter(Boolean),
+    risk: totalFailures || journeyFailureCount || (campaignDetail?.bounced_count || 0)
+      ? 'Delivery and journey risk included'
+      : 'No major risk signals loaded',
+  };
   const reportFocusSummary = !selectedCampaignId
     ? {
       tone: 'warn',
@@ -9662,6 +9674,21 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             };
 
   function openAiActionBrief() {
+    const topCampaignLines = topCampaigns.map((campaign) => (
+      `- ${campaign.name}: ${formatPct(campaign.open_rate)} open, ${formatPct(campaign.click_rate)} click, ${formatInt(campaign.failed_count)} failed.`
+    ));
+    const topAudienceLines = topAudiences.map((audience) => (
+      `- ${audience.name}: ${formatInt(audience.estimated_count)} reach, ${formatPct(audience.open_rate)} open, ${formatPct(audience.click_rate)} click.`
+    ));
+    const journeyRiskLines = journeyRisks.map((journey) => (
+      `- ${journey.name}: ${formatInt(Number(journey.failed_count || 0) + Number(journey.step_failed_count || 0))} failure signal(s), ${formatInt(journey.queued_send_count)} queued send(s).`
+    ));
+    const domainLines = domains.map((domain) => (
+      `- ${domain.domain}: ${providerLabel(domain.provider)}, ${formatPct(domain.open_rate)} open, ${formatPct(domain.click_rate)} click, ${formatPct(domain.bounce_rate)} bounce.`
+    ));
+    const timelineLines = timeline.slice(-5).map((point) => (
+      `- ${point.date}: ${formatInt(point.sent_count)} sent, ${formatPct(point.open_rate)} open, ${formatPct(point.click_rate)} click.`
+    ));
     const briefLines = [
       `Recommended action: ${reportsNextAction}`,
       `Delivery health: ${formatPct(1 - aggregateFailureRate)} (${formatInt(totalFailures)} failed / ${formatInt(totalSent)} sent).`,
@@ -9669,9 +9696,24 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       `Audience reach: ${formatInt(totalAudienceReach)} contacts across ${formatInt(audiences.length)} saved audiences.`,
       `Journey risk: ${formatInt(journeyFailureCount)} failures and ${formatInt(activeEnrollments)} active enrollments.`,
       selectedCampaign ? `Selected campaign: ${selectedCampaign.name} (${selectedCampaign.status}).` : 'No campaign selected.',
+      '',
+      'Top campaigns:',
+      ...(topCampaignLines.length ? topCampaignLines : ['- No campaign performance rows loaded.']),
+      '',
+      'Audience comparison:',
+      ...(topAudienceLines.length ? topAudienceLines : ['- No audience performance rows loaded.']),
+      '',
+      'Journey risk detail:',
+      ...(journeyRiskLines.length ? journeyRiskLines : ['- No journey risk rows loaded.']),
+      '',
+      'Domain deliverability:',
+      ...(domainLines.length ? domainLines : ['- Load a campaign report to include domain rows.']),
+      '',
+      'Recent campaign timeline:',
+      ...(timelineLines.length ? timelineLines : ['- Load a campaign report to include timeline rows.']),
     ];
     window.localStorage.setItem(AI_ACTION_BRIEF_STORAGE_KEY, briefLines.join('\n'));
-    onOperation({ label: 'AI workflow', message: 'Prepared analytics brief for AI Studio.', tone: 'success' });
+    onOperation({ label: 'AI workflow', message: `Prepared analytics brief with ${formatInt(analyticsAiBriefSummary.sections.length)} section(s).`, tone: 'success' });
     window.location.hash = '#ai-studio/analytics-brief';
   }
 
@@ -9952,6 +9994,14 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             <small>{analyticsNextStep.detail}</small>
           </div>
           <button className={analyticsNextStep.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={analyticsNextStep.run} disabled={busy}>{analyticsNextStep.actionLabel}</button>
+        </div>
+        <div className="analytics-ai-brief">
+          <div>
+            <span>AI analytics brief</span>
+            <strong>{analyticsAiBriefSummary.sections.length ? analyticsAiBriefSummary.sections.join(' · ') : 'Summary only'}</strong>
+            <small>{analyticsAiBriefSummary.risk}</small>
+          </div>
+          <button className="ghost" type="button" onClick={openAiActionBrief} disabled={busy}>Send to AI Studio</button>
         </div>
       </section>
       <section className="panel full-span">

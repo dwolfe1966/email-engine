@@ -45,6 +45,14 @@ def assert_analytics_report_focus_contract(source: str) -> None:
         'Domain Deliverability',
         'email-engine-analytics-',
         'Export CSV',
+        'analyticsAiBriefSummary',
+        'Top campaigns:',
+        'Audience comparison:',
+        'Journey risk detail:',
+        'Domain deliverability:',
+        'Recent campaign timeline:',
+        'AI analytics brief',
+        'analytics-ai-brief',
     ]
 
     for token in expected_tokens:
@@ -77,6 +85,12 @@ def test_built_esp_bundle_includes_report_focus_summary() -> None:
         'Export CSV',
         'email-engine-analytics-',
         'Downloaded analytics CSV export.',
+        'AI analytics brief',
+        'Top campaigns:',
+        'Audience comparison:',
+        'Journey risk detail:',
+        'Domain deliverability:',
+        'Recent campaign timeline:',
     ]
 
     for token in expected_tokens:
