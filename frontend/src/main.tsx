@@ -9237,8 +9237,116 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
         : !completedJobs
           ? 'Run a dry run, inspect skipped rows, then import contacts.'
           : !selectedSource
-            ? 'Select a source to inspect mapping and schema readiness.'
+          ? 'Select a source to inspect mapping and schema readiness.'
             : 'Data workflow is ready. Continue importing contacts or open Contacts to inspect results.';
+  const inactiveSources = dataSources.filter((source) => source.status !== 'active').length;
+  const selectedSourceMappings = mappings.filter((mapping) => mapping.data_source_id === selectedSourceId).length;
+  const dataTriageAction = !selectedSourceId
+    ? {
+      tone: 'warn',
+      title: 'Create data source',
+      detail: 'Create or select a source before schema discovery, mapping, or ingest.',
+      actionLabel: 'Create Source',
+      run: () => { window.location.hash = '#data/new'; },
+      disabled: busy,
+    }
+    : selectedSource?.status !== 'active'
+      ? {
+        tone: 'warn',
+        title: 'Activate source',
+        detail: `${selectedSource?.name || 'Selected source'} is ${selectedSource?.status || statusValue}; validate and activate before production import.`,
+        actionLabel: 'Validate',
+        run: validateSource,
+        disabled: busy || !selectedSourceId,
+      }
+      : !validation
+        ? {
+          tone: 'warn',
+          title: 'Validate source',
+          detail: 'Run validation before trusting schema discovery or row ingest.',
+          actionLabel: 'Validate',
+          run: validateSource,
+          disabled: busy || !selectedSourceId,
+        }
+        : !validation.ok
+          ? {
+            tone: 'warn',
+            title: 'Fix validation errors',
+            detail: `${formatInt(validation.errors.length)} validation issue(s) need config or credential updates.`,
+            actionLabel: 'Validate',
+            run: validateSource,
+            disabled: busy || !selectedSourceId,
+          }
+          : !schema
+            ? {
+              tone: 'warn',
+              title: 'Discover schema',
+              detail: 'Load fields and sample rows before finalizing mapping.',
+              actionLabel: 'Discover Schema',
+              run: discoverSchema,
+              disabled: busy || !selectedSourceId,
+            }
+            : !selectedMappingId
+              ? {
+                tone: 'warn',
+                title: 'Save contact mapping',
+                detail: 'Create a mapping so source rows can become contact records.',
+                actionLabel: 'Save Mapping',
+                run: saveMapping,
+                disabled: busy || !selectedSourceId,
+              }
+              : failedJobs || importErrorCount || skippedCount
+                ? {
+                  tone: 'warn',
+                  title: 'Review import results',
+                  detail: `${formatInt(failedJobs)} failed job(s), ${formatInt(importErrorCount)} error(s), and ${formatInt(skippedCount)} skipped row(s) need review.`,
+                  actionLabel: 'Dry Run',
+                  run: () => ingestRows(true),
+                  disabled: busy || !selectedMappingId,
+                }
+                : completedJobs || importedCount
+                  ? {
+                    tone: 'good',
+                    title: 'Open imported contacts',
+                    detail: `${formatInt(importedCount)} imported row(s) are available for contact and audience review.`,
+                    actionLabel: 'Open Contacts',
+                    run: () => { window.location.hash = '#contacts'; },
+                    disabled: busy,
+                  }
+                  : {
+                    tone: 'warn',
+                    title: 'Run import dry run',
+                    detail: 'Dry-run rows before importing contacts into the canonical model.',
+                    actionLabel: 'Dry Run',
+                    run: () => ingestRows(true),
+                    disabled: busy || !selectedMappingId,
+                  };
+  const dataTriageItems = [
+    {
+      label: 'Source readiness',
+      value: `${formatInt(activeSources)} active`,
+      detail: inactiveSources ? `${formatInt(inactiveSources)} draft or paused source(s)` : 'All configured sources are active',
+      tone: activeSources && !inactiveSources ? 'good' : 'warn',
+    },
+    {
+      label: 'Mapping coverage',
+      value: formatPct(mappingCoverage),
+      detail: selectedSourceId ? `${formatInt(selectedSourceMappings)} selected-source mapping(s)` : `${formatInt(mappedSourceCount)} mapped source(s)`,
+      tone: mappingCoverage >= 1 && dataSources.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Validation state',
+      value: validation ? (validation.ok ? 'Passed' : 'Failed') : 'Not checked',
+      detail: validation ? `${formatInt(validation.checks.length)} check(s), ${formatInt(validation.errors.length)} error(s)` : 'Run validation before import',
+      tone: validation?.ok ? 'good' : 'warn',
+    },
+    {
+      label: 'Import health',
+      value: `${formatInt(importedCount)} rows`,
+      detail: `${formatInt(failedJobs)} failed job(s), ${formatInt(skippedCount)} skipped row(s), ${formatInt(importErrorCount)} error(s)`,
+      tone: failedJobs || skippedCount || importErrorCount ? 'warn' : 'good',
+    },
+  ];
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -9403,6 +9511,25 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
           <MetricCard metric={{ label: 'Imported rows', value: formatInt(importedCount), change: `${formatInt(completedJobs)} completed jobs` }} />
           <MetricCard metric={{ label: 'Dry runs', value: formatInt(dryRunJobs), change: 'validation jobs' }} />
           <MetricCard metric={{ label: 'Failed jobs', value: formatInt(failedJobs), change: 'needs review', tone: failedJobs ? 'warn' : 'good' }} />
+        </section>
+        <section className={`data-triage-panel full-span ${dataTriageAction.tone}`}>
+          <div className="data-triage-head">
+            <div>
+              <span>Data triage</span>
+              <strong>{dataTriageAction.title}</strong>
+              <small>{dataTriageAction.detail}</small>
+            </div>
+            <button className={dataTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={dataTriageAction.run} disabled={dataTriageAction.disabled}>{dataTriageAction.actionLabel}</button>
+          </div>
+          <div className="data-triage-grid">
+            {dataTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
         </section>
         <section className="data-command-strip full-span" aria-label="Data readiness summary">
           <article className={activeSources ? 'good' : 'warn'}>
@@ -9599,6 +9726,25 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
+        </div>
+        <div className={`data-triage-panel ${dataTriageAction.tone}`}>
+          <div className="data-triage-head">
+            <div>
+              <span>Data triage</span>
+              <strong>{dataTriageAction.title}</strong>
+              <small>{dataTriageAction.detail}</small>
+            </div>
+            <button className={dataTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={dataTriageAction.run} disabled={dataTriageAction.disabled}>{dataTriageAction.actionLabel}</button>
+          </div>
+          <div className="data-triage-grid">
+            {dataTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
         </div>
         <div className="form-grid">
           <label>
