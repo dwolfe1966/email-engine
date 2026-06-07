@@ -37,6 +37,14 @@ def assert_analytics_report_focus_contract(source: str) -> None:
         'Guided analytics next step',
         'analyticsNextStep.run',
         'analytics-next-step',
+        'function csvCell',
+        'function exportAnalyticsCsv',
+        'Campaign Performance',
+        'Audience Comparison',
+        'Journey Risk',
+        'Domain Deliverability',
+        'email-engine-analytics-',
+        'Export CSV',
     ]
 
     for token in expected_tokens:
@@ -66,6 +74,9 @@ def test_built_esp_bundle_includes_report_focus_summary() -> None:
         'Review journey risk',
         'Send brief to AI',
         'AI Brief',
+        'Export CSV',
+        'email-engine-analytics-',
+        'Downloaded analytics CSV export.',
     ]
 
     for token in expected_tokens:

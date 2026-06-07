@@ -9675,6 +9675,101 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
     window.location.hash = '#ai-studio/analytics-brief';
   }
 
+  function csvCell(value: unknown) {
+    const text = String(value ?? '');
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportAnalyticsCsv() {
+    const sections = [
+      {
+        title: 'Campaign Performance',
+        headers: ['Campaign', 'Status', 'Requested', 'Sent', 'Failed', 'Open Rate', 'Click Rate'],
+        rows: campaigns.map((campaign) => [
+          campaign.name,
+          campaign.status,
+          campaign.requested_count,
+          campaign.sent_count,
+          campaign.failed_count,
+          formatPct(campaign.open_rate),
+          formatPct(campaign.click_rate),
+        ]),
+      },
+      {
+        title: 'Audience Comparison',
+        headers: ['Audience', 'Status', 'Reach', 'Sent', 'Open Rate', 'Click Rate'],
+        rows: audiences.map((audience) => [
+          audience.name,
+          audience.status,
+          audience.estimated_count,
+          audience.sent_count,
+          formatPct(audience.open_rate),
+          formatPct(audience.click_rate),
+        ]),
+      },
+      {
+        title: 'Journey Risk',
+        headers: ['Journey', 'Active', 'Failed', 'Step Failed', 'Queued Sends'],
+        rows: journeys.map((journey) => [
+          journey.name,
+          journey.active_count,
+          journey.failed_count,
+          journey.step_failed_count,
+          journey.queued_send_count,
+        ]),
+      },
+      {
+        title: 'Campaign Timeline',
+        headers: ['Date', 'Sent', 'Opened', 'Clicked', 'Failed', 'Open Rate', 'Click Rate'],
+        rows: timeline.map((point) => [
+          point.date,
+          point.sent_count,
+          point.opened_count,
+          point.clicked_count,
+          point.failed_count,
+          formatPct(point.open_rate),
+          formatPct(point.click_rate),
+        ]),
+      },
+      {
+        title: 'Domain Deliverability',
+        headers: ['Domain', 'Provider', 'Records', 'Sent', 'Failed', 'Open Rate', 'Click Rate', 'Bounce Rate'],
+        rows: domains.map((domain) => [
+          domain.domain,
+          providerLabel(domain.provider),
+          domain.send_record_count,
+          domain.sent_count,
+          domain.failed_count,
+          formatPct(domain.open_rate),
+          formatPct(domain.click_rate),
+          formatPct(domain.bounce_rate),
+        ]),
+      },
+    ];
+    const csv = sections
+      .filter((section) => section.rows.length)
+      .flatMap((section) => [
+        [section.title],
+        section.headers,
+        ...section.rows,
+        [],
+      ])
+      .map((row) => row.map(csvCell).join(','))
+      .join('\n');
+    if (!csv.trim()) {
+      setStatus('No analytics rows are available to export yet.');
+      return;
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `email-engine-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus('Downloaded analytics CSV export.');
+  }
+
   async function loadReport() {
     setBusy(true);
     setStatus('Loading report...');
@@ -9826,6 +9921,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         <div className="button-row">
           <button className="primary" onClick={loadReport} disabled={busy || !selectedCampaignId}>Load Report</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Summary</button>
+          <button className="ghost" onClick={exportAnalyticsCsv} disabled={busy}>Export CSV</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
