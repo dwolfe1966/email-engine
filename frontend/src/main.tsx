@@ -8193,6 +8193,69 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
+  const retryPressure = sendRecords.filter((record) => record.status === 'queued' && Number(record.attempt_count || 0) > 0).length;
+  const blockedRecords = sendRecords.filter((record) => ['failed', 'skipped'].includes(record.status)).length;
+  const deliveryTriageAction = failedRecords
+    ? {
+      tone: 'warn',
+      title: 'Review failed records',
+      detail: `${formatInt(failedRecords)} failed record(s) need requeue, skip, or suppression review.`,
+      actionLabel: 'Requeue Record',
+      run: requeueRecord,
+      disabled: busy || !selectedRecordId,
+    }
+    : queuedRecords
+      ? {
+        tone: 'warn',
+        title: 'Process queued delivery',
+        detail: `${formatInt(queuedRecords)} queued record(s) are ready for the send engine.`,
+        actionLabel: 'Process Queued',
+        run: processQueued,
+        disabled: busy,
+      }
+      : activeJobs
+        ? {
+          tone: 'warn',
+          title: 'Load job progress',
+          detail: `${formatInt(activeJobs)} active job(s) should be checked for remaining work.`,
+          actionLabel: 'Load Progress',
+          run: loadProgress,
+          disabled: busy || !selectedJobId,
+        }
+        : {
+          tone: 'good',
+          title: 'Delivery clear',
+          detail: 'No visible queue or failed-record pressure in the loaded delivery lists.',
+          actionLabel: 'Refresh Lists',
+          run: onRefresh,
+          disabled: busy,
+        };
+  const deliveryTriageItems = [
+    {
+      label: 'Queue pressure',
+      value: formatInt(queuedRecords),
+      detail: retryPressure ? `${formatInt(retryPressure)} queued retry candidate(s)` : 'No retry pressure detected',
+      tone: queuedRecords ? 'warn' : 'good',
+    },
+    {
+      label: 'Failure review',
+      value: formatInt(failedRecords),
+      detail: blockedRecords ? `${formatInt(blockedRecords)} blocked or skipped record(s)` : 'No blocked records visible',
+      tone: failedRecords ? 'warn' : 'good',
+    },
+    {
+      label: 'Selected job',
+      value: selectedJob?.status || 'None',
+      detail: progress ? `${formatPct(progress.percent_complete)} complete, ${formatInt(progress.remaining_count)} remaining` : 'Load progress for job detail',
+      tone: selectedJob && !['completed', 'failed', 'cancelled'].includes(selectedJob.status) ? 'warn' : 'good',
+    },
+    {
+      label: 'Selected record',
+      value: selectedRecord?.status || 'None',
+      detail: selectedRecord?.error_message || selectedRecord?.to_email || 'Select a record for retry context',
+      tone: selectedRecord?.status === 'failed' ? 'warn' : 'good',
+    },
+  ];
 
   async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -8268,6 +8331,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         <MetricCard metric={{ label: 'Sent records', value: formatInt(sentRecords), change: 'visible records' }} />
         <MetricCard metric={{ label: 'Failed records', value: formatInt(failedRecords), change: 'needs review', tone: failedRecords ? 'warn' : 'good' }} />
         <MetricCard metric={{ label: 'Progress', value: progress ? formatPct(progress.percent_complete) : 'n/a', change: progress ? `${formatInt(progress.active_count)} active` : 'select a job' }} />
+      </section>
+      <section className={`delivery-triage-panel full-span ${deliveryTriageAction.tone}`}>
+        <div className="delivery-triage-head">
+          <div>
+            <span>Delivery triage</span>
+            <strong>{deliveryTriageAction.title}</strong>
+            <small>{deliveryTriageAction.detail}</small>
+          </div>
+          <button className={deliveryTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={deliveryTriageAction.run} disabled={deliveryTriageAction.disabled}>{deliveryTriageAction.actionLabel}</button>
+        </div>
+        <div className="delivery-triage-grid">
+          {deliveryTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="panel table-panel full-span">
         <div className="panel-head">
