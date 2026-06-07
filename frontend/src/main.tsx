@@ -8178,6 +8178,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [selectedRecordId, setSelectedRecordId] = useState('');
   const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
+  const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
+  const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
   const [busy, setBusy] = useState(false);
 
@@ -8320,6 +8322,39 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       const data = await fetchJson<Record<string, unknown>>(`/api/v1/email-send-records/${selectedRecordId}/tracking-links`);
       setTrackingLinks(data);
       return `Loaded tracking links for ${selectedRecord?.to_email || selectedRecordId}.`;
+    });
+  }
+
+  async function reviewDeliveryWithAi() {
+    await runDeliveryOperation('Running AI Delivery Review', async () => {
+      const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
+        method: 'POST',
+        body: JSON.stringify({
+          delivery_context: {
+            jobs: { items: sendJobs },
+            records: { items: sendRecords },
+            progress,
+            selected_job: selectedJob || null,
+            selected_record: selectedRecord || null,
+            triage: {
+              title: deliveryTriageAction.title,
+              detail: deliveryTriageAction.detail,
+              queued_records: queuedRecords,
+              failed_records: failedRecords,
+              active_jobs: activeJobs,
+              retry_pressure: retryPressure,
+            },
+          },
+          goals: [
+            'Prioritize failed and queued delivery records',
+            'Avoid blind retries when suppression or compliance review is safer',
+            'Recommend the next operator action for the delivery manager',
+          ],
+        }),
+      });
+      setAiDeliverySummary(data.summary || []);
+      setAiDeliveryRecommendations(data.recommendations || []);
+      return `AI Delivery Review loaded ${formatInt(data.recommendations?.length || 0)} recommendation(s).`;
     });
   }
 
@@ -8490,11 +8525,43 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={requeueRecord} disabled={busy || !selectedRecordId}>Requeue Record</button>
           <button className="ghost" onClick={skipRecord} disabled={busy || !selectedRecordId}>Skip Record</button>
           <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
+          <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
         </div>
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
+        </div>
+        <div className="delivery-ai-review-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>AI Delivery Review</h3>
+              <span className="muted">{aiDeliveryRecommendations?.length ? `${formatInt(aiDeliveryRecommendations.length)} recommendation(s)` : 'Use current queue, failure, and retry context for AI review.'}</span>
+            </div>
+            <button className="link-button" type="button" onClick={reviewDeliveryWithAi} disabled={busy}>Run AI Review</button>
+          </div>
+          {aiDeliverySummary.length ? (
+            <div className="delivery-ai-summary">
+              {aiDeliverySummary.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
+            </div>
+          ) : null}
+          {aiDeliveryRecommendations?.length ? (
+            <div className="recommendation-list">
+              {aiDeliveryRecommendations.slice(0, 5).map((item) => (
+                <article key={item.code}>
+                  <span className="pill">{item.priority}</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.detail}</p>
+                  <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="ai-empty-state">
+              <strong>No AI delivery review loaded</strong>
+              <span>Run AI Delivery Review after loading jobs and records to prioritize queue processing, retry handling, and suppression review.</span>
+            </div>
+          )}
         </div>
       </section>
       {progress ? (

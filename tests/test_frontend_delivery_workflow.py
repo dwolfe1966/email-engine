@@ -31,6 +31,16 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Selected record',
         'delivery-triage-panel',
         'delivery-triage-grid',
+        'aiDeliverySummary',
+        'aiDeliveryRecommendations',
+        'function reviewDeliveryWithAi',
+        '/api/v1/ai/delivery/analyze',
+        'delivery_context',
+        'AI Delivery Review',
+        'Run AI Review',
+        'delivery-ai-review-panel',
+        'delivery-ai-summary',
+        'No AI delivery review loaded',
     ]
 
     for token in expected_tokens:
@@ -53,6 +63,10 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Failure review',
         'Selected job',
         'Selected record',
+        'AI Delivery Review',
+        'Run AI Review',
+        '/api/v1/ai/delivery/analyze',
+        'No AI delivery review loaded',
     ]
 
     for token in expected_tokens:
