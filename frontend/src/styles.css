@@ -5935,6 +5935,67 @@ th {
   background: #f5fff7;
 }
 
+.integration-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.integration-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.integration-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.integration-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.integration-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.integration-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.integration-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.integration-foundation-grid span,
+.integration-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.integration-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .settings-triage-panel {
   display: grid;
   gap: 12px;
@@ -6112,6 +6173,7 @@ th {
   .contact-entity-model-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
+  .integration-foundation-grid,
   .settings-triage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
@@ -6187,6 +6249,7 @@ th {
   .contact-entity-model-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
+  .integration-foundation-grid,
   .settings-triage-grid,
   .template-triage-grid,
   .template-workspace-map {

@@ -12663,6 +12663,8 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
   const publicUrlReady = /^https?:\/\//.test(baseUrl);
   const aiReady = Boolean(diagnostics?.ai.openai_configured);
   const errorCount = diagnostics?.errors.length || 0;
+  const dataConnectorTableReady = tables.includes('data_sources') && tables.includes('data_source_mappings');
+  const webhookContractReady = publicUrlReady && tables.includes('suppression_entries');
   const readinessChecks = [
     schemaReady,
     providerReady,
@@ -12771,6 +12773,32 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
       tone: aiReady ? 'good' : 'warn',
     },
   ];
+  const integrationFoundationItems = [
+    {
+      label: 'Data connectors',
+      value: dataConnectorTableReady ? 'Modeled' : 'Gap',
+      detail: dataConnectorTableReady ? 'Data sources and mappings are present in schema diagnostics.' : 'Connector registry and mapping tables need schema visibility.',
+      tone: dataConnectorTableReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Owned SMTP foundation',
+      value: smtpReady ? 'Configured' : 'Gap',
+      detail: smtpReady ? 'Managed SMTP path is configured.' : 'Owned SMTP server, MTA policy, throttling, and domain controls remain platform work.',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Feedback webhooks',
+      value: webhookContractReady ? 'Routable' : 'Gap',
+      detail: webhookContractReady ? 'Public URL and suppression storage can support provider feedback.' : 'Webhook routing must connect bounce and complaint events to durable compliance records.',
+      tone: webhookContractReady ? 'good' : 'warn',
+    },
+    {
+      label: 'AI operations',
+      value: aiReady ? 'Configured' : 'Fallback',
+      detail: aiReady ? `${diagnostics?.ai.provider || 'AI'} ${diagnostics?.ai.model || ''}` : 'Production agent workflows need OpenAI configuration and observability.',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -12830,6 +12858,24 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
         </div>
         <div className="integration-triage-grid">
           {integrationTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="integration-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Integration Foundation Map</h3>
+            <span className="muted">Data connectors, owned SMTP, feedback webhooks, and AI operations.</span>
+          </div>
+          <a href="#settings">Open Settings</a>
+        </div>
+        <div className="integration-foundation-grid">
+          {integrationFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
