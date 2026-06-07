@@ -34,6 +34,13 @@ def assert_data_triage_contract(source: str) -> None:
         'Mapping coverage',
         'Validation state',
         'Import health',
+        'importReviewJobs',
+        'function focusImportJob',
+        'Import Job Review',
+        'Review failed, skipped, or error-bearing import jobs before rerunning ingest.',
+        'Dry Run Selected',
+        'Review Job',
+        'data-import-review-panel',
         'data-triage-panel',
         'data-triage-grid',
     ]
@@ -60,6 +67,9 @@ def test_built_esp_bundle_includes_data_triage_panel() -> None:
         'Source readiness',
         'Validation state',
         'Import health',
+        'Import Job Review',
+        'Dry Run Selected',
+        'Review Job',
     ]
 
     for token in expected_tokens:

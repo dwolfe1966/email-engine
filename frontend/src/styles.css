@@ -4804,6 +4804,30 @@ th {
   background: #f5fff7;
 }
 
+.data-import-review-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.data-import-review-panel .compact-head {
+  margin: 0;
+}
+
+.data-import-review-panel h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.data-import-review-panel td {
+  vertical-align: middle;
+}
+
+.data-import-review-panel td:nth-child(7) {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+
 .nested-panel {
   box-shadow: none;
 }

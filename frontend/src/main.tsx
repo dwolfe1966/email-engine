@@ -9228,6 +9228,14 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   const skippedCount = importJobs.reduce((sum, job) => sum + Number(job.skipped_count || 0), 0);
   const importErrorCount = importJobs.reduce((sum, job) => sum + Number(job.errors?.length || 0), 0);
   const mappingCoverage = dataSources.length ? mappedSourceCount / dataSources.length : 0;
+  const importReviewJobs = [...importJobs]
+    .filter((job) => job.status === 'failed' || Number(job.skipped_count || 0) > 0 || (job.errors?.length || 0) > 0)
+    .sort((a, b) => {
+      const bWeight = (b.status === 'failed' ? 100 : 0) + Number(b.errors?.length || 0) + Number(b.skipped_count || 0);
+      const aWeight = (a.status === 'failed' ? 100 : 0) + Number(a.errors?.length || 0) + Number(a.skipped_count || 0);
+      return bWeight - aWeight;
+    })
+    .slice(0, 5);
   const dataNextAction = !dataSources.length
     ? 'Create a data source before importing contacts into the ESP.'
     : mappedSourceCount < dataSources.length
@@ -9398,6 +9406,15 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
     setMappingName(mapping.name);
     setMappingJson(JSON.stringify(mapping.mapping || {}, null, 2));
     setStatus(`Loaded mapping: ${mapping.name}`);
+  }
+
+  function focusImportJob(job: DataSourceImportJobRead) {
+    const source = dataSources.find((item) => item.id === job.data_source_id);
+    const mapping = mappings.find((item) => item.id === job.mapping_id);
+    if (source) loadSource(source);
+    if (mapping) loadMapping(mapping);
+    setStatus(`Focused import job ${job.id.slice(0, 8)}: ${formatInt(job.imported_count)} imported, ${formatInt(job.skipped_count)} skipped, ${formatInt(job.errors?.length || 0)} error(s).`);
+    window.location.hash = source ? `#data/${source.id}` : '#data';
   }
 
   async function runDataOperation(label: string, operation: () => Promise<string>) {
@@ -9646,6 +9663,38 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </table>
           ) : <EmptyState title="No import jobs" detail="Open a data source, save a mapping, then run a dry run or import rows." actionHref={selectedSourceId ? `#data/${selectedSourceId}` : '#data/new'} actionLabel="Open source" />}
         </section>
+        {importReviewJobs.length ? (
+          <section className="panel table-panel full-span data-import-review-panel">
+            <div className="panel-head">
+              <div>
+                <h2>Import Job Review</h2>
+                <span className="muted">Review failed, skipped, or error-bearing import jobs before rerunning ingest.</span>
+              </div>
+              <button className="link-button" type="button" onClick={() => ingestRows(true)} disabled={busy || !selectedMappingId}>Dry Run Selected</button>
+            </div>
+            <table>
+              <thead><tr><th>Job</th><th>Status</th><th>Source</th><th>Imported</th><th>Skipped</th><th>Errors</th><th>Sample error</th><th>Action</th></tr></thead>
+              <tbody>
+                {importReviewJobs.map((job) => {
+                  const source = dataSources.find((item) => item.id === job.data_source_id);
+                  const firstError = job.errors?.length ? JSON.stringify(job.errors[0]) : '-';
+                  return (
+                    <tr key={job.id}>
+                      <td>{job.id.slice(0, 8)}</td>
+                      <td><span className="pill">{job.status}</span></td>
+                      <td>{source?.name || job.data_source_id.slice(0, 8)}</td>
+                      <td>{formatInt(job.imported_count)}</td>
+                      <td>{formatInt(job.skipped_count)}</td>
+                      <td>{formatInt(job.errors?.length || 0)}</td>
+                      <td>{firstError}</td>
+                      <td><button className="ghost compact-button" type="button" onClick={() => focusImportJob(job)} disabled={busy}>Review Job</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
+        ) : null}
         {(selectedSource || selectedMapping || validation || schema) ? (
           <section className="panel full-span selected-summary">
             <div className="panel-head">
@@ -9746,6 +9795,25 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             ))}
           </div>
         </div>
+        {importReviewJobs.length ? (
+          <div className="data-import-review-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Import Job Review</h3>
+                <span className="muted">{formatInt(importReviewJobs.length)} job(s) need import review.</span>
+              </div>
+              <button className="link-button" type="button" onClick={() => ingestRows(true)} disabled={busy || !selectedMappingId}>Dry Run Selected</button>
+            </div>
+            <div className="compact-status-list">
+              {importReviewJobs.slice(0, 3).map((job) => (
+                <div className={job.status === 'failed' || job.errors?.length ? 'warn' : 'ready'} key={job.id}>
+                  <strong>{job.status} import {job.id.slice(0, 8)}</strong>
+                  <span>{formatInt(job.imported_count)} imported, {formatInt(job.skipped_count)} skipped, {formatInt(job.errors?.length || 0)} error(s).</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="form-grid">
           <label>
             Source name
