@@ -9581,6 +9581,29 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
   const aggregateOpenRate = totalOpens / Math.max(totalSent, 1);
   const aggregateClickRate = totalClicks / Math.max(totalSent, 1);
   const aggregateFailureRate = totalFailures / Math.max(totalSent + totalFailures, 1);
+  const reportFocusSummary = !selectedCampaignId
+    ? {
+      tone: 'warn',
+      title: 'Select a campaign',
+      detail: 'Choose a campaign to load timeline, delivery, and domain drilldowns.',
+      status: 'No campaign',
+      domainStatus: 'No domains',
+    }
+    : !campaignDetail
+      ? {
+        tone: 'warn',
+        title: 'Detail report not loaded',
+        detail: 'Load the selected campaign report to inspect trend and deliverability signals.',
+        status: 'Summary only',
+        domainStatus: 'Domains pending',
+      }
+      : {
+        tone: campaignDetail.failed_count || campaignDetail.bounced_count ? 'warn' : 'good',
+        title: campaignDetail.failed_count || campaignDetail.bounced_count ? 'Review delivery issues' : 'Detail report loaded',
+        detail: `${formatInt(campaignDetail.sent_count)} sent, ${formatInt(campaignDetail.failed_count)} failed, ${formatInt(campaignDetail.bounced_count)} bounced.`,
+        status: `${formatInt(timeline.length)} timeline point(s)`,
+        domainStatus: `${formatInt(domains.length)} domain row(s)`,
+      };
   const reportsNextAction = totalFailures > 0
     ? 'Review failed delivery records and requeue or suppress bad contacts.'
     : !campaignDetail && selectedCampaignId
@@ -9760,6 +9783,24 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
         <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{busy ? 'Working' : 'Status'}</strong>
           <span>{status}</span>
+        </div>
+        <div className={`analytics-focus-summary ${reportFocusSummary.tone}`}>
+          <div>
+            <span>Report focus</span>
+            <strong>{reportFocusSummary.title}</strong>
+            <small>{reportFocusSummary.detail}</small>
+          </div>
+          <div>
+            <span>Timeline window</span>
+            <strong>{formatInt(days)} days</strong>
+            <small>{reportFocusSummary.status}</small>
+          </div>
+          <div>
+            <span>Deliverability</span>
+            <strong>{reportFocusSummary.domainStatus}</strong>
+            <small>{selectedCampaign?.name || 'No campaign selected'}</small>
+          </div>
+          <button className={reportFocusSummary.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={loadReport} disabled={busy || !selectedCampaignId}>Load Report</button>
         </div>
       </section>
       <section className="panel full-span">

@@ -4218,6 +4218,48 @@ th {
   font-size: 14px;
 }
 
+.analytics-focus-summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, 160px) minmax(160px, 220px) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.analytics-focus-summary.warn {
+  border-color: #f5d49a;
+  background: #fffaf0;
+}
+
+.analytics-focus-summary.good {
+  border-color: #bfe8d0;
+  background: #f4fff8;
+}
+
+.analytics-focus-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analytics-focus-summary span,
+.analytics-focus-summary small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.analytics-focus-summary strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .nested-panel {
   box-shadow: none;
 }
@@ -4294,7 +4336,8 @@ th {
   .test-send-result-card,
   .audience-impact-summary,
   .audience-campaign-awareness,
-  .audience-field-intel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .audience-field-intel,
+  .analytics-focus-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -4347,6 +4390,7 @@ th {
   .audience-impact-summary,
   .audience-campaign-awareness,
   .audience-field-intel,
+  .analytics-focus-summary,
   .template-workspace-map {
     grid-template-columns: 1fr;
   }
