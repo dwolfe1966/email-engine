@@ -8826,9 +8826,81 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
   const bounceCount = suppressions.filter((item) => item.reason === 'hard_bounce').length;
   const complaintCount = suppressions.filter((item) => item.reason === 'spam_complaint').length;
   const failedWithEmail = sendRecords.filter((record) => record.status === 'failed' && record.to_email).slice(0, 10);
+  const failedCandidateCount = sendRecords.filter((record) => record.status === 'failed' && record.to_email).length;
+  const providerSuppressionCount = suppressions.filter((item) => item.provider_message_id).length;
   const selectedSuppression = suppressions.find((item) => item.id === selectedSuppressionId);
   const isPersistedSuppression = Boolean(selectedSuppressionId);
   const isCreatingSuppression = !isPersistedSuppression;
+  const complianceTriageAction = complaintCount
+    ? {
+      tone: 'warn',
+      title: 'Review spam complaints',
+      detail: `${formatInt(complaintCount)} complaint suppression(s) should block retries and trigger deliverability review.`,
+      actionLabel: 'Open Delivery',
+      run: () => { window.location.hash = '#delivery'; },
+      disabled: busy,
+    }
+    : bounceCount
+      ? {
+        tone: 'warn',
+        title: 'Watch hard bounces',
+        detail: `${formatInt(bounceCount)} hard bounce suppression(s) are protecting future launches.`,
+        actionLabel: 'Open Delivery',
+        run: () => { window.location.hash = '#delivery'; },
+        disabled: busy,
+      }
+      : failedCandidateCount
+        ? {
+          tone: 'warn',
+          title: 'Suppress failed recipients',
+          detail: `${formatInt(failedCandidateCount)} failed delivery recipient(s) can be reviewed before blind retries.`,
+          actionLabel: 'Add Suppression',
+          run: () => { window.location.hash = '#compliance/new'; },
+          disabled: busy,
+        }
+        : unsubscribeCount
+          ? {
+            tone: 'warn',
+            title: 'Respect opt-outs',
+            detail: `${formatInt(unsubscribeCount)} unsubscribe suppression(s) are active for compliance checks.`,
+            actionLabel: 'Open Analytics',
+            run: () => { window.location.hash = '#analytics'; },
+            disabled: busy,
+          }
+          : {
+            tone: 'good',
+            title: 'Compliance clear',
+            detail: 'No complaint, bounce, unsubscribe, or failed-recipient pressure is visible.',
+            actionLabel: 'Add Suppression',
+            run: () => { window.location.hash = '#compliance/new'; },
+            disabled: busy,
+          };
+  const complianceTriageItems = [
+    {
+      label: 'Complaint risk',
+      value: formatInt(complaintCount),
+      detail: complaintCount ? 'Treat complaints as permanent suppression and deliverability risk.' : 'No spam complaints visible',
+      tone: complaintCount ? 'warn' : 'good',
+    },
+    {
+      label: 'Bounce protection',
+      value: formatInt(bounceCount),
+      detail: bounceCount ? 'Hard bounces should stay suppressed before any requeue.' : 'No hard-bounce suppressions visible',
+      tone: bounceCount ? 'warn' : 'good',
+    },
+    {
+      label: 'Opt-out coverage',
+      value: formatInt(unsubscribeCount),
+      detail: unsubscribeCount ? 'Unsubscribed contacts are excluded from future sends.' : 'No unsubscribe suppressions visible',
+      tone: unsubscribeCount ? 'warn' : 'good',
+    },
+    {
+      label: 'Failed candidates',
+      value: formatInt(failedCandidateCount),
+      detail: providerSuppressionCount ? `${formatInt(providerSuppressionCount)} provider-linked suppression(s)` : 'Review delivery failures before retrying',
+      tone: failedCandidateCount ? 'warn' : 'good',
+    },
+  ];
 
   function resetSuppressionEditor() {
     setEmail('');
@@ -8910,6 +8982,25 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
             <MetricCard metric={{ label: 'Unsubscribes', value: formatInt(unsubscribeCount), change: 'contact opt-outs', tone: unsubscribeCount ? 'warn' : 'good' }} />
             <MetricCard metric={{ label: 'Bounces', value: formatInt(bounceCount), change: `${formatInt(complaintCount)} complaints`, tone: bounceCount || complaintCount ? 'warn' : 'good' }} />
           </section>
+          <section className={`compliance-triage-panel full-span ${complianceTriageAction.tone}`}>
+            <div className="compliance-triage-head">
+              <div>
+                <span>Compliance triage</span>
+                <strong>{complianceTriageAction.title}</strong>
+                <small>{complianceTriageAction.detail}</small>
+              </div>
+              <button className={complianceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={complianceTriageAction.run} disabled={complianceTriageAction.disabled}>{complianceTriageAction.actionLabel}</button>
+            </div>
+            <div className="compliance-triage-grid">
+              {complianceTriageItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
           <section className="panel table-panel full-span">
             <div className="panel-head">
               <div>
@@ -8988,6 +9079,25 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
           <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
             <strong>{busy ? 'Working' : 'Status'}</strong>
             <span>{status}</span>
+          </div>
+          <div className={`compliance-triage-panel ${complianceTriageAction.tone}`}>
+            <div className="compliance-triage-head">
+              <div>
+                <span>Compliance triage</span>
+                <strong>{complianceTriageAction.title}</strong>
+                <small>{complianceTriageAction.detail}</small>
+              </div>
+              <button className={complianceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={complianceTriageAction.run} disabled={complianceTriageAction.disabled}>{complianceTriageAction.actionLabel}</button>
+            </div>
+            <div className="compliance-triage-grid">
+              {complianceTriageItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
           </div>
           <div className="form-grid">
             <label>
