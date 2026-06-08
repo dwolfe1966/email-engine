@@ -13244,6 +13244,28 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
       tone: 'good',
     },
   ];
+  const platformGapRows = [
+    {
+      area: 'Data graph',
+      status: 'Gap',
+      guidance: 'RDBMS, warehouse, NoSQL, API connectors, multi-entity joins, and client-owned entities need first-class contracts.',
+    },
+    {
+      area: 'Owned SMTP',
+      status: smtpReady ? 'Configured' : 'Gap',
+      guidance: smtpReady ? 'Managed SMTP path is configured.' : 'SMTP server, MTA policy, send queues, throttling, and domain controls remain platform foundation work.',
+    },
+    {
+      area: 'Deliverability feedback',
+      status: publicUrlReady ? 'Partial' : 'Gap',
+      guidance: 'Bounce queues, complaint loops, provider webhooks, and reputation feedback need durable event contracts.',
+    },
+    {
+      area: 'Agent layer',
+      status: diagnostics?.ai.openai_configured ? 'Configured' : 'Fallback',
+      guidance: 'Ever-present agents need OpenAI configuration, persistent memory, handoff state, and workflow observability.',
+    },
+  ];
 
   async function runSmokeChecks() {
     setChecking(true);
@@ -13325,6 +13347,24 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="docs-gap-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Platform Gap Register</h3>
+            <span className="muted">Roadmap guidance for foundations not fully covered by the current API contract.</span>
+          </div>
+          <a href="#integrations">Open Integrations</a>
+        </div>
+        <div className="docs-gap-grid">
+          {platformGapRows.map((item) => (
+            <article className={item.status === 'Configured' ? 'good' : 'warn'} key={item.area}>
+              <span>{item.area}</span>
+              <strong>{item.status}</strong>
+              <small>{item.guidance}</small>
             </article>
           ))}
         </div>

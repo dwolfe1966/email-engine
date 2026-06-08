@@ -4933,6 +4933,67 @@ th {
   background: #f5fff7;
 }
 
+.docs-gap-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.docs-gap-panel .compact-head {
+  margin: 0;
+}
+
+.docs-gap-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.docs-gap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.docs-gap-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.docs-gap-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.docs-gap-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.docs-gap-grid span,
+.docs-gap-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.docs-gap-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .ai-studio-triage-panel {
   display: grid;
   gap: 12px;
@@ -6283,6 +6344,7 @@ th {
   .analytics-focus-summary,
   .analytics-ai-action-grid,
   .docs-triage-grid,
+  .docs-gap-grid,
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .delivery-triage-grid,
@@ -6361,6 +6423,7 @@ th {
   .analytics-focus-summary,
   .analytics-ai-action-grid,
   .docs-triage-grid,
+  .docs-gap-grid,
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .delivery-triage-grid,
