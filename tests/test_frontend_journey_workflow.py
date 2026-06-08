@@ -44,6 +44,20 @@ def assert_journey_triage_contract(source: str) -> None:
         'journey-ai-review-panel',
         'journey-ai-summary',
         'No AI journey review loaded',
+        'entryRuleValid',
+        'journeyFoundationItems',
+        'Journey Foundations',
+        'Orchestration queues, event triggers, send handoff, and feedback readiness.',
+        'Orchestration queue',
+        'Due enrollments and generated sends need durable worker monitoring.',
+        'Event triggers',
+        'Real-time event and data-source triggers still need connector-backed activation.',
+        'Send handoff',
+        'Add a send step with a template before journey delivery can run.',
+        'Feedback loop',
+        'Bounce, engagement, and delivery feedback should feed journey decisions.',
+        'journey-foundation-panel',
+        'journey-foundation-grid',
     ]
 
     for token in expected_tokens:
@@ -71,6 +85,12 @@ def test_built_esp_bundle_includes_journey_triage_panel() -> None:
         'Run AI Review',
         '/api/v1/ai/journeys/analyze',
         'No AI journey review loaded',
+        'Journey Foundations',
+        'Orchestration queue',
+        'Event triggers',
+        'Send handoff',
+        'Feedback loop',
+        'Open Delivery',
     ]
 
     for token in expected_tokens:

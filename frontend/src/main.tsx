@@ -2743,6 +2743,48 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
       tone: selectedJourneyId && selectedStepCount ? 'good' : 'warn',
     },
   ];
+  const entryRuleValid = (() => {
+    try {
+      parseJsonObject(entryRuleJson, 'entry rule');
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  const journeyFoundationItems = [
+    {
+      label: 'Orchestration queue',
+      value: formatInt(selectedJourneyId ? visibleEnrollments.length : enrollments.length),
+      detail: dueEnrollments || queued
+        ? 'Due enrollments and generated sends need durable worker monitoring.'
+        : 'Queue processing is visible, but production durability remains a foundation concern.',
+      tone: dueEnrollments || queued ? 'warn' : 'good',
+    },
+    {
+      label: 'Event triggers',
+      value: entryRuleValid ? 'Rule ready' : 'Gap',
+      detail: entryRuleValid
+        ? 'Entry rules can seed enrollment logic while connector-backed event triggers are expanded.'
+        : 'Real-time event and data-source triggers still need connector-backed activation.',
+      tone: entryRuleValid ? 'good' : 'warn',
+    },
+    {
+      label: 'Send handoff',
+      value: selectedStepCount && templateId ? 'Configured' : 'Gap',
+      detail: selectedStepCount && templateId
+        ? 'Send steps can hand off to templates and Delivery Manager.'
+        : 'Add a send step with a template before journey delivery can run.',
+      tone: selectedStepCount && templateId ? 'good' : 'warn',
+    },
+    {
+      label: 'Feedback loop',
+      value: visibleExecutions.length ? `${formatInt(visibleExecutions.length)} executions` : 'Gap',
+      detail: visibleExecutions.length
+        ? 'Execution history is available for journey review.'
+        : 'Bounce, engagement, and delivery feedback should feed journey decisions.',
+      tone: visibleExecutions.length ? 'good' : 'warn',
+    },
+  ];
 
   function loadJourneyIntoEditor(journey: JourneyRead) {
     setSelectedJourneyId(journey.id);
@@ -2940,6 +2982,24 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
             ))}
           </div>
         </section>
+        <section className="journey-foundation-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Journey Foundations</h3>
+              <span className="muted">Orchestration queues, event triggers, send handoff, and feedback readiness.</span>
+            </div>
+            <a href="#delivery">Open Delivery</a>
+          </div>
+          <div className="journey-foundation-grid">
+            {journeyFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -3047,6 +3107,24 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
         </div>
         <div className="journey-triage-grid">
           {journeyTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="journey-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Journey Foundations</h3>
+            <span className="muted">Orchestration queues, event triggers, send handoff, and feedback readiness.</span>
+          </div>
+          <a href="#delivery">Open Delivery</a>
+        </div>
+        <div className="journey-foundation-grid">
+          {journeyFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
