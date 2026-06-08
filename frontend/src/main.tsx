@@ -3532,6 +3532,38 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
       tone: selectedAudienceId && selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
     },
   ];
+  const audienceFoundationItems = [
+    {
+      label: 'Contact attributes',
+      value: attributeKeys.length ? `${formatInt(attributeKeys.length)} keys` : 'Gap',
+      detail: attributeKeys.length
+        ? 'Audience rules can use loaded contact fields and attributes.'
+        : 'Import richer contact attributes before relying on segmentation.',
+      tone: attributeKeys.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Client entities',
+      value: 'Gap',
+      detail: 'Client-owned entities and relationships still need canonical storage before multi-entity audiences.',
+      tone: 'warn',
+    },
+    {
+      label: 'Snapshot contract',
+      value: selectedAudienceId ? 'Ready' : 'Pending',
+      detail: selectedAudienceId
+        ? 'Create a stable snapshot before campaign launch.'
+        : 'Save the audience before creating a stable campaign snapshot.',
+      tone: selectedAudienceId ? 'good' : 'warn',
+    },
+    {
+      label: 'Campaign usage',
+      value: formatInt(selectedAudienceActiveCampaigns.length),
+      detail: selectedAudienceActiveCampaigns.length
+        ? 'Active campaign handoff exists for this audience rule.'
+        : 'Connect this audience to a campaign before launch review.',
+      tone: selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
+    },
+  ];
 
   function stableAudienceRuleKey(value: unknown): string {
     if (Array.isArray(value)) return `[${value.map(stableAudienceRuleKey).join(',')}]`;
@@ -3784,6 +3816,24 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             ))}
           </div>
         </section>
+        <section className="audience-foundation-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Audience Foundations</h3>
+              <span className="muted">Contact attributes, client entities, snapshots, and campaign usage readiness.</span>
+            </div>
+            <a href="#data">Open Data</a>
+          </div>
+          <div className="audience-foundation-grid">
+            {audienceFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -3890,6 +3940,24 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
         </div>
         <div className="audience-triage-grid">
           {audienceTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="audience-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Audience Foundations</h3>
+            <span className="muted">Contact attributes, client entities, snapshots, and campaign usage readiness.</span>
+          </div>
+          <a href="#data">Open Data</a>
+        </div>
+        <div className="audience-foundation-grid">
+          {audienceFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>

@@ -78,6 +78,18 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'Campaign usage found',
         'No campaign usage yet',
         'audience-campaign-awareness',
+        'audienceFoundationItems',
+        'Audience Foundations',
+        'Contact attributes, client entities, snapshots, and campaign usage readiness.',
+        'Contact attributes',
+        'Import richer contact attributes before relying on segmentation.',
+        'Client entities',
+        'Client-owned entities and relationships still need canonical storage before multi-entity audiences.',
+        'Snapshot contract',
+        'Create a stable snapshot before campaign launch.',
+        'Campaign usage',
+        'audience-foundation-panel',
+        'audience-foundation-grid',
     ]
 
     for token in expected_tokens:
@@ -126,6 +138,12 @@ def test_built_esp_bundle_includes_audience_guided_next_step_action() -> None:
         'Campaign usage found',
         'No campaign usage yet',
         'Open Campaigns',
+        'Audience Foundations',
+        'Contact attributes',
+        'Client entities',
+        'Snapshot contract',
+        'Campaign usage',
+        'Open Data',
     ]
 
     for token in expected_tokens:
