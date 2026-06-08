@@ -35,7 +35,20 @@ def assert_settings_triage_contract(source: str) -> None:
         'Public URL',
         'Schema',
         'AI provider',
+        'settingsFoundationItems',
+        'Foundation Control Plane',
+        'Schema, owned SMTP, public endpoint, and AI provider governance.',
+        'Schema control',
+        'Migration status must be resolved before production changes.',
+        'Owned SMTP control',
+        'Owned SMTP server settings, MTA policy, throttling, and domains need admin controls.',
+        'Endpoint control',
+        'PUBLIC_BASE_URL is required for tracking, unsubscribe, and webhook URLs.',
+        'AI control',
+        'OpenAI configuration and model governance are needed for production agents.',
         'Owned SMTP should be managed here as a platform foundation, not only through provider adapters.',
+        'settings-foundation-panel',
+        'settings-foundation-grid',
         'settings-triage-panel',
         'settings-triage-grid',
     ]
@@ -62,6 +75,12 @@ def test_built_esp_bundle_includes_settings_triage_panel() -> None:
         'Owned SMTP',
         'Public URL',
         'AI provider',
+        'Foundation Control Plane',
+        'Schema control',
+        'Owned SMTP control',
+        'Endpoint control',
+        'AI control',
+        'Refresh Diagnostics',
     ]
 
     for token in expected_tokens:

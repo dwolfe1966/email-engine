@@ -13395,6 +13395,32 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
   const publicBaseUrl = diagnostics?.public_base_url || 'not configured';
   const publicUrlReady = /^https?:\/\//.test(publicBaseUrl);
   const aiReady = Boolean(diagnostics?.ai.openai_configured);
+  const settingsFoundationItems = [
+    {
+      label: 'Schema control',
+      value: schemaCurrent ? 'Current' : 'Review',
+      detail: schemaCurrent ? 'Expected schema revision is deployed.' : 'Migration status must be resolved before production changes.',
+      tone: schemaCurrent ? 'good' : 'warn',
+    },
+    {
+      label: 'Owned SMTP control',
+      value: smtpReady ? 'Configured' : 'Gap',
+      detail: smtpReady ? 'Managed SMTP path is configured.' : 'Owned SMTP server settings, MTA policy, throttling, and domains need admin controls.',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Endpoint control',
+      value: publicUrlReady ? 'Configured' : 'Missing',
+      detail: publicUrlReady ? publicBaseUrl.replace(/^https?:\/\//, '') : 'PUBLIC_BASE_URL is required for tracking, unsubscribe, and webhook URLs.',
+      tone: publicUrlReady ? 'good' : 'warn',
+    },
+    {
+      label: 'AI control',
+      value: aiReady ? 'Configured' : 'Fallback',
+      detail: aiReady ? `${diagnostics?.ai.provider || 'AI'} ${diagnostics?.ai.model || ''}` : 'OpenAI configuration and model governance are needed for production agents.',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
   const settingsNextAction = !currentUser
     ? 'Sign in to inspect operator account and system readiness.'
     : !canManageUsers
@@ -13679,6 +13705,24 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
         </div>
         <div className="settings-triage-grid">
           {settingsTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="settings-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Foundation Control Plane</h3>
+            <span className="muted">Schema, owned SMTP, public endpoint, and AI provider governance.</span>
+          </div>
+          <button className="link-button" type="button" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
+        </div>
+        <div className="settings-foundation-grid">
+          {settingsFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
