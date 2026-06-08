@@ -12645,6 +12645,34 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
       tone: workflowCoverageAreas.length >= 5 ? 'good' : 'warn',
     },
   ];
+  const aiAgentFoundationItems = [
+    {
+      label: 'Model routing',
+      value: openAiReady ? 'Configured' : 'Fallback',
+      detail: openAiReady ? `${provider} ${model} is available for agent workflows.` : 'Production agents need explicit model routing beyond deterministic fallback.',
+      tone: openAiReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Tool permissions',
+      value: 'Gap',
+      detail: 'Agent tool calls need scoped permissions, approval rules, and workspace-level policy controls.',
+      tone: 'warn',
+    },
+    {
+      label: 'Run memory',
+      value: 'Gap',
+      detail: 'Long-running agents need durable task memory, decision state, and resumable follow-up queues.',
+      tone: 'warn',
+    },
+    {
+      label: 'Evaluation audit',
+      value: hasWorkflowRecommendations ? 'Partial' : 'Gap',
+      detail: hasWorkflowRecommendations
+        ? 'Recommendations are visible, but agent runs still need scoring, audit trails, and regression review.'
+        : 'Agent outputs need evaluation scores, audit trails, and regression review before automation.',
+      tone: 'warn',
+    },
+  ];
 
   useEffect(() => {
     const storedBrief = window.localStorage.getItem(AI_ACTION_BRIEF_STORAGE_KEY);
@@ -12893,6 +12921,24 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
         </div>
         <div className="ai-agent-layer-grid">
           {aiAgentLayerItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="ai-agent-foundation-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>AI Agent Foundations</h3>
+            <span className="muted">Model routing, tool permissions, run memory, and evaluation audit readiness.</span>
+          </div>
+          <a href="#settings">Open Settings</a>
+        </div>
+        <div className="ai-agent-foundation-grid">
+          {aiAgentFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
