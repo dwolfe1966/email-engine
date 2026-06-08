@@ -5182,7 +5182,8 @@ th {
   background: #f5fff7;
 }
 
-.analytics-foundation-panel {
+.analytics-foundation-panel,
+.analytics-deliverability-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -5191,23 +5192,31 @@ th {
   padding: 12px;
 }
 
-.analytics-foundation-panel .compact-head {
+.analytics-foundation-panel .compact-head,
+.analytics-deliverability-panel .compact-head {
   margin: 0;
 }
 
-.analytics-foundation-panel h3 {
+.analytics-foundation-panel h3,
+.analytics-deliverability-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.analytics-foundation-grid {
+.analytics-foundation-grid,
+.analytics-deliverability-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.analytics-foundation-grid article {
+.analytics-deliverability-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analytics-foundation-grid article,
+.analytics-deliverability-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -5218,18 +5227,22 @@ th {
   padding: 10px;
 }
 
-.analytics-foundation-grid article.warn {
+.analytics-foundation-grid article.warn,
+.analytics-deliverability-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.analytics-foundation-grid article.good {
+.analytics-foundation-grid article.good,
+.analytics-deliverability-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .analytics-foundation-grid span,
-.analytics-foundation-grid small {
+.analytics-foundation-grid small,
+.analytics-deliverability-grid span,
+.analytics-deliverability-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5237,7 +5250,8 @@ th {
   text-transform: uppercase;
 }
 
-.analytics-foundation-grid strong {
+.analytics-foundation-grid strong,
+.analytics-deliverability-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7111,6 +7125,7 @@ th {
   .analytics-focus-summary,
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
+  .analytics-deliverability-grid,
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
@@ -7203,6 +7218,7 @@ th {
   .analytics-focus-summary,
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
+  .analytics-deliverability-grid,
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,

@@ -12324,6 +12324,44 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       tone: analyticsAiBriefSummary.sections.length ? 'good' : 'warn',
     },
   ];
+  const analyticsDeliverabilityContractItems = [
+    {
+      label: 'Domain signal contract',
+      value: domains.length ? `${formatInt(domains.length)} domains` : 'Gap',
+      detail: 'Domain reports need provider, DNS identity, bounce rate, complaint rate, and reputation state for each sending domain.',
+      tone: domains.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Bounce signal contract',
+      value: campaignDetail?.bounced_count ? `${formatInt(campaignDetail.bounced_count)} bounced` : 'Gap',
+      detail: 'Bounce metrics should connect analytics rows to compliance suppressions and delivery retry decisions.',
+      tone: campaignDetail?.bounced_count ? 'warn' : 'warn',
+    },
+    {
+      label: 'Failure signal contract',
+      value: totalFailures ? `${formatInt(totalFailures)} failed` : 'Stable',
+      detail: 'Failed sends need error family, provider response, retry state, and operator disposition in reports.',
+      tone: totalFailures ? 'warn' : 'good',
+    },
+    {
+      label: 'Engagement signal contract',
+      value: `${formatPct(aggregateOpenRate)} / ${formatPct(aggregateClickRate)}`,
+      detail: 'Open and click signals need bot filtering, identity resolution, attribution window, and audience segment context.',
+      tone: totalSent ? 'good' : 'warn',
+    },
+    {
+      label: 'Feedback routing',
+      value: domains.length || totalFailures ? 'Partial' : 'Gap',
+      detail: 'Deliverability signals should route to Delivery, Compliance, Campaigns, and AI Studio without manual copying.',
+      tone: domains.length || totalFailures ? 'warn' : 'warn',
+    },
+    {
+      label: 'AI evidence pack',
+      value: analyticsAiBriefSummary.sections.length ? 'Briefable' : 'Gap',
+      detail: 'AI recommendations need the exact report rows, domain signals, suppression context, and operator action history.',
+      tone: analyticsAiBriefSummary.sections.length ? 'good' : 'warn',
+    },
+  ];
 
   function openAiActionBrief() {
     const topCampaignLines = topCampaigns.map((campaign) => (
@@ -12689,6 +12727,24 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
           </div>
           <div className="analytics-foundation-grid">
             {analyticsFoundationSignals.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="analytics-deliverability-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Deliverability Signal Contract</h3>
+              <span className="muted">Domain, bounce, failure, engagement, routing, and AI evidence requirements for durable feedback loops.</span>
+            </div>
+            <button className="link-button" type="button" onClick={openAiActionBrief} disabled={busy}>Send to AI Studio</button>
+          </div>
+          <div className="analytics-deliverability-grid">
+            {analyticsDeliverabilityContractItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
