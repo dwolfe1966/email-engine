@@ -8393,7 +8393,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   return (
     <section className="page-grid">
-      <details className="template-collapsible-row template-workflow-collapse full-span" open={templateReadyStepCount < templateSteps.length}>
+      <details className="template-collapsible-row template-workflow-collapse full-span">
         <summary>
           <span>Workflow Guide</span>
           <strong>{formatInt(templateReadyStepCount)} / {formatInt(templateSteps.length)} ready</strong>
@@ -8444,7 +8444,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <span className="muted">{previewStatusText}</span>
           </div>
         </div>
-        <details className={`template-collapsible-row template-guidance-collapse ${templateTriageAction.tone}`} open={templateTriageAction.tone === 'warn'}>
+        <details className={`template-collapsible-row template-guidance-collapse ${templateTriageAction.tone}`}>
           <summary>
             <span>Readiness and Foundations</span>
             <strong>{templateTriageAction.title}</strong>
