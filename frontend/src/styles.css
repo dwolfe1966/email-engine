@@ -6982,7 +6982,8 @@ th {
   background: #f5fff7;
 }
 
-.settings-foundation-panel {
+.settings-foundation-panel,
+.settings-governance-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -6991,23 +6992,31 @@ th {
   padding: 12px;
 }
 
-.settings-foundation-panel .compact-head {
+.settings-foundation-panel .compact-head,
+.settings-governance-panel .compact-head {
   margin: 0;
 }
 
-.settings-foundation-panel h3 {
+.settings-foundation-panel h3,
+.settings-governance-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.settings-foundation-grid {
+.settings-foundation-grid,
+.settings-governance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.settings-foundation-grid article {
+.settings-governance-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.settings-foundation-grid article,
+.settings-governance-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -7018,18 +7027,22 @@ th {
   padding: 10px;
 }
 
-.settings-foundation-grid article.warn {
+.settings-foundation-grid article.warn,
+.settings-governance-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.settings-foundation-grid article.good {
+.settings-foundation-grid article.good,
+.settings-governance-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .settings-foundation-grid span,
-.settings-foundation-grid small {
+.settings-foundation-grid small,
+.settings-governance-grid span,
+.settings-governance-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -7037,7 +7050,8 @@ th {
   text-transform: uppercase;
 }
 
-.settings-foundation-grid strong {
+.settings-foundation-grid strong,
+.settings-governance-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7169,7 +7183,8 @@ th {
   .integration-foundation-grid,
   .integration-connector-grid,
   .settings-triage-grid,
-  .settings-foundation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settings-foundation-grid,
+  .settings-governance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
   .sample-editor-field,
@@ -7264,6 +7279,7 @@ th {
   .integration-connector-grid,
   .settings-triage-grid,
   .settings-foundation-grid,
+  .settings-governance-grid,
   .template-triage-grid,
   .template-foundation-grid,
   .template-workspace-map {

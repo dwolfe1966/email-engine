@@ -14481,6 +14481,38 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
       tone: aiReady ? 'good' : 'warn',
     },
   ];
+  const settingsGovernanceItems = [
+    {
+      label: 'Config ownership',
+      value: canManageUsers ? 'Admin' : 'Limited',
+      detail: 'Production configuration changes need explicit owner, approval path, and operator role boundaries.',
+      tone: canManageUsers ? 'good' : 'warn',
+    },
+    {
+      label: 'Secret governance',
+      value: smtpReady || sendgridReady || aiReady ? 'Partial' : 'Gap',
+      detail: 'SMTP, provider, AI, and connector secrets need vault references, rotation cadence, and access audit.',
+      tone: smtpReady || sendgridReady || aiReady ? 'warn' : 'warn',
+    },
+    {
+      label: 'Policy governance',
+      value: smtpReady && aiReady ? 'Partial' : 'Gap',
+      detail: 'Owned SMTP, AI tools, imports, and suppression policy need workspace-level controls before automation.',
+      tone: smtpReady && aiReady ? 'warn' : 'warn',
+    },
+    {
+      label: 'Release governance',
+      value: schemaCurrent && publicUrlReady ? 'Partial' : 'Gap',
+      detail: 'Schema, public URL, docs, diagnostics, and smoke-test evidence should be captured before release handoff.',
+      tone: schemaCurrent && publicUrlReady ? 'warn' : 'warn',
+    },
+    {
+      label: 'Audit governance',
+      value: users.length ? 'Partial' : 'Gap',
+      detail: 'Operator changes, provider changes, AI actions, and data imports need immutable audit trails.',
+      tone: users.length ? 'warn' : 'warn',
+    },
+  ];
   const settingsNextAction = !currentUser
     ? 'Sign in to inspect operator account and system readiness.'
     : !canManageUsers
@@ -14783,6 +14815,24 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
         </div>
         <div className="settings-foundation-grid">
           {settingsFoundationItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="settings-governance-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Platform Governance Contract</h3>
+            <span className="muted">Configuration ownership, secrets, policy controls, release evidence, and audit governance.</span>
+          </div>
+          <button className="link-button" type="button" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
+        </div>
+        <div className="settings-governance-grid">
+          {settingsGovernanceItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
