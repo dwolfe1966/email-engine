@@ -11620,6 +11620,32 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
     },
   ];
   const analyticsAiPrimaryAction = analyticsAiActions.find((action) => action.tone === 'warn') || analyticsAiActions[0];
+  const analyticsFoundationSignals = [
+    {
+      label: 'Data graph',
+      value: totalAudienceReach ? 'Audience-ready' : 'Gap',
+      detail: totalAudienceReach ? `${formatInt(totalAudienceReach)} reachable contact(s) across ${formatInt(audiences.length)} audience(s)` : 'Load contacts, audiences, and client entities before attribution analysis.',
+      tone: totalAudienceReach ? 'good' : 'warn',
+    },
+    {
+      label: 'Send engine',
+      value: totalSent ? 'Measured' : 'Pending',
+      detail: totalSent ? `${formatInt(totalSent)} sent with ${formatPct(aggregateFailureRate)} failure rate` : 'Launch and process sends before queue health can be measured.',
+      tone: totalSent && aggregateFailureRate <= 0.05 ? 'good' : 'warn',
+    },
+    {
+      label: 'Feedback loop',
+      value: domains.length ? 'Domain signals' : 'Gap',
+      detail: domains.length ? `${formatInt(domains.length)} domain deliverability row(s) loaded` : 'Load domain analytics and wire bounce/complaint feedback for durable deliverability signals.',
+      tone: domains.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Agent follow-up',
+      value: analyticsAiBriefSummary.sections.length ? 'Briefable' : 'Summary only',
+      detail: 'Send analytics context to AI Studio for next-best-action planning and persistent operator handoff.',
+      tone: analyticsAiBriefSummary.sections.length ? 'good' : 'warn',
+    },
+  ];
 
   function openAiActionBrief() {
     const topCampaignLines = topCampaigns.map((campaign) => (
@@ -11971,6 +11997,24 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
                 <strong>{action.value}</strong>
                 <small>{action.detail}</small>
                 <button className="ghost compact-button" type="button" onClick={action.run} disabled={busy}>{action.actionLabel}</button>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="analytics-foundation-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Foundation Signals</h3>
+              <span className="muted">Data graph, send engine, feedback loop, and agent follow-up signals from reports.</span>
+            </div>
+            <button className="link-button" type="button" onClick={openAiActionBrief} disabled={busy}>Send to AI Studio</button>
+          </div>
+          <div className="analytics-foundation-grid">
+            {analyticsFoundationSignals.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
               </article>
             ))}
           </div>

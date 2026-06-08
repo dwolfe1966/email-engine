@@ -4856,6 +4856,67 @@ th {
   background: #f5fff7;
 }
 
+.analytics-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.analytics-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.analytics-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.analytics-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.analytics-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.analytics-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.analytics-foundation-grid span,
+.analytics-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.analytics-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .docs-triage-panel {
   display: grid;
   gap: 12px;
@@ -6343,6 +6404,7 @@ th {
   .audience-field-intel,
   .analytics-focus-summary,
   .analytics-ai-action-grid,
+  .analytics-foundation-grid,
   .docs-triage-grid,
   .docs-gap-grid,
   .ai-studio-triage-grid,
@@ -6422,6 +6484,7 @@ th {
   .audience-field-intel,
   .analytics-focus-summary,
   .analytics-ai-action-grid,
+  .analytics-foundation-grid,
   .docs-triage-grid,
   .docs-gap-grid,
   .ai-studio-triage-grid,
