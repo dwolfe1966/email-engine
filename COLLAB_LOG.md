@@ -20,6 +20,62 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-08 — ESP platform-readiness UI pass and current handoff
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Template Editor polish landed before this handoff:
+  - one collapsible `Template Controls` preflight container above the workspace,
+  - workspace module tabs moved above status messages,
+  - status messages default open,
+  - hidden Feedback pane can be restored with a global `+ Feedback` row.
+- A platform-foundation documentation pass was added across the ESP admin UI. Recent pushed commits include:
+  - `9913ada` Docs API lifecycle readiness panel
+  - `c4a9f94` Integrations connector roadmap
+  - `92938c8` Data connector sync contract
+  - `3eca8ad` Delivery send-engine operations contract
+  - `81f454a` Compliance feedback policy contract
+  - `f8f4cf2` Analytics deliverability signal contract
+  - `d025aef` AI workflow agent contract
+  - `909dbff` Settings platform governance contract
+  - `edbf9b7` Contacts relationship contract
+  - `27652c5` Audience segmentation contract
+
+### Why
+
+David raised that major foundations are still missing even while UI polish is improving: data connectors across RDBMS/warehouse/NoSQL/API sources, multi-entity joins, client-owned entities, owned SMTP server, send queues, bounce queues, deliverability feedback, and ever-present AI agents. The recent pass makes those gaps visible in the operator UI instead of hiding them in backlog notes.
+
+### What needs to happen next
+
+Recommended next backlog slice: move from UI readiness panels into implementation planning for one foundation area. The best next candidate is the **owned SMTP/send engine** because Delivery, Compliance, Analytics, Integrations, Docs, Settings, and Overview now all point at the same gap.
+
+Practical next steps:
+
+1. Draft backend implementation plan for owned SMTP server, MTA policy, send queues, retry policy, bounce classification, complaint handling, and feedback ingestion.
+2. Decide whether the first implementation target is internal queue tables/APIs, SMTP submission/MTA integration, or bounce/complaint event ingestion.
+3. Convert the chosen foundation into schema/API tasks and tests before adding more UI panels.
+
+### Compatibility notes
+
+- No known breaking API changes in this pass; most changes are React UI copy/panels, CSS, tests, and rebuilt `frontend/dist` assets.
+- Repeated verification pattern was:
+  - `npm run build`
+  - focused frontend workflow test for the touched page
+  - `.venv/bin/pytest tests/test_api_contract.py`
+- Existing untracked local files were intentionally left untouched:
+  - `docs/ESP Research and Design.pdf`
+  - `docs/OpenAI API Key.rtf`
+  - `docs/SendGrid.rtf`
+  - `docs/twilio_2FA_recovery_code.txt`
+  - `docs/visual-design-*.png`
+  - `tests/Milkbar_Email_List_6_4_.xlsx - subs*.csv`
+  - `tests/random_people_100.csv`
+
+---
+
 ## 2026-05-25 (later 2) — Auth router mounted under BOTH `/api/v1/auth/*` and `/api/auth/*`
 
 **Pushed by:** Chris's Claude
