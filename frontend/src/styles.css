@@ -5320,7 +5320,8 @@ th {
   background: #f5fff7;
 }
 
-.docs-gap-panel {
+.docs-gap-panel,
+.docs-lifecycle-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -5329,23 +5330,27 @@ th {
   padding: 12px;
 }
 
-.docs-gap-panel .compact-head {
+.docs-gap-panel .compact-head,
+.docs-lifecycle-panel .compact-head {
   margin: 0;
 }
 
-.docs-gap-panel h3 {
+.docs-gap-panel h3,
+.docs-lifecycle-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.docs-gap-grid {
+.docs-gap-grid,
+.docs-lifecycle-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.docs-gap-grid article {
+.docs-gap-grid article,
+.docs-lifecycle-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -5356,18 +5361,22 @@ th {
   padding: 10px;
 }
 
-.docs-gap-grid article.warn {
+.docs-gap-grid article.warn,
+.docs-lifecycle-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.docs-gap-grid article.good {
+.docs-gap-grid article.good,
+.docs-lifecycle-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .docs-gap-grid span,
-.docs-gap-grid small {
+.docs-gap-grid small,
+.docs-lifecycle-grid span,
+.docs-lifecycle-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5375,7 +5384,8 @@ th {
   text-transform: uppercase;
 }
 
-.docs-gap-grid strong {
+.docs-gap-grid strong,
+.docs-lifecycle-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7047,6 +7057,7 @@ th {
   .analytics-foundation-grid,
   .docs-triage-grid,
   .docs-gap-grid,
+  .docs-lifecycle-grid,
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
@@ -7134,6 +7145,7 @@ th {
   .analytics-foundation-grid,
   .docs-triage-grid,
   .docs-gap-grid,
+  .docs-lifecycle-grid,
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,

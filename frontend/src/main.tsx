@@ -13854,6 +13854,32 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
       guidance: 'Ever-present agents need OpenAI configuration, persistent memory, handoff state, and workflow observability.',
     },
   ];
+  const docsLifecycleItems = [
+    {
+      label: 'API ownership',
+      value: 'Email Engine',
+      detail: 'ESP objects should remain owned by Email Engine while external clients integrate through API contracts.',
+      tone: 'good',
+    },
+    {
+      label: 'Versioning policy',
+      value: schemaReady ? 'Current' : 'Review',
+      detail: schemaReady ? 'Schema revision is current for client contract review.' : 'Schema migrations must be current before external client release.',
+      tone: schemaReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Client contract',
+      value: checksHaveRun && passedChecks === totalChecks ? 'Verified' : 'Pending',
+      detail: checksHaveRun ? `${formatInt(passedChecks)} of ${formatInt(totalChecks)} workflow checks passed.` : 'Run live checks before handing this contract to SentientMail or other clients.',
+      tone: checksHaveRun && passedChecks === totalChecks ? 'good' : 'warn',
+    },
+    {
+      label: 'Release evidence',
+      value: publicUrlReady && providerReady ? 'Partial' : 'Gap',
+      detail: publicUrlReady && providerReady ? 'Public endpoint and delivery readiness are visible; release notes still need ownership.' : 'Release evidence should capture diagnostics, smoke checks, and integration notes.',
+      tone: 'warn',
+    },
+  ];
 
   async function runSmokeChecks() {
     setChecking(true);
@@ -13953,6 +13979,24 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
               <span>{item.area}</span>
               <strong>{item.status}</strong>
               <small>{item.guidance}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="docs-lifecycle-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>API Lifecycle Readiness</h3>
+            <span className="muted">Ownership, versioning, client contract checks, and release evidence.</span>
+          </div>
+          <a href="/docs">Open API Docs</a>
+        </div>
+        <div className="docs-lifecycle-grid">
+          {docsLifecycleItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
             </article>
           ))}
         </div>
