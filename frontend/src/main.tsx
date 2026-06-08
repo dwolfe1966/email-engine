@@ -11671,6 +11671,44 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
       tone: totalContacts ? 'good' : 'warn',
     },
   ];
+  const contactRelationshipContractItems = [
+    {
+      label: 'Entity registry',
+      value: 'Gap',
+      detail: 'Client-owned entities need canonical definitions for accounts, stores, orders, memberships, contracts, and custom objects.',
+      tone: 'warn',
+    },
+    {
+      label: 'Relationship API',
+      value: 'Gap',
+      detail: 'Contacts need typed links to client entities with cardinality, source system, confidence, and effective dates.',
+      tone: 'warn',
+    },
+    {
+      label: 'Join readiness',
+      value: attributeKeys.length ? 'Partial' : 'Gap',
+      detail: attributeKeys.length ? 'Contact attributes exist, but entity joins still need stable keys and relationship materialization.' : 'Import source keys before planning contact-to-entity joins.',
+      tone: 'warn',
+    },
+    {
+      label: 'Consent inheritance',
+      value: unsubscribedCount ? 'Mixed' : 'Gap',
+      detail: 'Consent and suppression state must define whether opt-outs inherit across related entities and brands.',
+      tone: 'warn',
+    },
+    {
+      label: 'Segment activation',
+      value: totalContacts ? 'Contact-only' : 'Gap',
+      detail: 'Audience rules need first-class filters for related entity attributes before multi-entity segmentation is production-ready.',
+      tone: 'warn',
+    },
+    {
+      label: 'Entity audit',
+      value: 'Gap',
+      detail: 'Relationship changes need source lineage, replay, conflict resolution, and operator-visible audit history.',
+      tone: 'warn',
+    },
+  ];
 
   function parseAttributes() {
     try {
@@ -11842,6 +11880,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contact-foundation-grid">
             {contactFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="contact-relationship-contract-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Contact Relationship Contract</h3>
+              <span className="muted">Entity registry, relationship API, join readiness, consent inheritance, activation, and audit requirements.</span>
+            </div>
+            <a href="#data">Open Data Sources</a>
+          </div>
+          <div className="contact-relationship-contract-grid">
+            {contactRelationshipContractItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
@@ -12060,6 +12116,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contact-foundation-grid">
             {contactFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="contact-relationship-contract-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Contact Relationship Contract</h3>
+              <span className="muted">Entity registry, relationship API, join readiness, consent inheritance, activation, and audit requirements.</span>
+            </div>
+            <a href="#data">Open Data Sources</a>
+          </div>
+          <div className="contact-relationship-contract-grid">
+            {contactRelationshipContractItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>

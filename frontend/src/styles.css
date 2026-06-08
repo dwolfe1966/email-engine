@@ -6657,7 +6657,8 @@ th {
   font-size: 14px;
 }
 
-.contact-foundation-panel {
+.contact-foundation-panel,
+.contact-relationship-contract-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -6666,23 +6667,31 @@ th {
   padding: 12px;
 }
 
-.contact-foundation-panel .compact-head {
+.contact-foundation-panel .compact-head,
+.contact-relationship-contract-panel .compact-head {
   margin: 0;
 }
 
-.contact-foundation-panel h3 {
+.contact-foundation-panel h3,
+.contact-relationship-contract-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.contact-foundation-grid {
+.contact-foundation-grid,
+.contact-relationship-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.contact-foundation-grid article {
+.contact-relationship-contract-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.contact-foundation-grid article,
+.contact-relationship-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -6693,18 +6702,22 @@ th {
   padding: 10px;
 }
 
-.contact-foundation-grid article.warn {
+.contact-foundation-grid article.warn,
+.contact-relationship-contract-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.contact-foundation-grid article.good {
+.contact-foundation-grid article.good,
+.contact-relationship-contract-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .contact-foundation-grid span,
-.contact-foundation-grid small {
+.contact-foundation-grid small,
+.contact-relationship-contract-grid span,
+.contact-relationship-contract-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6712,7 +6725,8 @@ th {
   text-transform: uppercase;
 }
 
-.contact-foundation-grid strong {
+.contact-foundation-grid strong,
+.contact-relationship-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7178,6 +7192,7 @@ th {
   .contacts-triage-grid,
   .contact-entity-model-grid,
   .contact-foundation-grid,
+  .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
@@ -7273,6 +7288,7 @@ th {
   .contacts-triage-grid,
   .contact-entity-model-grid,
   .contact-foundation-grid,
+  .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
