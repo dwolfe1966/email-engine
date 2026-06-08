@@ -1524,6 +1524,8 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
     provider === 'console',
   );
   const schemaOk = Boolean(dashboard.diagnostics?.schema.ok);
+  const activeDataSources = dashboard.dataSources.filter((source) => source.status === 'active').length;
+  const providerLinkedSuppressions = dashboard.suppressions.filter((item) => item.provider_message_id).length;
   const readinessMetrics = metrics.slice(0, 4);
   const riskItems: OverviewAction[] = [
     {
@@ -1653,6 +1655,32 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
       tone: aiReady ? 'good' : 'warn',
     },
   ];
+  const platformFoundationItems = [
+    {
+      label: 'Data model',
+      value: activeDataSources ? 'Active' : 'Gap',
+      detail: activeDataSources ? `${formatInt(activeDataSources)} active source(s), ${formatInt(attributeKeys.length)} attribute key(s)` : 'Activate data sources and model client-owned entities.',
+      tone: activeDataSources ? 'good' : 'warn',
+    },
+    {
+      label: 'Send engine',
+      value: smtpReady ? 'Owned SMTP' : providerReady ? 'Adapter' : 'Gap',
+      detail: smtpReady ? 'Owned SMTP path configured' : providerReady ? 'Provider adapter available; owned SMTP still missing' : 'SMTP server, queues, and throttle controls still need foundation work.',
+      tone: smtpReady ? 'good' : 'warn',
+    },
+    {
+      label: 'Feedback loop',
+      value: providerLinkedSuppressions ? 'Linked' : dashboard.suppressions.length ? 'Manual' : 'Gap',
+      detail: providerLinkedSuppressions ? `${formatInt(providerLinkedSuppressions)} provider-linked suppression(s)` : 'Bounce and complaint events need durable webhook-backed feedback.',
+      tone: providerLinkedSuppressions ? 'good' : 'warn',
+    },
+    {
+      label: 'Agent layer',
+      value: aiReady ? 'Configured' : 'Fallback',
+      detail: aiReady ? `${dashboard.diagnostics?.ai.provider || 'AI'} ${dashboard.diagnostics?.ai.model || ''}` : 'Production agents need OpenAI configuration and persistent workflow memory.',
+      tone: aiReady ? 'good' : 'warn',
+    },
+  ];
 
   return (
     <>
@@ -1690,6 +1718,24 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
         </div>
         <div className="overview-triage-grid">
           {overviewTriageItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="overview-foundation-panel">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Platform Foundations</h3>
+            <span className="muted">Data model, send engine, feedback loop, and agent layer readiness.</span>
+          </div>
+          <a href="#integrations">Open Integrations</a>
+        </div>
+        <div className="overview-foundation-grid">
+          {platformFoundationItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
