@@ -9479,6 +9479,44 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: 'warn',
     },
   ];
+  const deliveryOperationsContractItems = [
+    {
+      label: 'SMTP service contract',
+      value: 'Gap',
+      detail: 'Owned SMTP needs MTA configuration, authenticated submission, domain policy, TLS, and tenant-level rate controls.',
+      tone: 'warn',
+    },
+    {
+      label: 'Queue lifecycle',
+      value: sendRecords.length ? 'Visible' : 'Gap',
+      detail: 'Send queues need claim locks, visibility timeouts, dead-letter handling, and operator-safe replay controls.',
+      tone: sendRecords.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Retry policy',
+      value: retryPressure ? `${formatInt(retryPressure)} retries` : 'Pending',
+      detail: 'Retries need provider-aware backoff, max-attempt policy, suppression checks, and permanent-failure promotion.',
+      tone: retryPressure ? 'warn' : 'warn',
+    },
+    {
+      label: 'Bounce classification',
+      value: failedRecords ? `${formatInt(failedRecords)} signals` : 'Gap',
+      detail: 'Failures must classify hard bounce, soft bounce, complaint, deferral, and policy block outcomes.',
+      tone: 'warn',
+    },
+    {
+      label: 'Feedback ingestion',
+      value: providerFootprint.length ? providerFootprint.join(', ') : 'Gap',
+      detail: 'Provider events and owned SMTP logs need one durable feedback stream into suppression and analytics records.',
+      tone: 'warn',
+    },
+    {
+      label: 'Deliverability controls',
+      value: 'Gap',
+      detail: 'Domain warmup, reputation monitoring, inbox-placement signals, and throttle overrides need admin controls.',
+      tone: 'warn',
+    },
+  ];
 
   async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -9635,6 +9673,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         </div>
         <div className="delivery-foundation-grid">
           {deliveryFoundationItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="delivery-operations-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Send Engine Operations Contract</h3>
+            <span className="muted">Operational contracts for owned SMTP, queue lifecycle, retries, bounces, feedback, and deliverability controls.</span>
+          </div>
+          <a href="#compliance">Open Compliance</a>
+        </div>
+        <div className="delivery-operations-grid">
+          {deliveryOperationsContractItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>

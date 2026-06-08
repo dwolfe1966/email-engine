@@ -5667,7 +5667,8 @@ th {
   background: #f5fff7;
 }
 
-.delivery-foundation-panel {
+.delivery-foundation-panel,
+.delivery-operations-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -5676,23 +5677,31 @@ th {
   padding: 12px;
 }
 
-.delivery-foundation-panel .compact-head {
+.delivery-foundation-panel .compact-head,
+.delivery-operations-panel .compact-head {
   margin: 0;
 }
 
-.delivery-foundation-panel h3 {
+.delivery-foundation-panel h3,
+.delivery-operations-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.delivery-foundation-grid {
+.delivery-foundation-grid,
+.delivery-operations-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.delivery-foundation-grid article {
+.delivery-operations-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.delivery-foundation-grid article,
+.delivery-operations-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -5703,18 +5712,22 @@ th {
   padding: 10px;
 }
 
-.delivery-foundation-grid article.warn {
+.delivery-foundation-grid article.warn,
+.delivery-operations-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.delivery-foundation-grid article.good {
+.delivery-foundation-grid article.good,
+.delivery-operations-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .delivery-foundation-grid span,
-.delivery-foundation-grid small {
+.delivery-foundation-grid small,
+.delivery-operations-grid span,
+.delivery-operations-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5722,7 +5735,8 @@ th {
   text-transform: uppercase;
 }
 
-.delivery-foundation-grid strong {
+.delivery-foundation-grid strong,
+.delivery-operations-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7091,6 +7105,7 @@ th {
   .ai-agent-foundation-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
+  .delivery-operations-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
@@ -7181,6 +7196,7 @@ th {
   .ai-agent-foundation-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
+  .delivery-operations-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
