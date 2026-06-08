@@ -6434,6 +6434,67 @@ th {
   font-size: 14px;
 }
 
+.contact-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.contact-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.contact-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.contact-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contact-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.contact-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.contact-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.contact-foundation-grid span,
+.contact-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.contact-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .contact-attribute-helper-panel {
   display: grid;
   gap: 10px;
@@ -6853,6 +6914,7 @@ th {
   .data-relationship-grid,
   .contacts-triage-grid,
   .contact-entity-model-grid,
+  .contact-foundation-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
@@ -6939,6 +7001,7 @@ th {
   .data-relationship-grid,
   .contacts-triage-grid,
   .contact-entity-model-grid,
+  .contact-foundation-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,

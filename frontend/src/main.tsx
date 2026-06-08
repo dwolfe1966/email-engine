@@ -11411,6 +11411,40 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
       tone: 'warn',
     },
   ];
+  const contactFoundationItems = [
+    {
+      label: 'Identity resolution',
+      value: totalContacts ? 'Email key' : 'Gap',
+      detail: totalContacts
+        ? 'Contacts currently resolve around email; cross-source identity rules still need hardening.'
+        : 'Import contacts before identity matching and duplicate resolution can run.',
+      tone: 'warn',
+    },
+    {
+      label: 'Consent state',
+      value: unsubscribedCount ? 'Mixed' : 'Clear',
+      detail: unsubscribedCount
+        ? 'Visible opt-outs need durable consent history and suppression sync.'
+        : 'No visible opt-outs; consent provenance still needs audit history.',
+      tone: unsubscribedCount ? 'warn' : 'good',
+    },
+    {
+      label: 'Enrichment freshness',
+      value: attributeKeys.length ? `${formatInt(attributeKeys.length)} keys` : 'Gap',
+      detail: attributeKeys.length
+        ? 'Profile attributes are available, but freshness timestamps and source precedence need foundation work.'
+        : 'Attribute enrichment is required before personalization and segmentation scale.',
+      tone: 'warn',
+    },
+    {
+      label: 'Activation paths',
+      value: totalContacts ? 'Ready' : 'Gap',
+      detail: totalContacts
+        ? 'Contacts can feed audiences, templates, campaigns, and journey enrollment testing.'
+        : 'Contacts must exist before activation into audiences, campaigns, or journeys.',
+      tone: totalContacts ? 'good' : 'warn',
+    },
+  ];
 
   function parseAttributes() {
     try {
@@ -11564,6 +11598,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contact-entity-model-grid">
             {contactEntityItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="contact-foundation-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Contact Foundations</h3>
+              <span className="muted">Identity resolution, consent state, enrichment freshness, and activation readiness.</span>
+            </div>
+            <a href="#audience">Open Audiences</a>
+          </div>
+          <div className="contact-foundation-grid">
+            {contactFoundationItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
@@ -11764,6 +11816,24 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
           </div>
           <div className="contact-entity-model-grid">
             {contactEntityItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="contact-foundation-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Contact Foundations</h3>
+              <span className="muted">Identity resolution, consent state, enrichment freshness, and activation readiness.</span>
+            </div>
+            <a href="#audience">Open Audiences</a>
+          </div>
+          <div className="contact-foundation-grid">
+            {contactFoundationItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
