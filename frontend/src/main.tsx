@@ -10642,6 +10642,38 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
       tone: 'warn',
     },
   ];
+  const dataSyncContractItems = [
+    {
+      label: 'Credential contract',
+      value: dataSources.some((source) => source.secret_ref) ? 'Linked' : 'Gap',
+      detail: 'Every production connector needs secret references, rotation metadata, and validation status exposed in the UI.',
+      tone: dataSources.some((source) => source.secret_ref) ? 'good' : 'warn',
+    },
+    {
+      label: 'Schema contract',
+      value: schema?.fields?.length ? `${formatInt(schema.fields.length)} fields` : 'Pending',
+      detail: 'Connectors should publish discovered fields, object types, join candidates, and sample rows before mapping.',
+      tone: schema?.fields?.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Sync contract',
+      value: completedJobs || dryRunJobs ? 'Manual only' : 'Gap',
+      detail: 'Production sync needs schedule policy, incremental cursor state, retry rules, and backfill windows.',
+      tone: 'warn',
+    },
+    {
+      label: 'Relationship contract',
+      value: relationshipJoinFields.length ? `${formatInt(relationshipJoinFields.length)} keys` : 'Gap',
+      detail: 'Multi-entity joins need canonical IDs, relationship cardinality, and client-owned entity storage.',
+      tone: relationshipJoinFields.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Audit contract',
+      value: importJobs.length ? `${formatInt(importJobs.length)} jobs` : 'Gap',
+      detail: 'Ingest records need row provenance, replay controls, rollback markers, and operator-visible failure reasons.',
+      tone: importJobs.length ? 'good' : 'warn',
+    },
+  ];
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -10908,6 +10940,24 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
           </div>
           <div className="data-foundation-grid">
             {dataFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="data-sync-contract-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Connector Sync Contract</h3>
+              <span className="muted">Required contracts before RDBMS, warehouse, NoSQL, API, and client-entity sync can be production-grade.</span>
+            </div>
+            <a href="#integrations">Open Integrations</a>
+          </div>
+          <div className="data-sync-contract-grid">
+            {dataSyncContractItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>

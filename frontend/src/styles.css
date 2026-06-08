@@ -6237,7 +6237,8 @@ th {
   background: #f5fff7;
 }
 
-.data-foundation-panel {
+.data-foundation-panel,
+.data-sync-contract-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -6246,23 +6247,31 @@ th {
   padding: 12px;
 }
 
-.data-foundation-panel .compact-head {
+.data-foundation-panel .compact-head,
+.data-sync-contract-panel .compact-head {
   margin: 0;
 }
 
-.data-foundation-panel h3 {
+.data-foundation-panel h3,
+.data-sync-contract-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.data-foundation-grid {
+.data-foundation-grid,
+.data-sync-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.data-foundation-grid article {
+.data-sync-contract-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.data-foundation-grid article,
+.data-sync-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -6273,18 +6282,22 @@ th {
   padding: 10px;
 }
 
-.data-foundation-grid article.warn {
+.data-foundation-grid article.warn,
+.data-sync-contract-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.data-foundation-grid article.good {
+.data-foundation-grid article.good,
+.data-sync-contract-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .data-foundation-grid span,
-.data-foundation-grid small {
+.data-foundation-grid small,
+.data-sync-contract-grid span,
+.data-sync-contract-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6292,7 +6305,8 @@ th {
   text-transform: uppercase;
 }
 
-.data-foundation-grid strong {
+.data-foundation-grid strong,
+.data-sync-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7084,6 +7098,7 @@ th {
   .compliance-foundation-grid,
   .data-triage-grid,
   .data-foundation-grid,
+  .data-sync-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,
@@ -7173,6 +7188,7 @@ th {
   .compliance-foundation-grid,
   .data-triage-grid,
   .data-foundation-grid,
+  .data-sync-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,
