@@ -8350,6 +8350,42 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       tone: pendingAiDraft || appliedAiDraftLabel ? 'warn' : aiRecommendations.length ? 'good' : 'warn',
     },
   ];
+  const templateFoundationItems = [
+    {
+      label: 'Render engine',
+      value: templateRenderResult?.ok ? 'Ready' : previewFreshness === 'current' ? 'Rendered' : 'Gap',
+      detail: templateRenderResult?.ok
+        ? 'Latest Jinja render completed with sample variables.'
+        : 'Rendering complex Jinja and CSS-safe HTML remains the contract to validate before launch.',
+      tone: templateRenderResult?.ok || previewFreshness === 'current' ? 'good' : 'warn',
+    },
+    {
+      label: 'Variable schema',
+      value: variablesJsonError ? 'Invalid' : variables.length ? `${formatInt(variables.length)} vars` : 'Gap',
+      detail: variablesJsonError
+        ? 'Sample JSON must be valid before variable contracts are trusted.'
+        : variables.length
+          ? 'Detected variables can be matched against samples and campaign data.'
+          : 'Template variables need schema mapping to audience and client entity fields.',
+      tone: variablesJsonError || !variables.length ? 'warn' : 'good',
+    },
+    {
+      label: 'Compliance guardrails',
+      value: htmlBody.includes('unsubscribe') ? 'Present' : 'Gap',
+      detail: htmlBody.includes('unsubscribe')
+        ? 'Unsubscribe content is present in the template body.'
+        : 'Footer, unsubscribe, and brand compliance checks should be enforced before send.',
+      tone: htmlBody.includes('unsubscribe') ? 'good' : 'warn',
+    },
+    {
+      label: 'Version contract',
+      value: templateVersions.length ? `${formatInt(templateVersions.length)} versions` : 'Gap',
+      detail: templateVersions.length
+        ? 'Version history is available for review and rollback.'
+        : 'Save and version templates before campaign handoff or AI-assisted publishing.',
+      tone: templateVersions.length ? 'good' : 'warn',
+    },
+  ];
 
   return (
     <section className="page-grid">
@@ -8408,6 +8444,24 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
           </div>
           <div className="template-triage-grid">
             {templateTriageItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="template-foundation-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Template Foundations</h3>
+              <span className="muted">Render engine, variable schema, compliance guardrails, and version readiness.</span>
+            </div>
+            <a href="#campaigns">Open Campaigns</a>
+          </div>
+          <div className="template-foundation-grid">
+            {templateFoundationItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
