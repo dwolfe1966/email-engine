@@ -90,6 +90,22 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'Campaign usage',
         'audience-foundation-panel',
         'audience-foundation-grid',
+        'audienceSegmentationContractItems',
+        'Audience Segmentation Contract',
+        'Field metadata, entity joins, consent filters, impact checks, snapshots, and campaign handoff requirements.',
+        'Field contract',
+        'Audience rules need typed contact, attribute, and client-entity fields with examples and coverage metadata.',
+        'Entity join contract',
+        'Multi-entity targeting needs relationship joins across contacts, accounts, stores, orders, memberships, and custom objects.',
+        'Consent filter contract',
+        'Audience previews should expose suppression, unsubscribe, bounce, and complaint exclusions before activation.',
+        'Impact contract',
+        'Segment impact needs match count, sample contacts, match-rate banding, and warnings for broad or narrow reach.',
+        'Activation should use immutable audience snapshots with rule version, contact count, and source metadata.',
+        'Handoff contract',
+        'Campaign and journey handoffs need stable audience IDs, snapshot references, and downstream usage visibility.',
+        'audience-segmentation-contract-panel',
+        'audience-segmentation-contract-grid',
     ]
 
     for token in expected_tokens:
@@ -143,6 +159,13 @@ def test_built_esp_bundle_includes_audience_guided_next_step_action() -> None:
         'Client entities',
         'Snapshot contract',
         'Campaign usage',
+        'Audience Segmentation Contract',
+        'Field contract',
+        'Entity join contract',
+        'Consent filter contract',
+        'Impact contract',
+        'Handoff contract',
+        'Open Contacts',
         'Open Data',
     ]
 

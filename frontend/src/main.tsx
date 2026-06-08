@@ -3642,6 +3642,44 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
       tone: selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
     },
   ];
+  const audienceSegmentationContractItems = [
+    {
+      label: 'Field contract',
+      value: fieldHints.length ? `${formatInt(fieldHints.length)} fields` : 'Gap',
+      detail: 'Audience rules need typed contact, attribute, and client-entity fields with examples and coverage metadata.',
+      tone: fieldHints.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Entity join contract',
+      value: 'Gap',
+      detail: 'Multi-entity targeting needs relationship joins across contacts, accounts, stores, orders, memberships, and custom objects.',
+      tone: 'warn',
+    },
+    {
+      label: 'Consent filter contract',
+      value: metadata?.total ? 'Contact-level' : 'Gap',
+      detail: 'Audience previews should expose suppression, unsubscribe, bounce, and complaint exclusions before activation.',
+      tone: metadata?.total ? 'warn' : 'warn',
+    },
+    {
+      label: 'Impact contract',
+      value: matchedCount === null ? 'Not previewed' : `${formatInt(matchedCount)} matched`,
+      detail: 'Segment impact needs match count, sample contacts, match-rate banding, and warnings for broad or narrow reach.',
+      tone: matchedCount !== null && matchedCount > 0 ? 'good' : 'warn',
+    },
+    {
+      label: 'Snapshot contract',
+      value: selectedAudienceId ? 'Ready' : 'Pending',
+      detail: 'Activation should use immutable audience snapshots with rule version, contact count, and source metadata.',
+      tone: selectedAudienceId ? 'good' : 'warn',
+    },
+    {
+      label: 'Handoff contract',
+      value: selectedAudienceActiveCampaigns.length ? 'Linked' : 'Gap',
+      detail: 'Campaign and journey handoffs need stable audience IDs, snapshot references, and downstream usage visibility.',
+      tone: selectedAudienceActiveCampaigns.length ? 'good' : 'warn',
+    },
+  ];
 
   function stableAudienceRuleKey(value: unknown): string {
     if (Array.isArray(value)) return `[${value.map(stableAudienceRuleKey).join(',')}]`;
@@ -3912,6 +3950,24 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             ))}
           </div>
         </section>
+        <section className="audience-segmentation-contract-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Audience Segmentation Contract</h3>
+              <span className="muted">Field metadata, entity joins, consent filters, impact checks, snapshots, and campaign handoff requirements.</span>
+            </div>
+            <a href="#contacts">Open Contacts</a>
+          </div>
+          <div className="audience-segmentation-contract-grid">
+            {audienceSegmentationContractItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -4036,6 +4092,24 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
         </div>
         <div className="audience-foundation-grid">
           {audienceFoundationItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="audience-segmentation-contract-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Audience Segmentation Contract</h3>
+            <span className="muted">Field metadata, entity joins, consent filters, impact checks, snapshots, and campaign handoff requirements.</span>
+          </div>
+          <a href="#contacts">Open Contacts</a>
+        </div>
+        <div className="audience-segmentation-contract-grid">
+          {audienceSegmentationContractItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>

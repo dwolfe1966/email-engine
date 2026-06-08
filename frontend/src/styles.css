@@ -1768,7 +1768,8 @@ th {
   background: #f5fff7;
 }
 
-.audience-foundation-panel {
+.audience-foundation-panel,
+.audience-segmentation-contract-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -1777,23 +1778,31 @@ th {
   padding: 12px;
 }
 
-.audience-foundation-panel .compact-head {
+.audience-foundation-panel .compact-head,
+.audience-segmentation-contract-panel .compact-head {
   margin: 0;
 }
 
-.audience-foundation-panel h3 {
+.audience-foundation-panel h3,
+.audience-segmentation-contract-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.audience-foundation-grid {
+.audience-foundation-grid,
+.audience-segmentation-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.audience-foundation-grid article {
+.audience-segmentation-contract-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.audience-foundation-grid article,
+.audience-segmentation-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -1804,18 +1813,22 @@ th {
   padding: 10px;
 }
 
-.audience-foundation-grid article.warn {
+.audience-foundation-grid article.warn,
+.audience-segmentation-contract-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.audience-foundation-grid article.good {
+.audience-foundation-grid article.good,
+.audience-segmentation-contract-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .audience-foundation-grid span,
-.audience-foundation-grid small {
+.audience-foundation-grid small,
+.audience-segmentation-contract-grid span,
+.audience-segmentation-contract-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -1823,7 +1836,8 @@ th {
   text-transform: uppercase;
 }
 
-.audience-foundation-grid strong {
+.audience-foundation-grid strong,
+.audience-segmentation-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7161,6 +7175,7 @@ th {
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-foundation-grid,
+  .audience-segmentation-contract-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,
   .audience-field-intel,
@@ -7257,6 +7272,7 @@ th {
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-foundation-grid,
+  .audience-segmentation-contract-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,
   .audience-field-intel,
