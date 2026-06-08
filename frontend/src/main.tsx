@@ -2054,6 +2054,32 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       tone: lastLaunchResult || lastTestSendResult ? 'good' : 'warn',
     },
   ];
+  const launchFoundationItems = [
+    {
+      label: 'Template contract',
+      value: selectedTemplate ? 'Selected' : 'Gap',
+      detail: selectedTemplate ? `${selectedTemplate.subject || selectedTemplate.name}` : 'Select a saved template before proof or launch.',
+      tone: selectedTemplate ? 'good' : 'warn',
+    },
+    {
+      label: 'Audience snapshot',
+      value: selectedAudience ? formatInt(selectedAudience.estimated_count) : 'Gap',
+      detail: selectedAudience ? `${selectedAudience.name} reach estimate before dry-run.` : 'Choose an audience so launch volume and suppressions can be checked.',
+      tone: selectedAudience ? 'good' : 'warn',
+    },
+    {
+      label: 'Send engine handoff',
+      value: latestJob ? latestJob.status : lastLaunchResult ? 'Dry-run' : 'Pending',
+      detail: latestJob ? `${formatInt(latestJob.queued_count)} queued in latest job.` : lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in dry-run result.` : 'Run dry-run launch before production queueing.',
+      tone: latestJob || lastLaunchResult ? 'good' : 'warn',
+    },
+    {
+      label: 'Suppression impact',
+      value: lastLaunchResult ? formatInt(lastLaunchResult.suppressed_count) : 'Unknown',
+      detail: lastLaunchResult ? 'Suppression count loaded from launch simulation.' : 'Dry-run to reveal opt-out, bounce, and complaint suppression impact.',
+      tone: lastLaunchResult ? 'good' : 'warn',
+    },
+  ];
 
   function parsedVariables() {
     try {
@@ -2367,6 +2393,24 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <small>{campaignNextStep.detail}</small>
               <button className="primary" onClick={campaignNextStep.run} disabled={operationBusy}>{campaignNextStep.actionLabel}</button>
               <p>{validationErrors.length ? `${formatInt(validationErrors.length)} errors must be fixed.` : validationWarnings.length ? `${formatInt(validationWarnings.length)} warnings to review.` : 'No blockers loaded.'}</p>
+            </div>
+          </div>
+          <div className="campaign-foundation-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Launch Foundations</h3>
+                <span className="muted">Template contract, audience snapshot, send engine handoff, and suppression impact.</span>
+              </div>
+              <button className="link-button" type="button" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
+            </div>
+            <div className="campaign-foundation-grid">
+              {launchFoundationItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
             </div>
           </div>
           {lastLaunchResult ? (

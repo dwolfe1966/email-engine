@@ -1347,6 +1347,67 @@ th {
   justify-self: start;
 }
 
+.campaign-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.campaign-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.campaign-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.campaign-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.campaign-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.campaign-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.campaign-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.campaign-foundation-grid span,
+.campaign-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.campaign-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .launch-result-card,
 .test-send-result-card {
   display: grid;
@@ -6397,6 +6458,7 @@ th {
   .test-send-result-card,
   .campaign-ai-summary,
   .campaign-triage-grid,
+  .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-impact-summary,
@@ -6477,6 +6539,7 @@ th {
   .data-command-strip,
   .campaign-ai-summary,
   .campaign-triage-grid,
+  .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-impact-summary,
