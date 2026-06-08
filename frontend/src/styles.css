@@ -6084,6 +6084,67 @@ th {
   background: #f5fff7;
 }
 
+.data-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.data-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.data-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.data-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.data-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.data-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.data-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.data-foundation-grid span,
+.data-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.data-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .data-import-review-panel {
   display: grid;
   gap: 10px;
@@ -6787,6 +6848,7 @@ th {
   .compliance-feedback-grid,
   .compliance-foundation-grid,
   .data-triage-grid,
+  .data-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,
@@ -6872,6 +6934,7 @@ th {
   .compliance-feedback-grid,
   .compliance-foundation-grid,
   .data-triage-grid,
+  .data-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contacts-triage-grid,

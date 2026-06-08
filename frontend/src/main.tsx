@@ -10562,6 +10562,40 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
       tone: 'warn',
     },
   ];
+  const dataFoundationItems = [
+    {
+      label: 'Connector credentials',
+      value: dataSources.some((source) => source.secret_ref) ? 'Linked' : 'Gap',
+      detail: dataSources.some((source) => source.secret_ref)
+        ? 'At least one source has a secret reference for managed credentials.'
+        : 'External connectors need managed secrets, rotation policy, and credential health checks.',
+      tone: dataSources.some((source) => source.secret_ref) ? 'good' : 'warn',
+    },
+    {
+      label: 'Sync cadence',
+      value: completedJobs || dryRunJobs ? 'Manual runs' : 'Gap',
+      detail: completedJobs || dryRunJobs
+        ? 'Manual import jobs exist; scheduled sync still needs durable orchestration.'
+        : 'Scheduled sync, incremental cursors, and backfill controls remain foundation work.',
+      tone: 'warn',
+    },
+    {
+      label: 'Canonical entities',
+      value: schema?.object_types?.length ? formatInt(schema.object_types.length) : 'Contact',
+      detail: schema?.object_types?.length && schema.object_types.length > 1
+        ? 'Discovered schema exposes multiple object targets for entity planning.'
+        : 'Client-specific entities need canonical storage before multi-entity segmentation.',
+      tone: schema?.object_types?.length && schema.object_types.length > 1 ? 'good' : 'warn',
+    },
+    {
+      label: 'Lineage and replay',
+      value: importJobs.length ? `${formatInt(importJobs.length)} jobs` : 'Gap',
+      detail: importJobs.length
+        ? 'Import job history gives basic lineage; replay and row-level provenance still need hardening.'
+        : 'Row lineage, replay, and rollback controls are needed before production data sync.',
+      tone: 'warn',
+    },
+  ];
 
   function parseJsonObject(value: string, label: string) {
     try {
@@ -10818,6 +10852,24 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             <small>{selectedSource?.name || 'No source selected'}</small>
           </article>
         </section>
+        <section className="data-foundation-panel full-span">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Data Foundations</h3>
+              <span className="muted">Connector credentials, sync cadence, canonical entities, and lineage readiness.</span>
+            </div>
+            <a href="#contacts">Open Contacts</a>
+          </div>
+          <div className="data-foundation-grid">
+            {dataFoundationItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </section>
         <section className="panel table-panel full-span">
           <div className="panel-head">
             <div>
@@ -11050,6 +11102,24 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
           <p>{relationshipPlanStatus.detail}</p>
           <div className="data-relationship-grid">
             {relationshipPlannerItems.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="data-foundation-panel">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Data Foundations</h3>
+              <span className="muted">Connector credentials, sync cadence, canonical entities, and lineage readiness.</span>
+            </div>
+            <a href="#contacts">Open Contacts</a>
+          </div>
+          <div className="data-foundation-grid">
+            {dataFoundationItems.map((item) => (
               <article className={item.tone} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
