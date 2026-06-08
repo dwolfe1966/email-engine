@@ -6760,7 +6760,8 @@ th {
   background: #f5fff7;
 }
 
-.integration-foundation-panel {
+.integration-foundation-panel,
+.integration-connector-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -6769,23 +6770,31 @@ th {
   padding: 12px;
 }
 
-.integration-foundation-panel .compact-head {
+.integration-foundation-panel .compact-head,
+.integration-connector-panel .compact-head {
   margin: 0;
 }
 
-.integration-foundation-panel h3 {
+.integration-foundation-panel h3,
+.integration-connector-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.integration-foundation-grid {
+.integration-foundation-grid,
+.integration-connector-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.integration-foundation-grid article {
+.integration-connector-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.integration-foundation-grid article,
+.integration-connector-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -6796,18 +6805,22 @@ th {
   padding: 10px;
 }
 
-.integration-foundation-grid article.warn {
+.integration-foundation-grid article.warn,
+.integration-connector-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.integration-foundation-grid article.good {
+.integration-foundation-grid article.good,
+.integration-connector-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .integration-foundation-grid span,
-.integration-foundation-grid small {
+.integration-foundation-grid small,
+.integration-connector-grid span,
+.integration-connector-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6815,7 +6828,8 @@ th {
   text-transform: uppercase;
 }
 
-.integration-foundation-grid strong {
+.integration-foundation-grid strong,
+.integration-connector-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7078,6 +7092,7 @@ th {
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
+  .integration-connector-grid,
   .settings-triage-grid,
   .settings-foundation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
@@ -7166,6 +7181,7 @@ th {
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
+  .integration-connector-grid,
   .settings-triage-grid,
   .settings-foundation-grid,
   .template-triage-grid,

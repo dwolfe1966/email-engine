@@ -13433,6 +13433,38 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
       tone: aiReady ? 'good' : 'warn',
     },
   ];
+  const integrationConnectorRoadmapItems = [
+    {
+      family: 'RDBMS',
+      status: dataConnectorTableReady ? 'Schema-ready' : 'Gap',
+      detail: 'PostgreSQL, MySQL, and SQL Server connectors need credential vaulting, table discovery, and incremental sync cursors.',
+    },
+    {
+      family: 'Warehouse',
+      status: dataConnectorTableReady ? 'Modeled' : 'Gap',
+      detail: 'BigQuery, Snowflake, and Redshift imports need batch scheduling, field typing, and cost-aware preview limits.',
+    },
+    {
+      family: 'NoSQL',
+      status: 'Gap',
+      detail: 'MongoDB and document-store sources need collection sampling, nested field mapping, and stable entity extraction.',
+    },
+    {
+      family: 'API and webhook',
+      status: publicUrlReady ? 'Partial' : 'Gap',
+      detail: 'REST, GraphQL, and inbound webhook connectors need managed secrets, retries, and event-to-entity mapping.',
+    },
+    {
+      family: 'Owned SMTP',
+      status: smtpReady ? 'Configured' : 'Gap',
+      detail: 'Owned SMTP server operations need MTA policy, queue visibility, bounce routing, throttle controls, and domain health.',
+    },
+    {
+      family: 'AI agent tools',
+      status: aiReady ? 'Configured' : 'Fallback',
+      detail: 'Ever-present agents need scoped connector tools, approvals, memory, and cross-workflow audit trails.',
+    },
+  ];
 
   async function refreshDiagnostics() {
     setBusy(true);
@@ -13513,6 +13545,24 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="integration-connector-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Connector Roadmap</h3>
+            <span className="muted">Source families and platform services still needed for enterprise-grade data movement.</span>
+          </div>
+          <a href="#data">Open Data Sources</a>
+        </div>
+        <div className="integration-connector-grid">
+          {integrationConnectorRoadmapItems.map((item) => (
+            <article className={item.status === 'Gap' || item.status === 'Fallback' ? 'warn' : 'good'} key={item.family}>
+              <span>{item.family}</span>
+              <strong>{item.status}</strong>
               <small>{item.detail}</small>
             </article>
           ))}
