@@ -5815,6 +5815,67 @@ th {
   font-size: 14px;
 }
 
+.compliance-foundation-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.compliance-foundation-panel .compact-head {
+  margin: 0;
+}
+
+.compliance-foundation-panel h3 {
+  margin: 0;
+  color: #29405f;
+  font-size: 15px;
+}
+
+.compliance-foundation-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compliance-foundation-grid article {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.compliance-foundation-grid article.warn {
+  border-color: #f8c77d;
+  background: #fff9ec;
+}
+
+.compliance-foundation-grid article.good {
+  border-color: #b6e0c1;
+  background: #f5fff7;
+}
+
+.compliance-foundation-grid span,
+.compliance-foundation-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.compliance-foundation-grid strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .compliance-candidate-panel td {
   vertical-align: middle;
 }
@@ -6600,6 +6661,7 @@ th {
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
+  .compliance-foundation-grid,
   .data-triage-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -6683,6 +6745,7 @@ th {
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
+  .compliance-foundation-grid,
   .data-triage-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,

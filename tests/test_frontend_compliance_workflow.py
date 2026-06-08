@@ -51,6 +51,19 @@ def assert_compliance_triage_contract(source: str) -> None:
         'compliance-feedback-grid',
         'compliance-triage-panel',
         'compliance-triage-grid',
+        'complianceFoundationItems',
+        'Compliance Foundations',
+        'Consent ledger, preference center, suppression propagation, and audit readiness.',
+        'Consent ledger',
+        'Consent capture, source attribution, and historical proof need a canonical ledger.',
+        'Preference center',
+        'Contacts still need self-service preferences beyond global suppression records.',
+        'Suppression propagation',
+        'Suppressions must propagate to campaign, journey, and delivery execution before launch.',
+        'Audit trail',
+        'Operator changes, provider events, and policy decisions need immutable audit history.',
+        'compliance-foundation-panel',
+        'compliance-foundation-grid',
     ]
 
     for token in expected_tokens:
@@ -81,6 +94,12 @@ def test_built_esp_bundle_includes_compliance_triage_panel() -> None:
         'Retry safety',
         'Failed Recipient Review',
         'Draft Suppression',
+        'Compliance Foundations',
+        'Consent ledger',
+        'Preference center',
+        'Suppression propagation',
+        'Audit trail',
+        'Open Contacts',
     ]
 
     for token in expected_tokens:

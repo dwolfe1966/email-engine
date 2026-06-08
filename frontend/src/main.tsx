@@ -9804,6 +9804,38 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
       tone: failedCandidateCount ? 'warn' : 'good',
     },
   ];
+  const complianceFoundationItems = [
+    {
+      label: 'Consent ledger',
+      value: unsubscribeCount || manualCount ? 'Partial' : 'Gap',
+      detail: unsubscribeCount || manualCount
+        ? 'Suppression records preserve source context, but full consent history still needs durable event storage.'
+        : 'Consent capture, source attribution, and historical proof need a canonical ledger.',
+      tone: 'warn',
+    },
+    {
+      label: 'Preference center',
+      value: 'Gap',
+      detail: 'Contacts still need self-service preferences beyond global suppression records.',
+      tone: 'warn',
+    },
+    {
+      label: 'Suppression propagation',
+      value: suppressions.length ? 'Active' : 'Gap',
+      detail: suppressions.length
+        ? 'Suppression checks can protect send workflows while provider sync is expanded.'
+        : 'Suppressions must propagate to campaign, journey, and delivery execution before launch.',
+      tone: suppressions.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Audit trail',
+      value: providerSuppressionCount ? 'Provider linked' : 'Gap',
+      detail: providerSuppressionCount
+        ? 'Provider message references support incident review for some suppressions.'
+        : 'Operator changes, provider events, and policy decisions need immutable audit history.',
+      tone: providerSuppressionCount ? 'good' : 'warn',
+    },
+  ];
   const complianceTriageAction = complaintCount
     ? {
       tone: 'warn',
@@ -10001,6 +10033,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               ))}
             </div>
           </section>
+          <section className="compliance-foundation-panel full-span">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Compliance Foundations</h3>
+                <span className="muted">Consent ledger, preference center, suppression propagation, and audit readiness.</span>
+              </div>
+              <a href="#contacts">Open Contacts</a>
+            </div>
+            <div className="compliance-foundation-grid">
+              {complianceFoundationItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
           {failedWithEmail.length ? (
             <section className="panel table-panel full-span compliance-candidate-panel">
               <div className="panel-head">
@@ -10135,6 +10185,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
             </div>
             <div className="compliance-feedback-grid">
               {complianceFeedbackItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="compliance-foundation-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Compliance Foundations</h3>
+                <span className="muted">Consent ledger, preference center, suppression propagation, and audit readiness.</span>
+              </div>
+              <a href="#contacts">Open Contacts</a>
+            </div>
+            <div className="compliance-foundation-grid">
+              {complianceFoundationItems.map((item) => (
                 <article className={item.tone} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
