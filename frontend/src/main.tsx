@@ -8393,25 +8393,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   return (
     <section className="page-grid">
-      <details className="template-collapsible-row template-workflow-collapse full-span">
-        <summary>
-          <span>Workflow Guide</span>
-          <strong>{formatInt(templateReadyStepCount)} / {formatInt(templateSteps.length)} ready</strong>
-          <small>{templateSteps.find((step) => !step.ready)?.detail || 'Setup, subject, content, variables, and preview are ready.'}</small>
-        </summary>
-        <section className="campaign-flow">
-          {templateSteps.map((step, index) => (
-            <article className={step.ready ? 'ready' : ''} key={step.label}>
-              <span>{index + 1}</span>
-              <div>
-                <strong>{step.label}</strong>
-                <p>{step.detail}</p>
-              </div>
-            </article>
-          ))}
-        </section>
-      </details>
       <section className="panel full-span campaign-workbench">
+        <details className="template-preflight-shell" open>
+          <summary>
+            <span>Template Controls</span>
+            <strong>{selectedTemplate ? selectedTemplate.name : 'Create Template'}</strong>
+            <small>{templateTriageAction.title} | {busy ? 'Working' : hasUnsavedTemplateChanges ? 'Unsaved changes' : 'Ready'}</small>
+          </summary>
+          <div className="template-preflight-content">
         <div className="panel-head">
           <div>
             <h2>{selectedTemplate ? selectedTemplate.name : 'Create Template'}</h2>
@@ -8444,6 +8433,24 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <span className="muted">{previewStatusText}</span>
           </div>
         </div>
+        <details className="template-collapsible-row template-workflow-collapse">
+          <summary>
+            <span>Workflow Guide</span>
+            <strong>{formatInt(templateReadyStepCount)} / {formatInt(templateSteps.length)} ready</strong>
+            <small>{templateSteps.find((step) => !step.ready)?.detail || 'Setup, subject, content, variables, and preview are ready.'}</small>
+          </summary>
+          <section className="campaign-flow">
+            {templateSteps.map((step, index) => (
+              <article className={step.ready ? 'ready' : ''} key={step.label}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{step.label}</strong>
+                  <p>{step.detail}</p>
+                </div>
+              </article>
+            ))}
+          </section>
+        </details>
         <details className={`template-collapsible-row template-guidance-collapse ${templateTriageAction.tone}`}>
           <summary>
             <span>Readiness and Foundations</span>
@@ -8539,6 +8546,14 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             </div>
           ) : null}
         </details>
+          </div>
+        </details>
+        {!templateFeedbackOpen ? (
+          <div className="pane-restore-row template-feedback-restore-row">
+            <span>Feedback hidden</span>
+            <button className="pane-toggle-button" type="button" onClick={() => setTemplateFeedbackOpen(true)} title="Show Feedback">+ Feedback</button>
+          </div>
+        ) : null}
 	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
           <section className="template-editor-main">
             <div className="tab-row mode-switch">
@@ -8871,12 +8886,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
                         </div>
 	                      </div>
-                      {(!designHierarchyOpen || !designInspectorOpen || !templateFeedbackOpen) ? (
+                      {(!designHierarchyOpen || !designInspectorOpen) ? (
                         <div className="pane-restore-row" aria-label="Hidden panes">
                           <span>Hidden panes</span>
                           {!designHierarchyOpen ? <button className="pane-toggle-button" type="button" onClick={() => setDesignHierarchyOpen(true)} title="Show Hierarchy">+ Hierarchy</button> : null}
                           {!designInspectorOpen ? <button className="pane-toggle-button" type="button" onClick={() => setDesignInspectorOpen(true)} title="Show Selected Block">+ Selected Block</button> : null}
-                          {!templateFeedbackOpen ? <button className="pane-toggle-button" type="button" onClick={() => setTemplateFeedbackOpen(true)} title="Show Feedback">+ Feedback</button> : null}
                         </div>
                       ) : null}
 	                      <div className={`design-next-action ${designNextAction.tone}`}>
