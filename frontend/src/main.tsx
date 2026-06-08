@@ -8488,7 +8488,26 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             </div>
           </section>
         </details>
-        <details className={`template-collapsible-row template-status-collapse ${status.startsWith('Error:') ? 'warn' : ''}`} open={status.startsWith('Error:') || Boolean(appliedAiDraftLabel || localTemplateDraft)}>
+        <details className="template-collapsible-row template-module-collapse">
+          <summary>
+            <span>Workspace Modules</span>
+            <strong>{editorMode === 'edit' ? 'Code' : editorMode === 'design' ? 'Design' : 'Preview'} mode</strong>
+            <small>{formatInt(templateWorkspaceWarnCount)} module issue(s); mode controls remain in the editor.</small>
+          </summary>
+          <section className="template-workspace-map" aria-label="Template workspace modules">
+            {templateWorkspaceModules.map((module) => (
+              <article className={`${module.tone} ${module.key === editorMode ? 'active' : ''}`} key={module.key}>
+                <div>
+                  <span>{module.label}</span>
+                  <strong>{module.status}</strong>
+                  <small>{module.detail}</small>
+                </div>
+                <button className="ghost" type="button" onClick={module.onClick} disabled={module.disabled}>{module.actionLabel}</button>
+              </article>
+            ))}
+          </section>
+        </details>
+        <details className={`template-collapsible-row template-status-collapse ${status.startsWith('Error:') ? 'warn' : ''}`} open>
           <summary>
             <span>Status Messages</span>
             <strong>{busy ? 'Working' : status.startsWith('Error:') ? 'Needs attention' : hasUnsavedTemplateChanges ? 'Unsaved changes' : 'Ready'}</strong>
@@ -8519,25 +8538,6 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               <button className="ghost" type="button" onClick={() => clearTemplateLocalDraft()} disabled={busy}>Discard Local Draft</button>
             </div>
           ) : null}
-        </details>
-        <details className="template-collapsible-row template-module-collapse">
-          <summary>
-            <span>Workspace Modules</span>
-            <strong>{editorMode === 'edit' ? 'Code' : editorMode === 'design' ? 'Design' : 'Preview'} mode</strong>
-            <small>{formatInt(templateWorkspaceWarnCount)} module issue(s); mode controls remain in the editor.</small>
-          </summary>
-          <section className="template-workspace-map" aria-label="Template workspace modules">
-            {templateWorkspaceModules.map((module) => (
-              <article className={`${module.tone} ${module.key === editorMode ? 'active' : ''}`} key={module.key}>
-                <div>
-                  <span>{module.label}</span>
-                  <strong>{module.status}</strong>
-                  <small>{module.detail}</small>
-                </div>
-                <button className="ghost" type="button" onClick={module.onClick} disabled={module.disabled}>{module.actionLabel}</button>
-              </article>
-            ))}
-          </section>
         </details>
 	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
           <section className="template-editor-main">
