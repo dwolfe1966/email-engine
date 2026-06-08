@@ -2177,6 +2177,84 @@ th {
   width: 100%;
 }
 
+.template-collapsible-row {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 0;
+}
+
+.template-collapsible-row.warn {
+  border-color: #f8c77d;
+  background: #fffaf0;
+}
+
+.template-collapsible-row > summary {
+  display: grid;
+  grid-template-columns: minmax(150px, .45fr) minmax(180px, .7fr) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+  padding: 11px 12px;
+}
+
+.template-collapsible-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.template-collapsible-row > summary::after {
+  justify-self: end;
+  content: "+";
+  color: #29405f;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.template-collapsible-row[open] > summary::after {
+  content: "-";
+}
+
+.template-collapsible-row > summary span,
+.template-collapsible-row > summary small {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.template-collapsible-row > summary strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
+.template-collapsible-row[open] {
+  padding-bottom: 12px;
+}
+
+.template-collapsible-row[open] > :not(summary) {
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+.template-collapsible-row .campaign-flow,
+.template-collapsible-row .template-workspace-map {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.template-guidance-collapse {
+  gap: 12px;
+}
+
 .template-triage-panel {
   display: grid;
   gap: 12px;
@@ -6864,6 +6942,9 @@ th {
   .workflow-grid,
   .page-grid { grid-template-columns: 1fr; }
   .template-workspace-map { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .template-collapsible-row > summary {
+    grid-template-columns: minmax(140px, .5fr) minmax(160px, .7fr) minmax(180px, 1fr) auto;
+  }
   .template-triage-grid,
   .template-foundation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .overview-status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -7011,6 +7092,12 @@ th {
   .template-foundation-grid,
   .template-workspace-map {
     grid-template-columns: 1fr;
+  }
+  .template-collapsible-row > summary {
+    grid-template-columns: 1fr auto;
+  }
+  .template-collapsible-row > summary small {
+    grid-column: 1 / -1;
   }
   .analytics-command-strip article.wide,
   .integration-command-strip article.wide,

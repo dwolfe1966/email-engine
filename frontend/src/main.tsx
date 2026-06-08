@@ -8386,20 +8386,31 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       tone: templateVersions.length ? 'good' : 'warn',
     },
   ];
+  const templateReadyStepCount = templateSteps.filter((step) => step.ready).length;
+  const templateTriageWarnCount = templateTriageItems.filter((item) => item.tone === 'warn').length;
+  const templateFoundationWarnCount = templateFoundationItems.filter((item) => item.tone === 'warn').length;
+  const templateWorkspaceWarnCount = templateWorkspaceModules.filter((module) => module.tone === 'warn').length;
 
   return (
     <section className="page-grid">
-      <section className="campaign-flow full-span">
-        {templateSteps.map((step, index) => (
-          <article className={step.ready ? 'ready' : ''} key={step.label}>
-            <span>{index + 1}</span>
-            <div>
-              <strong>{step.label}</strong>
-              <p>{step.detail}</p>
-            </div>
-          </article>
-        ))}
-      </section>
+      <details className="template-collapsible-row template-workflow-collapse full-span" open={templateReadyStepCount < templateSteps.length}>
+        <summary>
+          <span>Workflow Guide</span>
+          <strong>{formatInt(templateReadyStepCount)} / {formatInt(templateSteps.length)} ready</strong>
+          <small>{templateSteps.find((step) => !step.ready)?.detail || 'Setup, subject, content, variables, and preview are ready.'}</small>
+        </summary>
+        <section className="campaign-flow">
+          {templateSteps.map((step, index) => (
+            <article className={step.ready ? 'ready' : ''} key={step.label}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{step.label}</strong>
+                <p>{step.detail}</p>
+              </div>
+            </article>
+          ))}
+        </section>
+      </details>
       <section className="panel full-span campaign-workbench">
         <div className="panel-head">
           <div>
@@ -8433,80 +8444,101 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <span className="muted">{previewStatusText}</span>
           </div>
         </div>
-        <section className={`template-triage-panel ${templateTriageAction.tone}`}>
-          <div className="template-triage-head">
-            <div>
-              <span>Template triage</span>
-              <strong>{templateTriageAction.title}</strong>
-              <small>{templateTriageAction.detail}</small>
-            </div>
-            <button className={templateTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={templateTriageAction.run} disabled={templateTriageAction.disabled}>{templateTriageAction.actionLabel}</button>
-          </div>
-          <div className="template-triage-grid">
-            {templateTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-                <small>{item.detail}</small>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="template-foundation-panel">
-          <div className="panel-head compact-head">
-            <div>
-              <h3>Template Foundations</h3>
-              <span className="muted">Render engine, variable schema, compliance guardrails, and version readiness.</span>
-            </div>
-            <a href="#campaigns">Open Campaigns</a>
-          </div>
-          <div className="template-foundation-grid">
-            {templateFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-                <small>{item.detail}</small>
-              </article>
-            ))}
-          </div>
-        </section>
-        <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
-          <strong>{busy ? 'Working' : 'Status'}</strong>
-          <span>{status}</span>
-          {variables.length ? <small>{variables.map((item) => item.name).join(', ')}</small> : null}
-        </div>
-        {appliedAiDraftLabel ? (
-          <div className="operation-banner ai-unsaved-banner">
-            <strong>Unsaved AI edit</strong>
-            <span>Applied draft from {appliedAiDraftLabel}. Save changes to persist this template version, or revert changes to reload from the database.</span>
-          </div>
-        ) : null}
-        {hasUnsavedTemplateChanges && !appliedAiDraftLabel ? (
-          <div className="operation-banner unsaved-template-banner">
-            <strong>Unsaved changes</strong>
-            <span>The editor differs from the last saved template. Changes are autosaved locally; save to persist them, or revert to reload from the database.</span>
-          </div>
-        ) : null}
-        {localTemplateDraft && !hasUnsavedTemplateChanges ? (
-          <div className="operation-banner local-draft-banner">
-            <strong>Local draft available</strong>
-            <span>Autosaved {new Date(localTemplateDraft.updatedAt).toLocaleString()}. Restore it or revert to keep the database version.</span>
-            <button className="ghost" type="button" onClick={restoreTemplateLocalDraft} disabled={busy}>Restore Local Draft</button>
-            <button className="ghost" type="button" onClick={() => clearTemplateLocalDraft()} disabled={busy}>Discard Local Draft</button>
-          </div>
-        ) : null}
-        <section className="template-workspace-map" aria-label="Template workspace modules">
-          {templateWorkspaceModules.map((module) => (
-            <article className={`${module.tone} ${module.key === editorMode ? 'active' : ''}`} key={module.key}>
+        <details className={`template-collapsible-row template-guidance-collapse ${templateTriageAction.tone}`} open={templateTriageAction.tone === 'warn'}>
+          <summary>
+            <span>Readiness and Foundations</span>
+            <strong>{templateTriageAction.title}</strong>
+            <small>{formatInt(templateTriageWarnCount)} readiness issue(s), {formatInt(templateFoundationWarnCount)} foundation gap(s)</small>
+          </summary>
+          <section className={`template-triage-panel ${templateTriageAction.tone}`}>
+            <div className="template-triage-head">
               <div>
-                <span>{module.label}</span>
-                <strong>{module.status}</strong>
-                <small>{module.detail}</small>
+                <span>Template triage</span>
+                <strong>{templateTriageAction.title}</strong>
+                <small>{templateTriageAction.detail}</small>
               </div>
-              <button className="ghost" type="button" onClick={module.onClick} disabled={module.disabled}>{module.actionLabel}</button>
-            </article>
-          ))}
-        </section>
+              <button className={templateTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={templateTriageAction.run} disabled={templateTriageAction.disabled}>{templateTriageAction.actionLabel}</button>
+            </div>
+            <div className="template-triage-grid">
+              {templateTriageItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="template-foundation-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Template Foundations</h3>
+                <span className="muted">Render engine, variable schema, compliance guardrails, and version readiness.</span>
+              </div>
+              <a href="#campaigns">Open Campaigns</a>
+            </div>
+            <div className="template-foundation-grid">
+              {templateFoundationItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
+        </details>
+        <details className={`template-collapsible-row template-status-collapse ${status.startsWith('Error:') ? 'warn' : ''}`} open={status.startsWith('Error:') || Boolean(appliedAiDraftLabel || localTemplateDraft)}>
+          <summary>
+            <span>Status Messages</span>
+            <strong>{busy ? 'Working' : status.startsWith('Error:') ? 'Needs attention' : hasUnsavedTemplateChanges ? 'Unsaved changes' : 'Ready'}</strong>
+            <small>{status}</small>
+          </summary>
+          <div className={`operation-banner ${status.startsWith('Error:') ? 'warn' : ''}`}>
+            <strong>{busy ? 'Working' : 'Status'}</strong>
+            <span>{status}</span>
+            {variables.length ? <small>{variables.map((item) => item.name).join(', ')}</small> : null}
+          </div>
+          {appliedAiDraftLabel ? (
+            <div className="operation-banner ai-unsaved-banner">
+              <strong>Unsaved AI edit</strong>
+              <span>Applied draft from {appliedAiDraftLabel}. Save changes to persist this template version, or revert changes to reload from the database.</span>
+            </div>
+          ) : null}
+          {hasUnsavedTemplateChanges && !appliedAiDraftLabel ? (
+            <div className="operation-banner unsaved-template-banner">
+              <strong>Unsaved changes</strong>
+              <span>The editor differs from the last saved template. Changes are autosaved locally; save to persist them, or revert to reload from the database.</span>
+            </div>
+          ) : null}
+          {localTemplateDraft && !hasUnsavedTemplateChanges ? (
+            <div className="operation-banner local-draft-banner">
+              <strong>Local draft available</strong>
+              <span>Autosaved {new Date(localTemplateDraft.updatedAt).toLocaleString()}. Restore it or revert to keep the database version.</span>
+              <button className="ghost" type="button" onClick={restoreTemplateLocalDraft} disabled={busy}>Restore Local Draft</button>
+              <button className="ghost" type="button" onClick={() => clearTemplateLocalDraft()} disabled={busy}>Discard Local Draft</button>
+            </div>
+          ) : null}
+        </details>
+        <details className="template-collapsible-row template-module-collapse">
+          <summary>
+            <span>Workspace Modules</span>
+            <strong>{editorMode === 'edit' ? 'Code' : editorMode === 'design' ? 'Design' : 'Preview'} mode</strong>
+            <small>{formatInt(templateWorkspaceWarnCount)} module issue(s); mode controls remain in the editor.</small>
+          </summary>
+          <section className="template-workspace-map" aria-label="Template workspace modules">
+            {templateWorkspaceModules.map((module) => (
+              <article className={`${module.tone} ${module.key === editorMode ? 'active' : ''}`} key={module.key}>
+                <div>
+                  <span>{module.label}</span>
+                  <strong>{module.status}</strong>
+                  <small>{module.detail}</small>
+                </div>
+                <button className="ghost" type="button" onClick={module.onClick} disabled={module.disabled}>{module.actionLabel}</button>
+              </article>
+            ))}
+          </section>
+        </details>
 	        <div className={`template-editor-shell ${templateFeedbackOpen ? 'feedback-open' : 'feedback-closed'}`}>
           <section className="template-editor-main">
             <div className="tab-row mode-switch">
