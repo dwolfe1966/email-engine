@@ -6043,7 +6043,8 @@ th {
   background: #f5fff7;
 }
 
-.compliance-feedback-panel {
+.compliance-feedback-panel,
+.compliance-policy-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -6052,23 +6053,31 @@ th {
   padding: 12px;
 }
 
-.compliance-feedback-panel .compact-head {
+.compliance-feedback-panel .compact-head,
+.compliance-policy-panel .compact-head {
   margin: 0;
 }
 
-.compliance-feedback-panel h3 {
+.compliance-feedback-panel h3,
+.compliance-policy-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.compliance-feedback-grid {
+.compliance-feedback-grid,
+.compliance-policy-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.compliance-feedback-grid article {
+.compliance-policy-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compliance-feedback-grid article,
+.compliance-policy-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -6079,18 +6088,22 @@ th {
   padding: 10px;
 }
 
-.compliance-feedback-grid article.warn {
+.compliance-feedback-grid article.warn,
+.compliance-policy-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.compliance-feedback-grid article.good {
+.compliance-feedback-grid article.good,
+.compliance-policy-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .compliance-feedback-grid span,
-.compliance-feedback-grid small {
+.compliance-feedback-grid small,
+.compliance-policy-grid span,
+.compliance-policy-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6098,7 +6111,8 @@ th {
   text-transform: uppercase;
 }
 
-.compliance-feedback-grid strong {
+.compliance-feedback-grid strong,
+.compliance-policy-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7110,6 +7124,7 @@ th {
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
+  .compliance-policy-grid,
   .compliance-foundation-grid,
   .data-triage-grid,
   .data-foundation-grid,
@@ -7201,6 +7216,7 @@ th {
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
+  .compliance-policy-grid,
   .compliance-foundation-grid,
   .data-triage-grid,
   .data-foundation-grid,

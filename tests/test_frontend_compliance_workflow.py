@@ -64,6 +64,23 @@ def assert_compliance_triage_contract(source: str) -> None:
         'Operator changes, provider events, and policy decisions need immutable audit history.',
         'compliance-foundation-panel',
         'compliance-foundation-grid',
+        'compliancePolicyContractItems',
+        'Feedback Policy Contract',
+        'Suppression scope, bounce and complaint disposition, retry blocking, traceability, and audit evidence.',
+        'Suppression scope',
+        'Suppression policy must define whether a block applies globally, by brand, by domain, or by campaign family.',
+        'Bounce disposition',
+        'Hard bounces should become permanent suppressions while soft bounces need retry windows and escalation rules.',
+        'Complaint disposition',
+        'Spam complaints must permanently suppress recipients and trigger reputation review before future sends.',
+        'Retry block',
+        'Failed delivery records should check suppression, complaint, and bounce policy before any requeue action.',
+        'Provider traceability',
+        'Provider event IDs, SMTP log IDs, and operator decisions need to stay attached to each suppression.',
+        'Audit evidence',
+        'Compliance actions need immutable evidence for source, actor, timestamp, policy version, and downstream propagation.',
+        'compliance-policy-panel',
+        'compliance-policy-grid',
     ]
 
     for token in expected_tokens:
@@ -99,6 +116,13 @@ def test_built_esp_bundle_includes_compliance_triage_panel() -> None:
         'Preference center',
         'Suppression propagation',
         'Audit trail',
+        'Feedback Policy Contract',
+        'Suppression scope',
+        'Bounce disposition',
+        'Complaint disposition',
+        'Retry block',
+        'Provider traceability',
+        'Audit evidence',
         'Open Contacts',
     ]
 

@@ -9992,6 +9992,44 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
       tone: providerSuppressionCount ? 'good' : 'warn',
     },
   ];
+  const compliancePolicyContractItems = [
+    {
+      label: 'Suppression scope',
+      value: suppressions.length ? 'Active' : 'Gap',
+      detail: 'Suppression policy must define whether a block applies globally, by brand, by domain, or by campaign family.',
+      tone: suppressions.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Bounce disposition',
+      value: bounceCount ? 'Protected' : 'Gap',
+      detail: 'Hard bounces should become permanent suppressions while soft bounces need retry windows and escalation rules.',
+      tone: bounceCount ? 'good' : 'warn',
+    },
+    {
+      label: 'Complaint disposition',
+      value: complaintCount ? 'Risk' : 'Gap',
+      detail: 'Spam complaints must permanently suppress recipients and trigger reputation review before future sends.',
+      tone: 'warn',
+    },
+    {
+      label: 'Retry block',
+      value: failedCandidateCount ? 'Review' : 'Clear',
+      detail: 'Failed delivery records should check suppression, complaint, and bounce policy before any requeue action.',
+      tone: failedCandidateCount ? 'warn' : 'good',
+    },
+    {
+      label: 'Provider traceability',
+      value: providerSuppressionCount ? 'Linked' : 'Gap',
+      detail: 'Provider event IDs, SMTP log IDs, and operator decisions need to stay attached to each suppression.',
+      tone: providerSuppressionCount ? 'good' : 'warn',
+    },
+    {
+      label: 'Audit evidence',
+      value: 'Gap',
+      detail: 'Compliance actions need immutable evidence for source, actor, timestamp, policy version, and downstream propagation.',
+      tone: 'warn',
+    },
+  ];
   const complianceTriageAction = complaintCount
     ? {
       tone: 'warn',
@@ -10207,6 +10245,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               ))}
             </div>
           </section>
+          <section className="compliance-policy-panel full-span">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Feedback Policy Contract</h3>
+                <span className="muted">Suppression scope, bounce and complaint disposition, retry blocking, traceability, and audit evidence.</span>
+              </div>
+              <a href="#delivery">Open Delivery</a>
+            </div>
+            <div className="compliance-policy-grid">
+              {compliancePolicyContractItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </section>
           {failedWithEmail.length ? (
             <section className="panel table-panel full-span compliance-candidate-panel">
               <div className="panel-head">
@@ -10359,6 +10415,24 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
             </div>
             <div className="compliance-foundation-grid">
               {complianceFoundationItems.map((item) => (
+                <article className={item.tone} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div className="compliance-policy-panel">
+            <div className="panel-head compact-head">
+              <div>
+                <h3>Feedback Policy Contract</h3>
+                <span className="muted">Suppression scope, bounce and complaint disposition, retry blocking, traceability, and audit evidence.</span>
+              </div>
+              <a href="#delivery">Open Delivery</a>
+            </div>
+            <div className="compliance-policy-grid">
+              {compliancePolicyContractItems.map((item) => (
                 <article className={item.tone} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
