@@ -5543,7 +5543,8 @@ th {
   font-size: 14px;
 }
 
-.ai-agent-foundation-panel {
+.ai-agent-foundation-panel,
+.ai-agent-contract-panel {
   display: grid;
   gap: 10px;
   border: 1px solid #d8dee8;
@@ -5552,23 +5553,31 @@ th {
   padding: 12px;
 }
 
-.ai-agent-foundation-panel .compact-head {
+.ai-agent-foundation-panel .compact-head,
+.ai-agent-contract-panel .compact-head {
   margin: 0;
 }
 
-.ai-agent-foundation-panel h3 {
+.ai-agent-foundation-panel h3,
+.ai-agent-contract-panel h3 {
   margin: 0;
   color: #29405f;
   font-size: 15px;
 }
 
-.ai-agent-foundation-grid {
+.ai-agent-foundation-grid,
+.ai-agent-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.ai-agent-foundation-grid article {
+.ai-agent-contract-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-agent-foundation-grid article,
+.ai-agent-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -5579,18 +5588,22 @@ th {
   padding: 10px;
 }
 
-.ai-agent-foundation-grid article.warn {
+.ai-agent-foundation-grid article.warn,
+.ai-agent-contract-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.ai-agent-foundation-grid article.good {
+.ai-agent-foundation-grid article.good,
+.ai-agent-contract-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
 .ai-agent-foundation-grid span,
-.ai-agent-foundation-grid small {
+.ai-agent-foundation-grid small,
+.ai-agent-contract-grid span,
+.ai-agent-contract-grid small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5598,7 +5611,8 @@ th {
   text-transform: uppercase;
 }
 
-.ai-agent-foundation-grid strong {
+.ai-agent-foundation-grid strong,
+.ai-agent-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7132,6 +7146,7 @@ th {
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
+  .ai-agent-contract-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
   .delivery-operations-grid,
@@ -7225,6 +7240,7 @@ th {
   .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
+  .ai-agent-contract-grid,
   .delivery-triage-grid,
   .delivery-foundation-grid,
   .delivery-operations-grid,

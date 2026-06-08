@@ -13095,6 +13095,44 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
       tone: 'warn',
     },
   ];
+  const aiWorkflowAgentContractItems = [
+    {
+      label: 'Memory contract',
+      value: 'Gap',
+      detail: 'Agents need durable workspace memory for decisions, rejected options, user preferences, and resumed tasks.',
+      tone: 'warn',
+    },
+    {
+      label: 'Tool contract',
+      value: 'Gap',
+      detail: 'Each agent tool needs scoped permissions, approval thresholds, execution logs, and rollback guidance.',
+      tone: 'warn',
+    },
+    {
+      label: 'Handoff contract',
+      value: hasWorkflowRecommendations ? 'Partial' : 'Gap',
+      detail: hasWorkflowRecommendations ? 'Recommendations are visible, but ownership and due-next state still need persistence.' : 'Agent handoffs need owner, status, next action, and target workspace stored durably.',
+      tone: 'warn',
+    },
+    {
+      label: 'Evidence contract',
+      value: workflowSummary.length ? 'Partial' : 'Gap',
+      detail: workflowSummary.length ? 'Workflow review produces summary evidence, but source rows and citations still need retention.' : 'Agent decisions need source context, report rows, prompts, model, and output snapshots.',
+      tone: 'warn',
+    },
+    {
+      label: 'Evaluation contract',
+      value: hasWorkflowRecommendations ? 'Partial' : 'Gap',
+      detail: 'Agent runs need scoring, regression checks, operator feedback, and safety review before automation.',
+      tone: 'warn',
+    },
+    {
+      label: 'Presence contract',
+      value: workflowCoverageAreas.length ? formatInt(workflowCoverageAreas.length) : 'Gap',
+      detail: 'Agents should remain available across templates, campaigns, audiences, delivery, compliance, analytics, journeys, and settings.',
+      tone: workflowCoverageAreas.length >= 5 ? 'good' : 'warn',
+    },
+  ];
 
   useEffect(() => {
     const storedBrief = window.localStorage.getItem(AI_ACTION_BRIEF_STORAGE_KEY);
@@ -13361,6 +13399,24 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
         </div>
         <div className="ai-agent-foundation-grid">
           {aiAgentFoundationItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="ai-agent-contract-panel full-span">
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Workflow Agent Contract</h3>
+            <span className="muted">Durable memory, tool permissions, handoff state, evidence, evaluation, and product-wide presence.</span>
+          </div>
+          <button className="link-button" type="button" onClick={reviewWorkflow} disabled={busy}>Review Workflow</button>
+        </div>
+        <div className="ai-agent-contract-grid">
+          {aiWorkflowAgentContractItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
