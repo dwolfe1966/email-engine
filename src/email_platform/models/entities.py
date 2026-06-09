@@ -113,6 +113,20 @@ class EmailSendStatus(StrEnum):
     skipped = 'skipped'
 
 
+class DeliveryRouteType(StrEnum):
+    console = 'console'
+    sendgrid = 'sendgrid'
+    smtp_relay = 'smtp_relay'
+    managed_smtp = 'managed_smtp'
+    ses = 'ses'
+
+
+class DeliveryRouteStatus(StrEnum):
+    active = 'active'
+    paused = 'paused'
+    disabled = 'disabled'
+
+
 class SuppressionReason(StrEnum):
     hard_bounce = 'hard_bounce'
     spam_complaint = 'spam_complaint'
@@ -492,6 +506,26 @@ class DeliveryAttempt(Base):
     campaign: Mapped[Campaign | None] = relationship()
     send_job: Mapped[CampaignSendJob | None] = relationship()
     send_record: Mapped[EmailSendRecord] = relationship()
+
+
+class DeliveryRoute(Base):
+    __tablename__ = 'delivery_routes'
+    __table_args__ = (UniqueConstraint('name', name='uq_delivery_routes_name'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    route_type: Mapped[DeliveryRouteType] = mapped_column(Enum(DeliveryRouteType), index=True)
+    status: Mapped[DeliveryRouteStatus] = mapped_column(
+        Enum(DeliveryRouteStatus), default=DeliveryRouteStatus.active, index=True
+    )
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    config: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    secret_ref: Mapped[str | None] = mapped_column(String(255))
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
 
 
 class Suppression(Base):

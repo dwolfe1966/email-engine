@@ -22,6 +22,9 @@ from email_platform.models.entities import (
     DataSource,
     DataSourceMapping,
     DeliveryAttempt,
+    DeliveryRoute,
+    DeliveryRouteStatus,
+    DeliveryRouteType,
     EmailEvent,
     EmailEventType,
     EmailSendRecord,
@@ -101,6 +104,9 @@ from email_platform.schemas.contracts import (
     DataSourceValidationRead,
     DeleteResponse,
     DeliveryAttemptRead,
+    DeliveryRouteCreate,
+    DeliveryRouteRead,
+    DeliveryRouteUpdate,
     DeliveryRunRead,
     DomainDeliverabilityRead,
     EmailSendRecordRead,
@@ -161,6 +167,7 @@ from email_platform.services.campaigns import CampaignService
 from email_platform.services.contacts import ContactService
 from email_platform.services.data_sources import DataSourceService
 from email_platform.services.delivery import DeliveryService
+from email_platform.services.delivery_routes import DeliveryRouteService
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.journeys import JourneyService
@@ -2818,6 +2825,60 @@ def list_delivery_attempts(
         'offset': offset,
         'total': int(db.scalar(count_statement) or 0),
     }
+
+
+@router.get('/delivery-routes/list', response_model=ListResponse[DeliveryRouteRead])
+def list_delivery_routes(
+    db: DbSession,
+    route_type: DeliveryRouteType | None = None,
+    status: DeliveryRouteStatus | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = DeliveryRouteService(db)
+    return {
+        'items': service.list_items(
+            route_type=route_type,
+            status=status,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count(route_type=route_type, status=status),
+    }
+
+
+@router.post('/delivery-routes', response_model=DeliveryRouteRead)
+def create_delivery_route(payload: DeliveryRouteCreate, db: DbSession) -> DeliveryRoute:
+    return DeliveryRouteService(db).create(payload)
+
+
+@router.get('/delivery-routes/{route_id}', response_model=DeliveryRouteRead)
+def get_delivery_route(route_id: UUID, db: DbSession) -> DeliveryRoute:
+    route = DeliveryRouteService(db).get(route_id)
+    if not route:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return route
+
+
+@router.patch('/delivery-routes/{route_id}', response_model=DeliveryRouteRead)
+def update_delivery_route(
+    route_id: UUID,
+    payload: DeliveryRouteUpdate,
+    db: DbSession,
+) -> DeliveryRoute:
+    route = DeliveryRouteService(db).update(route_id, payload)
+    if not route:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return route
+
+
+@router.delete('/delivery-routes/{route_id}', response_model=DeleteResponse)
+def delete_delivery_route(route_id: UUID, db: DbSession) -> DeleteResponse:
+    if not DeliveryRouteService(db).delete(route_id):
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return DeleteResponse(id=route_id)
 
 
 @router.post('/email-send-records/{send_record_id}/requeue', response_model=EmailSendRecordRead)

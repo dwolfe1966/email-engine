@@ -10,6 +10,8 @@ from email_platform.models.entities import (
     DataSourceImportStatus,
     DataSourceStatus,
     DataSourceType,
+    DeliveryRouteStatus,
+    DeliveryRouteType,
     EmailEventType,
     EmailSendStatus,
     JourneyEnrollmentStatus,
@@ -639,6 +641,32 @@ class DeliveryAttemptRead(BaseModel):
     metadata_json: JsonObject
     started_at: datetime
     completed_at: datetime | None = None
+
+    model_config = {'from_attributes': True}
+
+
+class DeliveryRouteCreate(BaseModel):
+    name: str
+    route_type: DeliveryRouteType
+    priority: int = 100
+    config: JsonObject = Field(default_factory=dict)
+    secret_ref: str | None = None
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class DeliveryRouteUpdate(BaseModel):
+    name: str | None = None
+    route_type: DeliveryRouteType | None = None
+    status: DeliveryRouteStatus | None = None
+    priority: int | None = None
+    config: JsonObject | None = None
+    secret_ref: str | None = None
+    metadata_json: JsonObject | None = None
+
+
+class DeliveryRouteRead(DeliveryRouteCreate):
+    id: UUID
+    status: DeliveryRouteStatus
 
     model_config = {'from_attributes': True}
 

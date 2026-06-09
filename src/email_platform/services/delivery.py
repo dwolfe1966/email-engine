@@ -15,6 +15,7 @@ from email_platform.models.entities import (
 from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import DeliveryRunRead, EventCreate
 from email_platform.services.contacts import ContactService
+from email_platform.services.delivery_routes import DeliveryRouteService
 from email_platform.services.events import EventService
 from email_platform.services.templates import TemplateService
 from email_platform.services.tracking import TrackingService
@@ -25,6 +26,7 @@ class DeliveryService:
         self.db = db
         self.settings = settings
         self.provider = build_email_provider(settings)
+        self.route_service = DeliveryRouteService(db)
         self.event_service = EventService(db)
         self.template_service = TemplateService(db)
 
@@ -153,22 +155,28 @@ class DeliveryService:
         return records
 
     def _start_attempt(self, record: EmailSendRecord) -> DeliveryAttempt:
-        route_type = self.settings.email_provider
+        selected_route = self.route_service.select_for_record(record, self.settings)
+        metadata_json: dict[str, object] = {
+            'email_provider': self.settings.email_provider,
+            'route_source': selected_route.source,
+            'to_domain': record.to_email.rsplit('@', 1)[-1].lower()
+            if '@' in record.to_email
+            else None,
+        }
+        if selected_route.route_id:
+            metadata_json['delivery_route_id'] = str(selected_route.route_id)
+        if selected_route.name:
+            metadata_json['delivery_route_name'] = selected_route.name
         attempt = DeliveryAttempt(
             send_record_id=record.id,
             send_job_id=record.send_job_id,
             campaign_id=record.campaign_id,
             attempt_number=record.attempt_count,
             provider=record.provider,
-            route_type=route_type,
-            route_key=route_type,
+            route_type=selected_route.route_type,
+            route_key=selected_route.route_key,
             status='submitting',
-            metadata_json={
-                'email_provider': self.settings.email_provider,
-                'to_domain': record.to_email.rsplit('@', 1)[-1].lower()
-                if '@' in record.to_email
-                else None,
-            },
+            metadata_json=metadata_json,
             started_at=datetime.utcnow(),
         )
         self.db.add(attempt)

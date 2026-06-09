@@ -31,8 +31,9 @@ Already shipped:
 Important gaps:
 
 - Send statuses are too coarse for a first-party queue and SMTP lifecycle.
-- Delivery attempts are not stored as first-class records.
-- Queue rows do not capture routing decisions such as provider, domain, IP pool, or MTA route.
+- Delivery attempts are now stored as first-class records, but the attempt model still needs deeper
+  provider/MTA response normalization.
+- Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
 - Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
 - No dead-letter state, pause/resume controls, domain throttles, warmup, or reputation signals.
@@ -113,15 +114,7 @@ First schema slice:
    - `started_at`
    - `completed_at`
    - `metadata_json`
-2. Add richer routing fields to `email_send_records`.
-   - `route_type`
-   - `route_key`
-   - `domain`
-   - `priority`
-   - `locked_at`
-   - `lock_token`
-   - `dead_letter_reason`
-3. Add `delivery_routes`.
+2. Add `delivery_routes`.
    - `id`
    - `name`
    - `route_type`: `managed_smtp`, `sendgrid`, `ses`, `smtp_relay`, `console`
@@ -130,6 +123,14 @@ First schema slice:
    - `config`
    - `secret_ref`
    - `metadata_json`
+3. Add richer routing fields to `email_send_records`.
+   - `route_type`
+   - `route_key`
+   - `domain`
+   - `priority`
+   - `locked_at`
+   - `lock_token`
+   - `dead_letter_reason`
 4. Add `domain_delivery_policies`.
    - `domain`
    - `route_id`
@@ -202,16 +203,31 @@ and emergency pause controls.
 
 Recommended first code slice:
 
-1. Add the architecture doc and handoff note. **Done in this planning pass.**
-2. Add tests that document the richer lifecycle contract.
-3. Add `DeliveryAttempt` model and read schema.
+1. Add the architecture doc and handoff note. **Done.**
+2. Add tests that document the richer lifecycle contract. **Done.**
+3. Add `DeliveryAttempt` model and read schema. **Done.**
 4. Teach `DeliveryService.process_queued` to persist an attempt for every provider submission.
-5. Add route/context fields to attempt metadata without changing the public send API yet.
+   **Done.**
+5. Add route/context fields to attempt metadata without changing the public send API yet. **Done.**
 6. Add `/api/v1/email-send-records/{id}/attempts` or a filtered `/api/v1/delivery-attempts/list`
-   endpoint.
+   endpoint. **Done.**
 7. Keep current providers working through the existing `EmailProvider` while preparing the deeper
-   `DeliveryAdapter` interface.
+   `DeliveryAdapter` interface. **Done.**
 8. Add tests for successful submission, retry scheduling, terminal failure, and attempt persistence.
+   **Done.**
+
+## Second Implementation Slice
+
+Recommended second code slice:
+
+1. Add `DeliveryRoute` model and read/write schemas. **Done.**
+2. Add `/api/v1/delivery-routes`, `/api/v1/delivery-routes/list`, and
+   `/api/v1/delivery-routes/{route_id}` operator APIs. **Done.**
+3. Add route selection service that prefers an active route matching the configured provider and
+   falls back to `EMAIL_PROVIDER` when no route exists. **Done.**
+4. Record selected route type/key/source on delivery attempts. **Done.**
+5. Keep per-route credentials/provider execution for a later adapter slice, so existing deployments
+   remain compatible. **Done.**
 
 This slice gives operators and future SMTP work a durable attempt history without requiring an MTA
 deployment decision up front.

@@ -20,6 +20,41 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Delivery routes foundation
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added first-class delivery routes as the next managed SMTP/send-engine foundation slice.
+- Delivery routes model the future provider/MTA route layer with route type, status, priority,
+  config, secret reference, and metadata.
+- Added route selection for delivery processing. For now it prefers an active route matching the
+  configured `EMAIL_PROVIDER` and falls back to settings when no route exists.
+- Delivery attempts now record selected route type/key/source metadata.
+
+### Why
+
+This creates the control-plane table needed before managed SMTP, domain policies, fallback routes,
+warmup, and provider/MTA failover can become real operator workflows.
+
+### What needs to happen next
+
+- Add domain delivery policies for per-domain route selection, throttles, warmup stages, and pause
+  windows.
+- Then introduce the deeper `DeliveryAdapter` boundary so route-selected providers can execute from
+  route config instead of only global settings.
+
+### Compatibility notes
+
+- Existing delivery behavior remains compatible because route selection falls back to
+  `EMAIL_PROVIDER`.
+- Adds Alembic revision `0017_delivery_routes`.
+- Adds operator APIs under `/api/v1/delivery-routes`.
+
+---
+
 ## 2026-06-09 — Explicit managed SMTP direction
 
 **Pushed by:** Codex

@@ -17,11 +17,23 @@ class FakeDb:
         self.flush_count += 1
 
 
+class FakeRouteService:
+    def select_for_record(self, record, settings):
+        return SimpleNamespace(
+            route_type=settings.email_provider,
+            route_key=settings.email_provider,
+            route_id=None,
+            name=None,
+            source='settings',
+        )
+
+
 def test_delivery_service_starts_attempt_with_route_context() -> None:
     db = FakeDb()
     service = DeliveryService.__new__(DeliveryService)
     service.db = db
     service.settings = SimpleNamespace(email_provider='console')
+    service.route_service = FakeRouteService()
     record = EmailSendRecord(
         id=uuid4(),
         send_job_id=uuid4(),
@@ -43,6 +55,7 @@ def test_delivery_service_starts_attempt_with_route_context() -> None:
     assert attempt.route_type == 'console'
     assert attempt.route_key == 'console'
     assert attempt.status == 'submitting'
+    assert attempt.metadata_json['route_source'] == 'settings'
     assert attempt.metadata_json['to_domain'] == 'example.com'
 
 
