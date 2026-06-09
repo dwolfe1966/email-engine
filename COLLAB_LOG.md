@@ -20,6 +20,42 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Domain queue-control enforcement
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added explicit pause/resume shortcut APIs for delivery routes and domain delivery policies.
+- Delivery queue claiming now consults domain delivery policies before moving records from
+  `queued` to `sending`.
+- Paused domain policies, `max_per_minute`, and `max_concurrent` limits prevent records from being
+  claimed while leaving them queued for later processing.
+- Claiming accounts for records reserved in the current batch so one process run does not exceed a
+  low per-domain cap.
+
+### Why
+
+Domain policies are now active queue-control inputs, not only planning metadata. This is required
+before managed SMTP warmup, domain throttling, route failover, and emergency pause workflows can be
+trusted operationally.
+
+### What needs to happen next
+
+- Add persisted throttle/skip audit events so Delivery Manager can explain why queued records were
+  not claimed.
+- Add dead-letter states and terminal queue controls.
+- Continue expanding send lifecycle states before the deeper `DeliveryAdapter` implementation.
+
+### Compatibility notes
+
+- No migration in this slice; it uses the existing delivery route and domain policy tables.
+- Existing records remain queued when blocked by policy controls.
+- Existing delivery behavior remains unchanged for domains without a policy.
+
+---
+
 ## 2026-06-09 — Domain delivery policy foundation
 
 **Pushed by:** Codex

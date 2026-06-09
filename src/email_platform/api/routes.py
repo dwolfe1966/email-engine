@@ -1,5 +1,6 @@
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from html import escape
 from typing import Annotated, cast
 from urllib.parse import quote, urlparse
@@ -2885,6 +2886,22 @@ def delete_delivery_route(route_id: UUID, db: DbSession) -> DeleteResponse:
     return DeleteResponse(id=route_id)
 
 
+@router.post('/delivery-routes/{route_id}/pause', response_model=DeliveryRouteRead)
+def pause_delivery_route(route_id: UUID, db: DbSession) -> DeliveryRoute:
+    route = DeliveryRouteService(db).pause_route(route_id)
+    if not route:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return route
+
+
+@router.post('/delivery-routes/{route_id}/resume', response_model=DeliveryRouteRead)
+def resume_delivery_route(route_id: UUID, db: DbSession) -> DeliveryRoute:
+    route = DeliveryRouteService(db).resume_route(route_id)
+    if not route:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return route
+
+
 @router.get(
     '/domain-delivery-policies/list',
     response_model=ListResponse[DomainDeliveryPolicyRead],
@@ -2943,6 +2960,29 @@ def delete_domain_delivery_policy(policy_id: UUID, db: DbSession) -> DeleteRespo
     if not DeliveryRouteService(db).delete_domain_policy(policy_id):
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return DeleteResponse(id=policy_id)
+
+
+@router.post('/domain-delivery-policies/{policy_id}/pause', response_model=DomainDeliveryPolicyRead)
+def pause_domain_delivery_policy(
+    policy_id: UUID,
+    db: DbSession,
+    paused_until: datetime | None = None,
+) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).pause_domain_policy(policy_id, paused_until=paused_until)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/resume',
+    response_model=DomainDeliveryPolicyRead,
+)
+def resume_domain_delivery_policy(policy_id: UUID, db: DbSession) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).resume_domain_policy(policy_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
 
 
 @router.post('/email-send-records/{send_record_id}/requeue', response_model=EmailSendRecordRead)

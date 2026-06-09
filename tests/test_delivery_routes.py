@@ -130,3 +130,73 @@ def test_delivery_route_selector_ignores_paused_domain_policy() -> None:
     assert selected.route_type == 'console'
     assert selected.route_key == 'console'
     assert selected.source == 'settings'
+
+
+def test_delivery_claim_decision_blocks_paused_domain_policy() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=datetime.utcnow() + timedelta(minutes=10),
+        max_per_minute=None,
+        max_concurrent=None,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy]))
+
+    decision = service.claim_decision(SimpleNamespace(to_email='recipient@gmail.com'))
+
+    assert not decision.can_claim
+    assert decision.reason == 'domain_policy_paused'
+    assert decision.domain == 'gmail.com'
+    assert decision.domain_policy_id == policy.id
+
+
+def test_delivery_claim_decision_blocks_per_minute_limit() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=None,
+        max_per_minute=2,
+        max_concurrent=None,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, 2]))
+
+    decision = service.claim_decision(SimpleNamespace(to_email='recipient@gmail.com'))
+
+    assert not decision.can_claim
+    assert decision.reason == 'domain_policy_max_per_minute'
+
+
+def test_delivery_claim_decision_accounts_for_reserved_batch_count() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=None,
+        max_per_minute=2,
+        max_concurrent=None,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, 1]))
+
+    decision = service.claim_decision(
+        SimpleNamespace(to_email='recipient@gmail.com'),
+        reserved_count=1,
+    )
+
+    assert not decision.can_claim
+    assert decision.reason == 'domain_policy_max_per_minute'
+
+
+def test_delivery_claim_decision_allows_under_limits() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=None,
+        max_per_minute=3,
+        max_concurrent=2,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, 1, 0]))
+
+    decision = service.claim_decision(SimpleNamespace(to_email='recipient@gmail.com'))
+
+    assert decision.can_claim
+    assert decision.domain == 'gmail.com'
+    assert decision.domain_policy_id == policy.id

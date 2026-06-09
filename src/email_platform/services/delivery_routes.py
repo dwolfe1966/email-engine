@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -10,6 +10,7 @@ from email_platform.models.entities import (
     DeliveryRoute,
     DeliveryRouteStatus,
     DeliveryRouteType,
+    DeliveryAttempt,
     DomainDeliveryPolicy,
     EmailSendRecord,
 )
@@ -33,6 +34,14 @@ class SelectedDeliveryRoute:
     max_per_minute: int | None = None
     max_concurrent: int | None = None
     source: str = 'fallback'
+
+
+@dataclass(frozen=True)
+class DeliveryClaimDecision:
+    can_claim: bool
+    reason: str | None = None
+    domain: str | None = None
+    domain_policy_id: UUID | None = None
 
 
 class DeliveryRouteService:
@@ -84,6 +93,24 @@ class DeliveryRouteService:
             return None
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(route, key, value)
+        self.db.commit()
+        self.db.refresh(route)
+        return route
+
+    def pause_route(self, route_id: UUID) -> DeliveryRoute | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        route.status = DeliveryRouteStatus.paused
+        self.db.commit()
+        self.db.refresh(route)
+        return route
+
+    def resume_route(self, route_id: UUID) -> DeliveryRoute | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        route.status = DeliveryRouteStatus.active
         self.db.commit()
         self.db.refresh(route)
         return route
@@ -160,6 +187,28 @@ class DeliveryRouteService:
         self.db.refresh(policy)
         return policy
 
+    def pause_domain_policy(
+        self,
+        policy_id: UUID,
+        paused_until: datetime | None = None,
+    ) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        policy.paused_until = paused_until or datetime.utcnow() + timedelta(hours=1)
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
+    def resume_domain_policy(self, policy_id: UUID) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        policy.paused_until = None
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
     def delete_domain_policy(self, policy_id: UUID) -> bool:
         policy = self.get_domain_policy(policy_id)
         if not policy:
@@ -219,12 +268,58 @@ class DeliveryRouteService:
             source='settings',
         )
 
-    def _active_domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
-        policy = self.db.scalar(
+    def claim_decision(
+        self,
+        record: EmailSendRecord,
+        reserved_count: int = 0,
+    ) -> DeliveryClaimDecision:
+        domain = self._domain_for_record(record)
+        if not domain:
+            return DeliveryClaimDecision(can_claim=True)
+
+        policy = self._domain_policy(domain)
+        if not policy:
+            return DeliveryClaimDecision(can_claim=True, domain=domain)
+        if policy.paused_until and policy.paused_until > datetime.utcnow():
+            return DeliveryClaimDecision(
+                can_claim=False,
+                reason='domain_policy_paused',
+                domain=domain,
+                domain_policy_id=policy.id,
+            )
+        if policy.max_per_minute is not None:
+            recent_count = self._recent_domain_attempt_count(domain, seconds=60)
+            if recent_count + reserved_count >= policy.max_per_minute:
+                return DeliveryClaimDecision(
+                    can_claim=False,
+                    reason='domain_policy_max_per_minute',
+                    domain=domain,
+                    domain_policy_id=policy.id,
+                )
+        if policy.max_concurrent is not None:
+            active_count = self._active_domain_attempt_count(domain)
+            if active_count + reserved_count >= policy.max_concurrent:
+                return DeliveryClaimDecision(
+                    can_claim=False,
+                    reason='domain_policy_max_concurrent',
+                    domain=domain,
+                    domain_policy_id=policy.id,
+                )
+        return DeliveryClaimDecision(
+            can_claim=True,
+            domain=domain,
+            domain_policy_id=policy.id,
+        )
+
+    def _domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
+        return self.db.scalar(
             select(DomainDeliveryPolicy)
             .where(DomainDeliveryPolicy.domain == domain)
             .limit(1)
         )
+
+    def _active_domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
+        policy = self._domain_policy(domain)
         if not policy:
             return None
         if policy.paused_until and policy.paused_until > datetime.utcnow():
@@ -243,3 +338,22 @@ class DeliveryRouteService:
         if '@' not in record.to_email:
             return None
         return record.to_email.rsplit('@', 1)[-1].lower()
+
+    def _recent_domain_attempt_count(self, domain: str, seconds: int) -> int:
+        cutoff = datetime.utcnow() - timedelta(seconds=seconds)
+        return self.db.scalar(
+            select(func.count())
+            .select_from(DeliveryAttempt)
+            .join(EmailSendRecord, DeliveryAttempt.send_record_id == EmailSendRecord.id)
+            .where(func.lower(EmailSendRecord.to_email).like(f'%@{domain}'))
+            .where(DeliveryAttempt.started_at >= cutoff)
+        ) or 0
+
+    def _active_domain_attempt_count(self, domain: str) -> int:
+        return self.db.scalar(
+            select(func.count())
+            .select_from(DeliveryAttempt)
+            .join(EmailSendRecord, DeliveryAttempt.send_record_id == EmailSendRecord.id)
+            .where(func.lower(EmailSendRecord.to_email).like(f'%@{domain}'))
+            .where(DeliveryAttempt.status == 'submitting')
+        ) or 0

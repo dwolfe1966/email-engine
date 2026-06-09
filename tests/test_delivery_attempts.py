@@ -9,12 +9,16 @@ class FakeDb:
     def __init__(self) -> None:
         self.added = []
         self.flush_count = 0
+        self.records = []
 
     def add(self, item) -> None:
         self.added.append(item)
 
     def flush(self) -> None:
         self.flush_count += 1
+
+    def scalars(self, statement):
+        return SimpleNamespace(all=lambda: self.records)
 
 
 class FakeRouteService:
@@ -31,6 +35,48 @@ class FakeRouteService:
             max_concurrent=None,
             source='settings',
         )
+
+
+class SelectiveRouteService:
+    def __init__(self, blocked_domain: str) -> None:
+        self.blocked_domain = blocked_domain
+
+    def claim_decision(self, record, reserved_count=0):
+        domain = record.to_email.rsplit('@', 1)[-1].lower()
+        return SimpleNamespace(can_claim=domain != self.blocked_domain, domain=domain)
+
+
+def test_delivery_service_claim_records_skips_throttled_domains() -> None:
+    db = FakeDb()
+    blocked = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.queued,
+        to_email='blocked@gmail.com',
+        variables={},
+    )
+    allowed = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.queued,
+        to_email='allowed@example.com',
+        variables={},
+    )
+    db.records = [blocked, allowed]
+    service = DeliveryService.__new__(DeliveryService)
+    service.db = db
+    service.route_service = SelectiveRouteService('gmail.com')
+
+    claimed = service._claim_records(limit=10)
+
+    assert claimed == [allowed]
+    assert blocked.status == EmailSendStatus.queued
+    assert allowed.status == EmailSendStatus.sending
+    assert db.flush_count == 1
 
 
 def test_delivery_service_starts_attempt_with_route_context() -> None:

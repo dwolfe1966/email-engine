@@ -142,13 +142,27 @@ class DeliveryService:
                 | (EmailSendRecord.next_attempt_at <= datetime.utcnow())
             )
             .order_by(EmailSendRecord.created_at.asc())
-            .limit(limit)
+            .limit(max(limit * 5, limit))
         )
         if campaign_id:
             statement = statement.where(EmailSendRecord.campaign_id == campaign_id)
         if send_job_id:
             statement = statement.where(EmailSendRecord.send_job_id == send_job_id)
-        records = list(self.db.scalars(statement).all())
+        candidates = list(self.db.scalars(statement).all())
+        records: list[EmailSendRecord] = []
+        reserved_by_domain: dict[str, int] = {}
+        for record in candidates:
+            domain = record.to_email.rsplit('@', 1)[-1].lower() if '@' in record.to_email else ''
+            reserved_count = reserved_by_domain.get(domain, 0)
+            decision = self.route_service.claim_decision(record, reserved_count=reserved_count)
+            if not decision.can_claim:
+                continue
+            records.append(record)
+            if decision.domain:
+                reserved_by_domain[decision.domain] = reserved_by_domain.get(decision.domain, 0) + 1
+            if len(records) >= limit:
+                break
+
         for record in records:
             record.status = EmailSendStatus.sending
         self.db.flush()

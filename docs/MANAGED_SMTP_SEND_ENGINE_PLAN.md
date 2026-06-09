@@ -36,9 +36,9 @@ Important gaps:
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
 - Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
-- Domain policy records now capture route, throttle hints, warmup stage, and pause windows, but
-  active enforcement is still pending.
-- No dead-letter state, pause/resume controls, enforced throttles, or reputation signals.
+- Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
+  queue claiming enforces pause/per-minute/concurrent controls.
+- No dead-letter state, persisted throttle audit events, or reputation signals.
 - No owned-MTA deployment plan or operational runbook.
 
 ## Target Architecture
@@ -245,10 +245,22 @@ Recommended third code slice:
 4. Record policy ID, warmup stage, and throttle hints on delivery attempts. **Done.**
 5. Keep throttle enforcement for a later queue-control slice. **Done.**
 
+## Fourth Implementation Slice
+
+Recommended fourth code slice:
+
+1. Add explicit route pause/resume shortcut APIs. **Done.**
+2. Add explicit domain policy pause/resume shortcut APIs. **Done.**
+3. Enforce paused domain policies during queue claiming. **Done.**
+4. Enforce `max_per_minute` during queue claiming. **Done.**
+5. Enforce `max_concurrent` during queue claiming. **Done.**
+6. Keep skipped records queued so they can be claimed after pause/throttle windows clear. **Done.**
+
 ## Follow-On Slices
 
-1. Add route pause/resume shortcuts and explicit policy pause/resume controls.
-2. Enforce domain policy throttles in queue claiming/processing.
+1. Add persisted throttle/skip audit events so operators can see why queued records were not
+   claimed.
+2. Add dead-letter state and explicit terminal queue controls.
 3. Expand send statuses and transition logic.
 4. Normalize SendGrid webhooks through a provider-neutral feedback service.
 5. Add managed-SMTP feedback ingestion contract.
