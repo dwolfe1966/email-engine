@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+import hashlib
+import hmac
+
 from sendgrid.helpers.eventwebhook import EventWebhook
 
 from email_platform.core.settings import Settings
@@ -33,3 +37,43 @@ class SendGridWebhookVerifier:
         )
         if not is_valid:
             raise WebhookSignatureError('Invalid SendGrid webhook signature')
+
+
+class ManagedSmtpFeedbackVerifier:
+    signature_header = 'X-Email-Engine-Signature'
+    timestamp_header = 'X-Email-Engine-Timestamp'
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    def verify(self, payload: bytes, signature: str | None, timestamp: str | None) -> None:
+        secret = self.settings.managed_smtp_feedback_secret
+        if not secret:
+            if self.settings.managed_smtp_feedback_require_signature:
+                raise WebhookSignatureError('Managed SMTP feedback secret is not configured')
+            return
+        if not signature or not timestamp:
+            raise WebhookSignatureError('Missing managed SMTP feedback signature headers')
+
+        timestamp_value = self._timestamp_value(timestamp)
+        now = int(datetime.now(UTC).timestamp())
+        tolerance = self.settings.managed_smtp_feedback_signature_tolerance_seconds
+        if tolerance > 0 and abs(now - timestamp_value) > tolerance:
+            raise WebhookSignatureError(
+                'Managed SMTP feedback signature timestamp is outside tolerance'
+            )
+
+        signed_payload = timestamp.encode('utf-8') + b'.' + payload
+        expected = hmac.new(
+            secret.encode('utf-8'),
+            signed_payload,
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            raise WebhookSignatureError('Invalid managed SMTP feedback signature')
+
+    def _timestamp_value(self, timestamp: str) -> int:
+        try:
+            return int(timestamp)
+        except ValueError as exc:
+            raise WebhookSignatureError('Invalid managed SMTP feedback timestamp') from exc

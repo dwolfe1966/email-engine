@@ -20,6 +20,42 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP feedback signature verification
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `MANAGED_SMTP_FEEDBACK_SECRET`,
+  `MANAGED_SMTP_FEEDBACK_REQUIRE_SIGNATURE`, and
+  `MANAGED_SMTP_FEEDBACK_SIGNATURE_TOLERANCE_SECONDS` settings.
+- Added HMAC-SHA256 verification for `/api/v1/delivery/managed-smtp/feedback`.
+- Managed-SMTP feedback callers must sign `{timestamp}.{raw_body}` and send
+  `X-Email-Engine-Timestamp` plus `X-Email-Engine-Signature`.
+- The managed-SMTP feedback route is public at the GUI-auth middleware layer but rejects unsigned
+  requests by default until a secret is configured.
+- System diagnostics now reports `managed_smtp_feedback_configured`.
+
+### Why
+
+The owned-MTA feedback endpoint needs to be callable by external MTA/worker infrastructure without
+operator cookies, while still rejecting unauthenticated event injection.
+
+### What needs to happen next
+
+- Choose the MTA implementation and build a staging deployment that uses the signed feedback
+  contract.
+- Add DKIM/SPF/DMARC and bounce-domain onboarding around the selected MTA path.
+
+### Compatibility notes
+
+- SendGrid webhook verification is unchanged.
+- Managed-SMTP feedback remains closed by default because
+  `MANAGED_SMTP_FEEDBACK_REQUIRE_SIGNATURE=true` and no default secret is configured.
+
+---
+
 ## 2026-06-09 — Managed SMTP feedback contract
 
 **Pushed by:** Codex

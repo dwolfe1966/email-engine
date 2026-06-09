@@ -38,9 +38,9 @@ Important gaps:
   provider/MTA response normalization.
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
-- Bounce and complaint persistence now uses a provider-neutral feedback service, and a protected
+- Bounce and complaint persistence now uses a provider-neutral feedback service, and a signed
   managed-SMTP feedback API accepts normalized DSN, complaint, unsubscribe, delivery, and deferral
-  inputs. Signature/auth hardening for an external MTA handoff is still pending.
+  inputs.
 - Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
   queue claiming enforces pause/per-minute/concurrent controls.
 - Queue-control skips now persist audit rows in `delivery_attempts`, and send records can be moved
@@ -333,11 +333,22 @@ Recommended tenth code slice:
 4. Allow status-only feedback such as deferrals to update send-record lifecycle state without
    requiring an email event row. **Done.**
 
+## Eleventh Implementation Slice
+
+Recommended eleventh code slice:
+
+1. Add `MANAGED_SMTP_FEEDBACK_SECRET` and signature tolerance settings. **Done.**
+2. Add HMAC-SHA256 verification for `/api/v1/delivery/managed-smtp/feedback`. **Done.**
+3. Require `X-Email-Engine-Timestamp` and `X-Email-Engine-Signature` headers for managed-SMTP
+   feedback. **Done.**
+4. Make the managed-SMTP feedback route public at the GUI-auth middleware layer but closed by
+   default until the feedback secret is configured. **Done.**
+5. Surface `managed_smtp_feedback_configured` in system diagnostics. **Done.**
+
 ## Follow-On Slices
 
-1. Add managed-SMTP feedback authentication/signature verification.
-2. Choose MTA implementation and build a staging deployment.
-3. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-4. Add IP pool, warmup, throttle, and reputation dashboards.
-5. Add abuse/compliance controls and audit logging.
-6. Run low-volume controlled delivery tests before production sends.
+1. Choose MTA implementation and build a staging deployment.
+2. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+3. Add IP pool, warmup, throttle, and reputation dashboards.
+4. Add abuse/compliance controls and audit logging.
+5. Run low-volume controlled delivery tests before production sends.

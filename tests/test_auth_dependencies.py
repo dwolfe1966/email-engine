@@ -32,6 +32,7 @@ def test_operator_auth_path_classifier_keeps_public_delivery_routes_open() -> No
         '/api/auth/login',
         '/api/v1/tracking/open/token',
         '/api/v1/tracking/click/token',
+        '/api/v1/delivery/managed-smtp/feedback',
         '/api/v1/provider-webhooks/sendgrid',
         '/api/v1/unsubscribe/token',
     ]
@@ -39,7 +40,6 @@ def test_operator_auth_path_classifier_keeps_public_delivery_routes_open() -> No
         '/api/v1/templates',
         '/api/v1/campaigns/process-due',
         '/api/v1/email-send-records/abc/tracking-links',
-        '/api/v1/delivery/managed-smtp/feedback',
         '/api/v1/tests/send-email',
         '/api/v1/system/diagnostics',
     ]
@@ -63,6 +63,21 @@ def test_require_gui_auth_blocks_operator_api_but_not_public_api(monkeypatch) ->
 
     public = client.get('/api/v1/tracking/open/not-a-real-token')
     assert public.status_code != 401
+
+
+def test_managed_smtp_feedback_public_route_requires_signature_secret(monkeypatch) -> None:
+    monkeypatch.setattr(settings, 'require_gui_auth', True)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_secret', None)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_require_signature', True)
+    client = TestClient(app, follow_redirects=False)
+
+    response = client.post(
+        '/api/v1/delivery/managed-smtp/feedback',
+        json=[{'email': 'recipient@example.com', 'event': 'dsn_bounce'}],
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'Managed SMTP feedback secret is not configured'}
 
 
 def test_user_management_routes_always_require_operator_session(monkeypatch) -> None:

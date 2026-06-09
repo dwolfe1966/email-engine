@@ -184,7 +184,11 @@ from email_platform.services.suppressions import SuppressionService
 from email_platform.services.system import schema_status, system_diagnostics
 from email_platform.services.templates import TemplateService
 from email_platform.services.tracking import TrackingService
-from email_platform.services.webhook_security import SendGridWebhookVerifier, WebhookSignatureError
+from email_platform.services.webhook_security import (
+    ManagedSmtpFeedbackVerifier,
+    SendGridWebhookVerifier,
+    WebhookSignatureError,
+)
 
 router = APIRouter(prefix='/api/v1')
 DbSession = Annotated[Session, Depends(get_db)]
@@ -3245,10 +3249,26 @@ async def ingest_sendgrid_webhook(
 
 
 @router.post('/delivery/managed-smtp/feedback', response_model=ProviderWebhookIngestRead)
-def ingest_managed_smtp_feedback(
-    payload: list[ManagedSmtpFeedbackEvent],
+async def ingest_managed_smtp_feedback(
+    request: Request,
     db: DbSession,
+    settings: SettingsDep,
 ) -> ProviderWebhookIngestRead:
+    raw_body = await request.body()
+    try:
+        ManagedSmtpFeedbackVerifier(settings).verify(
+            raw_body,
+            request.headers.get(ManagedSmtpFeedbackVerifier.signature_header),
+            request.headers.get(ManagedSmtpFeedbackVerifier.timestamp_header),
+        )
+    except WebhookSignatureError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    try:
+        raw_events = json.loads(raw_body)
+        payload = [ManagedSmtpFeedbackEvent.model_validate(item) for item in raw_events]
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail='Invalid managed SMTP feedback payload') from exc
     return FeedbackIngestionService(db).ingest_managed_smtp(payload)
 
 
