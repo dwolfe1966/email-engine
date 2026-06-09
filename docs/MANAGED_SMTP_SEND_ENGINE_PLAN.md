@@ -183,7 +183,11 @@ First schema slice:
 
 ## Managed SMTP Deployment Track
 
-The MTA choice should happen after the internal delivery contract is stable. Candidate approaches:
+The first staging MTA choice is Postfix, deployed as a constrained outbound transport in
+`infra/managed-smtp/`. Email Engine owns send queue state, domain policy, signed feedback ingestion,
+suppression creation, and analytics rollups; Postfix owns SMTP transport.
+
+Candidate approaches considered:
 
 - Haraka: Node.js SMTP server, plugin-friendly, useful for custom policy and instrumentation.
 - ZoneMTA: queue/retry oriented outbound MTA, useful for bulk delivery and pool management.
@@ -203,9 +207,9 @@ Selection criteria:
 - Operational complexity.
 - Security posture and abuse controls.
 
-Initial deployment should use a constrained staging domain and low-volume seed list. Production use
-requires DNS, DKIM, SPF, DMARC, bounce domain, abuse monitoring, blocklist checks, warmup policy,
-and emergency pause controls.
+Initial deployment should use the checked-in Postfix staging scaffold, a constrained staging domain,
+and a low-volume seed list. Production use requires DNS, DKIM, SPF, DMARC, bounce domain, abuse
+monitoring, blocklist checks, warmup policy, and emergency pause controls.
 
 ## First Implementation Slice
 
@@ -345,10 +349,19 @@ Recommended eleventh code slice:
    default until the feedback secret is configured. **Done.**
 5. Surface `managed_smtp_feedback_configured` in system diagnostics. **Done.**
 
+## Twelfth Implementation Slice
+
+Recommended twelfth code slice:
+
+1. Select Postfix as the first managed-SMTP staging MTA. **Done.**
+2. Add a constrained Postfix container scaffold under `infra/managed-smtp/`. **Done.**
+3. Add `docker-compose.staging.yml` for local or VM-based MTA staging. **Done.**
+4. Add a signed managed-SMTP feedback smoke script. **Done.**
+5. Document the staging flow and Email Engine/MTA responsibility boundary. **Done.**
+
 ## Follow-On Slices
 
-1. Choose MTA implementation and build a staging deployment.
-2. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-3. Add IP pool, warmup, throttle, and reputation dashboards.
-4. Add abuse/compliance controls and audit logging.
-5. Run low-volume controlled delivery tests before production sends.
+1. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+2. Add IP pool, warmup, throttle, and reputation dashboards.
+3. Add abuse/compliance controls and audit logging.
+4. Run low-volume controlled delivery tests before production sends.

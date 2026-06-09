@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP Postfix staging scaffold
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Selected Postfix as the first owned-MTA staging implementation.
+- Added `infra/managed-smtp/` with a minimal Postfix container, `master.cf`, `main.cf`, and
+  `docker-compose.staging.yml`.
+- Added `scripts/managed_smtp_feedback_smoke.py` to post signed managed-SMTP feedback smoke events.
+- Documented the staging flow, Email Engine/MTA responsibility boundary, and required environment
+  variables.
+
+### Why
+
+The delivery lifecycle, feedback contract, and signature verification are now stable enough to give
+the owned-SMTP work a concrete staging target without prematurely building production
+deliverability automation.
+
+### What needs to happen next
+
+- Add DKIM/SPF/DMARC and bounce-domain onboarding around the selected Postfix path.
+- Add low-volume staging seed tests once a real staging domain and MTA host are available.
+
+### Compatibility notes
+
+- Existing SendGrid and SMTP adapter behavior is unchanged.
+- The Postfix scaffold is staging-only and should not be used for production sending without DNS,
+  DKIM, abuse, reputation, and warmup controls.
+
+---
+
 ## 2026-06-09 — Managed SMTP feedback signature verification
 
 **Pushed by:** Codex

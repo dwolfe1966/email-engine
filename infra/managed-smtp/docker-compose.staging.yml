@@ -1,0 +1,20 @@
+services:
+  managed-smtp-postfix:
+    build:
+      context: ./postfix
+    environment:
+      POSTFIX_MYHOSTNAME: ${POSTFIX_MYHOSTNAME:-smtp-staging.email-engine.local}
+      POSTFIX_MYDOMAIN: ${POSTFIX_MYDOMAIN:-email-engine.local}
+      POSTFIX_MYNETWORKS: ${POSTFIX_MYNETWORKS:-127.0.0.0/8 172.16.0.0/12}
+      POSTFIX_RELAYHOST: ${POSTFIX_RELAYHOST:-}
+    ports:
+      - "${POSTFIX_SMTP_PORT:-2525}:25"
+      - "${POSTFIX_SUBMISSION_PORT:-2587}:587"
+    volumes:
+      - managed-smtp-spool:/var/spool/postfix
+      - managed-smtp-log:/var/log
+    restart: unless-stopped
+
+volumes:
+  managed-smtp-spool:
+  managed-smtp-log:

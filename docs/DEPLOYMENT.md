@@ -34,6 +34,7 @@ Provider-specific:
 
 - SendGrid: `SENDGRID_API_KEY`
 - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`
+- Managed SMTP feedback: `MANAGED_SMTP_FEEDBACK_SECRET`
 
 ## Deploy With Docker
 
@@ -93,6 +94,31 @@ vercel deploy --prod
 ```
 
 Use Docker hosting instead if you need long-running workers, queue consumers, or provider webhook processing with strict runtime control.
+
+## Managed SMTP Staging
+
+The first owned-MTA staging path uses Postfix as a constrained outbound transport while Email
+Engine keeps queue state, route policy, feedback ingestion, suppressions, and analytics.
+
+Staging files live in `infra/managed-smtp/`:
+
+```bash
+docker compose -f infra/managed-smtp/docker-compose.staging.yml up --build -d
+```
+
+For Email Engine submission against the staging MTA:
+
+```text
+EMAIL_PROVIDER=smtp
+SMTP_HOST=<mta-host>
+SMTP_PORT=2587
+SMTP_USE_TLS=false
+MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret>
+```
+
+The MTA or feedback worker should post signed feedback to
+`/api/v1/delivery/managed-smtp/feedback`. See `infra/managed-smtp/README.md` and
+`scripts/managed_smtp_feedback_smoke.py`.
 
 ## Health Check
 
