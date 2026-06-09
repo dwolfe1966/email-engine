@@ -4392,9 +4392,11 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
           <button class="secondary" id="loadRecords">Load Records</button>
           <button class="secondary" id="requeueRecord">Requeue Record</button>
           <button class="secondary" id="skipRecord">Skip Record</button>
+          <button class="secondary" id="deadLetterRecord">Dead-letter Record</button>
           <button class="danger" id="deleteRecord">Delete Record</button>
           <button class="secondary" id="loadSuppressions">Suppressions</button>
           <button class="secondary" id="trackingLinks">Tracking Links</button>
+          <button class="secondary" id="loadAttemptAudit">Load Attempt Audit</button>
           <button class="secondary" id="recordOpen">Record Open</button>
           <button class="secondary" id="recordClick">Record Click</button>
           <button class="secondary" id="aiDeliveryReview">AI Review</button>
@@ -4596,6 +4598,24 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       await request(`/api/v1/email-send-records/${value("sendRecordId")}${action}`, { method });
     }
 
+    async function deadLetterRecord() {
+      if (!value("sendRecordId")) {
+        writeResult("Enter a send record ID first.", false);
+        return;
+      }
+      const reason = prompt("Reason for dead-lettering this record?", "Operator reviewed terminal queue issue") || "";
+      const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+      await request(`/api/v1/email-send-records/${value("sendRecordId")}/dead-letter${suffix}`, { method: "POST" });
+    }
+
+    async function loadAttemptAudit() {
+      const params = new URLSearchParams({ limit: value("limit") || "25", offset: "0" });
+      if (value("sendRecordId")) params.set("send_record_id", value("sendRecordId"));
+      else if (value("sendJobId")) params.set("send_job_id", value("sendJobId"));
+      else if (value("campaignId")) params.set("campaign_id", value("campaignId"));
+      await request(`/api/v1/delivery-attempts/list?${params.toString()}`);
+    }
+
     async function loadSuppressions() {
       await request(`/api/v1/suppressions?${limitQuery()}`);
     }
@@ -4654,6 +4674,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     document.getElementById("skipRecord").addEventListener("click", () => {
       recordAction("/skip").catch((error) => writeResult(error.message, false));
     });
+    document.getElementById("deadLetterRecord").addEventListener("click", () => {
+      deadLetterRecord().catch((error) => writeResult(error.message, false));
+    });
     document.getElementById("deleteRecord").addEventListener("click", () => {
       recordAction("", "DELETE").catch((error) => writeResult(error.message, false));
     });
@@ -4662,6 +4685,9 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     });
     document.getElementById("trackingLinks").addEventListener("click", () => {
       trackingLinks().catch((error) => writeResult(error.message, false));
+    });
+    document.getElementById("loadAttemptAudit").addEventListener("click", () => {
+      loadAttemptAudit().catch((error) => writeResult(error.message, false));
     });
     document.getElementById("recordOpen").addEventListener("click", () => {
       recordOpen().catch((error) => writeResult(error.message, false));

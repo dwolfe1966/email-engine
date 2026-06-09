@@ -279,14 +279,24 @@ Recommended sixth code slice:
 4. Keep requeue support for dead-lettered records that need recovery. **Done.**
 5. Include `dead_lettered_count` in send-job progress and count it as processed. **Done.**
 
+## Seventh Implementation Slice
+
+Recommended seventh code slice:
+
+1. Surface `claim_blocked` and `dead_lettered` delivery-attempt audit rows in Delivery Manager.
+   **Done.**
+2. Add Delivery Manager action for loading attempt audit rows filtered by selected record or job.
+   **Done.**
+3. Add Delivery Manager action for dead-lettering a selected record. **Done.**
+4. Add static `/admin/delivery` hooks for attempt audit loading and dead-lettering. **Done.**
+
 ## Follow-On Slices
 
-1. Add Delivery Manager UI surfacing for claim-blocked and dead-letter audit rows.
-2. Expand send statuses and transition logic.
-3. Normalize SendGrid webhooks through a provider-neutral feedback service.
-4. Add managed-SMTP feedback ingestion contract.
-5. Choose MTA implementation and build a staging deployment.
-6. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-7. Add IP pool, warmup, throttle, and reputation dashboards.
-8. Add abuse/compliance controls and audit logging.
+1. Expand send statuses and transition logic.
+2. Normalize SendGrid webhooks through a provider-neutral feedback service.
+3. Add managed-SMTP feedback ingestion contract.
+4. Choose MTA implementation and build a staging deployment.
+5. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+6. Add IP pool, warmup, throttle, and reputation dashboards.
+7. Add abuse/compliance controls and audit logging.
 10. Run low-volume controlled delivery tests before production sends.

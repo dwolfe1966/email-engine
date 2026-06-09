@@ -20,6 +20,40 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Delivery Manager audit surfacing
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Delivery Manager now surfaces `claim_blocked` and `dead_lettered` delivery-attempt audit rows.
+- Added React ESP admin action to load attempt audit rows filtered by selected send record or send
+  job.
+- Added React ESP admin action to dead-letter the selected send record.
+- Added a Delivery Attempt Audit panel showing reason, route, recipient domain, record ID, and
+  domain policy reference.
+- Static `/admin/delivery` also gained Dead-letter Record and Load Attempt Audit actions.
+
+### Why
+
+The send engine now persists queue-control and dead-letter audit rows. Operators need those rows
+visible in Delivery Manager so policy pauses, throttles, and terminal queue decisions are
+explainable.
+
+### What needs to happen next
+
+- Expand send statuses and transition logic.
+- Normalize SendGrid webhooks through a provider-neutral feedback service.
+- Continue toward managed-SMTP feedback ingestion and the deeper `DeliveryAdapter` boundary.
+
+### Compatibility notes
+
+- No API or schema changes in this slice.
+- Rebuilt `frontend/dist` assets are included.
+
+---
+
 ## 2026-06-09 — Dead-letter queue controls
 
 **Pushed by:** Codex

@@ -513,6 +513,7 @@ type CampaignSendJobProgress = {
   failed_count: number;
   suppressed_count: number;
   skipped_count: number;
+  dead_lettered_count: number;
   processed_count: number;
   remaining_count: number;
   active_count: number;
@@ -541,6 +542,27 @@ type DeliveryRun = {
   sent_count: number;
   failed_count: number;
   processed_record_ids: string[];
+  skipped_count: number;
+  skipped_record_ids: string[];
+};
+
+type DeliveryAttemptRead = {
+  id: string;
+  send_record_id: string;
+  send_job_id: string | null;
+  campaign_id: string | null;
+  attempt_number: number;
+  provider: string | null;
+  route_type: string | null;
+  route_key: string | null;
+  status: string;
+  provider_message_id: string | null;
+  smtp_response_code: number | null;
+  smtp_response: string | null;
+  error_message: string | null;
+  metadata_json: Record<string, unknown>;
+  started_at: string;
+  completed_at: string | null;
 };
 
 type SuppressionRead = {
@@ -9446,6 +9468,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [selectedRecordId, setSelectedRecordId] = useState('');
   const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
+  const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
@@ -9458,13 +9481,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
 
   const queuedRecords = sendRecords.filter((record) => record.status === 'queued').length;
   const failedRecords = sendRecords.filter((record) => record.status === 'failed').length;
+  const deadLetteredRecords = sendRecords.filter((record) => record.status === 'dead_lettered').length;
   const sentRecords = sendRecords.filter((record) => record.status === 'sent').length;
   const activeJobs = sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => record.status === 'queued' && Number(record.attempt_count || 0) > 0).length;
-  const blockedRecords = sendRecords.filter((record) => ['failed', 'skipped'].includes(record.status)).length;
+  const blockedRecords = sendRecords.filter((record) => ['failed', 'skipped', 'dead_lettered'].includes(record.status)).length;
+  const queueControlAttempts = deliveryAttempts.filter((attempt) => attempt.route_type === 'queue_control' || ['claim_blocked', 'dead_lettered'].includes(attempt.status));
+  const claimBlockedAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'claim_blocked').length;
+  const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const deliveryTriageAction = failedRecords
     ? {
@@ -9524,7 +9551,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       label: 'Selected record',
       value: selectedRecord?.status || 'None',
       detail: selectedRecord?.error_message || selectedRecord?.to_email || 'Select a record for retry context',
-      tone: selectedRecord?.status === 'failed' ? 'warn' : 'good',
+      tone: ['failed', 'dead_lettered'].includes(selectedRecord?.status || '') ? 'warn' : 'good',
+    },
+    {
+      label: 'Queue audit',
+      value: formatInt(queueControlAttempts.length),
+      detail: claimBlockedAttempts
+        ? `${formatInt(claimBlockedAttempts)} claim-blocked audit row(s)`
+        : deadLetterAttempts
+          ? `${formatInt(deadLetterAttempts)} dead-letter audit row(s)`
+          : 'Load attempts for queue-control audit rows',
+      tone: queueControlAttempts.length ? 'warn' : 'good',
     },
   ];
   const deliveryFoundationItems = [
@@ -9623,11 +9660,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       const suffix = selectedJobId ? `?limit=25&send_job_id=${encodeURIComponent(selectedJobId)}` : '?limit=25';
       const data = await fetchJson<DeliveryRun>(`/api/v1/delivery/process-queued${suffix}`, { method: 'POST' });
       await onRefresh();
+      await refreshDeliveryAttempts();
       if (selectedJobId) {
         const refreshedProgress = await fetchJson<CampaignSendJobProgress>(`/api/v1/campaign-send-jobs/${selectedJobId}/progress`);
         setProgress(refreshedProgress);
       }
-      return `Processed ${formatInt(data.claimed_count)} record(s): ${formatInt(data.sent_count)} sent, ${formatInt(data.failed_count)} failed.`;
+      return `Processed ${formatInt(data.claimed_count)} record(s): ${formatInt(data.sent_count)} sent, ${formatInt(data.failed_count)} failed, ${formatInt(data.skipped_count || 0)} policy-blocked.`;
     });
   }
 
@@ -9646,6 +9684,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       const record = await fetchJson<EmailSendRecordRead>(`/api/v1/email-send-records/${selectedRecordId}/skip`, { method: 'POST' });
       await onRefresh();
       return `Skipped ${record.to_email}; status is ${record.status}.`;
+    });
+  }
+
+  async function deadLetterRecord() {
+    await runDeliveryOperation('Dead-lettering send record', async () => {
+      if (!selectedRecordId) throw new Error('Select a send record.');
+      const reason = window.prompt('Reason for dead-lettering this record?', selectedRecord?.error_message || 'Operator reviewed terminal queue issue') || '';
+      const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : '';
+      const record = await fetchJson<EmailSendRecordRead>(`/api/v1/email-send-records/${selectedRecordId}/dead-letter${suffix}`, { method: 'POST' });
+      await onRefresh();
+      await refreshDeliveryAttempts();
+      return `Dead-lettered ${record.to_email}; status is ${record.status}.`;
     });
   }
 
@@ -9676,6 +9726,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function refreshDeliveryAttempts() {
+    const params = new URLSearchParams({ limit: '50', offset: '0' });
+    if (selectedRecordId) params.set('send_record_id', selectedRecordId);
+    else if (selectedJobId) params.set('send_job_id', selectedJobId);
+    const data = await fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`);
+    setDeliveryAttempts(data.items || []);
+    return data.items || [];
+  }
+
+  async function loadDeliveryAttempts() {
+    await runDeliveryOperation('Loading delivery attempt audit', async () => {
+      const items = await refreshDeliveryAttempts();
+      const blocked = items.filter((attempt) => attempt.status === 'claim_blocked').length;
+      const dead = items.filter((attempt) => attempt.status === 'dead_lettered').length;
+      return `Loaded ${formatInt(items.length)} attempt row(s): ${formatInt(blocked)} claim-blocked, ${formatInt(dead)} dead-lettered.`;
+    });
+  }
+
   async function reviewDeliveryWithAi() {
     await runDeliveryOperation('Running AI Delivery Review', async () => {
       const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
@@ -9687,13 +9755,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             progress,
             selected_job: selectedJob || null,
             selected_record: selectedRecord || null,
-            triage: {
+              triage: {
               title: deliveryTriageAction.title,
               detail: deliveryTriageAction.detail,
               queued_records: queuedRecords,
               failed_records: failedRecords,
               active_jobs: activeJobs,
               retry_pressure: retryPressure,
+              queue_control_attempts: queueControlAttempts,
             },
           },
           goals: [
@@ -9792,6 +9861,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   onClick={() => {
                     setSelectedJobId(job.id);
                     setProgress(null);
+                    setDeliveryAttempts([]);
                   }}
                 >
                   <td>{job.id.slice(0, 8)}</td>
@@ -9825,6 +9895,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   onClick={() => {
                     setSelectedRecordId(record.id);
                     setTrackingLinks(null);
+                    setDeliveryAttempts([]);
                   }}
                 >
                   <td>{record.to_email}</td>
@@ -9870,6 +9941,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <select value={selectedJobId} onChange={(event) => {
               setSelectedJobId(event.target.value);
               setProgress(null);
+              setDeliveryAttempts([]);
             }}>
               <option value="">All queued records</option>
               {sendJobs.map((job) => (
@@ -9884,6 +9956,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <select value={selectedRecordId} onChange={(event) => {
               setSelectedRecordId(event.target.value);
               setTrackingLinks(null);
+              setDeliveryAttempts([]);
             }}>
               <option value="">Select record</option>
               {sendRecords.map((record) => (
@@ -9911,8 +9984,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={loadProgress} disabled={busy || !selectedJobId}>Load Progress</button>
           <button className="ghost" onClick={requeueRecord} disabled={busy || !selectedRecordId}>Requeue Record</button>
           <button className="ghost" onClick={skipRecord} disabled={busy || !selectedRecordId}>Skip Record</button>
+          <button className="ghost" onClick={deadLetterRecord} disabled={busy || !selectedRecordId}>Dead-letter Record</button>
           <button className="ghost" onClick={deleteRecord} disabled={busy || !selectedRecordId}>Delete Record</button>
           <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
+          <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
           <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
         </div>
@@ -9952,12 +10027,52 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           )}
         </div>
       </section>
+      <section className="panel full-span delivery-audit-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Delivery Attempt Audit</h2>
+            <span className="muted">Claim-blocked and dead-letter audit rows explain queue-control decisions.</span>
+          </div>
+          <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
+        </div>
+        {deliveryAttempts.length ? (
+          <div className="delivery-audit-list">
+            {deliveryAttempts.slice(0, 8).map((attempt) => {
+              const metadata = attempt.metadata_json || {};
+              const reason = String(metadata.reason || attempt.error_message || attempt.route_key || attempt.status);
+              const domain = String(metadata.to_domain || '-');
+              const policy = String(metadata.domain_delivery_policy_id || '-');
+              return (
+                <article className={['claim_blocked', 'dead_lettered'].includes(attempt.status) ? 'warn' : 'good'} key={attempt.id}>
+                  <div>
+                    <span>{attempt.status}</span>
+                    <strong>{reason}</strong>
+                  </div>
+                  <small>{attempt.started_at}</small>
+                  <dl>
+                    <div><dt>record</dt><dd>{attempt.send_record_id.slice(0, 8)}</dd></div>
+                    <div><dt>route</dt><dd>{attempt.route_type || '-'} / {attempt.route_key || '-'}</dd></div>
+                    <div><dt>domain</dt><dd>{domain}</dd></div>
+                    <div><dt>policy</dt><dd>{policy === '-' ? '-' : policy.slice(0, 8)}</dd></div>
+                  </dl>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="ai-empty-state">
+            <strong>No delivery attempt audit loaded</strong>
+            <span>Load Attempt Audit after processing queues or selecting a record to inspect claim-blocked and dead-letter rows.</span>
+          </div>
+        )}
+      </section>
       {progress ? (
         <section className="metric-grid full-span compact-metrics">
           <MetricCard metric={{ label: 'Processed', value: formatInt(progress.processed_count), change: `${formatInt(progress.remaining_count)} remaining` }} />
           <MetricCard metric={{ label: 'Queued', value: formatInt(progress.queued_count), change: `${formatInt(progress.sending_count)} sending`, tone: progress.queued_count ? 'warn' : 'good' }} />
           <MetricCard metric={{ label: 'Sent', value: formatInt(progress.sent_count), change: 'completed sends' }} />
           <MetricCard metric={{ label: 'Failed', value: formatInt(progress.failed_count), change: `${formatInt(progress.skipped_count)} skipped`, tone: progress.failed_count ? 'warn' : 'good' }} />
+          <MetricCard metric={{ label: 'Dead-lettered', value: formatInt(progress.dead_lettered_count || 0), change: 'terminal queue records', tone: progress.dead_lettered_count ? 'warn' : 'good' }} />
         </section>
       ) : null}
       {trackingLinks ? (
