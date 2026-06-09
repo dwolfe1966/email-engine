@@ -38,8 +38,9 @@ Important gaps:
   provider/MTA response normalization.
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
-- Bounce and complaint persistence now uses a provider-neutral feedback service; managed-SMTP
-  input parsing and durable feedback storage are still pending.
+- Bounce and complaint persistence now uses a provider-neutral feedback service, and a protected
+  managed-SMTP feedback API accepts normalized DSN, complaint, unsubscribe, delivery, and deferral
+  inputs. Signature/auth hardening for an external MTA handoff is still pending.
 - Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
   queue claiming enforces pause/per-minute/concurrent controls.
 - Queue-control skips now persist audit rows in `delivery_attempts`, and send records can be moved
@@ -320,9 +321,21 @@ Recommended ninth code slice:
 4. Preserve existing `/api/v1/provider-webhooks/sendgrid` response counts and payload behavior.
    **Done.**
 
+## Tenth Implementation Slice
+
+Recommended tenth code slice:
+
+1. Add `ManagedSmtpFeedbackEvent` request schema for normalized MTA/DSN/complaint feedback.
+   **Done.**
+2. Add `/api/v1/delivery/managed-smtp/feedback` ingestion endpoint. **Done.**
+3. Normalize managed-SMTP delivery, bounce, complaint, unsubscribe, and deferral events into
+   `DeliveryFeedback`. **Done.**
+4. Allow status-only feedback such as deferrals to update send-record lifecycle state without
+   requiring an email event row. **Done.**
+
 ## Follow-On Slices
 
-1. Add managed-SMTP feedback ingestion contract.
+1. Add managed-SMTP feedback authentication/signature verification.
 2. Choose MTA implementation and build a staging deployment.
 3. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
 4. Add IP pool, warmup, throttle, and reputation dashboards.

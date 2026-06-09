@@ -80,6 +80,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/campaign-send-jobs/list',
         '/api/v1/campaign-send-jobs/{send_job_id}/progress',
         '/api/v1/delivery/process-queued',
+        '/api/v1/delivery/managed-smtp/feedback',
         '/api/v1/delivery-attempts/list',
         '/api/v1/delivery-routes',
         '/api/v1/delivery-routes/list',

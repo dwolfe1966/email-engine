@@ -133,6 +133,7 @@ from email_platform.schemas.contracts import (
     JourneyUpdate,
     JsonObject,
     ListResponse,
+    ManagedSmtpFeedbackEvent,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -175,6 +176,7 @@ from email_platform.services.delivery import DeliveryService
 from email_platform.services.delivery_routes import DeliveryRouteService
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
+from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
 from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
@@ -3240,6 +3242,14 @@ async def ingest_sendgrid_webhook(
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail='Invalid SendGrid webhook payload') from exc
     return ProviderWebhookService(db).ingest_sendgrid(payload)
+
+
+@router.post('/delivery/managed-smtp/feedback', response_model=ProviderWebhookIngestRead)
+def ingest_managed_smtp_feedback(
+    payload: list[ManagedSmtpFeedbackEvent],
+    db: DbSession,
+) -> ProviderWebhookIngestRead:
+    return FeedbackIngestionService(db).ingest_managed_smtp(payload)
 
 
 @router.get('/suppressions', response_model=list[SuppressionRead])

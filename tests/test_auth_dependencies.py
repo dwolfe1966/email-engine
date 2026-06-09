@@ -39,6 +39,7 @@ def test_operator_auth_path_classifier_keeps_public_delivery_routes_open() -> No
         '/api/v1/templates',
         '/api/v1/campaigns/process-due',
         '/api/v1/email-send-records/abc/tracking-links',
+        '/api/v1/delivery/managed-smtp/feedback',
         '/api/v1/tests/send-email',
         '/api/v1/system/diagnostics',
     ]

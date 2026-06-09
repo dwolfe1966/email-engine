@@ -806,6 +806,20 @@ class SendGridWebhookEvent(BaseModel):
     model_config = {'extra': 'allow'}
 
 
+class ManagedSmtpFeedbackEvent(BaseModel):
+    email: EmailStr
+    event: str
+    provider_message_id: str | None = None
+    smtp_response_code: int | None = None
+    smtp_response: str | None = None
+    diagnostic_code: str | None = None
+    source: str = 'managed_smtp_feedback'
+    timestamp: int | None = None
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+    model_config = {'extra': 'allow'}
+
+
 class ProviderWebhookIngestRead(BaseModel):
     processed_count: int
     suppressed_count: int

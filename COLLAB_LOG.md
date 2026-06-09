@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP feedback contract
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `ManagedSmtpFeedbackEvent` for normalized managed-MTA feedback payloads.
+- Added protected `/api/v1/delivery/managed-smtp/feedback` ingestion endpoint.
+- Managed SMTP feedback now normalizes delivered, bounced, complained, unsubscribed, and deferred
+  outcomes into `DeliveryFeedback`.
+- Status-only outcomes such as SMTP tempfail/deferral can update send-record lifecycle state
+  without creating an email event row.
+
+### Why
+
+The platform now has a first API contract that an owned MTA, DSN parser, bounce mailbox poller, or
+feedback-loop processor can use to feed the existing send lifecycle and suppression systems.
+
+### What needs to happen next
+
+- Add managed-SMTP feedback authentication/signature verification before exposing this endpoint to
+  an external MTA.
+- Choose the MTA/staging deployment path and decide which feedback sources post directly versus
+  run as internal workers.
+
+### Compatibility notes
+
+- The managed-SMTP feedback endpoint is currently protected by operator auth, unlike the public
+  SendGrid webhook endpoint that has SendGrid signature verification.
+
+---
+
 ## 2026-06-09 — Provider-neutral delivery feedback ingestion
 
 **Pushed by:** Codex

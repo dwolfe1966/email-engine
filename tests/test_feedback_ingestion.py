@@ -6,6 +6,7 @@ from email_platform.models.entities import (
     EmailSendStatus,
     SuppressionReason,
 )
+from email_platform.schemas.contracts import ManagedSmtpFeedbackEvent
 from email_platform.services.feedback import DeliveryFeedback, FeedbackIngestionService
 
 
@@ -106,3 +107,61 @@ def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> Non
     assert result.suppressed_count == 1
     assert service.events.payloads == []
     assert service.suppressions.payloads[0]['contact_id'] is None
+
+
+def test_managed_smtp_feedback_normalizes_bounces_to_delivery_feedback() -> None:
+    service = FakeFeedbackIngestionService(record=None)
+    event = ManagedSmtpFeedbackEvent(
+        email='recipient@example.com',
+        event='dsn_bounce',
+        provider_message_id='provider-message',
+        smtp_response_code=550,
+        smtp_response='550 5.1.1 mailbox unavailable',
+        diagnostic_code='smtp; 550 5.1.1',
+        metadata_json={'queue_id': 'smtp-queue-1'},
+    )
+
+    feedback = service.normalize_managed_smtp(event)
+
+    assert feedback.provider == 'managed_smtp'
+    assert feedback.source == 'managed_smtp_feedback'
+    assert feedback.event_name == 'dsn_bounce'
+    assert feedback.event_type == EmailEventType.bounced
+    assert feedback.send_status == EmailSendStatus.bounced
+    assert feedback.suppression_reason == SuppressionReason.hard_bounce
+    assert feedback.metadata_json['queue_id'] == 'smtp-queue-1'
+    assert feedback.metadata_json['smtp_response_code'] == 550
+    assert feedback.metadata_json['diagnostic_code'] == 'smtp; 550 5.1.1'
+
+
+def test_managed_smtp_deferral_updates_status_without_event() -> None:
+    record = EmailSendRecord(
+        id=uuid4(),
+        campaign_id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.submitted,
+        to_email='recipient@example.com',
+        variables={},
+        provider_message_id='provider-message',
+    )
+    service = FakeFeedbackIngestionService(record)
+
+    result = service.ingest_managed_smtp(
+        [
+            ManagedSmtpFeedbackEvent(
+                email='recipient@example.com',
+                event='tempfail',
+                provider_message_id='provider-message',
+                smtp_response_code=421,
+                smtp_response='421 try again later',
+            )
+        ]
+    )
+
+    assert result.processed_count == 1
+    assert result.updated_send_records == 1
+    assert result.suppressed_count == 0
+    assert record.status == EmailSendStatus.deferred
+    assert service.events.payloads == []
