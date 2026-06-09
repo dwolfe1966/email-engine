@@ -20,6 +20,42 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Explicit managed SMTP direction
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Product direction clarified: one foundation item is to build, deploy, and operate an Email
+  Engine-managed SMTP server and reputation layer rather than depending on paid relays such as
+  SendGrid or Amazon SES as the primary delivery architecture.
+- Added `docs/MANAGED_SMTP_SEND_ENGINE_PLAN.md` with current foundation, target architecture,
+  lifecycle states, data-model tasks, service/API tasks, MTA deployment track, and the first
+  implementation slice.
+
+### Why
+
+The next SMTP/send-engine foundation work should assume first-party SMTP ownership is a core
+platform objective. Third-party providers can remain useful adapters, migration paths, or fallback
+routes, but they should not define the long-term delivery model.
+
+### What needs to happen next
+
+- Walk the owned SMTP/send-engine foundation task from architecture through first implementation
+  slice: queue model, provider/MTA boundary, retry policy, bounce and complaint ingestion,
+  deliverability telemetry, and operator controls.
+- Start the first code slice by adding a `DeliveryAttempt` model/read schema and teaching
+  `DeliveryService.process_queued` to persist one attempt per provider submission.
+
+### Compatibility notes
+
+- Adds a new `delivery_attempts` table through Alembic revision `0016_delivery_attempts`.
+- Adds a new operator API: `GET /api/v1/delivery-attempts/list`.
+- Existing send-record APIs and provider behavior remain compatible.
+
+---
+
 ## 2026-06-08 — ESP platform-readiness UI pass and current handoff
 
 **Pushed by:** Codex

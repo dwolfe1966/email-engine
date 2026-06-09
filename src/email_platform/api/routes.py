@@ -21,6 +21,7 @@ from email_platform.models.entities import (
     Contact,
     DataSource,
     DataSourceMapping,
+    DeliveryAttempt,
     EmailEvent,
     EmailEventType,
     EmailSendRecord,
@@ -99,6 +100,7 @@ from email_platform.schemas.contracts import (
     DataSourceUpdate,
     DataSourceValidationRead,
     DeleteResponse,
+    DeliveryAttemptRead,
     DeliveryRunRead,
     DomainDeliverabilityRead,
     EmailSendRecordRead,
@@ -2776,6 +2778,45 @@ def list_email_send_records(
         'limit': limit,
         'offset': offset,
         'total': service.count_send_records(campaign_id=campaign_id, send_job_id=send_job_id),
+    }
+
+
+@router.get('/delivery-attempts/list', response_model=ListResponse[DeliveryAttemptRead])
+def list_delivery_attempts(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    provider: str | None = None,
+    status: str | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    filters = []
+    if campaign_id:
+        filters.append(DeliveryAttempt.campaign_id == campaign_id)
+    if send_job_id:
+        filters.append(DeliveryAttempt.send_job_id == send_job_id)
+    if send_record_id:
+        filters.append(DeliveryAttempt.send_record_id == send_record_id)
+    if provider:
+        filters.append(DeliveryAttempt.provider == provider)
+    if status:
+        filters.append(DeliveryAttempt.status == status)
+
+    statement = (
+        select(DeliveryAttempt)
+        .where(*filters)
+        .order_by(DeliveryAttempt.started_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    count_statement = select(func.count()).select_from(DeliveryAttempt).where(*filters)
+    return {
+        'items': list(db.scalars(statement).all()),
+        'limit': limit,
+        'offset': offset,
+        'total': int(db.scalar(count_statement) or 0),
     }
 
 

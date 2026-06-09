@@ -463,6 +463,37 @@ class EmailSendRecord(Base):
     template: Mapped[EmailTemplate] = relationship()
 
 
+class DeliveryAttempt(Base):
+    __tablename__ = 'delivery_attempts'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    send_record_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('email_send_records.id'), index=True
+    )
+    send_job_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaign_send_jobs.id'), index=True
+    )
+    campaign_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('campaigns.id'), index=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer)
+    provider: Mapped[str | None] = mapped_column(String(100), index=True)
+    route_type: Mapped[str | None] = mapped_column(String(100), index=True)
+    route_key: Mapped[str | None] = mapped_column(String(255), index=True)
+    status: Mapped[str] = mapped_column(String(40), index=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    smtp_response_code: Mapped[int | None] = mapped_column(Integer)
+    smtp_response: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    campaign: Mapped[Campaign | None] = relationship()
+    send_job: Mapped[CampaignSendJob | None] = relationship()
+    send_record: Mapped[EmailSendRecord] = relationship()
+
+
 class Suppression(Base):
     __tablename__ = 'suppressions'
     __table_args__ = (UniqueConstraint('email', 'reason', name='uq_suppressions_email_reason'),)

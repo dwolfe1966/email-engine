@@ -6,7 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
-from email_platform.models.entities import EmailEventType, EmailSendRecord, EmailSendStatus
+from email_platform.models.entities import (
+    DeliveryAttempt,
+    EmailEventType,
+    EmailSendRecord,
+    EmailSendStatus,
+)
 from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import DeliveryRunRead, EventCreate
 from email_platform.services.contacts import ContactService
@@ -37,9 +42,10 @@ class DeliveryService:
         for record in records:
             processed_ids.append(str(record.id))
             record.attempt_count += 1
+            attempt = self._start_attempt(record)
             template = self.template_service.get(record.template_id)
             if not template:
-                self._handle_failure(record, 'Template not found')
+                self._handle_failure(record, attempt, 'Template not found')
                 failed_count += 1
                 continue
 
@@ -60,6 +66,15 @@ class DeliveryService:
                 record.provider_message_id = result.provider_message_id
                 record.error_message = None
                 record.next_attempt_at = None
+                self._complete_attempt(
+                    attempt,
+                    status='submitted',
+                    provider=result.provider,
+                    provider_message_id=result.provider_message_id,
+                    smtp_response_code=result.status_code,
+                    smtp_response=f'Provider accepted message with status {result.status_code}',
+                    metadata_json={'status_code': result.status_code},
+                )
                 sent_count += 1
                 self.event_service.record_no_commit(
                     EventCreate(
@@ -79,7 +94,7 @@ class DeliveryService:
                     )
                 )
             except Exception as exc:  # noqa: BLE001
-                self._handle_failure(record, str(exc))
+                self._handle_failure(record, attempt, str(exc))
                 failed_count += 1
 
         self.db.commit()
@@ -137,14 +152,78 @@ class DeliveryService:
         self.db.flush()
         return records
 
-    def _handle_failure(self, record: EmailSendRecord, message: str) -> None:
+    def _start_attempt(self, record: EmailSendRecord) -> DeliveryAttempt:
+        route_type = self.settings.email_provider
+        attempt = DeliveryAttempt(
+            send_record_id=record.id,
+            send_job_id=record.send_job_id,
+            campaign_id=record.campaign_id,
+            attempt_number=record.attempt_count,
+            provider=record.provider,
+            route_type=route_type,
+            route_key=route_type,
+            status='submitting',
+            metadata_json={
+                'email_provider': self.settings.email_provider,
+                'to_domain': record.to_email.rsplit('@', 1)[-1].lower()
+                if '@' in record.to_email
+                else None,
+            },
+            started_at=datetime.utcnow(),
+        )
+        self.db.add(attempt)
+        self.db.flush()
+        return attempt
+
+    def _complete_attempt(
+        self,
+        attempt: DeliveryAttempt,
+        *,
+        status: str,
+        provider: str | None = None,
+        provider_message_id: str | None = None,
+        smtp_response_code: int | None = None,
+        smtp_response: str | None = None,
+        error_message: str | None = None,
+        metadata_json: dict[str, object] | None = None,
+    ) -> None:
+        attempt.status = status
+        attempt.provider = provider
+        attempt.provider_message_id = provider_message_id
+        attempt.smtp_response_code = smtp_response_code
+        attempt.smtp_response = smtp_response
+        attempt.error_message = error_message
+        attempt.metadata_json = {**attempt.metadata_json, **(metadata_json or {})}
+        attempt.completed_at = datetime.utcnow()
+
+    def _handle_failure(
+        self,
+        record: EmailSendRecord,
+        attempt: DeliveryAttempt,
+        message: str,
+    ) -> None:
         record.error_message = message
         if record.attempt_count >= record.max_attempts:
             record.status = EmailSendStatus.failed
             record.next_attempt_at = None
+            self._complete_attempt(
+                attempt,
+                status='failed',
+                provider=record.provider,
+                provider_message_id=record.provider_message_id,
+                error_message=message,
+            )
             return
         record.status = EmailSendStatus.queued
         record.next_attempt_at = datetime.utcnow() + self._retry_delay(record.attempt_count)
+        self._complete_attempt(
+            attempt,
+            status='deferred',
+            provider=record.provider,
+            provider_message_id=record.provider_message_id,
+            error_message=message,
+            metadata_json={'next_attempt_at': record.next_attempt_at.isoformat()},
+        )
 
     def _retry_delay(self, attempt_count: int) -> timedelta:
         return timedelta(minutes=min(60, 2 ** max(attempt_count - 1, 0)))

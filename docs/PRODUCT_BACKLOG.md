@@ -245,6 +245,11 @@ model clearer and more operationally complete.
   area that should eventually let Email Engine operate its own outbound SMTP infrastructure using
   mature open-source components such as Haraka, Postal, ZoneMTA, Postfix, or similar tooling rather
   than depending on a paid ESP provider.
+- Build, deploy, and operate an Email Engine-managed SMTP server as a first-party platform service.
+  Paid services such as SendGrid and Amazon SES should remain optional adapters, migration paths, or
+  fallback routes, not the primary long-term delivery architecture.
+- Use `docs/MANAGED_SMTP_SEND_ENGINE_PLAN.md` as the working implementation plan for the
+  first-party SMTP/send-engine foundation.
 - Make the long-term delivery objective explicit: Email Engine should be capable of sending outbound
   email through our own SMTP infrastructure without requiring paid secondary relays such as Amazon SES
   or SendGrid, while keeping provider adapters available as fallback, migration, and customer-choice

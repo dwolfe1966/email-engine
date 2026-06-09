@@ -622,6 +622,27 @@ class EmailSendRecordRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class DeliveryAttemptRead(BaseModel):
+    id: UUID
+    send_record_id: UUID
+    send_job_id: UUID | None = None
+    campaign_id: UUID | None = None
+    attempt_number: int
+    provider: str | None = None
+    route_type: str | None = None
+    route_key: str | None = None
+    status: str
+    provider_message_id: str | None = None
+    smtp_response_code: int | None = None
+    smtp_response: str | None = None
+    error_message: str | None = None
+    metadata_json: JsonObject
+    started_at: datetime
+    completed_at: datetime | None = None
+
+    model_config = {'from_attributes': True}
+
+
 class DeliveryRunRead(BaseModel):
     claimed_count: int
     sent_count: int
