@@ -36,7 +36,9 @@ Important gaps:
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
 - Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
-- No dead-letter state, pause/resume controls, domain throttles, warmup, or reputation signals.
+- Domain policy records now capture route, throttle hints, warmup stage, and pause windows, but
+  active enforcement is still pending.
+- No dead-letter state, pause/resume controls, enforced throttles, or reputation signals.
 - No owned-MTA deployment plan or operational runbook.
 
 ## Target Architecture
@@ -232,10 +234,21 @@ Recommended second code slice:
 This slice gives operators and future SMTP work a durable attempt history without requiring an MTA
 deployment decision up front.
 
+## Third Implementation Slice
+
+Recommended third code slice:
+
+1. Add `DomainDeliveryPolicy` model and read/write schemas. **Done.**
+2. Add `/api/v1/domain-delivery-policies`, `/api/v1/domain-delivery-policies/list`, and
+   `/api/v1/domain-delivery-policies/{policy_id}` operator APIs. **Done.**
+3. Teach route selection to prefer a matching, non-paused exact-domain policy route. **Done.**
+4. Record policy ID, warmup stage, and throttle hints on delivery attempts. **Done.**
+5. Keep throttle enforcement for a later queue-control slice. **Done.**
+
 ## Follow-On Slices
 
-1. Introduce `DeliveryRoute` and route selection.
-2. Add route pause/resume and domain policy controls.
+1. Add route pause/resume shortcuts and explicit policy pause/resume controls.
+2. Enforce domain policy throttles in queue claiming/processing.
 3. Expand send statuses and transition logic.
 4. Normalize SendGrid webhooks through a provider-neutral feedback service.
 5. Add managed-SMTP feedback ingestion contract.

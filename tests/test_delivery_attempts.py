@@ -23,7 +23,12 @@ class FakeRouteService:
             route_type=settings.email_provider,
             route_key=settings.email_provider,
             route_id=None,
+            domain_policy_id=None,
             name=None,
+            domain='example.com',
+            warmup_stage=None,
+            max_per_minute=None,
+            max_concurrent=None,
             source='settings',
         )
 

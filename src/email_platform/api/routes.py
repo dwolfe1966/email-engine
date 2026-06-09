@@ -25,6 +25,7 @@ from email_platform.models.entities import (
     DeliveryRoute,
     DeliveryRouteStatus,
     DeliveryRouteType,
+    DomainDeliveryPolicy,
     EmailEvent,
     EmailEventType,
     EmailSendRecord,
@@ -109,6 +110,9 @@ from email_platform.schemas.contracts import (
     DeliveryRouteUpdate,
     DeliveryRunRead,
     DomainDeliverabilityRead,
+    DomainDeliveryPolicyCreate,
+    DomainDeliveryPolicyRead,
+    DomainDeliveryPolicyUpdate,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -2879,6 +2883,66 @@ def delete_delivery_route(route_id: UUID, db: DbSession) -> DeleteResponse:
     if not DeliveryRouteService(db).delete(route_id):
         raise HTTPException(status_code=404, detail='Delivery route not found')
     return DeleteResponse(id=route_id)
+
+
+@router.get(
+    '/domain-delivery-policies/list',
+    response_model=ListResponse[DomainDeliveryPolicyRead],
+)
+def list_domain_delivery_policies(
+    db: DbSession,
+    domain: str | None = None,
+    route_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = DeliveryRouteService(db)
+    return {
+        'items': service.list_domain_policies(
+            domain=domain,
+            route_id=route_id,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_domain_policies(domain=domain, route_id=route_id),
+    }
+
+
+@router.post('/domain-delivery-policies', response_model=DomainDeliveryPolicyRead)
+def create_domain_delivery_policy(
+    payload: DomainDeliveryPolicyCreate,
+    db: DbSession,
+) -> DomainDeliveryPolicy:
+    return DeliveryRouteService(db).create_domain_policy(payload)
+
+
+@router.get('/domain-delivery-policies/{policy_id}', response_model=DomainDeliveryPolicyRead)
+def get_domain_delivery_policy(policy_id: UUID, db: DbSession) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).get_domain_policy(policy_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.patch('/domain-delivery-policies/{policy_id}', response_model=DomainDeliveryPolicyRead)
+def update_domain_delivery_policy(
+    policy_id: UUID,
+    payload: DomainDeliveryPolicyUpdate,
+    db: DbSession,
+) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).update_domain_policy(policy_id, payload)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.delete('/domain-delivery-policies/{policy_id}', response_model=DeleteResponse)
+def delete_domain_delivery_policy(policy_id: UUID, db: DbSession) -> DeleteResponse:
+    if not DeliveryRouteService(db).delete_domain_policy(policy_id):
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return DeleteResponse(id=policy_id)
 
 
 @router.post('/email-send-records/{send_record_id}/requeue', response_model=EmailSendRecordRead)

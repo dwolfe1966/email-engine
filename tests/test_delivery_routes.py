@@ -1,16 +1,23 @@
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
-from email_platform.models.entities import DeliveryRouteType
+from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.services.delivery_routes import DeliveryRouteService
 
 
 class FakeDb:
-    def __init__(self, scalar_result=None) -> None:
-        self.scalar_result = scalar_result
+    def __init__(self, scalar_results=None, get_result=None) -> None:
+        self.scalar_results = list(scalar_results or [])
+        self.get_result = get_result
 
     def scalar(self, statement):
-        return self.scalar_result
+        if self.scalar_results:
+            return self.scalar_results.pop(0)
+        return None
+
+    def get(self, model, item_id):
+        return self.get_result
 
 
 def test_delivery_route_selector_falls_back_to_settings_provider() -> None:
@@ -44,11 +51,14 @@ def test_delivery_route_selector_prefers_active_matching_route() -> None:
     route_id = uuid4()
     service = DeliveryRouteService(
         FakeDb(
-            SimpleNamespace(
-                id=route_id,
-                name='primary-console',
-                route_type=DeliveryRouteType.console,
-            )
+            scalar_results=[
+                None,
+                SimpleNamespace(
+                    id=route_id,
+                    name='primary-console',
+                    route_type=DeliveryRouteType.console,
+                ),
+            ],
         )
     )
 
@@ -62,3 +72,61 @@ def test_delivery_route_selector_prefers_active_matching_route() -> None:
     assert selected.route_id == route_id
     assert selected.name == 'primary-console'
     assert selected.source == 'delivery_routes'
+
+
+def test_delivery_route_selector_prefers_matching_domain_policy_route() -> None:
+    route_id = uuid4()
+    policy_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='gmail-warmup',
+        route_type=DeliveryRouteType.managed_smtp,
+        status=DeliveryRouteStatus.active,
+    )
+    policy = SimpleNamespace(
+        id=policy_id,
+        domain='gmail.com',
+        route_id=route_id,
+        warmup_stage='stage_1',
+        max_per_minute=25,
+        max_concurrent=2,
+        paused_until=None,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
+
+    selected = service.select_for_record(
+        SimpleNamespace(to_email='recipient@gmail.com'),
+        SimpleNamespace(email_provider='console'),
+    )
+
+    assert selected.route_type == 'managed_smtp'
+    assert selected.route_key == 'gmail-warmup'
+    assert selected.route_id == route_id
+    assert selected.domain_policy_id == policy_id
+    assert selected.domain == 'gmail.com'
+    assert selected.warmup_stage == 'stage_1'
+    assert selected.max_per_minute == 25
+    assert selected.max_concurrent == 2
+    assert selected.source == 'domain_policy'
+
+
+def test_delivery_route_selector_ignores_paused_domain_policy() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        route_id=uuid4(),
+        warmup_stage='stage_1',
+        max_per_minute=25,
+        max_concurrent=2,
+        paused_until=datetime.utcnow() + timedelta(hours=1),
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, None]))
+
+    selected = service.select_for_record(
+        SimpleNamespace(to_email='recipient@gmail.com'),
+        SimpleNamespace(email_provider='console'),
+    )
+
+    assert selected.route_type == 'console'
+    assert selected.route_key == 'console'
+    assert selected.source == 'settings'

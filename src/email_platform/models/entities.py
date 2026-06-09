@@ -528,6 +528,28 @@ class DeliveryRoute(Base):
     )
 
 
+class DomainDeliveryPolicy(Base):
+    __tablename__ = 'domain_delivery_policies'
+    __table_args__ = (UniqueConstraint('domain', name='uq_domain_delivery_policies_domain'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    domain: Mapped[str] = mapped_column(String(255), index=True)
+    route_id: Mapped[PyUUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('delivery_routes.id'), index=True
+    )
+    max_per_minute: Mapped[int | None] = mapped_column(Integer)
+    max_concurrent: Mapped[int | None] = mapped_column(Integer)
+    warmup_stage: Mapped[str | None] = mapped_column(String(100), index=True)
+    paused_until: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    route: Mapped[DeliveryRoute | None] = relationship()
+
+
 class Suppression(Base):
     __tablename__ = 'suppressions'
     __table_args__ = (UniqueConstraint('email', 'reason', name='uq_suppressions_email_reason'),)

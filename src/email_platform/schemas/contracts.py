@@ -671,6 +671,32 @@ class DeliveryRouteRead(DeliveryRouteCreate):
     model_config = {'from_attributes': True}
 
 
+class DomainDeliveryPolicyCreate(BaseModel):
+    domain: str
+    route_id: UUID | None = None
+    max_per_minute: int | None = None
+    max_concurrent: int | None = None
+    warmup_stage: str | None = None
+    paused_until: datetime | None = None
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class DomainDeliveryPolicyUpdate(BaseModel):
+    domain: str | None = None
+    route_id: UUID | None = None
+    max_per_minute: int | None = None
+    max_concurrent: int | None = None
+    warmup_stage: str | None = None
+    paused_until: datetime | None = None
+    metadata_json: JsonObject | None = None
+
+
+class DomainDeliveryPolicyRead(DomainDeliveryPolicyCreate):
+    id: UUID
+
+    model_config = {'from_attributes': True}
+
+
 class DeliveryRunRead(BaseModel):
     claimed_count: int
     sent_count: int

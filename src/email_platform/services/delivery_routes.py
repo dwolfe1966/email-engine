@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -9,9 +10,15 @@ from email_platform.models.entities import (
     DeliveryRoute,
     DeliveryRouteStatus,
     DeliveryRouteType,
+    DomainDeliveryPolicy,
     EmailSendRecord,
 )
-from email_platform.schemas.contracts import DeliveryRouteCreate, DeliveryRouteUpdate
+from email_platform.schemas.contracts import (
+    DeliveryRouteCreate,
+    DeliveryRouteUpdate,
+    DomainDeliveryPolicyCreate,
+    DomainDeliveryPolicyUpdate,
+)
 
 
 @dataclass(frozen=True)
@@ -19,7 +26,12 @@ class SelectedDeliveryRoute:
     route_type: str
     route_key: str
     route_id: UUID | None = None
+    domain_policy_id: UUID | None = None
     name: str | None = None
+    domain: str | None = None
+    warmup_stage: str | None = None
+    max_per_minute: int | None = None
+    max_concurrent: int | None = None
     source: str = 'fallback'
 
 
@@ -84,11 +96,102 @@ class DeliveryRouteService:
         self.db.commit()
         return True
 
+    def create_domain_policy(
+        self,
+        payload: DomainDeliveryPolicyCreate,
+    ) -> DomainDeliveryPolicy:
+        policy = DomainDeliveryPolicy(
+            **{
+                **payload.model_dump(),
+                'domain': payload.domain.lower(),
+            }
+        )
+        self.db.add(policy)
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
+    def get_domain_policy(self, policy_id: UUID) -> DomainDeliveryPolicy | None:
+        return self.db.get(DomainDeliveryPolicy, policy_id)
+
+    def list_domain_policies(
+        self,
+        domain: str | None = None,
+        route_id: UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[DomainDeliveryPolicy]:
+        statement = select(DomainDeliveryPolicy).order_by(
+            DomainDeliveryPolicy.domain.asc(),
+            DomainDeliveryPolicy.created_at.desc(),
+        )
+        if domain:
+            statement = statement.where(DomainDeliveryPolicy.domain == domain.lower())
+        if route_id:
+            statement = statement.where(DomainDeliveryPolicy.route_id == route_id)
+        return list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+
+    def count_domain_policies(
+        self,
+        domain: str | None = None,
+        route_id: UUID | None = None,
+    ) -> int:
+        statement = select(func.count()).select_from(DomainDeliveryPolicy)
+        if domain:
+            statement = statement.where(DomainDeliveryPolicy.domain == domain.lower())
+        if route_id:
+            statement = statement.where(DomainDeliveryPolicy.route_id == route_id)
+        return self.db.scalar(statement) or 0
+
+    def update_domain_policy(
+        self,
+        policy_id: UUID,
+        payload: DomainDeliveryPolicyUpdate,
+    ) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        values = payload.model_dump(exclude_unset=True)
+        if 'domain' in values and values['domain']:
+            values['domain'] = str(values['domain']).lower()
+        for key, value in values.items():
+            setattr(policy, key, value)
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
+    def delete_domain_policy(self, policy_id: UUID) -> bool:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return False
+        self.db.delete(policy)
+        self.db.commit()
+        return True
+
     def select_for_record(
         self,
         record: EmailSendRecord,
         settings: Settings,
     ) -> SelectedDeliveryRoute:
+        domain = self._domain_for_record(record)
+        if domain:
+            policy = self._active_domain_policy(domain)
+            if policy and policy.route_id:
+                route = self.db.get(DeliveryRoute, policy.route_id)
+                if route and route.status == DeliveryRouteStatus.active:
+                    return SelectedDeliveryRoute(
+                        route_type=route.route_type.value,
+                        route_key=route.name,
+                        route_id=route.id,
+                        domain_policy_id=policy.id,
+                        name=route.name,
+                        domain=policy.domain,
+                        warmup_stage=policy.warmup_stage,
+                        max_per_minute=policy.max_per_minute,
+                        max_concurrent=policy.max_concurrent,
+                        source='domain_policy',
+                    )
+
         configured_type = self._configured_route_type(settings.email_provider)
         if configured_type:
             route = self.db.scalar(
@@ -104,6 +207,7 @@ class DeliveryRouteService:
                     route_key=route.name,
                     route_id=route.id,
                     name=route.name,
+                    domain=domain,
                     source='delivery_routes',
                 )
 
@@ -111,8 +215,21 @@ class DeliveryRouteService:
         return SelectedDeliveryRoute(
             route_type=route_type,
             route_key=settings.email_provider,
+            domain=domain,
             source='settings',
         )
+
+    def _active_domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
+        policy = self.db.scalar(
+            select(DomainDeliveryPolicy)
+            .where(DomainDeliveryPolicy.domain == domain)
+            .limit(1)
+        )
+        if not policy:
+            return None
+        if policy.paused_until and policy.paused_until > datetime.utcnow():
+            return None
+        return policy
 
     def _configured_route_type(self, email_provider: str) -> DeliveryRouteType | None:
         if email_provider == 'smtp':
@@ -121,3 +238,8 @@ class DeliveryRouteService:
             return DeliveryRouteType(email_provider)
         except ValueError:
             return None
+
+    def _domain_for_record(self, record: EmailSendRecord) -> str | None:
+        if '@' not in record.to_email:
+            return None
+        return record.to_email.rsplit('@', 1)[-1].lower()

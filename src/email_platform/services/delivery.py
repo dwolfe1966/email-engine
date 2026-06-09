@@ -165,8 +165,16 @@ class DeliveryService:
         }
         if selected_route.route_id:
             metadata_json['delivery_route_id'] = str(selected_route.route_id)
+        if selected_route.domain_policy_id:
+            metadata_json['domain_delivery_policy_id'] = str(selected_route.domain_policy_id)
         if selected_route.name:
             metadata_json['delivery_route_name'] = selected_route.name
+        if selected_route.warmup_stage:
+            metadata_json['warmup_stage'] = selected_route.warmup_stage
+        if selected_route.max_per_minute is not None:
+            metadata_json['max_per_minute'] = selected_route.max_per_minute
+        if selected_route.max_concurrent is not None:
+            metadata_json['max_concurrent'] = selected_route.max_concurrent
         attempt = DeliveryAttempt(
             send_record_id=record.id,
             send_job_id=record.send_job_id,

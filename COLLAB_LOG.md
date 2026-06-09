@@ -20,6 +20,42 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Domain delivery policy foundation
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added domain delivery policies as the third managed SMTP/send-engine foundation slice.
+- Domain policies store exact recipient domain, preferred delivery route, throttle hints,
+  warmup stage, pause window, and metadata.
+- Route selection now prefers a matching non-paused domain policy route before falling back to
+  active provider routes or `EMAIL_PROVIDER`.
+- Delivery attempts now include domain policy ID, warmup stage, and throttle hint metadata when a
+  policy drives selection.
+
+### Why
+
+This is the first control-plane layer needed for provider/MTA routing by recipient domain,
+managed-SMTP warmup, domain-specific throttling, and emergency domain pause controls.
+
+### What needs to happen next
+
+- Enforce domain policy throttle hints in queue claiming and processing.
+- Add explicit pause/resume shortcuts for routes and domain policies.
+- Then continue toward the deeper `DeliveryAdapter` boundary so route-selected providers execute
+  from route config instead of only global settings.
+
+### Compatibility notes
+
+- Existing delivery behavior remains compatible because policy selection falls back to route/default
+  settings when no matching policy exists or a policy is paused.
+- Adds Alembic revision `0018_domain_delivery_policies`.
+- Adds operator APIs under `/api/v1/domain-delivery-policies`.
+
+---
+
 ## 2026-06-09 — Delivery routes foundation
 
 **Pushed by:** Codex
