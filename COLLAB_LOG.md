@@ -20,6 +20,41 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Queue-control audit persistence
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Delivery queue claiming now persists a `delivery_attempts` audit row when a queued record is not
+  claimed because of domain policy controls.
+- Audit rows use status `claim_blocked`, route type `queue_control`, and route key equal to the
+  block reason such as `domain_policy_paused`, `domain_policy_max_per_minute`, or
+  `domain_policy_max_concurrent`.
+- `DeliveryRunRead` now includes skipped count and skipped record IDs.
+- Throttle counters now count only actual submission attempts (`submitting`/`submitted`) so audit
+  rows do not extend throttle windows.
+
+### Why
+
+Delivery Manager and future AI/operator workflows need an explainable record of why queued sends
+were not claimed. This makes domain throttles and pauses inspectable instead of invisible.
+
+### What needs to happen next
+
+- Add Delivery Manager UI surfacing for `claim_blocked` rows.
+- Add dead-letter state and explicit terminal queue controls.
+- Continue expanding send lifecycle states before the deeper `DeliveryAdapter` implementation.
+
+### Compatibility notes
+
+- No migration in this slice; it reuses `delivery_attempts`.
+- Existing records remain queued when blocked by policy controls.
+- Existing delivery behavior remains unchanged for domains without a policy.
+
+---
+
 ## 2026-06-09 — Domain queue-control enforcement
 
 **Pushed by:** Codex

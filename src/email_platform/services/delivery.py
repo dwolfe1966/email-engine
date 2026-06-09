@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from urllib.parse import quote
 from uuid import UUID
@@ -21,6 +22,12 @@ from email_platform.services.templates import TemplateService
 from email_platform.services.tracking import TrackingService
 
 
+@dataclass(frozen=True)
+class DeliveryClaimResult:
+    records: list[EmailSendRecord]
+    skipped_record_ids: list[str]
+
+
 class DeliveryService:
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
@@ -36,7 +43,12 @@ class DeliveryService:
         campaign_id: UUID | None = None,
         send_job_id: UUID | None = None,
     ) -> DeliveryRunRead:
-        records = self._claim_records(limit, campaign_id=campaign_id, send_job_id=send_job_id)
+        claim_result = self._claim_records(
+            limit,
+            campaign_id=campaign_id,
+            send_job_id=send_job_id,
+        )
+        records = claim_result.records
         sent_count = 0
         failed_count = 0
         processed_ids: list[str] = []
@@ -105,6 +117,8 @@ class DeliveryService:
             sent_count=sent_count,
             failed_count=failed_count,
             processed_record_ids=processed_ids,
+            skipped_count=len(claim_result.skipped_record_ids),
+            skipped_record_ids=claim_result.skipped_record_ids,
         )
 
     def _delivery_variables(self, record: EmailSendRecord) -> dict[str, object]:
@@ -133,7 +147,7 @@ class DeliveryService:
         limit: int,
         campaign_id: UUID | None = None,
         send_job_id: UUID | None = None,
-    ) -> list[EmailSendRecord]:
+    ) -> DeliveryClaimResult:
         statement = (
             select(EmailSendRecord)
             .where(EmailSendRecord.status == EmailSendStatus.queued)
@@ -150,12 +164,15 @@ class DeliveryService:
             statement = statement.where(EmailSendRecord.send_job_id == send_job_id)
         candidates = list(self.db.scalars(statement).all())
         records: list[EmailSendRecord] = []
+        skipped_record_ids: list[str] = []
         reserved_by_domain: dict[str, int] = {}
         for record in candidates:
             domain = record.to_email.rsplit('@', 1)[-1].lower() if '@' in record.to_email else ''
             reserved_count = reserved_by_domain.get(domain, 0)
             decision = self.route_service.claim_decision(record, reserved_count=reserved_count)
             if not decision.can_claim:
+                skipped_record_ids.append(str(record.id))
+                self._record_claim_block(record, decision, reserved_count=reserved_count)
                 continue
             records.append(record)
             if decision.domain:
@@ -166,7 +183,38 @@ class DeliveryService:
         for record in records:
             record.status = EmailSendStatus.sending
         self.db.flush()
-        return records
+        return DeliveryClaimResult(records=records, skipped_record_ids=skipped_record_ids)
+
+    def _record_claim_block(
+        self,
+        record: EmailSendRecord,
+        decision,
+        reserved_count: int,
+    ) -> DeliveryAttempt:
+        metadata_json: dict[str, object] = {
+            'source': 'delivery_claim',
+            'reason': decision.reason,
+            'to_domain': decision.domain,
+            'reserved_count': reserved_count,
+        }
+        if decision.domain_policy_id:
+            metadata_json['domain_delivery_policy_id'] = str(decision.domain_policy_id)
+        attempt = DeliveryAttempt(
+            send_record_id=record.id,
+            send_job_id=record.send_job_id,
+            campaign_id=record.campaign_id,
+            attempt_number=record.attempt_count,
+            provider=record.provider,
+            route_type='queue_control',
+            route_key=decision.reason or 'not_claimed',
+            status='claim_blocked',
+            error_message=decision.reason,
+            metadata_json=metadata_json,
+            started_at=datetime.utcnow(),
+            completed_at=datetime.utcnow(),
+        )
+        self.db.add(attempt)
+        return attempt
 
     def _start_attempt(self, record: EmailSendRecord) -> DeliveryAttempt:
         selected_route = self.route_service.select_for_record(record, self.settings)

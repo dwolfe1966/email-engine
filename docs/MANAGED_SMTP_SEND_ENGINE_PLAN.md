@@ -38,7 +38,8 @@ Important gaps:
 - Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
 - Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
   queue claiming enforces pause/per-minute/concurrent controls.
-- No dead-letter state, persisted throttle audit events, or reputation signals.
+- Queue-control skips now persist audit rows in `delivery_attempts`; dead-letter state and
+  reputation signals are still pending.
 - No owned-MTA deployment plan or operational runbook.
 
 ## Target Architecture
@@ -256,11 +257,22 @@ Recommended fourth code slice:
 5. Enforce `max_concurrent` during queue claiming. **Done.**
 6. Keep skipped records queued so they can be claimed after pause/throttle windows clear. **Done.**
 
+## Fifth Implementation Slice
+
+Recommended fifth code slice:
+
+1. Persist queue-control audit rows when records are not claimed because of domain policy controls.
+   **Done.**
+2. Use `claim_blocked` delivery-attempt status with `queue_control` route metadata for blocked
+   records. **Done.**
+3. Expose skipped count and skipped record IDs in `DeliveryRunRead`. **Done.**
+4. Keep throttle counters limited to actual submission attempts so audit rows do not extend throttle
+   windows. **Done.**
+
 ## Follow-On Slices
 
-1. Add persisted throttle/skip audit events so operators can see why queued records were not
-   claimed.
-2. Add dead-letter state and explicit terminal queue controls.
+1. Add dead-letter state and explicit terminal queue controls.
+2. Add Delivery Manager UI surfacing for claim-blocked audit rows.
 3. Expand send statuses and transition logic.
 4. Normalize SendGrid webhooks through a provider-neutral feedback service.
 5. Add managed-SMTP feedback ingestion contract.

@@ -347,6 +347,7 @@ class DeliveryRouteService:
             .join(EmailSendRecord, DeliveryAttempt.send_record_id == EmailSendRecord.id)
             .where(func.lower(EmailSendRecord.to_email).like(f'%@{domain}'))
             .where(DeliveryAttempt.started_at >= cutoff)
+            .where(DeliveryAttempt.status.in_(['submitting', 'submitted']))
         ) or 0
 
     def _active_domain_attempt_count(self, domain: str) -> int:

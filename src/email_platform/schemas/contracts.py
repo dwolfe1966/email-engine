@@ -702,6 +702,8 @@ class DeliveryRunRead(BaseModel):
     sent_count: int
     failed_count: int
     processed_record_ids: list[str]
+    skipped_count: int = 0
+    skipped_record_ids: list[str] = Field(default_factory=list)
 
 
 class MetricCount(BaseModel):

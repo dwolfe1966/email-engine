@@ -43,7 +43,12 @@ class SelectiveRouteService:
 
     def claim_decision(self, record, reserved_count=0):
         domain = record.to_email.rsplit('@', 1)[-1].lower()
-        return SimpleNamespace(can_claim=domain != self.blocked_domain, domain=domain)
+        return SimpleNamespace(
+            can_claim=domain != self.blocked_domain,
+            reason='domain_policy_max_per_minute' if domain == self.blocked_domain else None,
+            domain=domain,
+            domain_policy_id=uuid4() if domain == self.blocked_domain else None,
+        )
 
 
 def test_delivery_service_claim_records_skips_throttled_domains() -> None:
@@ -71,11 +76,18 @@ def test_delivery_service_claim_records_skips_throttled_domains() -> None:
     service.db = db
     service.route_service = SelectiveRouteService('gmail.com')
 
-    claimed = service._claim_records(limit=10)
+    claim_result = service._claim_records(limit=10)
 
-    assert claimed == [allowed]
+    assert claim_result.records == [allowed]
+    assert claim_result.skipped_record_ids == [str(blocked.id)]
     assert blocked.status == EmailSendStatus.queued
     assert allowed.status == EmailSendStatus.sending
+    assert len(db.added) == 1
+    assert db.added[0].send_record_id == blocked.id
+    assert db.added[0].status == 'claim_blocked'
+    assert db.added[0].route_type == 'queue_control'
+    assert db.added[0].route_key == 'domain_policy_max_per_minute'
+    assert db.added[0].metadata_json['reason'] == 'domain_policy_max_per_minute'
     assert db.flush_count == 1
 
 
