@@ -20,6 +20,40 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Provider-neutral delivery feedback ingestion
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `DeliveryFeedback` as the normalized feedback item contract for provider and managed-SMTP
+  delivery outcomes.
+- Added `FeedbackIngestionService` to persist normalized feedback as email events, send-record
+  lifecycle status updates, and suppressions.
+- Refactored SendGrid webhook ingestion so SendGrid only normalizes payloads, then delegates
+  persistence to the shared feedback service.
+- Existing `/api/v1/provider-webhooks/sendgrid` response counts stay compatible.
+
+### Why
+
+Managed SMTP needs to feed DSNs, bounce mailbox parsing, feedback-loop complaints, and MTA logs
+through the same persistence path as third-party provider webhooks.
+
+### What needs to happen next
+
+- Add a managed-SMTP feedback ingestion contract that converts DSN/bounce/complaint/MTA log inputs
+  into `DeliveryFeedback`.
+- Decide which feedback inputs are synchronous API payloads, background-polled mailboxes, or
+  append-only MTA log streams.
+
+### Compatibility notes
+
+- SendGrid webhook API shape is unchanged; only internal normalization and persistence ownership
+  moved.
+
+---
+
 ## 2026-06-09 — Delivery lifecycle status expansion
 
 **Pushed by:** Codex

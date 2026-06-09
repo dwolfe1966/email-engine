@@ -24,7 +24,8 @@ Already shipped:
 - Console, SendGrid, and basic SMTP provider implementations.
 - Retry delay and max-attempt fields on send records.
 - Suppression checks during campaign/journey fanout.
-- SendGrid webhook ingestion with normalized email events and suppressions.
+- SendGrid webhook ingestion through a provider-neutral feedback ingestion service with normalized
+  email events, send-record lifecycle status updates, and suppressions.
 - Delivery manager APIs for listing, requeueing, skipping, and processing queued records.
 - Analytics surfaces over send records and email events.
 
@@ -37,7 +38,8 @@ Important gaps:
   provider/MTA response normalization.
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
 - Provider/MTA responses are stored only as a provider message ID and error string.
-- Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
+- Bounce and complaint persistence now uses a provider-neutral feedback service; managed-SMTP
+  input parsing and durable feedback storage are still pending.
 - Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
   queue claiming enforces pause/per-minute/concurrent controls.
 - Queue-control skips now persist audit rows in `delivery_attempts`, and send records can be moved
@@ -306,12 +308,23 @@ Recommended eighth code slice:
 5. Roll richer lifecycle states into existing analytics, progress, overview, and Delivery Manager
    counters for compatibility. **Done.**
 
+## Ninth Implementation Slice
+
+Recommended ninth code slice:
+
+1. Add a provider-neutral `DeliveryFeedback` contract for delivery feedback items. **Done.**
+2. Add `FeedbackIngestionService` to persist normalized feedback as email events, send-record
+   lifecycle updates, and suppressions. **Done.**
+3. Refactor SendGrid webhook handling so SendGrid payloads normalize into the shared feedback
+   service instead of owning persistence directly. **Done.**
+4. Preserve existing `/api/v1/provider-webhooks/sendgrid` response counts and payload behavior.
+   **Done.**
+
 ## Follow-On Slices
 
-1. Normalize SendGrid webhooks through a provider-neutral feedback service.
-2. Add managed-SMTP feedback ingestion contract.
-3. Choose MTA implementation and build a staging deployment.
-4. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-5. Add IP pool, warmup, throttle, and reputation dashboards.
-6. Add abuse/compliance controls and audit logging.
-7. Run low-volume controlled delivery tests before production sends.
+1. Add managed-SMTP feedback ingestion contract.
+2. Choose MTA implementation and build a staging deployment.
+3. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+4. Add IP pool, warmup, throttle, and reputation dashboards.
+5. Add abuse/compliance controls and audit logging.
+6. Run low-volume controlled delivery tests before production sends.
