@@ -38,8 +38,8 @@ Important gaps:
 - Bounce and complaint ingestion is provider-specific, not a managed-SMTP contract.
 - Domain policy records now capture route, throttle hints, warmup stage, and pause windows, and
   queue claiming enforces pause/per-minute/concurrent controls.
-- Queue-control skips now persist audit rows in `delivery_attempts`; dead-letter state and
-  reputation signals are still pending.
+- Queue-control skips now persist audit rows in `delivery_attempts`, and send records can be moved
+  into a terminal `dead_lettered` state. Reputation signals are still pending.
 - No owned-MTA deployment plan or operational runbook.
 
 ## Target Architecture
@@ -269,15 +269,24 @@ Recommended fifth code slice:
 4. Keep throttle counters limited to actual submission attempts so audit rows do not extend throttle
    windows. **Done.**
 
+## Sixth Implementation Slice
+
+Recommended sixth code slice:
+
+1. Add terminal `dead_lettered` send-record status. **Done.**
+2. Add `/api/v1/email-send-records/{send_record_id}/dead-letter` operator API. **Done.**
+3. Persist a `delivery_attempts` audit row when an operator dead-letters a record. **Done.**
+4. Keep requeue support for dead-lettered records that need recovery. **Done.**
+5. Include `dead_lettered_count` in send-job progress and count it as processed. **Done.**
+
 ## Follow-On Slices
 
-1. Add dead-letter state and explicit terminal queue controls.
-2. Add Delivery Manager UI surfacing for claim-blocked audit rows.
-3. Expand send statuses and transition logic.
-4. Normalize SendGrid webhooks through a provider-neutral feedback service.
-5. Add managed-SMTP feedback ingestion contract.
-6. Choose MTA implementation and build a staging deployment.
-7. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-8. Add IP pool, warmup, throttle, and reputation dashboards.
-9. Add abuse/compliance controls and audit logging.
+1. Add Delivery Manager UI surfacing for claim-blocked and dead-letter audit rows.
+2. Expand send statuses and transition logic.
+3. Normalize SendGrid webhooks through a provider-neutral feedback service.
+4. Add managed-SMTP feedback ingestion contract.
+5. Choose MTA implementation and build a staging deployment.
+6. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+7. Add IP pool, warmup, throttle, and reputation dashboards.
+8. Add abuse/compliance controls and audit logging.
 10. Run low-volume controlled delivery tests before production sends.

@@ -20,6 +20,43 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Dead-letter queue controls
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added terminal `dead_lettered` send-record status.
+- Added `POST /api/v1/email-send-records/{send_record_id}/dead-letter` for operator terminal
+  queue control.
+- Dead-lettering writes a `delivery_attempts` audit row with route type `queue_control`, route key
+  `dead_lettered`, previous status, and operator reason.
+- Send-job progress now includes `dead_lettered_count` and treats dead-lettered records as
+  processed.
+- Requeue remains available for dead-lettered records that need recovery.
+
+### Why
+
+Operators need a terminal state for records that should not keep cycling through retries or remain
+ambiguously failed. This creates the first explicit terminal queue-control path before broader
+delivery lifecycle expansion.
+
+### What needs to happen next
+
+- Surface claim-blocked and dead-letter audit rows in Delivery Manager.
+- Expand send statuses and transition logic.
+- Continue toward provider-neutral feedback ingestion and the deeper `DeliveryAdapter` boundary.
+
+### Compatibility notes
+
+- Adds Alembic revision `0019_dead_letter_send_status`.
+- Existing delivery behavior is unchanged unless an operator explicitly dead-letters a record.
+- PostgreSQL enum downgrade leaves the value in place because enum values cannot be dropped safely
+  without type recreation.
+
+---
+
 ## 2026-06-09 — Queue-control audit persistence
 
 **Pushed by:** Codex

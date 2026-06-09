@@ -111,6 +111,7 @@ class EmailSendStatus(StrEnum):
     failed = 'failed'
     suppressed = 'suppressed'
     skipped = 'skipped'
+    dead_lettered = 'dead_lettered'
 
 
 class DeliveryRouteType(StrEnum):

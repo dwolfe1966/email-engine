@@ -93,6 +93,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/domain-delivery-policies/{policy_id}/resume',
         '/api/v1/email-send-records/list',
         '/api/v1/email-send-records/{send_record_id}',
+        '/api/v1/email-send-records/{send_record_id}/dead-letter',
         '/api/v1/email-send-records/{send_record_id}/requeue',
         '/api/v1/email-send-records/{send_record_id}/skip',
         '/api/v1/email-send-records/{send_record_id}/tracking-links',

@@ -599,6 +599,7 @@ class CampaignSendJobProgressRead(BaseModel):
     failed_count: int
     suppressed_count: int
     skipped_count: int
+    dead_lettered_count: int = 0
     processed_count: int
     remaining_count: int
     active_count: int

@@ -2752,7 +2752,10 @@ def _send_job_progress(db: Session, send_job: CampaignSendJob) -> CampaignSendJo
     failed_count = counts.get('failed', 0)
     suppressed_count = counts.get('suppressed', 0)
     skipped_count = counts.get('skipped', 0)
-    processed_count = sent_count + failed_count + suppressed_count + skipped_count
+    dead_lettered_count = counts.get('dead_lettered', 0)
+    processed_count = (
+        sent_count + failed_count + suppressed_count + skipped_count + dead_lettered_count
+    )
     active_count = queued_count + sending_count
     denominator = max(send_job.requested_count, processed_count + active_count, 1)
     remaining_count = max(denominator - processed_count, 0)
@@ -2767,6 +2770,7 @@ def _send_job_progress(db: Session, send_job: CampaignSendJob) -> CampaignSendJo
         failed_count=failed_count,
         suppressed_count=suppressed_count,
         skipped_count=skipped_count,
+        dead_lettered_count=dead_lettered_count,
         processed_count=processed_count,
         remaining_count=remaining_count,
         active_count=active_count,
@@ -3000,6 +3004,24 @@ def requeue_email_send_record(send_record_id: UUID, db: DbSession) -> EmailSendR
 def skip_email_send_record(send_record_id: UUID, db: DbSession) -> EmailSendRecord:
     try:
         record = CampaignService(db).skip_send_record(send_record_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not record:
+        raise HTTPException(status_code=404, detail='Send record not found')
+    return record
+
+
+@router.post(
+    '/email-send-records/{send_record_id}/dead-letter',
+    response_model=EmailSendRecordRead,
+)
+def dead_letter_email_send_record(
+    send_record_id: UUID,
+    db: DbSession,
+    reason: str | None = None,
+) -> EmailSendRecord:
+    try:
+        record = CampaignService(db).dead_letter_send_record(send_record_id, reason=reason)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not record:

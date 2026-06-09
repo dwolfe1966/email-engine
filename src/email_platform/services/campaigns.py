@@ -10,6 +10,7 @@ from email_platform.models.entities import (
     CampaignSendJob,
     CampaignStatus,
     Contact,
+    DeliveryAttempt,
     EmailEvent,
     EmailSendRecord,
     EmailSendStatus,
@@ -356,6 +357,45 @@ class CampaignService:
         record.status = EmailSendStatus.skipped
         record.next_attempt_at = None
         record.error_message = None
+        self.db.commit()
+        self.db.refresh(record)
+        return record
+
+    def dead_letter_send_record(
+        self,
+        send_record_id: UUID,
+        reason: str | None = None,
+    ) -> EmailSendRecord | None:
+        record = self.get_send_record(send_record_id)
+        if not record:
+            return None
+        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
+            raise ValueError('Sent or sending records cannot be dead-lettered')
+        previous_status = record.status.value
+        record.status = EmailSendStatus.dead_lettered
+        record.next_attempt_at = None
+        record.error_message = reason or record.error_message or 'Dead-lettered by operator'
+        self.db.add(
+            DeliveryAttempt(
+                send_record_id=record.id,
+                send_job_id=record.send_job_id,
+                campaign_id=record.campaign_id,
+                attempt_number=record.attempt_count,
+                provider=record.provider,
+                provider_message_id=record.provider_message_id,
+                route_type='queue_control',
+                route_key='dead_lettered',
+                status='dead_lettered',
+                error_message=record.error_message,
+                metadata_json={
+                    'source': 'operator',
+                    'reason': record.error_message,
+                    'previous_status': previous_status,
+                },
+                started_at=datetime.utcnow(),
+                completed_at=datetime.utcnow(),
+            )
+        )
         self.db.commit()
         self.db.refresh(record)
         return record
