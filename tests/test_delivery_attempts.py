@@ -148,7 +148,7 @@ def test_delivery_service_marks_retryable_failure_attempt_deferred() -> None:
 
     service._handle_failure(record, attempt, 'temporary provider failure')
 
-    assert record.status == EmailSendStatus.queued
+    assert record.status == EmailSendStatus.deferred
     assert record.next_attempt_at is not None
     assert attempt.status == 'deferred'
     assert attempt.error_message == 'temporary provider failure'

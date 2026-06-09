@@ -99,12 +99,12 @@ class ProviderWebhookService:
         self, event_name: str, current_status: EmailSendStatus
     ) -> EmailSendStatus:
         status_map = {
-            'delivered': EmailSendStatus.sent,
-            'bounce': EmailSendStatus.failed,
-            'dropped': EmailSendStatus.failed,
-            'spamreport': EmailSendStatus.suppressed,
-            'unsubscribe': EmailSendStatus.suppressed,
-            'group_unsubscribe': EmailSendStatus.suppressed,
+            'delivered': EmailSendStatus.delivered,
+            'bounce': EmailSendStatus.bounced,
+            'dropped': EmailSendStatus.bounced,
+            'spamreport': EmailSendStatus.complained,
+            'unsubscribe': EmailSendStatus.unsubscribed,
+            'group_unsubscribe': EmailSendStatus.unsubscribed,
         }
         return status_map.get(event_name, current_status)
 

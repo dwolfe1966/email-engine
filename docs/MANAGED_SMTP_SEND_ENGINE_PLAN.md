@@ -30,7 +30,9 @@ Already shipped:
 
 Important gaps:
 
-- Send statuses are too coarse for a first-party queue and SMTP lifecycle.
+- Send statuses now cover submission, deferral, delivery, bounce, complaint, unsubscribe, and
+  dead-letter outcomes, but `rendering`, `ready_to_send`, and `submitting` remain attempt-level
+  concepts rather than durable send-record states.
 - Delivery attempts are now stored as first-class records, but the attempt model still needs deeper
   provider/MTA response normalization.
 - Queue rows do not yet capture routing decisions such as provider, domain, IP pool, or MTA route.
@@ -93,8 +95,8 @@ Recommended state set:
 - `suppressed`: blocked before send by suppression/consent policy.
 - `skipped`: intentionally skipped by operator.
 
-Compatibility note: the existing API can initially keep mapping terminal delivery success to `sent`
-for older clients while the backend introduces richer internal states.
+Compatibility note: API analytics and progress counters roll the richer states into existing
+`queued`, `sent`, `failed`, and `suppressed` buckets for older dashboard clients.
 
 ## Data Model Tasks
 
@@ -290,13 +292,26 @@ Recommended seventh code slice:
 3. Add Delivery Manager action for dead-lettering a selected record. **Done.**
 4. Add static `/admin/delivery` hooks for attempt audit loading and dead-lettering. **Done.**
 
+## Eighth Implementation Slice
+
+Recommended eighth code slice:
+
+1. Add durable send-record statuses for `submitted`, `deferred`, `delivered`, `bounced`,
+   `complained`, and `unsubscribed`. **Done.**
+2. Mark accepted adapter submissions as `submitted` instead of terminal `sent`. **Done.**
+3. Mark retryable delivery failures as `deferred` and keep them eligible for queue claiming.
+   **Done.**
+4. Map provider feedback events into lifecycle statuses while preserving normalized email events.
+   **Done.**
+5. Roll richer lifecycle states into existing analytics, progress, overview, and Delivery Manager
+   counters for compatibility. **Done.**
+
 ## Follow-On Slices
 
-1. Expand send statuses and transition logic.
-2. Normalize SendGrid webhooks through a provider-neutral feedback service.
-3. Add managed-SMTP feedback ingestion contract.
-4. Choose MTA implementation and build a staging deployment.
-5. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
-6. Add IP pool, warmup, throttle, and reputation dashboards.
-7. Add abuse/compliance controls and audit logging.
-10. Run low-volume controlled delivery tests before production sends.
+1. Normalize SendGrid webhooks through a provider-neutral feedback service.
+2. Add managed-SMTP feedback ingestion contract.
+3. Choose MTA implementation and build a staging deployment.
+4. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+5. Add IP pool, warmup, throttle, and reputation dashboards.
+6. Add abuse/compliance controls and audit logging.
+7. Run low-volume controlled delivery tests before production sends.

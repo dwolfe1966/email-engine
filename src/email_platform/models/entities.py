@@ -107,7 +107,13 @@ class SendJobStatus(StrEnum):
 class EmailSendStatus(StrEnum):
     queued = 'queued'
     sending = 'sending'
+    submitted = 'submitted'
     sent = 'sent'
+    delivered = 'delivered'
+    deferred = 'deferred'
+    bounced = 'bounced'
+    complained = 'complained'
+    unsubscribed = 'unsubscribed'
     failed = 'failed'
     suppressed = 'suppressed'
     skipped = 'skipped'

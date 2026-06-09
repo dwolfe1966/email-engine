@@ -20,6 +20,42 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Delivery lifecycle status expansion
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added send-record lifecycle statuses for `submitted`, `deferred`, `delivered`, `bounced`,
+  `complained`, and `unsubscribed`.
+- Delivery processing now records accepted adapter submissions as `submitted` and retryable
+  failures as `deferred`.
+- Provider feedback events now promote records into delivered, bounced, complained, or unsubscribed
+  lifecycle states.
+- Analytics, send-job progress, overview, and Delivery Manager counts roll richer lifecycle states
+  into existing queue, accepted, failed, and suppression buckets.
+- Added Alembic revision `0020_send_lifecycle_statuses`.
+
+### Why
+
+Managed SMTP needs a durable lifecycle that separates adapter acceptance from final inbox outcome
+and keeps transient deferrals distinct from records that have never been attempted.
+
+### What needs to happen next
+
+- Normalize SendGrid webhook handling behind a provider-neutral feedback service so managed SMTP,
+  SendGrid, and future adapters emit the same feedback contract.
+- Add managed-SMTP feedback ingestion for DSNs, bounce mailbox events, complaints, and MTA logs.
+
+### Compatibility notes
+
+- Public counters remain backward compatible by folding `deferred` into queued, `submitted` and
+  `delivered` into sent/accepted, `bounced` into failed, and complaints/unsubscribes into
+  suppression review.
+
+---
+
 ## 2026-06-09 — Delivery Manager audit surfacing
 
 **Pushed by:** Codex

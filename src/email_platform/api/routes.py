@@ -2746,11 +2746,15 @@ def _send_job_progress(db: Session, send_job: CampaignSendJob) -> CampaignSendJo
         .group_by(EmailSendRecord.status)
     ).all()
     counts = {status.value: int(count) for status, count in rows}
-    queued_count = counts.get('queued', 0)
+    queued_count = counts.get('queued', 0) + counts.get('deferred', 0)
     sending_count = counts.get('sending', 0)
-    sent_count = counts.get('sent', 0)
-    failed_count = counts.get('failed', 0)
-    suppressed_count = counts.get('suppressed', 0)
+    sent_count = counts.get('sent', 0) + counts.get('submitted', 0) + counts.get('delivered', 0)
+    failed_count = counts.get('failed', 0) + counts.get('bounced', 0)
+    suppressed_count = (
+        counts.get('suppressed', 0)
+        + counts.get('complained', 0)
+        + counts.get('unsubscribed', 0)
+    )
     skipped_count = counts.get('skipped', 0)
     dead_lettered_count = counts.get('dead_lettered', 0)
     processed_count = (

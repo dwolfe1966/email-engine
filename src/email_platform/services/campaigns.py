@@ -337,8 +337,8 @@ class CampaignService:
         record = self.get_send_record(send_record_id)
         if not record:
             return None
-        if record.status == EmailSendStatus.sent:
-            raise ValueError('Sent records cannot be requeued')
+        if record.status in {EmailSendStatus.sent, EmailSendStatus.submitted, EmailSendStatus.delivered}:
+            raise ValueError('Sent, submitted, or delivered records cannot be requeued')
         record.status = EmailSendStatus.queued
         record.error_message = None
         record.next_attempt_at = None
@@ -352,8 +352,13 @@ class CampaignService:
         record = self.get_send_record(send_record_id)
         if not record:
             return None
-        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
-            raise ValueError('Sent or sending records cannot be skipped')
+        if record.status in {
+            EmailSendStatus.sent,
+            EmailSendStatus.sending,
+            EmailSendStatus.submitted,
+            EmailSendStatus.delivered,
+        }:
+            raise ValueError('Sent, sending, submitted, or delivered records cannot be skipped')
         record.status = EmailSendStatus.skipped
         record.next_attempt_at = None
         record.error_message = None
@@ -369,8 +374,13 @@ class CampaignService:
         record = self.get_send_record(send_record_id)
         if not record:
             return None
-        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
-            raise ValueError('Sent or sending records cannot be dead-lettered')
+        if record.status in {
+            EmailSendStatus.sent,
+            EmailSendStatus.sending,
+            EmailSendStatus.submitted,
+            EmailSendStatus.delivered,
+        }:
+            raise ValueError('Sent, sending, submitted, or delivered records cannot be dead-lettered')
         previous_status = record.status.value
         record.status = EmailSendStatus.dead_lettered
         record.next_attempt_at = None
@@ -404,8 +414,13 @@ class CampaignService:
         record = self.get_send_record(send_record_id)
         if not record:
             return False
-        if record.status in {EmailSendStatus.sent, EmailSendStatus.sending}:
-            raise ValueError('Sent or sending records cannot be deleted')
+        if record.status in {
+            EmailSendStatus.sent,
+            EmailSendStatus.sending,
+            EmailSendStatus.submitted,
+            EmailSendStatus.delivered,
+        }:
+            raise ValueError('Sent, sending, submitted, or delivered records cannot be deleted')
         self.db.execute(
             delete(JourneyStepExecution).where(
                 JourneyStepExecution.send_record_id == send_record_id

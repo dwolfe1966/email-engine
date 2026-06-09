@@ -537,6 +537,21 @@ type EmailSendRecordRead = {
   next_attempt_at: string | null;
 };
 
+const queuedDeliveryStatuses = ['queued', 'deferred'];
+const acceptedDeliveryStatuses = ['sent', 'submitted', 'delivered'];
+const failedDeliveryStatuses = ['failed', 'bounced'];
+const suppressedDeliveryStatuses = ['suppressed', 'complained', 'unsubscribed'];
+const blockedDeliveryStatuses = [
+  ...failedDeliveryStatuses,
+  ...suppressedDeliveryStatuses,
+  'skipped',
+  'dead_lettered',
+];
+
+function countRecordsByStatus(records: EmailSendRecordRead[], statuses: string[]) {
+  return records.filter((record) => statuses.includes(record.status)).length;
+}
+
 type DeliveryRun = {
   claimed_count: number;
   sent_count: number;
@@ -1527,8 +1542,8 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
   metrics: Metric[];
   campaigns: Campaign[];
 }) {
-  const queuedRecords = dashboard.sendRecords.filter((record) => record.status === 'queued').length;
-  const failedRecords = dashboard.sendRecords.filter((record) => record.status === 'failed').length;
+  const queuedRecords = countRecordsByStatus(dashboard.sendRecords, queuedDeliveryStatuses);
+  const failedRecords = countRecordsByStatus(dashboard.sendRecords, failedDeliveryStatuses);
   const activeJobs = dashboard.sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
   const failedImports = dashboard.importJobs.filter((job) => job.status === 'failed').length;
   const importedRows = dashboard.importJobs.reduce((sum, job) => sum + Number(job.imported_count || 0), 0);
@@ -9479,16 +9494,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (!selectedRecordId && sendRecords.length) setSelectedRecordId(sendRecords[0].id);
   }, [sendJobs, selectedJobId, selectedRecordId, sendRecords]);
 
-  const queuedRecords = sendRecords.filter((record) => record.status === 'queued').length;
-  const failedRecords = sendRecords.filter((record) => record.status === 'failed').length;
+  const queuedRecords = countRecordsByStatus(sendRecords, queuedDeliveryStatuses);
+  const failedRecords = countRecordsByStatus(sendRecords, failedDeliveryStatuses);
   const deadLetteredRecords = sendRecords.filter((record) => record.status === 'dead_lettered').length;
-  const sentRecords = sendRecords.filter((record) => record.status === 'sent').length;
+  const sentRecords = countRecordsByStatus(sendRecords, acceptedDeliveryStatuses);
   const activeJobs = sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
-  const retryPressure = sendRecords.filter((record) => record.status === 'queued' && Number(record.attempt_count || 0) > 0).length;
-  const blockedRecords = sendRecords.filter((record) => ['failed', 'skipped', 'dead_lettered'].includes(record.status)).length;
+  const retryPressure = sendRecords.filter((record) => queuedDeliveryStatuses.includes(record.status) && Number(record.attempt_count || 0) > 0).length;
+  const blockedRecords = countRecordsByStatus(sendRecords, blockedDeliveryStatuses);
   const queueControlAttempts = deliveryAttempts.filter((attempt) => attempt.route_type === 'queue_control' || ['claim_blocked', 'dead_lettered'].includes(attempt.status));
   const claimBlockedAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'claim_blocked').length;
   const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
@@ -9551,7 +9566,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       label: 'Selected record',
       value: selectedRecord?.status || 'None',
       detail: selectedRecord?.error_message || selectedRecord?.to_email || 'Select a record for retry context',
-      tone: ['failed', 'dead_lettered'].includes(selectedRecord?.status || '') ? 'warn' : 'good',
+      tone: blockedDeliveryStatuses.includes(selectedRecord?.status || '') ? 'warn' : 'good',
     },
     {
       label: 'Queue audit',

@@ -52,16 +52,36 @@ class AnalyticsService:
         status_counts = self._status_counts(campaign_id, send_job_id)
         event_counts = self._event_counts(campaign_id, send_job_id)
         requested_count = self._requested_count(campaign_id, send_job_id)
-        queued_count = status_counts.get(EmailSendStatus.queued.value, 0)
-        sent_count = status_counts.get(EmailSendStatus.sent.value, 0)
-        failed_count = status_counts.get(EmailSendStatus.failed.value, 0)
-        suppressed_count = status_counts.get(EmailSendStatus.suppressed.value, 0)
-        delivered_count = event_counts.get(EmailEventType.delivered.value, 0)
+        queued_count = status_counts.get(EmailSendStatus.queued.value, 0) + status_counts.get(
+            EmailSendStatus.deferred.value, 0
+        )
+        sent_count = self._accepted_count(status_counts)
+        failed_count = status_counts.get(EmailSendStatus.failed.value, 0) + status_counts.get(
+            EmailSendStatus.bounced.value, 0
+        )
+        suppressed_count = (
+            status_counts.get(EmailSendStatus.suppressed.value, 0)
+            + status_counts.get(EmailSendStatus.complained.value, 0)
+            + status_counts.get(EmailSendStatus.unsubscribed.value, 0)
+        )
+        delivered_count = max(
+            event_counts.get(EmailEventType.delivered.value, 0),
+            status_counts.get(EmailSendStatus.delivered.value, 0),
+        )
         opened_count = event_counts.get(EmailEventType.opened.value, 0)
         clicked_count = event_counts.get(EmailEventType.clicked.value, 0)
-        bounced_count = event_counts.get(EmailEventType.bounced.value, 0)
-        complained_count = event_counts.get(EmailEventType.complained.value, 0)
-        unsubscribed_count = event_counts.get(EmailEventType.unsubscribed.value, 0)
+        bounced_count = max(
+            event_counts.get(EmailEventType.bounced.value, 0),
+            status_counts.get(EmailSendStatus.bounced.value, 0),
+        )
+        complained_count = max(
+            event_counts.get(EmailEventType.complained.value, 0),
+            status_counts.get(EmailSendStatus.complained.value, 0),
+        )
+        unsubscribed_count = max(
+            event_counts.get(EmailEventType.unsubscribed.value, 0),
+            status_counts.get(EmailSendStatus.unsubscribed.value, 0),
+        )
         rate_base = max(sent_count, delivered_count)
 
         return CampaignAnalyticsRead(
@@ -126,9 +146,7 @@ class AnalyticsService:
             record_statement = record_statement.where(EmailSendRecord.send_job_id == send_job_id)
         for record in self.db.scalars(record_statement).all():
             bucket = buckets.setdefault(record.created_at.date(), self._empty_timeline_bucket())
-            bucket[f'{record.status.value}_count'] = bucket.get(
-                f'{record.status.value}_count', 0
-            ) + 1
+            self._add_send_status_to_bucket(bucket, record.status)
 
         event_statement = select(EmailEvent).where(
             EmailEvent.campaign_id == campaign_id,
@@ -256,9 +274,7 @@ class AnalyticsService:
             bucket = buckets.setdefault(key, self._empty_domain_bucket())
             record_bucket_keys[record.id] = key
             bucket['send_record_count'] += 1
-            bucket[f'{record.status.value}_count'] = bucket.get(
-                f'{record.status.value}_count', 0
-            ) + 1
+            self._add_send_status_to_bucket(bucket, record.status)
 
         if record_bucket_keys:
             event_statement = select(EmailEvent).where(
@@ -344,6 +360,43 @@ class AnalyticsService:
     def _global_event_counts(self) -> dict[str, int]:
         statement = select(EmailEvent.event_type, func.count()).group_by(EmailEvent.event_type)
         return {event_type.value: count for event_type, count in self.db.execute(statement).all()}
+
+    def _accepted_count(self, status_counts: dict[str, int]) -> int:
+        return (
+            status_counts.get(EmailSendStatus.sent.value, 0)
+            + status_counts.get(EmailSendStatus.submitted.value, 0)
+            + status_counts.get(EmailSendStatus.delivered.value, 0)
+        )
+
+    def _add_send_status_to_bucket(
+        self, bucket: dict[str, int], status: EmailSendStatus
+    ) -> None:
+        if status in {EmailSendStatus.queued, EmailSendStatus.deferred}:
+            bucket['queued_count'] += 1
+        elif status in {
+            EmailSendStatus.sent,
+            EmailSendStatus.submitted,
+            EmailSendStatus.delivered,
+        }:
+            bucket['sent_count'] += 1
+            if status == EmailSendStatus.delivered:
+                bucket['delivered_count'] += 1
+        elif status in {EmailSendStatus.failed, EmailSendStatus.bounced}:
+            bucket['failed_count'] += 1
+            if status == EmailSendStatus.bounced:
+                bucket['bounced_count'] += 1
+        elif status in {
+            EmailSendStatus.suppressed,
+            EmailSendStatus.complained,
+            EmailSendStatus.unsubscribed,
+        }:
+            bucket['suppressed_count'] += 1
+            if status == EmailSendStatus.complained:
+                bucket['complained_count'] += 1
+            elif status == EmailSendStatus.unsubscribed:
+                bucket['unsubscribed_count'] += 1
+        else:
+            bucket[f'{status.value}_count'] = bucket.get(f'{status.value}_count', 0) + 1
 
     def _row_count(self, model: type[object]) -> int:
         return self.db.scalar(select(func.count()).select_from(model)) or 0
@@ -439,8 +492,23 @@ class AnalyticsService:
         status_counts = self._send_record_status_counts(send_job_ids=job_ids)
         event_counts = self._send_record_event_counts(send_job_ids=job_ids)
         requested_count = sum(job.requested_count for job in jobs)
-        sent_count = status_counts.get(EmailSendStatus.sent.value, 0)
-        delivered_count = event_counts.get(EmailEventType.delivered.value, 0)
+        sent_count = self._accepted_count(status_counts)
+        delivered_count = max(
+            event_counts.get(EmailEventType.delivered.value, 0),
+            status_counts.get(EmailSendStatus.delivered.value, 0),
+        )
+        bounced_count = max(
+            event_counts.get(EmailEventType.bounced.value, 0),
+            status_counts.get(EmailSendStatus.bounced.value, 0),
+        )
+        complained_count = max(
+            event_counts.get(EmailEventType.complained.value, 0),
+            status_counts.get(EmailSendStatus.complained.value, 0),
+        )
+        unsubscribed_count = max(
+            event_counts.get(EmailEventType.unsubscribed.value, 0),
+            status_counts.get(EmailSendStatus.unsubscribed.value, 0),
+        )
         rate_base = max(sent_count, delivered_count)
         return AudiencePerformanceRead(
             audience_id=audience.id,
@@ -449,20 +517,26 @@ class AnalyticsService:
             estimated_count=audience.estimated_count,
             send_job_count=len(jobs),
             requested_count=requested_count,
-            queued_count=status_counts.get(EmailSendStatus.queued.value, 0),
+            queued_count=status_counts.get(EmailSendStatus.queued.value, 0)
+            + status_counts.get(EmailSendStatus.deferred.value, 0),
             sent_count=sent_count,
-            failed_count=status_counts.get(EmailSendStatus.failed.value, 0),
-            suppressed_count=status_counts.get(EmailSendStatus.suppressed.value, 0),
+            failed_count=status_counts.get(EmailSendStatus.failed.value, 0)
+            + status_counts.get(EmailSendStatus.bounced.value, 0),
+            suppressed_count=(
+                status_counts.get(EmailSendStatus.suppressed.value, 0)
+                + status_counts.get(EmailSendStatus.complained.value, 0)
+                + status_counts.get(EmailSendStatus.unsubscribed.value, 0)
+            ),
             delivered_count=delivered_count,
             opened_count=event_counts.get(EmailEventType.opened.value, 0),
             clicked_count=event_counts.get(EmailEventType.clicked.value, 0),
-            bounced_count=event_counts.get(EmailEventType.bounced.value, 0),
-            complained_count=event_counts.get(EmailEventType.complained.value, 0),
-            unsubscribed_count=event_counts.get(EmailEventType.unsubscribed.value, 0),
+            bounced_count=bounced_count,
+            complained_count=complained_count,
+            unsubscribed_count=unsubscribed_count,
             open_rate=self._rate(event_counts.get(EmailEventType.opened.value, 0), rate_base),
             click_rate=self._rate(event_counts.get(EmailEventType.clicked.value, 0), rate_base),
             bounce_rate=self._rate(
-                event_counts.get(EmailEventType.bounced.value, 0),
+                bounced_count,
                 max(sent_count, requested_count),
             ),
         )

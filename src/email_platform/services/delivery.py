@@ -75,7 +75,7 @@ class DeliveryService:
                         text_body=text,
                     )
                 )
-                record.status = EmailSendStatus.sent
+                record.status = EmailSendStatus.submitted
                 record.provider = result.provider
                 record.provider_message_id = result.provider_message_id
                 record.error_message = None
@@ -150,7 +150,7 @@ class DeliveryService:
     ) -> DeliveryClaimResult:
         statement = (
             select(EmailSendRecord)
-            .where(EmailSendRecord.status == EmailSendStatus.queued)
+            .where(EmailSendRecord.status.in_([EmailSendStatus.queued, EmailSendStatus.deferred]))
             .where(
                 (EmailSendRecord.next_attempt_at.is_(None))
                 | (EmailSendRecord.next_attempt_at <= datetime.utcnow())
@@ -292,7 +292,7 @@ class DeliveryService:
                 error_message=message,
             )
             return
-        record.status = EmailSendStatus.queued
+        record.status = EmailSendStatus.deferred
         record.next_attempt_at = datetime.utcnow() + self._retry_delay(record.attempt_count)
         self._complete_attempt(
             attempt,
