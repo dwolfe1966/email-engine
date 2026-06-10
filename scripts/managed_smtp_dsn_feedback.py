@@ -35,6 +35,13 @@ class DsnMessage:
     maildir_key: str | None = None
 
 
+@dataclass(frozen=True)
+class DsnParseOutcome:
+    message: DsnMessage
+    events: list[dict[str, Any]]
+    error: str | None = None
+
+
 def status_event(action: str | None, status: str | None) -> str | None:
     if action:
         event = ACTION_EVENT_MAP.get(action.lower())
@@ -149,13 +156,22 @@ def read_messages(path: str | None) -> list[DsnMessage]:
     return [DsnMessage(raw=candidate.read_bytes())]
 
 
-def parse_dsn_messages(messages: list[DsnMessage] | list[bytes]) -> list[dict[str, Any]]:
-    events: list[dict[str, Any]] = []
+def _coerce_dsn_message(message: DsnMessage | bytes) -> DsnMessage:
+    return message if isinstance(message, DsnMessage) else DsnMessage(raw=message)
+
+
+def parse_dsn_message_outcomes(messages: list[DsnMessage] | list[bytes]) -> list[DsnParseOutcome]:
+    outcomes: list[DsnParseOutcome] = []
     seen: set[tuple[str, str, str]] = set()
     for message in messages:
-        raw_message = message.raw if isinstance(message, DsnMessage) else message
-        maildir_key = message.maildir_key if isinstance(message, DsnMessage) else None
-        for event in parse_dsn_bytes(raw_message):
+        dsn_message = _coerce_dsn_message(message)
+        message_events: list[dict[str, Any]] = []
+        try:
+            parsed_events = parse_dsn_bytes(dsn_message.raw)
+        except Exception as exc:
+            outcomes.append(DsnParseOutcome(message=dsn_message, events=[], error=str(exc)))
+            continue
+        for event in parsed_events:
             key = (
                 str(event.get('provider_message_id')),
                 str(event.get('email')),
@@ -164,16 +180,29 @@ def parse_dsn_messages(messages: list[DsnMessage] | list[bytes]) -> list[dict[st
             if key in seen:
                 continue
             seen.add(key)
-            if maildir_key:
+            if dsn_message.maildir_key:
                 metadata = dict(event.get('metadata_json') or {})
-                metadata['maildir_key'] = maildir_key
+                metadata['maildir_key'] = dsn_message.maildir_key
                 event['metadata_json'] = metadata
-            events.append(event)
+            message_events.append(event)
+        outcomes.append(DsnParseOutcome(message=dsn_message, events=message_events))
+    return outcomes
+
+
+def parse_dsn_messages(messages: list[DsnMessage] | list[bytes]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for outcome in parse_dsn_message_outcomes(messages):
+        events.extend(outcome.events)
     return events
 
 
-def archive_maildir_messages(messages: list[DsnMessage], archive_path: str) -> int:
-    archive = mailbox.Maildir(archive_path, create=True)
+def _move_maildir_messages(
+    messages: list[DsnMessage],
+    destination_path: str,
+    *,
+    reason: str | None = None,
+) -> int:
+    destination = mailbox.Maildir(destination_path, create=True)
     moved_count = 0
     for message in messages:
         if not message.maildir_path or not message.maildir_key:
@@ -181,12 +210,28 @@ def archive_maildir_messages(messages: list[DsnMessage], archive_path: str) -> i
         source = mailbox.Maildir(message.maildir_path, create=False)
         if message.maildir_key not in source:
             continue
-        archive.add(source[message.maildir_key])
-        archive.flush()
+        mail = source[message.maildir_key]
+        if reason:
+            mail['X-Email-Engine-Quarantine-Reason'] = reason
+        destination.add(mail)
+        destination.flush()
         source.remove(message.maildir_key)
         source.flush()
         moved_count += 1
     return moved_count
+
+
+def archive_maildir_messages(messages: list[DsnMessage], archive_path: str) -> int:
+    return _move_maildir_messages(messages, archive_path)
+
+
+def quarantine_maildir_messages(
+    messages: list[DsnMessage],
+    quarantine_path: str,
+    *,
+    reason: str = 'no managed SMTP DSN feedback events parsed',
+) -> int:
+    return _move_maildir_messages(messages, quarantine_path, reason=reason)
 
 
 def sign_feedback(secret: str, timestamp: str, body: bytes) -> str:
@@ -226,12 +271,34 @@ def main() -> int:
     parser.add_argument('--base-url', default=os.environ.get('BASE_URL', 'http://localhost:8000'))
     parser.add_argument('--post', action='store_true')
     parser.add_argument('--archive-maildir', default=os.environ.get('MANAGED_SMTP_DSN_ARCHIVE'))
+    parser.add_argument(
+        '--quarantine-maildir',
+        default=os.environ.get('MANAGED_SMTP_DSN_QUARANTINE'),
+    )
     parser.add_argument('--allow-empty', action='store_true')
     args = parser.parse_args()
 
     messages = read_messages(args.path)
-    events = parse_dsn_messages(messages)
+    outcomes = parse_dsn_message_outcomes(messages)
+    events = [event for outcome in outcomes for event in outcome.events]
+    parsed_messages = [outcome.message for outcome in outcomes if outcome.events]
+    unparsed_messages = [outcome.message for outcome in outcomes if not outcome.events]
     if not events and not args.allow_empty:
+        if args.quarantine_maildir:
+            quarantined_count = quarantine_maildir_messages(
+                unparsed_messages,
+                args.quarantine_maildir,
+            )
+            print(
+                json.dumps(
+                    {
+                        'processed_count': 0,
+                        'quarantined_count': quarantined_count,
+                    },
+                    indent=2,
+                )
+            )
+            return 0
         print('No managed SMTP DSN feedback events parsed', file=sys.stderr)
         return 1
     if not args.post:
@@ -247,7 +314,12 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 1
     if args.archive_maildir:
-        response['archived_count'] = archive_maildir_messages(messages, args.archive_maildir)
+        response['archived_count'] = archive_maildir_messages(parsed_messages, args.archive_maildir)
+    if args.quarantine_maildir:
+        response['quarantined_count'] = quarantine_maildir_messages(
+            unparsed_messages,
+            args.quarantine_maildir,
+        )
     print(json.dumps(response, indent=2))
     return 0
 

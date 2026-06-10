@@ -72,7 +72,8 @@ service starts.
 6. Set `BASE_URL` on both managed-SMTP cron jobs to the deployed API origin.
 7. Set matching `MANAGED_SMTP_FEEDBACK_SECRET` values on the web service and DSN ingestion cron
    before enabling bounce-domain ingestion.
-8. Set `MANAGED_SMTP_DSN_PATH` and `MANAGED_SMTP_DSN_ARCHIVE` on
+8. Set `MANAGED_SMTP_DSN_PATH`, `MANAGED_SMTP_DSN_ARCHIVE`, and
+   `MANAGED_SMTP_DSN_QUARANTINE` on
    `email-engine-managed-smtp-dsn-ingestion` when a production Maildir is mounted or otherwise
    available to the job.
 9. Set `EMAIL_ENGINE_COOKIE` on `email-engine-managed-smtp-maintenance` if the deployed API requires
@@ -173,6 +174,7 @@ EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
 MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
 MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
 MANAGED_SMTP_DSN_ARCHIVE=/path/to/archive-Maildir \
+MANAGED_SMTP_DSN_QUARANTINE=/path/to/quarantine-Maildir \
 python scripts/managed_smtp_maintenance_runbook.py
 ```
 
@@ -185,6 +187,10 @@ On Render, `render.yaml` splits that runbook into two production cron jobs:
 
 This keeps DSN acknowledgement responsive without running DNSBL scans and warmup progression on
 every mailbox poll.
+
+When `MANAGED_SMTP_DSN_QUARANTINE` is set, malformed or non-DSN mailbox messages are moved to that
+Maildir instead of being replayed on every scheduler run. Successfully parsed messages are still
+archived only after their feedback post succeeds.
 
 ## Health Check
 

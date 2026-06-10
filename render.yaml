@@ -44,6 +44,8 @@ services:
         sync: false
       - key: MANAGED_SMTP_DSN_ARCHIVE
         sync: false
+      - key: MANAGED_SMTP_DSN_QUARANTINE
+        sync: false
 
   - type: cron
     name: email-engine-managed-smtp-maintenance

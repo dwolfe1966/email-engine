@@ -104,12 +104,17 @@ To normalize received DSN messages from a bounce-domain mailbox or Maildir:
 ```bash
 MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
 BASE_URL=https://<email-engine-api> \
-python scripts/managed_smtp_dsn_feedback.py --post --archive-maildir /path/to/archive-Maildir /path/to/Maildir
+python scripts/managed_smtp_dsn_feedback.py --post \
+  --archive-maildir /path/to/archive-Maildir \
+  --quarantine-maildir /path/to/quarantine-Maildir \
+  /path/to/Maildir
 ```
 
 Without `--post`, the script prints the normalized feedback payloads for inspection. It maps DSN
 `Action: failed` or `5.x.x` status to `dsn_bounce`, `Action: delayed` or `4.x.x` status to
 `tempfail`, and successful DSN actions to `delivered`.
+When `--quarantine-maildir` or `MANAGED_SMTP_DSN_QUARANTINE` is set, messages that do not produce a
+managed-SMTP feedback event are moved out of the inbound Maildir for operator review.
 
 For scheduler wiring, use the combined runbook:
 
@@ -118,12 +123,15 @@ BASE_URL=https://<email-engine-api> \
 MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
 MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
 MANAGED_SMTP_DSN_ARCHIVE=/path/to/archive-Maildir \
+MANAGED_SMTP_DSN_QUARANTINE=/path/to/quarantine-Maildir \
 python scripts/managed_smtp_maintenance_runbook.py
 ```
 
 The runbook calls `/api/v1/domain-delivery-policies/managed-smtp-maintenance`, then posts parsed
 DSN feedback when a DSN path is configured. When `MANAGED_SMTP_DSN_ARCHIVE` or `--archive-maildir`
 is set, DSN Maildir messages are moved to the archive only after successful feedback posting.
+When `MANAGED_SMTP_DSN_QUARANTINE` or `--quarantine-maildir` is set, malformed or non-DSN messages
+are moved to the quarantine Maildir without blocking valid DSNs in the same batch.
 
 ## MTA Boundary
 

@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DSN quarantine handling
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- DSN parsing now produces per-message outcomes so valid DSNs and malformed mailbox messages can be
+  handled independently.
+- `scripts/managed_smtp_dsn_feedback.py` and the maintenance runbook support
+  `--quarantine-maildir` / `MANAGED_SMTP_DSN_QUARANTINE`.
+- Successfully parsed Maildir messages are archived after successful posting, while malformed or
+  non-DSN messages can be moved to a quarantine Maildir for operator review.
+- Render and deployment docs now include the DSN quarantine environment variable.
+
+### Why
+
+Production bounce mailboxes can receive malformed DSNs, autoresponders, and unrelated mail. Those
+messages should not block valid DSN ingestion or be replayed forever.
+
+### What needs to happen next
+
+- Add operator UI controls for retained provider feedback inspection.
+- Add operator tooling for reviewing or purging quarantined DSN mailbox messages.
+
+### Compatibility notes
+
+- No migration is required. Quarantine behavior is opt-in and only applies when a quarantine Maildir
+  is configured.
+
+---
+
 ## 2026-06-10 — Render managed SMTP recurring jobs
 
 **Pushed by:** Codex

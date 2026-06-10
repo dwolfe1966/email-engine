@@ -207,6 +207,51 @@ def test_managed_smtp_dsn_feedback_archives_processed_maildir_messages(tmp_path)
     assert len(mailbox.Maildir(archive, create=False)) == 1
 
 
+def test_managed_smtp_dsn_feedback_quarantines_unparsed_maildir_messages(tmp_path) -> None:
+    module = load_script_module(DSN_FEEDBACK_SCRIPT)
+    source = tmp_path / 'dsn'
+    archive = tmp_path / 'archive'
+    quarantine = tmp_path / 'quarantine'
+    maildir = mailbox.Maildir(source, create=True)
+    valid_key = maildir.add("""From: MAILER-DAEMON@example.com
+Content-Type: multipart/report; report-type=delivery-status; boundary=\"dsn-boundary\"
+
+--dsn-boundary
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mx.example.com
+Original-Envelope-Id: ABC123DEF
+
+Final-Recipient: rfc822; bad@example.net
+Action: failed
+Status: 5.1.1
+
+--dsn-boundary--
+""")
+    malformed_key = maildir.add('From: autoresponder@example.com\n\nOut of office.')
+    maildir.flush()
+
+    messages = module.read_messages(str(source))
+    outcomes = module.parse_dsn_message_outcomes(messages)
+    parsed_messages = [outcome.message for outcome in outcomes if outcome.events]
+    unparsed_messages = [outcome.message for outcome in outcomes if not outcome.events]
+
+    assert [message.maildir_key for message in parsed_messages] == [valid_key]
+    assert [message.maildir_key for message in unparsed_messages] == [malformed_key]
+
+    archived_count = module.archive_maildir_messages(parsed_messages, str(archive))
+    quarantined_count = module.quarantine_maildir_messages(unparsed_messages, str(quarantine))
+
+    assert archived_count == 1
+    assert quarantined_count == 1
+    assert len(mailbox.Maildir(source, create=False)) == 0
+    assert len(mailbox.Maildir(archive, create=False)) == 1
+    quarantined = mailbox.Maildir(quarantine, create=False)
+    assert len(quarantined) == 1
+    quarantined_message = quarantined[next(iter(quarantined.keys()))]
+    assert quarantined_message['X-Email-Engine-Quarantine-Reason']
+
+
 def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> None:
     source = DSN_FEEDBACK_SCRIPT.read_text()
 
@@ -223,7 +268,9 @@ def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> No
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'mailbox.Maildir',
         'archive_maildir_messages',
+        'quarantine_maildir_messages',
         'MANAGED_SMTP_DSN_ARCHIVE',
+        'MANAGED_SMTP_DSN_QUARANTINE',
     ]
     for token in expected_tokens:
         assert token in source
@@ -237,6 +284,7 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
         'managed_smtp_dsn_feedback',
         'MANAGED_SMTP_DSN_PATH',
         'MANAGED_SMTP_DSN_ARCHIVE',
+        'MANAGED_SMTP_DSN_QUARANTINE',
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'skip-maintenance',
         'skip-dsn',
@@ -244,6 +292,7 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
         'skip-warmup-progression',
         'no-advance-warmup',
         'archive-maildir',
+        'quarantine-maildir',
         'managed_smtp_maintenance_runbook',
     ]
     for token in expected_tokens:
@@ -268,6 +317,7 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'MANAGED_SMTP_DSN_PATH',
         'MANAGED_SMTP_DSN_ARCHIVE',
+        'MANAGED_SMTP_DSN_QUARANTINE',
     ]
     for token in expected_render_tokens:
         assert token in render_yaml
