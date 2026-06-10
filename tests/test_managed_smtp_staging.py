@@ -1,4 +1,5 @@
 import importlib.util
+import mailbox
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -187,6 +188,23 @@ Diagnostic-Code: smtp; 550 5.1.1 User unknown
     assert event['metadata_json']['postfix_queue_id'] == 'ABC123DEF'
 
 
+def test_managed_smtp_dsn_feedback_archives_processed_maildir_messages(tmp_path) -> None:
+    module = load_script_module(DSN_FEEDBACK_SCRIPT)
+    source = tmp_path / 'dsn'
+    archive = tmp_path / 'archive'
+    maildir = mailbox.Maildir(source, create=True)
+    key = maildir.add('From: MAILER-DAEMON@example.com\n\nDelivery failed.')
+    maildir.flush()
+
+    messages = module.read_messages(str(source))
+    moved_count = module.archive_maildir_messages(messages, str(archive))
+
+    assert messages[0].maildir_key == key
+    assert moved_count == 1
+    assert len(mailbox.Maildir(source, create=False)) == 0
+    assert len(mailbox.Maildir(archive, create=False)) == 1
+
+
 def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> None:
     source = DSN_FEEDBACK_SCRIPT.read_text()
 
@@ -202,6 +220,8 @@ def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> No
         '/api/v1/delivery/managed-smtp/feedback',
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'mailbox.Maildir',
+        'archive_maildir_messages',
+        'MANAGED_SMTP_DSN_ARCHIVE',
     ]
     for token in expected_tokens:
         assert token in source
@@ -214,12 +234,14 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
         '/api/v1/domain-delivery-policies/managed-smtp-maintenance',
         'managed_smtp_dsn_feedback',
         'MANAGED_SMTP_DSN_PATH',
+        'MANAGED_SMTP_DSN_ARCHIVE',
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'skip-maintenance',
         'skip-dsn',
         'skip-blocklist-scan',
         'skip-warmup-progression',
         'no-advance-warmup',
+        'archive-maildir',
         'managed_smtp_maintenance_runbook',
     ]
     for token in expected_tokens:

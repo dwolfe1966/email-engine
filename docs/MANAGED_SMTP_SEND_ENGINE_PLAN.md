@@ -523,8 +523,17 @@ Recommended twenty-eighth code slice:
 3. Optionally ingest bounce-domain DSN Maildir/file feedback in the same scheduler run. **Done.**
 4. Document cron/scheduler usage for deploys. **Done.**
 
+## Twenty-Ninth Implementation Slice
+
+Recommended twenty-ninth code slice:
+
+1. Add DSN Maildir acknowledgement after successful feedback posting. **Done.**
+2. Support `--archive-maildir` / `MANAGED_SMTP_DSN_ARCHIVE` in DSN ingestion. **Done.**
+3. Pass DSN archive configuration through the scheduled maintenance runbook. **Done.**
+4. Cover Maildir archive behavior in staging tests. **Done.**
+
 ## Follow-On Slices
 
 1. Add operator UI controls for retained provider feedback events.
-2. Add DSN mailbox cleanup/acknowledgement after successful feedback posting.
-3. Add recurring production job configuration for the chosen deploy platform.
+2. Add recurring production job configuration for the chosen deploy platform.
+3. Add richer DSN quarantine/error handling for malformed inbound bounce messages.

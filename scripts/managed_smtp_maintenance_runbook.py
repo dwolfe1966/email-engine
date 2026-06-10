@@ -71,13 +71,23 @@ def run_maintenance(base_url: str, cookie: str | None, args) -> dict[str, Any]:
     )
 
 
-def run_dsn_ingestion(base_url: str, dsn_path: str, secret: str) -> dict[str, Any]:
-    events = managed_smtp_dsn_feedback.parse_dsn_messages(
-        managed_smtp_dsn_feedback.read_messages(dsn_path)
-    )
+def run_dsn_ingestion(
+    base_url: str,
+    dsn_path: str,
+    secret: str,
+    archive_maildir: str | None = None,
+) -> dict[str, Any]:
+    messages = managed_smtp_dsn_feedback.read_messages(dsn_path)
+    events = managed_smtp_dsn_feedback.parse_dsn_messages(messages)
     if not events:
         return {'processed_count': 0, 'suppressed_count': 0, 'updated_send_records': 0}
-    return managed_smtp_dsn_feedback.post_events(base_url, secret, events)
+    response = managed_smtp_dsn_feedback.post_events(base_url, secret, events)
+    if archive_maildir:
+        response['archived_count'] = managed_smtp_dsn_feedback.archive_maildir_messages(
+            messages,
+            archive_maildir,
+        )
+    return response
 
 
 def main() -> int:
@@ -88,6 +98,7 @@ def main() -> int:
     parser.add_argument('--cookie', default=os.environ.get('EMAIL_ENGINE_COOKIE'))
     parser.add_argument('--skip-maintenance', action='store_true')
     parser.add_argument('--dsn-path', default=os.environ.get('MANAGED_SMTP_DSN_PATH'))
+    parser.add_argument('--archive-maildir', default=os.environ.get('MANAGED_SMTP_DSN_ARCHIVE'))
     parser.add_argument('--skip-dsn', action='store_true')
     parser.add_argument('--skip-blocklist-scan', action='store_true')
     parser.add_argument('--skip-warmup-progression', action='store_true')
@@ -114,6 +125,7 @@ def main() -> int:
                 args.base_url,
                 args.dsn_path,
                 os.environ['MANAGED_SMTP_FEEDBACK_SECRET'],
+                archive_maildir=args.archive_maildir,
             )
     except ApiError as exc:
         print(str(exc), file=sys.stderr)

@@ -10,6 +10,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from email import policy
 from email.message import EmailMessage
 from email.parser import BytesParser, Parser
@@ -25,6 +26,13 @@ ACTION_EVENT_MAP = {
 }
 ORIGINAL_ENVELOPE_ID_HEADER = 'Original-Envelope-Id'
 FINAL_RECIPIENT_HEADER = 'Final-Recipient'
+
+
+@dataclass(frozen=True)
+class DsnMessage:
+    raw: bytes
+    maildir_path: str | None = None
+    maildir_key: str | None = None
 
 
 def status_event(action: str | None, status: str | None) -> str | None:
@@ -124,20 +132,29 @@ def parse_dsn_text(raw_message: str) -> list[dict[str, Any]]:
     return parse_dsn_message(Parser(policy=policy.default).parsestr(raw_message))
 
 
-def read_messages(path: str | None) -> list[bytes]:
+def read_messages(path: str | None) -> list[DsnMessage]:
     if not path or path == '-':
-        return [sys.stdin.buffer.read()]
+        return [DsnMessage(raw=sys.stdin.buffer.read())]
     candidate = Path(path)
     if candidate.is_dir():
         maildir = mailbox.Maildir(candidate, create=False)
-        return [message.as_bytes(policy=policy.default) for message in maildir]
-    return [candidate.read_bytes()]
+        return [
+            DsnMessage(
+                raw=maildir[key].as_bytes(policy=policy.default),
+                maildir_path=str(candidate),
+                maildir_key=key,
+            )
+            for key in maildir.keys()
+        ]
+    return [DsnMessage(raw=candidate.read_bytes())]
 
 
-def parse_dsn_messages(messages: list[bytes]) -> list[dict[str, Any]]:
+def parse_dsn_messages(messages: list[DsnMessage] | list[bytes]) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
-    for raw_message in messages:
+    for message in messages:
+        raw_message = message.raw if isinstance(message, DsnMessage) else message
+        maildir_key = message.maildir_key if isinstance(message, DsnMessage) else None
         for event in parse_dsn_bytes(raw_message):
             key = (
                 str(event.get('provider_message_id')),
@@ -147,8 +164,29 @@ def parse_dsn_messages(messages: list[bytes]) -> list[dict[str, Any]]:
             if key in seen:
                 continue
             seen.add(key)
+            if maildir_key:
+                metadata = dict(event.get('metadata_json') or {})
+                metadata['maildir_key'] = maildir_key
+                event['metadata_json'] = metadata
             events.append(event)
     return events
+
+
+def archive_maildir_messages(messages: list[DsnMessage], archive_path: str) -> int:
+    archive = mailbox.Maildir(archive_path, create=True)
+    moved_count = 0
+    for message in messages:
+        if not message.maildir_path or not message.maildir_key:
+            continue
+        source = mailbox.Maildir(message.maildir_path, create=False)
+        if message.maildir_key not in source:
+            continue
+        archive.add(source[message.maildir_key])
+        archive.flush()
+        source.remove(message.maildir_key)
+        source.flush()
+        moved_count += 1
+    return moved_count
 
 
 def sign_feedback(secret: str, timestamp: str, body: bytes) -> str:
@@ -187,10 +225,12 @@ def main() -> int:
     parser.add_argument('path', nargs='?', default='-')
     parser.add_argument('--base-url', default=os.environ.get('BASE_URL', 'http://localhost:8000'))
     parser.add_argument('--post', action='store_true')
+    parser.add_argument('--archive-maildir', default=os.environ.get('MANAGED_SMTP_DSN_ARCHIVE'))
     parser.add_argument('--allow-empty', action='store_true')
     args = parser.parse_args()
 
-    events = parse_dsn_messages(read_messages(args.path))
+    messages = read_messages(args.path)
+    events = parse_dsn_messages(messages)
     if not events and not args.allow_empty:
         print('No managed SMTP DSN feedback events parsed', file=sys.stderr)
         return 1
@@ -206,6 +246,8 @@ def main() -> int:
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    if args.archive_maildir:
+        response['archived_count'] = archive_maildir_messages(messages, args.archive_maildir)
     print(json.dumps(response, indent=2))
     return 0
 

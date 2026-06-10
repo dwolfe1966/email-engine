@@ -150,7 +150,7 @@ path:
 ```bash
 MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
 BASE_URL=https://<email-engine-api> \
-python scripts/managed_smtp_dsn_feedback.py --post /path/to/Maildir
+python scripts/managed_smtp_dsn_feedback.py --post --archive-maildir /path/to/archive-Maildir /path/to/Maildir
 ```
 
 For scheduled maintenance, use the combined runbook from cron or your scheduler. It runs the
@@ -162,6 +162,7 @@ BASE_URL=https://<email-engine-api> \
 EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
 MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
 MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
+MANAGED_SMTP_DSN_ARCHIVE=/path/to/archive-Maildir \
 python scripts/managed_smtp_maintenance_runbook.py
 ```
 

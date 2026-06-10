@@ -104,7 +104,7 @@ To normalize received DSN messages from a bounce-domain mailbox or Maildir:
 ```bash
 MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
 BASE_URL=https://<email-engine-api> \
-python scripts/managed_smtp_dsn_feedback.py --post /path/to/Maildir
+python scripts/managed_smtp_dsn_feedback.py --post --archive-maildir /path/to/archive-Maildir /path/to/Maildir
 ```
 
 Without `--post`, the script prints the normalized feedback payloads for inspection. It maps DSN
@@ -117,11 +117,13 @@ For scheduler wiring, use the combined runbook:
 BASE_URL=https://<email-engine-api> \
 MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
 MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
+MANAGED_SMTP_DSN_ARCHIVE=/path/to/archive-Maildir \
 python scripts/managed_smtp_maintenance_runbook.py
 ```
 
-The runbook calls `/api/v1/domain-delivery-policies/managed-smtp-maintenance` and then posts parsed
-DSN feedback when a DSN path is configured.
+The runbook calls `/api/v1/domain-delivery-policies/managed-smtp-maintenance`, then posts parsed
+DSN feedback when a DSN path is configured. When `MANAGED_SMTP_DSN_ARCHIVE` or `--archive-maildir`
+is set, DSN Maildir messages are moved to the archive only after successful feedback posting.
 
 ## MTA Boundary
 

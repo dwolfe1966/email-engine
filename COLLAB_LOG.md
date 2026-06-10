@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DSN mailbox acknowledgement
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- `scripts/managed_smtp_dsn_feedback.py` now supports `--archive-maildir` /
+  `MANAGED_SMTP_DSN_ARCHIVE`.
+- DSN Maildir messages are moved to the archive only after successful feedback posting.
+- `scripts/managed_smtp_maintenance_runbook.py` passes the same archive setting through scheduled
+  DSN ingestion.
+
+### Why
+
+Cron-based DSN ingestion needs an acknowledgement step so successfully processed bounce messages do
+not get replayed indefinitely.
+
+### What needs to happen next
+
+- Add operator UI controls for retained provider feedback inspection.
+- Add recurring job configuration for the chosen production deploy platform.
+- Add quarantine/error handling for malformed DSN messages that cannot be parsed.
+
+### Compatibility notes
+
+- No migration is required. Archive behavior is opt-in and only applies to Maildir inputs.
+
+---
+
 ## 2026-06-10 — Managed SMTP scheduled maintenance runbook
 
 **Pushed by:** Codex
