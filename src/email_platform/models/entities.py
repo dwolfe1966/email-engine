@@ -600,6 +600,29 @@ class EmailEvent(Base):
     send_job: Mapped[CampaignSendJob | None] = relationship()
 
 
+class ProviderFeedbackEvent(Base):
+    __tablename__ = 'provider_feedback_events'
+    __table_args__ = (
+        UniqueConstraint(
+            'provider',
+            'source',
+            'idempotency_key',
+            name='uq_provider_feedback_events_idempotency',
+        ),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    provider: Mapped[str] = mapped_column(String(100), index=True)
+    source: Mapped[str] = mapped_column(String(100), index=True)
+    event_name: Mapped[str] = mapped_column(String(100), index=True)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), index=True)
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class User(Base):
     """Operator user. Multi-tenant identity model will layer on top of this
     later (see PRODUCT_BACKLOG.md P0). For the single-tenant scaffold, every

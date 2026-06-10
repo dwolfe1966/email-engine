@@ -40,11 +40,20 @@ class FakeFeedbackIngestionService(FeedbackIngestionService):
         self.events = FakeEventService()
         self.suppressions = FakeSuppressionService()
         self.record = record
+        self.raw_feedback = []
+        self.seen_keys = set()
 
     def _find_send_record(self, provider_message_id: str | None) -> EmailSendRecord | None:
         if provider_message_id == 'provider-message':
             return self.record
         return None
+
+    def _feedback_already_processed(self, feedback, idempotency_key: str) -> bool:
+        return (feedback.provider, feedback.source, idempotency_key) in self.seen_keys
+
+    def _record_raw_feedback(self, feedback, idempotency_key: str) -> None:
+        self.seen_keys.add((feedback.provider, feedback.source, idempotency_key))
+        self.raw_feedback.append((feedback, idempotency_key))
 
 
 def test_feedback_ingestion_updates_record_events_and_suppressions() -> None:
@@ -85,6 +94,7 @@ def test_feedback_ingestion_updates_record_events_and_suppressions() -> None:
     assert service.events.payloads[0].metadata_json['send_record_id'] == str(record.id)
     assert service.suppressions.payloads[0]['reason'] == SuppressionReason.hard_bounce
     assert service.suppressions.payloads[0]['contact_id'] == record.contact_id
+    assert len(service.raw_feedback) == 1
 
 
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:
@@ -165,3 +175,36 @@ def test_managed_smtp_deferral_updates_status_without_event() -> None:
     assert result.suppressed_count == 0
     assert record.status == EmailSendStatus.deferred
     assert service.events.payloads == []
+
+
+def test_managed_smtp_feedback_skips_duplicate_queue_event() -> None:
+    record = EmailSendRecord(
+        id=uuid4(),
+        campaign_id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.submitted,
+        to_email='recipient@example.com',
+        variables={},
+        provider_message_id='provider-message',
+    )
+    service = FakeFeedbackIngestionService(record)
+    event = ManagedSmtpFeedbackEvent(
+        email='recipient@example.com',
+        event='dsn_bounce',
+        provider_message_id='provider-message',
+        smtp_response_code=550,
+        smtp_response='550 5.1.1 mailbox unavailable',
+        metadata_json={'postfix_queue_id': 'ABC123DEF'},
+    )
+
+    result = service.ingest_managed_smtp([event, event])
+
+    assert result.processed_count == 2
+    assert result.duplicate_count == 1
+    assert result.updated_send_records == 1
+    assert result.suppressed_count == 1
+    assert len(service.raw_feedback) == 1
+    assert len(service.events.payloads) == 1
+    assert len(service.suppressions.payloads) == 1

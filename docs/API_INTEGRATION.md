@@ -135,7 +135,9 @@ Sending and events:
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.
 - SendGrid Event Webhook signature verification is supported through `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`. Set `SENDGRID_EVENT_WEBHOOK_REQUIRE_SIGNATURE=true` in production after the public key is configured.
 - `POST /api/v1/delivery/managed-smtp/feedback` ingests owned-MTA feedback events such as
-  `delivered`, `dsn_bounce`, `feedback_loop_complaint`, `unsubscribe`, and `tempfail`.
+  `delivered`, `dsn_bounce`, `feedback_loop_complaint`, `unsubscribe`, and `tempfail`. Feedback
+  events are retained in `provider_feedback_events` with provider/source idempotency keys; duplicate
+  events are reported through `duplicate_count` and skipped before send-record mutation.
   Configure `MANAGED_SMTP_FEEDBACK_SECRET`; callers sign
   `{X-Email-Engine-Timestamp}.{raw_body}` with HMAC-SHA256 and send the hex digest in
   `X-Email-Engine-Signature`. Requests outside

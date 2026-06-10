@@ -990,6 +990,7 @@ class ProviderWebhookIngestRead(BaseModel):
     processed_count: int
     suppressed_count: int
     updated_send_records: int
+    duplicate_count: int = 0
 
 
 class DataSourceCreate(BaseModel):

@@ -486,8 +486,18 @@ Recommended twenty-fourth code slice:
 3. Add optional Postfix DKIM milter configuration for MTA-side signing. **Done.**
 4. Document the DKIM private-key boundary and bounce-domain DSN routing contract. **Done.**
 
+## Twenty-Fifth Implementation Slice
+
+Recommended twenty-fifth code slice:
+
+1. Add durable raw provider feedback retention. **Done.**
+2. Add provider/source idempotency keys for managed-SMTP feedback events. **Done.**
+3. Skip duplicate managed-SMTP feedback before send-record, event, or suppression mutation.
+   **Done.**
+4. Return duplicate counts from provider feedback ingestion responses. **Done.**
+
 ## Follow-On Slices
 
 1. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
-2. Add durable feedback idempotency and raw MTA feedback retention.
-3. Add DSN mailbox/parser integration for bounce-domain inbound mail.
+2. Add DSN mailbox/parser integration for bounce-domain inbound mail.
+3. Add operator UI/API views for retained provider feedback events.

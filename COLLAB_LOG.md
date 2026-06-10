@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Durable managed SMTP feedback idempotency and retention
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `provider_feedback_events` for raw provider/MTA feedback retention.
+- Managed-SMTP feedback now derives provider/source idempotency keys and skips duplicates before
+  mutating send records, events, or suppressions.
+- Provider feedback ingestion responses now include `duplicate_count`.
+
+### Why
+
+Postfix log tailing, DSN retries, and feedback replays can emit the same delivery event more than
+once. Retaining raw feedback with durable idempotency prevents duplicate state transitions and keeps
+operator evidence for later debugging.
+
+### What needs to happen next
+
+- Run `alembic upgrade head` in deployed environments.
+- Add DSN mailbox/parser integration for bounce-domain inbound mail.
+- Add operator views or API list endpoints for retained provider feedback.
+
+### Compatibility notes
+
+- Requires migration `0021_provider_feedback_events`.
+- `duplicate_count` is additive on existing ingestion responses.
+
+---
+
 ## 2026-06-10 — Managed SMTP DKIM and bounce-domain boundary hardening
 
 **Pushed by:** Codex

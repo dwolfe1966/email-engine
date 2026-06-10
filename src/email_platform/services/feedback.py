@@ -1,4 +1,7 @@
+import hashlib
+import json
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,6 +10,7 @@ from email_platform.models.entities import (
     EmailEventType,
     EmailSendRecord,
     EmailSendStatus,
+    ProviderFeedbackEvent,
     SuppressionReason,
 )
 from email_platform.schemas.contracts import (
@@ -29,6 +33,8 @@ class DeliveryFeedback:
     send_status: EmailSendStatus | None = None
     suppression_reason: SuppressionReason | None = None
     metadata_json: dict[str, object] = field(default_factory=dict)
+    idempotency_key: str | None = None
+    payload_json: dict[str, object] = field(default_factory=dict)
 
 
 class FeedbackIngestionService:
@@ -40,7 +46,16 @@ class FeedbackIngestionService:
     def ingest(self, feedback_items: list[DeliveryFeedback]) -> ProviderWebhookIngestRead:
         suppressed_count = 0
         updated_send_records = 0
+        duplicate_count = 0
+        seen_keys: set[tuple[str, str, str]] = set()
         for feedback in feedback_items:
+            idempotency_key = feedback.idempotency_key or self._feedback_idempotency_key(feedback)
+            key = (feedback.provider, feedback.source, idempotency_key)
+            if key in seen_keys or self._feedback_already_processed(feedback, idempotency_key):
+                duplicate_count += 1
+                continue
+            seen_keys.add(key)
+            self._record_raw_feedback(feedback, idempotency_key)
             send_record = self._find_send_record(feedback.provider_message_id)
             if send_record and (feedback.event_type or feedback.send_status):
                 self._apply_send_record_feedback(send_record, feedback)
@@ -62,6 +77,7 @@ class FeedbackIngestionService:
             processed_count=len(feedback_items),
             suppressed_count=suppressed_count,
             updated_send_records=updated_send_records,
+            duplicate_count=duplicate_count,
         )
 
     def ingest_managed_smtp(
@@ -71,6 +87,8 @@ class FeedbackIngestionService:
 
     def normalize_managed_smtp(self, event: ManagedSmtpFeedbackEvent) -> DeliveryFeedback:
         event_name = event.event.lower()
+        payload_json = event.model_dump(mode='json')
+        metadata_json = self._managed_smtp_metadata(event)
         return DeliveryFeedback(
             provider='managed_smtp',
             source=event.source,
@@ -80,7 +98,9 @@ class FeedbackIngestionService:
             event_type=self._managed_smtp_event_type(event_name),
             send_status=self._managed_smtp_send_status(event_name),
             suppression_reason=self._managed_smtp_suppression_reason(event_name),
-            metadata_json=self._managed_smtp_metadata(event),
+            metadata_json=metadata_json,
+            idempotency_key=self._managed_smtp_idempotency_key(event, metadata_json),
+            payload_json=payload_json,
         )
 
     def _apply_send_record_feedback(
@@ -110,6 +130,96 @@ class FeedbackIngestionService:
                 EmailSendRecord.provider_message_id == provider_message_id
             )
         )
+
+    def _feedback_already_processed(
+        self,
+        feedback: DeliveryFeedback,
+        idempotency_key: str,
+    ) -> bool:
+        return bool(
+            self.db.scalar(
+                select(ProviderFeedbackEvent.id)
+                .where(ProviderFeedbackEvent.provider == feedback.provider)
+                .where(ProviderFeedbackEvent.source == feedback.source)
+                .where(ProviderFeedbackEvent.idempotency_key == idempotency_key)
+            )
+        )
+
+    def _record_raw_feedback(
+        self,
+        feedback: DeliveryFeedback,
+        idempotency_key: str,
+    ) -> None:
+        self.db.add(
+            ProviderFeedbackEvent(
+                provider=feedback.provider,
+                source=feedback.source,
+                event_name=feedback.event_name,
+                email=feedback.email,
+                provider_message_id=feedback.provider_message_id,
+                idempotency_key=idempotency_key,
+                payload_json=feedback.payload_json or self._feedback_payload(feedback),
+                metadata_json=feedback.metadata_json,
+                received_at=datetime.utcnow(),
+            )
+        )
+
+    def _feedback_idempotency_key(self, feedback: DeliveryFeedback) -> str:
+        metadata_key = feedback.metadata_json.get('idempotency_key')
+        if metadata_key:
+            return str(metadata_key)
+        queue_id = self._feedback_queue_id(feedback.metadata_json)
+        if queue_id:
+            return self._hash_key(
+                {
+                    'queue_id': queue_id,
+                    'event': feedback.event_name,
+                    'email': feedback.email.lower(),
+                    'provider_message_id': feedback.provider_message_id,
+                }
+            )
+        return self._hash_key(feedback.payload_json or self._feedback_payload(feedback))
+
+    def _managed_smtp_idempotency_key(
+        self,
+        event: ManagedSmtpFeedbackEvent,
+        metadata: dict[str, object],
+    ) -> str:
+        explicit_key = metadata.get('idempotency_key')
+        if explicit_key:
+            return str(explicit_key)
+        queue_id = self._feedback_queue_id(metadata)
+        if queue_id:
+            return self._hash_key(
+                {
+                    'queue_id': queue_id,
+                    'event': event.event.lower(),
+                    'email': str(event.email).lower(),
+                    'provider_message_id': event.provider_message_id,
+                }
+            )
+        return self._hash_key(event.model_dump(mode='json'))
+
+    def _feedback_queue_id(self, metadata: dict[str, object]) -> str | None:
+        for key in ('postfix_queue_id', 'queue_id', 'smtp_queue_id'):
+            value = metadata.get(key)
+            if value:
+                return str(value)
+        return None
+
+    def _feedback_payload(self, feedback: DeliveryFeedback) -> dict[str, object]:
+        return {
+            'provider': feedback.provider,
+            'source': feedback.source,
+            'event_name': feedback.event_name,
+            'email': feedback.email,
+            'provider_message_id': feedback.provider_message_id,
+            'metadata_json': feedback.metadata_json,
+        }
+
+    def _hash_key(self, payload: dict[str, object]) -> str:
+        body = json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str)
+        return hashlib.sha256(body.encode('utf-8')).hexdigest()
 
     def _metadata(
         self, feedback: DeliveryFeedback, send_record: EmailSendRecord | None
