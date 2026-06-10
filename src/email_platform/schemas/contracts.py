@@ -1191,6 +1191,30 @@ class DomainDeliverabilityRead(BaseModel):
     bounce_rate: float
 
 
+class DomainReputationDashboardRead(BaseModel):
+    domain: str
+    route_id: UUID | None = None
+    route_name: str | None = None
+    route_type: DeliveryRouteType | None = None
+    warmup_stage: str | None = None
+    ip_pool: str | None = None
+    max_per_minute: int | None = None
+    max_concurrent: int | None = None
+    paused_until: datetime | None = None
+    authentication_verified: bool = False
+    authentication_status: str
+    reputation_status: str
+    throttle_status: str
+    send_record_count: int = 0
+    sent_count: int = 0
+    delivered_count: int = 0
+    bounced_count: int = 0
+    complained_count: int = 0
+    bounce_rate: float = 0.0
+    complaint_rate: float = 0.0
+    recommendations: list[str] = Field(default_factory=list)
+
+
 class JourneyStepPerformanceRead(BaseModel):
     step_id: UUID
     name: str

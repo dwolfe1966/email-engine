@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP reputation dashboard foundation
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `DomainReputationDashboardRead`.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard`.
+- Dashboard output combines domain policy warmup, throttle, IP-pool metadata, authentication
+  verification, and observed domain deliverability rollups.
+- Added basic reputation status, throttle status, complaint rate, bounce rate, and operator
+  recommendations.
+
+### Why
+
+Managed SMTP needs one operator view that connects policy controls with real delivery outcomes
+before warmup or production sending can be managed safely.
+
+### What needs to happen next
+
+- Add abuse/compliance controls and audit logging around managed-SMTP operations.
+- Use the dashboard contract in the frontend Delivery/Analytics surfaces.
+
+### Compatibility notes
+
+- No migration is required; IP-pool metadata is read from existing route or policy metadata.
+
+---
+
 ## 2026-06-09 — Managed SMTP DNS verification and DKIM key management
 
 **Pushed by:** Codex

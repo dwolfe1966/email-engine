@@ -383,8 +383,19 @@ Recommended fourteenth code slice:
 4. Add DNS verification for stored domain-authentication plans. **Done.**
 5. Add `/api/v1/domain-delivery-policies/{policy_id}/verify-authentication`. **Done.**
 
+## Fifteenth Implementation Slice
+
+Recommended fifteenth code slice:
+
+1. Add a managed-SMTP domain reputation dashboard schema. **Done.**
+2. Add `/api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard`. **Done.**
+3. Combine domain policy warmup/throttle/IP-pool metadata with authentication verification state.
+   **Done.**
+4. Fold observed domain deliverability metrics into the policy dashboard. **Done.**
+5. Return reputation status, throttle status, complaint rate, bounce rate, and operator
+   recommendations. **Done.**
+
 ## Follow-On Slices
 
-1. Add IP pool, warmup, throttle, and reputation dashboards.
-2. Add abuse/compliance controls and audit logging.
-3. Run low-volume controlled delivery tests before production sends.
+1. Add abuse/compliance controls and audit logging.
+2. Run low-volume controlled delivery tests before production sends.

@@ -19,11 +19,13 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     DeliveryRouteCreate,
     DeliveryRouteUpdate,
+    DomainDeliverabilityRead,
     DomainAuthenticationDnsRecord,
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
     DomainAuthenticationVerificationRead,
     DomainAuthenticationVerificationRecord,
+    DomainReputationDashboardRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
     DomainDkimKeyCreateRead,
@@ -377,6 +379,66 @@ class DeliveryRouteService:
             records=records,
         )
 
+    def domain_reputation_dashboard(
+        self,
+        policy_id: UUID,
+        deliverability: DomainDeliverabilityRead | None = None,
+    ) -> DomainReputationDashboardRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        route = self.db.get(DeliveryRoute, policy.route_id) if policy.route_id else None
+        metadata = policy.metadata_json or {}
+        verification = metadata.get('domain_authentication_verification')
+        authentication_verified = bool(
+            isinstance(verification, dict) and verification.get('verified')
+        )
+        ip_pool = self._metadata_string(metadata, 'ip_pool') or self._route_ip_pool(route)
+        send_record_count = deliverability.send_record_count if deliverability else 0
+        sent_count = deliverability.sent_count if deliverability else 0
+        delivered_count = deliverability.delivered_count if deliverability else 0
+        bounced_count = deliverability.bounced_count if deliverability else 0
+        complained_count = deliverability.complained_count if deliverability else 0
+        bounce_rate = deliverability.bounce_rate if deliverability else 0.0
+        complaint_rate = self._rate(complained_count, max(sent_count, send_record_count))
+        reputation_status = self._reputation_status(
+            bounce_rate=bounce_rate,
+            complaint_rate=complaint_rate,
+            authentication_verified=authentication_verified,
+        )
+        throttle_status = self._throttle_status(policy)
+        return DomainReputationDashboardRead(
+            domain=policy.domain,
+            route_id=policy.route_id,
+            route_name=route.name if route else None,
+            route_type=route.route_type if route else None,
+            warmup_stage=policy.warmup_stage,
+            ip_pool=ip_pool,
+            max_per_minute=policy.max_per_minute,
+            max_concurrent=policy.max_concurrent,
+            paused_until=policy.paused_until,
+            authentication_verified=authentication_verified,
+            authentication_status='verified' if authentication_verified else 'pending',
+            reputation_status=reputation_status,
+            throttle_status=throttle_status,
+            send_record_count=send_record_count,
+            sent_count=sent_count,
+            delivered_count=delivered_count,
+            bounced_count=bounced_count,
+            complained_count=complained_count,
+            bounce_rate=bounce_rate,
+            complaint_rate=complaint_rate,
+            recommendations=self._reputation_recommendations(
+                policy=policy,
+                authentication_verified=authentication_verified,
+                reputation_status=reputation_status,
+                send_record_count=send_record_count,
+                bounce_rate=bounce_rate,
+                complaint_rate=complaint_rate,
+                ip_pool=ip_pool,
+            ),
+        )
+
     def select_for_record(
         self,
         record: EmailSendRecord,
@@ -592,6 +654,72 @@ class DeliveryRouteService:
 
     def _normalize_dns_value(self, value: str) -> str:
         return ' '.join(value.replace('"', '').split()).lower()
+
+    def _route_ip_pool(self, route: DeliveryRoute | None) -> str | None:
+        if not route or not isinstance(route.config, dict):
+            return None
+        value = route.config.get('ip_pool') or route.config.get('ip_pool_name')
+        return str(value) if value else None
+
+    def _metadata_string(self, metadata: dict[str, object], key: str) -> str | None:
+        value = metadata.get(key)
+        return str(value) if value else None
+
+    def _rate(self, numerator: int, denominator: int) -> float:
+        if denominator <= 0:
+            return 0.0
+        return round(numerator / denominator, 4)
+
+    def _throttle_status(self, policy: DomainDeliveryPolicy) -> str:
+        if policy.paused_until and policy.paused_until > datetime.utcnow():
+            return 'paused'
+        if policy.max_per_minute or policy.max_concurrent:
+            return 'limited'
+        return 'unlimited'
+
+    def _reputation_status(
+        self,
+        bounce_rate: float,
+        complaint_rate: float,
+        authentication_verified: bool,
+    ) -> str:
+        if complaint_rate >= 0.001 or bounce_rate >= 0.05:
+            return 'risk'
+        if not authentication_verified:
+            return 'pending_authentication'
+        if bounce_rate >= 0.02:
+            return 'watch'
+        return 'healthy'
+
+    def _reputation_recommendations(
+        self,
+        *,
+        policy: DomainDeliveryPolicy,
+        authentication_verified: bool,
+        reputation_status: str,
+        send_record_count: int,
+        bounce_rate: float,
+        complaint_rate: float,
+        ip_pool: str | None,
+    ) -> list[str]:
+        recommendations: list[str] = []
+        if not authentication_verified:
+            recommendations.append('Verify DKIM, SPF, DMARC, and bounce-domain DNS before scaling.')
+        if not ip_pool:
+            recommendations.append('Assign an IP pool before production managed-SMTP sends.')
+        if not policy.warmup_stage:
+            recommendations.append('Set a warmup stage for this sending domain.')
+        if not policy.max_per_minute and not policy.max_concurrent:
+            recommendations.append('Set throttle limits before staging or production sends.')
+        if reputation_status == 'risk':
+            recommendations.append('Pause or reduce volume until bounce and complaint causes are reviewed.')
+        elif bounce_rate >= 0.02:
+            recommendations.append('Keep this domain in warmup watch until bounce rate improves.')
+        if complaint_rate > 0:
+            recommendations.append('Review complaint suppressions and audience consent sources.')
+        if send_record_count == 0:
+            recommendations.append('Run a low-volume seed test after DNS and DKIM are verified.')
+        return recommendations
 
     def _domain_for_record(self, record: EmailSendRecord) -> str | None:
         if '@' not in record.to_email:

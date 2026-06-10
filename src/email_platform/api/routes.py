@@ -119,6 +119,7 @@ from email_platform.schemas.contracts import (
     DomainDeliveryPolicyUpdate,
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
+    DomainReputationDashboardRead,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -3032,6 +3033,26 @@ def verify_domain_delivery_authentication(
     db: DbSession,
 ) -> DomainAuthenticationVerificationRead:
     result = DeliveryRouteService(db).verify_domain_authentication(policy_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
+
+
+@router.get(
+    '/domain-delivery-policies/{policy_id}/reputation-dashboard',
+    response_model=DomainReputationDashboardRead,
+)
+def get_domain_delivery_reputation_dashboard(
+    policy_id: UUID,
+    db: DbSession,
+) -> DomainReputationDashboardRead:
+    service = DeliveryRouteService(db)
+    policy = service.get_domain_policy(policy_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    domain_rows, _total = AnalyticsService(db).domain_deliverability(limit=1000)
+    deliverability = next((row for row in domain_rows if row.domain == policy.domain), None)
+    result = service.domain_reputation_dashboard(policy_id, deliverability=deliverability)
     if not result:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return result

@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.schemas.contracts import (
+    DomainDeliverabilityRead,
     DomainAuthenticationPlanRequest,
     DomainDkimKeyCreateRequest,
 )
@@ -382,3 +383,98 @@ def test_verify_domain_authentication_reports_mismatch_and_unavailable_lookup() 
     assert unavailable is not None
     assert not unavailable.verified
     assert unavailable.records[0].status == 'unchecked'
+
+
+def test_domain_reputation_dashboard_combines_policy_route_and_deliverability() -> None:
+    route = SimpleNamespace(
+        id=uuid4(),
+        name='managed-smtp-primary',
+        route_type=DeliveryRouteType.managed_smtp,
+        config={'ip_pool': 'pool-a'},
+    )
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        warmup_stage='stage_1',
+        max_per_minute=25,
+        max_concurrent=2,
+        paused_until=None,
+        metadata_json={'domain_authentication_verification': {'verified': True}},
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=0,
+        suppressed_count=0,
+        delivered_count=95,
+        opened_count=20,
+        clicked_count=5,
+        bounced_count=1,
+        complained_count=0,
+        unsubscribed_count=0,
+        open_rate=0.2,
+        click_rate=0.05,
+        bounce_rate=0.01,
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+    service.get_domain_policy = lambda policy_id: policy
+
+    dashboard = service.domain_reputation_dashboard(policy.id, deliverability=deliverability)
+
+    assert dashboard is not None
+    assert dashboard.domain == 'example.com'
+    assert dashboard.route_name == 'managed-smtp-primary'
+    assert dashboard.ip_pool == 'pool-a'
+    assert dashboard.authentication_status == 'verified'
+    assert dashboard.reputation_status == 'healthy'
+    assert dashboard.throttle_status == 'limited'
+    assert dashboard.bounce_rate == 0.01
+    assert dashboard.complaint_rate == 0.0
+    assert dashboard.recommendations == []
+
+
+def test_domain_reputation_dashboard_flags_risk_and_missing_controls() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=None,
+        warmup_stage=None,
+        max_per_minute=None,
+        max_concurrent=None,
+        paused_until=None,
+        metadata_json={},
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=10,
+        suppressed_count=1,
+        delivered_count=80,
+        opened_count=10,
+        clicked_count=1,
+        bounced_count=7,
+        complained_count=1,
+        unsubscribed_count=0,
+        open_rate=0.1,
+        click_rate=0.01,
+        bounce_rate=0.07,
+    )
+    service = DeliveryRouteService(FakeDb(get_result=None))
+    service.get_domain_policy = lambda policy_id: policy
+
+    dashboard = service.domain_reputation_dashboard(policy.id, deliverability=deliverability)
+
+    assert dashboard is not None
+    assert dashboard.authentication_status == 'pending'
+    assert dashboard.reputation_status == 'risk'
+    assert dashboard.throttle_status == 'unlimited'
+    assert dashboard.complaint_rate == 0.01
+    assert 'Assign an IP pool before production managed-SMTP sends.' in dashboard.recommendations
+    assert 'Set throttle limits before staging or production sends.' in dashboard.recommendations

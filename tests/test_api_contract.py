@@ -93,6 +93,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/domain-delivery-policies/{policy_id}/authentication-plan',
         '/api/v1/domain-delivery-policies/{policy_id}/dkim-key',
         '/api/v1/domain-delivery-policies/{policy_id}/pause',
+        '/api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard',
         '/api/v1/domain-delivery-policies/{policy_id}/resume',
         '/api/v1/domain-delivery-policies/{policy_id}/verify-authentication',
         '/api/v1/email-send-records/list',

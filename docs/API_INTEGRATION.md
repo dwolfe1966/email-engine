@@ -115,6 +115,9 @@ Sending and events:
 - `POST /api/v1/domain-delivery-policies/{policy_id}/verify-authentication` checks the stored DNS
   onboarding plan against DNS when the runtime has `dig`; unavailable lookups return `unchecked`
   records rather than silently passing.
+- `GET /api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard` combines domain policy
+  warmup/throttle/IP-pool metadata, authentication verification state, and domain deliverability
+  rollups into one managed-SMTP readiness view.
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.
 - SendGrid Event Webhook signature verification is supported through `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`. Set `SENDGRID_EVENT_WEBHOOK_REQUIRE_SIGNATURE=true` in production after the public key is configured.
 - `POST /api/v1/delivery/managed-smtp/feedback` ingests owned-MTA feedback events such as
