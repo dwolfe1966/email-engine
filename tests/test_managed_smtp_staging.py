@@ -9,6 +9,8 @@ CONTROLLED_DELIVERY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_controlled_deliver
 LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
 DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
+RENDER_BLUEPRINT = ROOT / 'render.yaml'
+DOCKERFILE = ROOT / 'Dockerfile'
 
 
 def load_script_module(path: Path):
@@ -246,3 +248,28 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
     ]
     for token in expected_tokens:
         assert token in source
+
+
+def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
+    render_yaml = RENDER_BLUEPRINT.read_text()
+    dockerfile = DOCKERFILE.read_text()
+
+    expected_render_tokens = [
+        'email-engine-managed-smtp-dsn-ingestion',
+        'email-engine-managed-smtp-maintenance',
+        'type: cron',
+        'runtime: docker',
+        'dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-maintenance',
+        'dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-dsn',
+        'schedule: "*/10 * * * *"',
+        'schedule: "17 6 * * *"',
+        'BASE_URL',
+        'EMAIL_ENGINE_COOKIE',
+        'MANAGED_SMTP_FEEDBACK_SECRET',
+        'MANAGED_SMTP_DSN_PATH',
+        'MANAGED_SMTP_DSN_ARCHIVE',
+    ]
+    for token in expected_render_tokens:
+        assert token in render_yaml
+
+    assert 'COPY scripts ./scripts' in dockerfile

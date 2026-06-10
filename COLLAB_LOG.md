@@ -20,6 +20,35 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Render managed SMTP recurring jobs
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- `render.yaml` now defines two Docker cron jobs for managed SMTP operations:
+  `email-engine-managed-smtp-dsn-ingestion` and `email-engine-managed-smtp-maintenance`.
+- The deployment image now copies `scripts/` so cron jobs can invoke the managed-SMTP runbooks.
+- Render deployment docs now list the required cron environment variables and schedules.
+
+### Why
+
+Managed SMTP maintenance and bounce-domain DSN ingestion need production scheduler wiring, not just
+manual runbook commands.
+
+### What needs to happen next
+
+- Add operator UI controls for retained provider feedback inspection.
+- Add quarantine/error handling for malformed DSN messages that cannot be parsed.
+
+### Compatibility notes
+
+- No migration is required. Cron jobs are inactive until their Render environment variables are
+  configured.
+
+---
+
 ## 2026-06-10 — Managed SMTP DSN mailbox acknowledgement
 
 **Pushed by:** Codex

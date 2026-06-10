@@ -535,5 +535,5 @@ Recommended twenty-ninth code slice:
 ## Follow-On Slices
 
 1. Add operator UI controls for retained provider feedback events.
-2. Add recurring production job configuration for the chosen deploy platform.
+2. Add recurring production job configuration for the chosen deploy platform. **Done.**
 3. Add richer DSN quarantine/error handling for malformed inbound bounce messages.

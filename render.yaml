@@ -24,6 +24,40 @@ services:
         generateValue: true
       - key: SENDGRID_API_KEY
         sync: false
+      - key: MANAGED_SMTP_FEEDBACK_SECRET
+        sync: false
+
+  - type: cron
+    name: email-engine-managed-smtp-dsn-ingestion
+    runtime: docker
+    plan: starter
+    schedule: "*/10 * * * *"
+    dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-maintenance
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: BASE_URL
+        sync: false
+      - key: MANAGED_SMTP_FEEDBACK_SECRET
+        sync: false
+      - key: MANAGED_SMTP_DSN_PATH
+        sync: false
+      - key: MANAGED_SMTP_DSN_ARCHIVE
+        sync: false
+
+  - type: cron
+    name: email-engine-managed-smtp-maintenance
+    runtime: docker
+    plan: starter
+    schedule: "17 6 * * *"
+    dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-dsn
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: BASE_URL
+        sync: false
+      - key: EMAIL_ENGINE_COOKIE
+        sync: false
 
 databases:
   - name: email-engine-db

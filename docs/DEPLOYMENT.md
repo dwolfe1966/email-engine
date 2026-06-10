@@ -60,13 +60,23 @@ On platforms with one-off jobs, run the migration command as a release phase or 
 
 ## Deploy With Render Blueprint
 
-The repository includes `render.yaml` for a Docker web service plus managed Postgres. It uses Render's `preDeployCommand` to run `alembic upgrade head` before the service starts.
+The repository includes `render.yaml` for a Docker web service, managed Postgres, and two managed
+SMTP cron jobs. It uses Render's `preDeployCommand` to run `alembic upgrade head` before the web
+service starts.
 
 1. Create a new Render Blueprint from this repository.
 2. Set `CORS_ORIGINS` to the GUI origin, for example `["https://admin.example.com"]`.
 3. Set `DEFAULT_FROM_EMAIL` to a verified sender.
 4. Leave `EMAIL_PROVIDER=console` for the first deploy.
 5. Render runs migrations through `preDeployCommand: alembic upgrade head`.
+6. Set `BASE_URL` on both managed-SMTP cron jobs to the deployed API origin.
+7. Set matching `MANAGED_SMTP_FEEDBACK_SECRET` values on the web service and DSN ingestion cron
+   before enabling bounce-domain ingestion.
+8. Set `MANAGED_SMTP_DSN_PATH` and `MANAGED_SMTP_DSN_ARCHIVE` on
+   `email-engine-managed-smtp-dsn-ingestion` when a production Maildir is mounted or otherwise
+   available to the job.
+9. Set `EMAIL_ENGINE_COOKIE` on `email-engine-managed-smtp-maintenance` if the deployed API requires
+   an authenticated operator session for scheduled maintenance.
 
 ## Deploy With Vercel + Neon
 
@@ -165,6 +175,16 @@ MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
 MANAGED_SMTP_DSN_ARCHIVE=/path/to/archive-Maildir \
 python scripts/managed_smtp_maintenance_runbook.py
 ```
+
+On Render, `render.yaml` splits that runbook into two production cron jobs:
+
+- `email-engine-managed-smtp-dsn-ingestion`: every 10 minutes, runs
+  `python scripts/managed_smtp_maintenance_runbook.py --skip-maintenance`.
+- `email-engine-managed-smtp-maintenance`: daily at 06:17 UTC, runs
+  `python scripts/managed_smtp_maintenance_runbook.py --skip-dsn`.
+
+This keeps DSN acknowledgement responsive without running DNSBL scans and warmup progression on
+every mailbox poll.
 
 ## Health Check
 
