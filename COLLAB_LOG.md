@@ -20,6 +20,34 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP scheduled maintenance endpoint
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `POST /api/v1/domain-delivery-policies/managed-smtp-maintenance`.
+- The endpoint batches blocklist scans and warmup progression across managed-SMTP domain policies.
+- It skips non-managed-SMTP routes by default and returns per-policy results for scheduler logs.
+
+### Why
+
+Blocklist checks and warmup progression now have single-policy operator actions. This adds the
+cron-friendly entrypoint needed to run them continuously without hand-editing policy metadata.
+
+### What needs to happen next
+
+- Add a deployment runbook or external cron configuration that calls the maintenance endpoint on a
+  safe cadence.
+- Continue DKIM signing and bounce-domain routing hardening around the managed Postfix boundary.
+
+### Compatibility notes
+
+- No migration is required. The endpoint is additive and reuses existing policy metadata fields.
+
+---
+
 ## 2026-06-10 — Managed SMTP warmup progression endpoint
 
 **Pushed by:** Codex

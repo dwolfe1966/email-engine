@@ -11,6 +11,7 @@ from email_platform.schemas.contracts import (
     DomainDeliverabilityRead,
     DomainDkimKeyCreateRequest,
     DomainWarmupProgressionRequest,
+    ManagedSmtpMaintenanceRequest,
 )
 from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
 
@@ -787,3 +788,77 @@ def test_progress_domain_warmup_holds_on_complaint_rate() -> None:
     assert policy.warmup_stage == 'stage_1'
     assert policy.metadata_json['warmup_status'] == 'hold'
     assert policy.metadata_json['warmup_hold_reason'] == result.reason
+
+
+def test_managed_smtp_maintenance_scans_and_advances_warmup() -> None:
+    route = SimpleNamespace(
+        id=uuid4(),
+        route_type=DeliveryRouteType.managed_smtp,
+        config={'ip_addresses': ['192.0.2.10']},
+    )
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        warmup_stage='stage_1',
+        metadata_json={'warmup_daily_limit': 100, 'warmup_stage_order': 1},
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=0,
+        suppressed_count=0,
+        delivered_count=98,
+        opened_count=10,
+        clicked_count=2,
+        bounced_count=1,
+        complained_count=0,
+        unsubscribed_count=0,
+        open_rate=0.1,
+        click_rate=0.02,
+        bounce_rate=0.01,
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route), dns_resolver=FakeDnsResolver())
+    service.list_domain_policies = lambda limit=100, **kwargs: [policy]
+    service.get_domain_policy = lambda policy_id: policy
+
+    result = service.run_managed_smtp_maintenance(
+        ManagedSmtpMaintenanceRequest(zones=['zen.spamhaus.org']),
+        deliverability_by_domain={'example.com': deliverability},
+    )
+
+    assert result.processed_count == 1
+    assert result.blocklist_scan_count == 1
+    assert result.warmup_progression_count == 1
+    assert result.skipped_count == 0
+    assert result.results[0].blocklist_status == 'clear'
+    assert result.results[0].warmup_action == 'advance'
+    assert result.results[0].warmup_stage == 'stage_2'
+    assert policy.metadata_json['blocklist_status'] == 'clear'
+    assert policy.metadata_json['warmup_stage_order'] == 2
+
+
+def test_managed_smtp_maintenance_skips_non_managed_smtp_routes() -> None:
+    route = SimpleNamespace(
+        id=uuid4(),
+        route_type=DeliveryRouteType.smtp_relay,
+        config={},
+    )
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        warmup_stage='stage_1',
+        metadata_json={},
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+    service.list_domain_policies = lambda limit=100, **kwargs: [policy]
+
+    result = service.run_managed_smtp_maintenance(ManagedSmtpMaintenanceRequest())
+
+    assert result.processed_count == 0
+    assert result.skipped_count == 1
+    assert result.results[0].skipped_reason == 'not_managed_smtp'

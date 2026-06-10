@@ -802,6 +802,46 @@ class DomainWarmupProgressionRead(BaseModel):
     complaint_rate: float = 0.0
 
 
+class ManagedSmtpMaintenanceRequest(BaseModel):
+    scan_blocklists: bool = True
+    progress_warmup: bool = True
+    advance_warmup: bool = True
+    include_all_route_types: bool = False
+    zones: list[str] = Field(
+        default_factory=lambda: [
+            'zen.spamhaus.org',
+            'bl.spamcop.net',
+            'b.barracudacentral.org',
+        ]
+    )
+    max_bounce_rate: float = Field(default=0.02, ge=0, le=1)
+    max_complaint_rate: float = Field(default=0.001, ge=0, le=1)
+    min_sent_count: int = Field(default=25, ge=0)
+    limit: int = Field(default=100, ge=1, le=1000)
+    operator: str | None = Field(default='managed_smtp_maintenance', max_length=200)
+
+
+class ManagedSmtpMaintenancePolicyRead(BaseModel):
+    policy_id: UUID
+    domain: str
+    route_type: DeliveryRouteType | None = None
+    skipped_reason: str | None = None
+    blocklist_status: str | None = None
+    blocklist_hits: list[str] = Field(default_factory=list)
+    warmup_action: str | None = None
+    warmup_status: str | None = None
+    warmup_stage: str | None = None
+    warmup_daily_limit: int | None = None
+
+
+class ManagedSmtpMaintenanceRead(BaseModel):
+    processed_count: int
+    blocklist_scan_count: int
+    warmup_progression_count: int
+    skipped_count: int
+    results: list[ManagedSmtpMaintenancePolicyRead] = Field(default_factory=list)
+
+
 class DomainAuthenticationVerificationRecord(BaseModel):
     record_type: str
     name: str

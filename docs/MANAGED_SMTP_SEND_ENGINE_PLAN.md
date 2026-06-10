@@ -467,8 +467,18 @@ Recommended twenty-second code slice:
 3. Advance warmup stage/order/daily limit when health gates pass. **Done.**
 4. Persist warmup hold/evaluation/audit metadata for operator review. **Done.**
 
+## Twenty-Third Implementation Slice
+
+Recommended twenty-third code slice:
+
+1. Add a scheduler-friendly managed-SMTP maintenance endpoint. **Done.**
+2. Batch blocklist scans across managed-SMTP domain policies. **Done.**
+3. Batch warmup progression across managed-SMTP domain policies using domain deliverability.
+   **Done.**
+4. Return per-policy maintenance results for cron/operator logs. **Done.**
+
 ## Follow-On Slices
 
-1. Add production hardening for DKIM signing, bounce-domain routing, scheduled blocklist scans, and
-   scheduled IP warmup progression jobs.
-2. Add durable feedback idempotency and raw MTA feedback retention.
+1. Add production hardening for DKIM signing and bounce-domain routing.
+2. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
+3. Add durable feedback idempotency and raw MTA feedback retention.

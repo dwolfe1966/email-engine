@@ -146,6 +146,8 @@ from email_platform.schemas.contracts import (
     JsonObject,
     ListResponse,
     ManagedSmtpFeedbackEvent,
+    ManagedSmtpMaintenanceRead,
+    ManagedSmtpMaintenanceRequest,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -2951,6 +2953,22 @@ def list_domain_delivery_policies(
         'offset': offset,
         'total': service.count_domain_policies(domain=domain, route_id=route_id),
     }
+
+
+@router.post(
+    '/domain-delivery-policies/managed-smtp-maintenance',
+    response_model=ManagedSmtpMaintenanceRead,
+)
+def run_managed_smtp_domain_maintenance(
+    payload: ManagedSmtpMaintenanceRequest,
+    db: DbSession,
+) -> ManagedSmtpMaintenanceRead:
+    domain_rows, _total = AnalyticsService(db).domain_deliverability(limit=1000)
+    deliverability_by_domain = {row.domain.lower(): row for row in domain_rows}
+    return DeliveryRouteService(db).run_managed_smtp_maintenance(
+        payload,
+        deliverability_by_domain=deliverability_by_domain,
+    )
 
 
 @router.post('/domain-delivery-policies', response_model=DomainDeliveryPolicyRead)

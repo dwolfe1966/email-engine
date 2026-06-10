@@ -37,6 +37,9 @@ from email_platform.schemas.contracts import (
     DomainReputationDashboardRead,
     DomainWarmupProgressionRead,
     DomainWarmupProgressionRequest,
+    ManagedSmtpMaintenancePolicyRead,
+    ManagedSmtpMaintenanceRead,
+    ManagedSmtpMaintenanceRequest,
 )
 
 
@@ -591,6 +594,86 @@ class DeliveryRouteService:
             sent_count=sent_count,
             bounce_rate=bounce_rate,
             complaint_rate=complaint_rate,
+        )
+
+    def run_managed_smtp_maintenance(
+        self,
+        payload: ManagedSmtpMaintenanceRequest,
+        deliverability_by_domain: dict[str, DomainDeliverabilityRead] | None = None,
+    ) -> ManagedSmtpMaintenanceRead:
+        deliverability_by_domain = deliverability_by_domain or {}
+        policies = self.list_domain_policies(limit=payload.limit)
+        results: list[ManagedSmtpMaintenancePolicyRead] = []
+        blocklist_scan_count = 0
+        warmup_progression_count = 0
+        skipped_count = 0
+        for policy in policies:
+            route = self.db.get(DeliveryRoute, policy.route_id) if policy.route_id else None
+            route_type = route.route_type if route else None
+            if (
+                not payload.include_all_route_types
+                and route_type is not DeliveryRouteType.managed_smtp
+            ):
+                skipped_count += 1
+                results.append(
+                    ManagedSmtpMaintenancePolicyRead(
+                        policy_id=policy.id,
+                        domain=policy.domain,
+                        route_type=route_type,
+                        skipped_reason='not_managed_smtp',
+                    )
+                )
+                continue
+
+            blocklist_status: str | None = None
+            blocklist_hits: list[str] = []
+            if payload.scan_blocklists:
+                blocklist = self.scan_domain_blocklists(
+                    policy.id,
+                    DomainBlocklistScanRequest(zones=payload.zones),
+                )
+                if blocklist:
+                    blocklist_scan_count += 1
+                    blocklist_status = blocklist.status
+                    blocklist_hits = blocklist.hits
+
+            warmup: DomainWarmupProgressionRead | None = None
+            if payload.progress_warmup:
+                warmup = self.progress_domain_warmup(
+                    policy.id,
+                    DomainWarmupProgressionRequest(
+                        advance=payload.advance_warmup,
+                        max_bounce_rate=payload.max_bounce_rate,
+                        max_complaint_rate=payload.max_complaint_rate,
+                        min_sent_count=payload.min_sent_count,
+                        operator=payload.operator,
+                    ),
+                    deliverability=deliverability_by_domain.get(policy.domain.lower()),
+                )
+                if warmup:
+                    warmup_progression_count += 1
+
+            metadata = policy.metadata_json or {}
+            results.append(
+                ManagedSmtpMaintenancePolicyRead(
+                    policy_id=policy.id,
+                    domain=policy.domain,
+                    route_type=route_type,
+                    blocklist_status=blocklist_status,
+                    blocklist_hits=blocklist_hits,
+                    warmup_action=warmup.action if warmup else None,
+                    warmup_status=warmup.status if warmup else None,
+                    warmup_stage=policy.warmup_stage,
+                    warmup_daily_limit=self._metadata_int(metadata, 'warmup_daily_limit'),
+                )
+            )
+
+        return ManagedSmtpMaintenanceRead(
+            processed_count=len(policies) - skipped_count,
+            blocklist_scan_count=blocklist_scan_count,
+            warmup_progression_count=warmup_progression_count,
+            skipped_count=skipped_count,
+            results=results,
         )
 
     def domain_reputation_dashboard(

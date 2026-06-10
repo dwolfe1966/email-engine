@@ -125,6 +125,9 @@ Sending and events:
 - `POST /api/v1/domain-delivery-policies/{policy_id}/warmup-progress` evaluates current domain
   deliverability against warmup thresholds, then advances, holds, waits, or keeps the warmup stage
   while recording audit metadata.
+- `POST /api/v1/domain-delivery-policies/managed-smtp-maintenance` is the scheduler-friendly batch
+  entrypoint for managed-SMTP policies. It can run blocklist scans and warmup progression across
+  policies, returning per-domain results for cron/operator logs.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/compliance-hold` pauses a domain policy for
   operator abuse/compliance review and appends a hold entry to policy metadata audit history.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold` clears the active
