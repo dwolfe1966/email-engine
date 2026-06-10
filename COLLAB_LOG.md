@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Provider feedback evidence UI
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Delivery Manager now includes a Provider Feedback Evidence panel.
+- Operators can filter retained feedback events by provider, source, event name, email, and provider
+  message ID.
+- The panel can seed filters from the selected send record and displays retained payload/metadata
+  evidence for DSN, bounce, complaint, deferral, and provider feedback debugging.
+- The frontend bundle and delivery workflow contract tests were rebuilt/updated.
+
+### Why
+
+Managed SMTP now stores raw feedback for idempotency and audit evidence. Operators need a UI path to
+inspect that evidence without calling the API directly.
+
+### What needs to happen next
+
+- Add operator tooling for reviewing or purging quarantined DSN mailbox messages.
+- Continue hardening managed-SMTP production operations around bounce mailbox review and alerting.
+
+### Compatibility notes
+
+- No migration is required. The UI consumes the existing
+  `GET /api/v1/provider-feedback-events/list` endpoint.
+
+---
+
 ## 2026-06-10 — Managed SMTP DSN quarantine handling
 
 **Pushed by:** Codex

@@ -612,6 +612,19 @@ type DeliveryAttemptRead = {
   completed_at: string | null;
 };
 
+type ProviderFeedbackEventRead = {
+  id: string;
+  provider: string;
+  source: string;
+  event_name: string;
+  email: string;
+  provider_message_id: string | null;
+  idempotency_key: string;
+  payload_json: Record<string, unknown>;
+  metadata_json: Record<string, unknown>;
+  received_at: string;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9516,6 +9529,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
   const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
+  const [providerFeedbackEvents, setProviderFeedbackEvents] = useState<ProviderFeedbackEventRead[]>([]);
+  const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
+  const [feedbackFilters, setFeedbackFilters] = useState({
+    provider: '',
+    source: '',
+    event_name: '',
+    email: '',
+    provider_message_id: '',
+  });
   const [domainPolicies, setDomainPolicies] = useState<DomainDeliveryPolicyRead[]>([]);
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
@@ -9559,6 +9581,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const claimBlockedAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'claim_blocked').length;
   const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
+  const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9832,6 +9855,37 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     const data = await fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`);
     setDeliveryAttempts(data.items || []);
     return data.items || [];
+  }
+
+  function updateFeedbackFilter(name: keyof typeof feedbackFilters, value: string) {
+    setFeedbackFilters((current) => ({ ...current, [name]: value }));
+  }
+
+  function useSelectedRecordForFeedbackFilters() {
+    if (!selectedRecord) {
+      setStatus('Select a send record before applying feedback filters.');
+      return;
+    }
+    setFeedbackFilters((current) => ({
+      ...current,
+      provider: selectedRecord.provider || current.provider,
+      email: selectedRecord.to_email,
+      provider_message_id: selectedRecord.provider_message_id || current.provider_message_id,
+    }));
+  }
+
+  async function loadProviderFeedbackEvents() {
+    await runDeliveryOperation('Loading provider feedback evidence', async () => {
+      const params = new URLSearchParams({ limit: '50', offset: '0' });
+      Object.entries(feedbackFilters).forEach(([key, value]) => {
+        if (value.trim()) params.set(key, value.trim());
+      });
+      const data = await fetchJson<ListResponse<ProviderFeedbackEventRead>>(`/api/v1/provider-feedback-events/list?${params.toString()}`);
+      setProviderFeedbackEvents(data.items || []);
+      setProviderFeedbackTotal(data.total || 0);
+      const warningCount = (data.items || []).filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
+      return `Loaded ${formatInt(data.items?.length || 0)} provider feedback event(s), ${formatInt(warningCount)} requiring delivery review.`;
+    });
   }
 
   async function loadDeliveryAttempts() {
@@ -10196,6 +10250,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={deleteRecord} disabled={busy || !selectedRecordId}>Delete Record</button>
           <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
+          <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
           <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
         </div>
@@ -10271,6 +10326,87 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <div className="ai-empty-state">
             <strong>No delivery attempt audit loaded</strong>
             <span>Load Attempt Audit after processing queues or selecting a record to inspect claim-blocked and dead-letter rows.</span>
+          </div>
+        )}
+      </section>
+      <section className="panel full-span provider-feedback-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Provider Feedback Evidence</h2>
+            <span className="muted">Retained raw provider and managed-SMTP feedback for DSN, bounce, complaint, and duplicate-event review.</span>
+          </div>
+          <button className="link-button" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+        </div>
+        <div className="form-grid">
+          <label>
+            Provider
+            <input value={feedbackFilters.provider} onChange={(event) => updateFeedbackFilter('provider', event.target.value)} placeholder="managed_smtp" />
+          </label>
+          <label>
+            Source
+            <input value={feedbackFilters.source} onChange={(event) => updateFeedbackFilter('source', event.target.value)} placeholder="managed_smtp_dsn_feedback" />
+          </label>
+          <label>
+            Event
+            <input value={feedbackFilters.event_name} onChange={(event) => updateFeedbackFilter('event_name', event.target.value)} placeholder="dsn_bounce" />
+          </label>
+          <label>
+            Email
+            <input value={feedbackFilters.email} onChange={(event) => updateFeedbackFilter('email', event.target.value)} placeholder="recipient@example.com" />
+          </label>
+          <label className="wide-field">
+            Provider message ID
+            <input value={feedbackFilters.provider_message_id} onChange={(event) => updateFeedbackFilter('provider_message_id', event.target.value)} placeholder="Postfix queue ID or provider message ID" />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="ghost" onClick={useSelectedRecordForFeedbackFilters} disabled={busy || !selectedRecordId}>Use Selected Record</button>
+          <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+        </div>
+        {providerFeedbackEvents.length ? (
+          <>
+            <div className="delivery-triage-grid">
+              <article className={providerFeedbackWarningCount ? 'warn' : 'good'}>
+                <span>Loaded events</span>
+                <strong>{formatInt(providerFeedbackEvents.length)}</strong>
+                <small>{formatInt(providerFeedbackTotal)} retained event(s) match the filters.</small>
+              </article>
+              <article className={providerFeedbackWarningCount ? 'warn' : 'good'}>
+                <span>Review signals</span>
+                <strong>{formatInt(providerFeedbackWarningCount)}</strong>
+                <small>Bounce, complaint, deferral, and DSN warning events.</small>
+              </article>
+            </div>
+            <div className="provider-feedback-list">
+              {providerFeedbackEvents.slice(0, 8).map((event) => {
+                const metadata = event.metadata_json || {};
+                const tone = ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name) ? 'warn' : 'good';
+                return (
+                  <article className={tone} key={event.id}>
+                    <div>
+                      <span>{event.provider} / {event.source}</span>
+                      <strong>{event.event_name} for {event.email}</strong>
+                    </div>
+                    <small>{event.received_at}</small>
+                    <dl>
+                      <div><dt>message</dt><dd>{event.provider_message_id || '-'}</dd></div>
+                      <div><dt>idempotency</dt><dd>{event.idempotency_key.slice(0, 18)}</dd></div>
+                      <div><dt>status</dt><dd>{String(metadata.dsn_status || metadata.smtp_status || '-')}</dd></div>
+                      <div><dt>source key</dt><dd>{String(metadata.postfix_queue_id || metadata.maildir_key || '-')}</dd></div>
+                    </dl>
+                    <details>
+                      <summary>Payload and metadata</summary>
+                      <pre className="json-preview">{JSON.stringify({ payload: event.payload_json, metadata: event.metadata_json }, null, 2)}</pre>
+                    </details>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="ai-empty-state">
+            <strong>No provider feedback evidence loaded</strong>
+            <span>Load Provider Feedback to inspect retained raw DSN, MTA log, SendGrid, and managed-SMTP feedback events.</span>
           </div>
         )}
       </section>

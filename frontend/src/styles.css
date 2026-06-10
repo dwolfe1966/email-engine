@@ -5719,17 +5719,20 @@ th {
   padding: 12px;
 }
 
-.delivery-audit-panel {
+.delivery-audit-panel,
+.provider-feedback-panel {
   display: grid;
   gap: 10px;
 }
 
-.delivery-audit-list {
+.delivery-audit-list,
+.provider-feedback-list {
   display: grid;
   gap: 8px;
 }
 
-.delivery-audit-list article {
+.delivery-audit-list article,
+.provider-feedback-list article {
   display: grid;
   gap: 8px;
   border: 1px solid #d8dee8;
@@ -5738,24 +5741,31 @@ th {
   padding: 10px;
 }
 
-.delivery-audit-list article.warn {
+.delivery-audit-list article.warn,
+.provider-feedback-list article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.delivery-audit-list article.good {
+.delivery-audit-list article.good,
+.provider-feedback-list article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.delivery-audit-list article > div:first-child {
+.delivery-audit-list article > div:first-child,
+.provider-feedback-list article > div:first-child {
   display: grid;
   gap: 3px;
 }
 
 .delivery-audit-list span,
 .delivery-audit-list small,
-.delivery-audit-list dt {
+.delivery-audit-list dt,
+.provider-feedback-list span,
+.provider-feedback-list small,
+.provider-feedback-list dt,
+.provider-feedback-list summary {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5763,30 +5773,48 @@ th {
   text-transform: uppercase;
 }
 
-.delivery-audit-list strong {
+.delivery-audit-list strong,
+.provider-feedback-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.delivery-audit-list dl {
+.delivery-audit-list dl,
+.provider-feedback-list dl {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
 
-.delivery-audit-list dl div {
+.delivery-audit-list dl div,
+.provider-feedback-list dl div {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.delivery-audit-list dd {
+.delivery-audit-list dd,
+.provider-feedback-list dd {
   margin: 0;
   overflow-wrap: anywhere;
   color: #17202a;
   font-size: 12px;
+}
+
+.provider-feedback-list details {
+  min-width: 0;
+}
+
+.provider-feedback-list summary {
+  cursor: pointer;
+}
+
+.provider-feedback-list .json-preview {
+  max-height: 240px;
+  margin-top: 8px;
+  overflow: auto;
 }
 
 .delivery-foundation-panel .compact-head,
