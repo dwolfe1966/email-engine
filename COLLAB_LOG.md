@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Provider feedback retention list API
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `GET /api/v1/provider-feedback-events/list`.
+- The endpoint lists retained provider/MTA feedback events with filters for provider, source, event
+  name, email, and provider message ID.
+- Responses include retained raw payload JSON, normalized metadata JSON, and idempotency keys.
+
+### Why
+
+Managed SMTP now retains raw feedback for idempotency and evidence. Operators and future UI panels
+need a read path to inspect those retained events when debugging bounces, DSNs, and duplicate MTA
+feedback.
+
+### What needs to happen next
+
+- Add UI controls for retained provider feedback inspection.
+- Add a deploy cron/runbook that runs managed-SMTP maintenance and DSN ingestion on schedule.
+- Add mailbox cleanup or acknowledgement after successful DSN feedback posting.
+
+### Compatibility notes
+
+- No migration is required beyond the previously added `0021_provider_feedback_events` table.
+
+---
+
 ## 2026-06-10 — Managed SMTP DSN mailbox feedback bridge
 
 **Pushed by:** Codex

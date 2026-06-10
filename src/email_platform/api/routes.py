@@ -152,6 +152,7 @@ from email_platform.schemas.contracts import (
     OperatorUserPasswordUpdate,
     OperatorUserRead,
     OperatorUserUpdate,
+    ProviderFeedbackEventRead,
     ProviderWebhookIngestRead,
     SendGridWebhookEvent,
     SendResponse,
@@ -3434,6 +3435,43 @@ async def ingest_managed_smtp_feedback(
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail='Invalid managed SMTP feedback payload') from exc
     return FeedbackIngestionService(db).ingest_managed_smtp(payload)
+
+
+@router.get(
+    '/provider-feedback-events/list',
+    response_model=ListResponse[ProviderFeedbackEventRead],
+)
+def list_provider_feedback_events(
+    db: DbSession,
+    provider: str | None = None,
+    source: str | None = None,
+    event_name: str | None = None,
+    email: str | None = None,
+    provider_message_id: str | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = FeedbackIngestionService(db)
+    return {
+        'items': service.list_feedback_events(
+            provider=provider,
+            source=source,
+            event_name=event_name,
+            email=email,
+            provider_message_id=provider_message_id,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_feedback_events(
+            provider=provider,
+            source=source,
+            event_name=event_name,
+            email=email,
+            provider_message_id=provider_message_id,
+        ),
+    }
 
 
 @router.get('/suppressions', response_model=list[SuppressionRead])

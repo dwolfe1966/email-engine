@@ -993,6 +993,21 @@ class ProviderWebhookIngestRead(BaseModel):
     duplicate_count: int = 0
 
 
+class ProviderFeedbackEventRead(BaseModel):
+    id: UUID
+    provider: str
+    source: str
+    event_name: str
+    email: EmailStr
+    provider_message_id: str | None = None
+    idempotency_key: str
+    payload_json: JsonObject
+    metadata_json: JsonObject
+    received_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

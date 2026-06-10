@@ -138,6 +138,8 @@ Sending and events:
   `delivered`, `dsn_bounce`, `feedback_loop_complaint`, `unsubscribe`, and `tempfail`. Feedback
   events are retained in `provider_feedback_events` with provider/source idempotency keys; duplicate
   events are reported through `duplicate_count` and skipped before send-record mutation.
+- `GET /api/v1/provider-feedback-events/list` returns retained raw provider/MTA feedback with
+  filters for provider, source, event name, email, and provider message ID.
   Configure `MANAGED_SMTP_FEEDBACK_SECRET`; callers sign
   `{X-Email-Engine-Timestamp}.{raw_body}` with HMAC-SHA256 and send the hex digest in
   `X-Email-Engine-Signature`. Requests outside

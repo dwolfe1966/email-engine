@@ -18,6 +18,21 @@ class FakeDb:
         self.committed = True
 
 
+class FakeFeedbackListDb:
+    def __init__(self, rows=None, total: int = 0) -> None:
+        self.rows = rows or []
+        self.total = total
+        self.statements = []
+
+    def scalars(self, statement):
+        self.statements.append(statement)
+        return type('Result', (), {'all': lambda _self: self.rows})()
+
+    def scalar(self, statement):
+        self.statements.append(statement)
+        return self.total
+
+
 class FakeEventService:
     def __init__(self) -> None:
         self.payloads = []
@@ -208,3 +223,34 @@ def test_managed_smtp_feedback_skips_duplicate_queue_event() -> None:
     assert len(service.raw_feedback) == 1
     assert len(service.events.payloads) == 1
     assert len(service.suppressions.payloads) == 1
+
+
+def test_feedback_service_lists_and_counts_retained_feedback_events() -> None:
+    row = type(
+        'FeedbackRow',
+        (),
+        {
+            'provider': 'managed_smtp',
+            'source': 'managed_smtp_dsn_feedback',
+            'event_name': 'dsn_bounce',
+            'email': 'recipient@example.com',
+        },
+    )()
+    db = FakeFeedbackListDb(rows=[row], total=1)
+    service = FeedbackIngestionService.__new__(FeedbackIngestionService)
+    service.db = db
+
+    items = service.list_feedback_events(
+        provider='managed_smtp',
+        source='managed_smtp_dsn_feedback',
+        event_name='dsn_bounce',
+        email='recipient@example.com',
+        provider_message_id='ABC123DEF',
+        limit=10,
+        offset=0,
+    )
+    total = service.count_feedback_events(provider='managed_smtp')
+
+    assert items == [row]
+    assert total == 1
+    assert len(db.statements) == 2

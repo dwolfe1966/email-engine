@@ -505,8 +505,17 @@ Recommended twenty-sixth code slice:
 3. Support stdin, file, and Maildir inputs for deployment mailbox integration. **Done.**
 4. Support signed posting to `/api/v1/delivery/managed-smtp/feedback`. **Done.**
 
+## Twenty-Seventh Implementation Slice
+
+Recommended twenty-seventh code slice:
+
+1. Add an operator API list view for retained provider feedback events. **Done.**
+2. Support filters for provider, source, event name, email, and provider message ID. **Done.**
+3. Return retained raw payload and metadata JSON for debugging MTA/provider evidence. **Done.**
+4. Add route contract and feedback service tests. **Done.**
+
 ## Follow-On Slices
 
 1. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
-2. Add operator UI/API views for retained provider feedback events.
+2. Add operator UI controls for retained provider feedback events.
 3. Add DSN mailbox cleanup/acknowledgement after successful feedback posting.

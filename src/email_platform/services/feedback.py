@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
@@ -85,6 +85,43 @@ class FeedbackIngestionService:
     ) -> ProviderWebhookIngestRead:
         return self.ingest([self.normalize_managed_smtp(event) for event in events])
 
+    def list_feedback_events(
+        self,
+        provider: str | None = None,
+        source: str | None = None,
+        event_name: str | None = None,
+        email: str | None = None,
+        provider_message_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[ProviderFeedbackEvent]:
+        statement = self._feedback_event_statement(
+            provider=provider,
+            source=source,
+            event_name=event_name,
+            email=email,
+            provider_message_id=provider_message_id,
+        ).order_by(ProviderFeedbackEvent.received_at.desc())
+        return list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+
+    def count_feedback_events(
+        self,
+        provider: str | None = None,
+        source: str | None = None,
+        event_name: str | None = None,
+        email: str | None = None,
+        provider_message_id: str | None = None,
+    ) -> int:
+        statement = self._feedback_event_statement(
+            provider=provider,
+            source=source,
+            event_name=event_name,
+            email=email,
+            provider_message_id=provider_message_id,
+            count=True,
+        )
+        return self.db.scalar(statement) or 0
+
     def normalize_managed_smtp(self, event: ManagedSmtpFeedbackEvent) -> DeliveryFeedback:
         event_name = event.event.lower()
         payload_json = event.model_dump(mode='json')
@@ -130,6 +167,35 @@ class FeedbackIngestionService:
                 EmailSendRecord.provider_message_id == provider_message_id
             )
         )
+
+    def _feedback_event_statement(
+        self,
+        *,
+        provider: str | None = None,
+        source: str | None = None,
+        event_name: str | None = None,
+        email: str | None = None,
+        provider_message_id: str | None = None,
+        count: bool = False,
+    ):
+        statement = (
+            select(func.count()).select_from(ProviderFeedbackEvent)
+            if count
+            else select(ProviderFeedbackEvent)
+        )
+        if provider:
+            statement = statement.where(ProviderFeedbackEvent.provider == provider)
+        if source:
+            statement = statement.where(ProviderFeedbackEvent.source == source)
+        if event_name:
+            statement = statement.where(ProviderFeedbackEvent.event_name == event_name)
+        if email:
+            statement = statement.where(ProviderFeedbackEvent.email == email.lower())
+        if provider_message_id:
+            statement = statement.where(
+                ProviderFeedbackEvent.provider_message_id == provider_message_id
+            )
+        return statement
 
     def _feedback_already_processed(
         self,
