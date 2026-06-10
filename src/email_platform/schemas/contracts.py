@@ -745,6 +745,36 @@ class DomainDkimKeyCreateRead(BaseModel):
     dns_record: DomainAuthenticationDnsRecord
 
 
+class DomainBlocklistScanRequest(BaseModel):
+    zones: list[str] = Field(
+        default_factory=lambda: [
+            'zen.spamhaus.org',
+            'bl.spamcop.net',
+            'b.barracudacentral.org',
+        ]
+    )
+    ip_addresses: list[str] | None = None
+    update_metadata: bool = True
+
+
+class DomainBlocklistScanRecord(BaseModel):
+    ip_address: str
+    zone: str
+    query: str
+    observed_values: list[str] = Field(default_factory=list)
+    status: str
+    message: str
+
+
+class DomainBlocklistScanRead(BaseModel):
+    domain: str
+    checked_at: str
+    ip_addresses: list[str] = Field(default_factory=list)
+    status: str
+    hits: list[str] = Field(default_factory=list)
+    records: list[DomainBlocklistScanRecord] = Field(default_factory=list)
+
+
 class DomainAuthenticationVerificationRecord(BaseModel):
     record_type: str
     name: str

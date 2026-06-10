@@ -5,6 +5,7 @@ from uuid import uuid4
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.schemas.contracts import (
     DomainAuthenticationPlanRequest,
+    DomainBlocklistScanRequest,
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
@@ -459,6 +460,65 @@ def test_verify_domain_authentication_reports_mismatch_and_unavailable_lookup() 
     assert unavailable is not None
     assert not unavailable.verified
     assert unavailable.records[0].status == 'unchecked'
+
+
+def test_scan_domain_blocklists_updates_policy_metadata_from_dns_results() -> None:
+    route = SimpleNamespace(
+        id=uuid4(),
+        config={'ip_addresses': ['192.0.2.10']},
+    )
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        metadata_json={},
+    )
+    service = DeliveryRouteService(
+        FakeDb(get_result=route),
+        dns_resolver=FakeDnsResolver(
+            {('A', '10.2.0.192.zen.spamhaus.org'): ['127.0.0.2']}
+        ),
+    )
+    service.get_domain_policy = lambda policy_id: policy
+
+    result = service.scan_domain_blocklists(
+        policy.id,
+        DomainBlocklistScanRequest(zones=['zen.spamhaus.org']),
+    )
+
+    assert result is not None
+    assert result.status == 'listed'
+    assert result.hits == ['192.0.2.10@zen.spamhaus.org']
+    assert result.records[0].query == '10.2.0.192.zen.spamhaus.org'
+    assert policy.metadata_json['blocklist_status'] == 'listed'
+    assert policy.metadata_json['blocklist_hits'] == ['192.0.2.10@zen.spamhaus.org']
+    assert policy.metadata_json['ip_addresses'] == ['192.0.2.10']
+    assert policy.metadata_json['blocklist_checked_at']
+
+
+def test_scan_domain_blocklists_marks_unavailable_dns_as_unknown() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=None,
+        metadata_json={'ip_addresses': ['192.0.2.10']},
+    )
+    service = DeliveryRouteService(
+        FakeDb(get_result=None),
+        dns_resolver=FakeDnsResolver(fail=True),
+    )
+    service.get_domain_policy = lambda policy_id: policy
+
+    result = service.scan_domain_blocklists(
+        policy.id,
+        DomainBlocklistScanRequest(zones=['zen.spamhaus.org']),
+    )
+
+    assert result is not None
+    assert result.status == 'unknown'
+    assert result.records[0].status == 'unchecked'
+    assert policy.metadata_json['blocklist_status'] == 'unknown'
+    assert 'blocklist_checked_at' not in policy.metadata_json
 
 
 def test_domain_reputation_dashboard_combines_policy_route_and_deliverability() -> None:

@@ -448,8 +448,17 @@ Recommended twentieth code slice:
 3. Gate the controlled-delivery runbook on listed IPs/domains and warmup holds. **Done.**
 4. Document the expanded readiness contract for production managed-SMTP preflight. **Done.**
 
+## Twenty-First Implementation Slice
+
+Recommended twenty-first code slice:
+
+1. Add an operator blocklist scan endpoint for managed-SMTP domain policies. **Done.**
+2. Resolve IPv4 DNSBL queries through the existing resolver abstraction. **Done.**
+3. Persist scan status, hits, checked timestamp, and IP addresses into policy metadata. **Done.**
+4. Cover listed and DNS-unavailable scan outcomes in service tests. **Done.**
+
 ## Follow-On Slices
 
-1. Add production hardening for DKIM signing, bounce-domain routing, automated blocklist scanners,
-   and IP warmup progression jobs.
+1. Add production hardening for DKIM signing, bounce-domain routing, scheduled blocklist scans, and
+   IP warmup progression jobs.
 2. Add durable feedback idempotency and raw MTA feedback retention.

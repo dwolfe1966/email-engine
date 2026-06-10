@@ -91,6 +91,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/domain-delivery-policies/list',
         '/api/v1/domain-delivery-policies/{policy_id}',
         '/api/v1/domain-delivery-policies/{policy_id}/authentication-plan',
+        '/api/v1/domain-delivery-policies/{policy_id}/blocklist-scan',
         '/api/v1/domain-delivery-policies/{policy_id}/compliance-hold',
         '/api/v1/domain-delivery-policies/{policy_id}/dkim-key',
         '/api/v1/domain-delivery-policies/{policy_id}/pause',

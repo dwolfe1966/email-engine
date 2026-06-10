@@ -115,6 +115,9 @@ Sending and events:
 - `POST /api/v1/domain-delivery-policies/{policy_id}/verify-authentication` checks the stored DNS
   onboarding plan against DNS when the runtime has `dig`; unavailable lookups return `unchecked`
   records rather than silently passing.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/blocklist-scan` checks configured or supplied
+  sending IPv4 addresses against DNSBL zones, then stores `blocklist_status`, `blocklist_hits`,
+  `blocklist_checked_at`, and `ip_addresses` in domain policy metadata when requested.
 - `GET /api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard` combines domain policy
   warmup/throttle/IP-pool metadata, authentication verification state, and domain deliverability
   rollups into one managed-SMTP readiness view. The response also surfaces active compliance holds,

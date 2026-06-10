@@ -113,6 +113,8 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
     DomainAuthenticationVerificationRead,
+    DomainBlocklistScanRead,
+    DomainBlocklistScanRequest,
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
@@ -3050,6 +3052,21 @@ def verify_domain_delivery_authentication(
     db: DbSession,
 ) -> DomainAuthenticationVerificationRead:
     result = DeliveryRouteService(db).verify_domain_authentication(policy_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/blocklist-scan',
+    response_model=DomainBlocklistScanRead,
+)
+def scan_domain_delivery_blocklists(
+    policy_id: UUID,
+    payload: DomainBlocklistScanRequest,
+    db: DbSession,
+) -> DomainBlocklistScanRead:
+    result = DeliveryRouteService(db).scan_domain_blocklists(policy_id, payload)
     if not result:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return result

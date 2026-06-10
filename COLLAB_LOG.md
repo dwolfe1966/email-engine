@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP blocklist scan endpoint
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `POST /api/v1/domain-delivery-policies/{policy_id}/blocklist-scan`.
+- The endpoint scans configured or supplied IPv4 sending IPs against DNSBL zones through the
+  existing DNS resolver abstraction.
+- Scan results can persist `blocklist_status`, `blocklist_hits`, `blocklist_checked_at`, and
+  `ip_addresses` into domain policy metadata for the reputation dashboard.
+
+### Why
+
+The dashboard and controlled-delivery runbook now understand blocklist readiness; this adds the
+operator action that populates that readiness state.
+
+### What needs to happen next
+
+- Add scheduled blocklist scans for managed-SMTP IP pools.
+- Add warmup progression automation that advances stages from measured delivery outcomes.
+- Continue DKIM signing and bounce-domain routing hardening around the managed Postfix boundary.
+
+### Compatibility notes
+
+- No migration is required. The endpoint is additive and writes only existing policy metadata JSON.
+
+---
+
 ## 2026-06-10 — Managed SMTP blocklist and warmup readiness signals
 
 **Pushed by:** Codex

@@ -24,6 +24,9 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationPlanRequest,
     DomainAuthenticationVerificationRead,
     DomainAuthenticationVerificationRecord,
+    DomainBlocklistScanRead,
+    DomainBlocklistScanRecord,
+    DomainBlocklistScanRequest,
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
@@ -459,6 +462,52 @@ class DeliveryRouteService:
             records=records,
         )
 
+    def scan_domain_blocklists(
+        self,
+        policy_id: UUID,
+        payload: DomainBlocklistScanRequest,
+    ) -> DomainBlocklistScanRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        route = self.db.get(DeliveryRoute, policy.route_id) if policy.route_id else None
+        metadata = dict(policy.metadata_json or {})
+        requested_ips = self._clean_list(payload.ip_addresses or [])
+        ip_addresses = (
+            requested_ips
+            or self._metadata_list(metadata, 'ip_addresses')
+            or self._route_ip_addresses(route)
+        )
+        zones = self._clean_list(payload.zones)
+        checked_at = datetime.utcnow().isoformat()
+        records: list[DomainBlocklistScanRecord] = []
+        hits: list[str] = []
+        for ip_address in ip_addresses:
+            for zone in zones:
+                record = self._scan_blocklist_zone(ip_address, zone)
+                records.append(record)
+                if record.status == 'listed':
+                    hits.append(f'{ip_address}@{zone}')
+
+        status = self._blocklist_scan_status(records, hits)
+        if payload.update_metadata:
+            metadata['ip_addresses'] = ip_addresses
+            metadata['blocklist_status'] = status
+            metadata['blocklist_hits'] = hits
+            if status != 'unknown':
+                metadata['blocklist_checked_at'] = checked_at
+            policy.metadata_json = metadata
+            self.db.commit()
+            self.db.refresh(policy)
+        return DomainBlocklistScanRead(
+            domain=policy.domain.lower(),
+            checked_at=checked_at,
+            ip_addresses=ip_addresses,
+            status=status,
+            hits=hits,
+            records=records,
+        )
+
     def domain_reputation_dashboard(
         self,
         policy_id: UUID,
@@ -482,10 +531,12 @@ class DeliveryRouteService:
             'blocklist_hits',
         )
         blocklist_checked_at = self._metadata_string(metadata, 'blocklist_checked_at')
-        blocklist_status = self._blocklist_status(
-            blocklist_hits=blocklist_hits,
-            blocklist_checked_at=blocklist_checked_at,
-            ip_addresses=ip_addresses,
+        blocklist_status = self._metadata_string(metadata, 'blocklist_status') or (
+            self._blocklist_status(
+                blocklist_hits=blocklist_hits,
+                blocklist_checked_at=blocklist_checked_at,
+                ip_addresses=ip_addresses,
+            )
         )
         send_record_count = deliverability.send_record_count if deliverability else 0
         sent_count = deliverability.sent_count if deliverability else 0
@@ -826,6 +877,76 @@ class DeliveryRouteService:
         if isinstance(value, str) and value.strip():
             return [value.strip()]
         return []
+
+    def _clean_list(self, values: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            item = str(value).strip().lower()
+            if item and item not in seen:
+                cleaned.append(item)
+                seen.add(item)
+        return cleaned
+
+    def _scan_blocklist_zone(self, ip_address: str, zone: str) -> DomainBlocklistScanRecord:
+        query = self._blocklist_query(ip_address, zone)
+        if not query:
+            return DomainBlocklistScanRecord(
+                ip_address=ip_address,
+                zone=zone,
+                query='',
+                observed_values=[],
+                status='invalid',
+                message='Only IPv4 blocklist lookups are currently supported.',
+            )
+        try:
+            observed_values = self.dns_resolver.lookup('A', query)
+        except DnsLookupUnavailable as exc:
+            return DomainBlocklistScanRecord(
+                ip_address=ip_address,
+                zone=zone,
+                query=query,
+                observed_values=[],
+                status='unchecked',
+                message=str(exc) or 'DNS lookup unavailable.',
+            )
+        if observed_values:
+            return DomainBlocklistScanRecord(
+                ip_address=ip_address,
+                zone=zone,
+                query=query,
+                observed_values=observed_values,
+                status='listed',
+                message='Blocklist returned one or more records.',
+            )
+        return DomainBlocklistScanRecord(
+            ip_address=ip_address,
+            zone=zone,
+            query=query,
+            observed_values=[],
+            status='clear',
+            message='No blocklist record returned.',
+        )
+
+    def _blocklist_query(self, ip_address: str, zone: str) -> str | None:
+        parts = ip_address.split('.')
+        if len(parts) != 4:
+            return None
+        for part in parts:
+            if not part.isdigit() or int(part) > 255:
+                return None
+        return f'{".".join(reversed(parts))}.{zone.strip(".")}'
+
+    def _blocklist_scan_status(
+        self,
+        records: list[DomainBlocklistScanRecord],
+        hits: list[str],
+    ) -> str:
+        if hits:
+            return 'listed'
+        if records and all(record.status == 'clear' for record in records):
+            return 'clear'
+        return 'unknown'
 
     def _blocklist_status(
         self,
