@@ -1273,6 +1273,9 @@ def test_admin_pages() -> None:
     assert 'Select send record' in delivery.text
     assert 'Requeue Record' in delivery.text
     assert 'Delete Record' in delivery.text
+    assert 'Load Domain Policies' in delivery.text
+    assert 'Apply Compliance Hold' in delivery.text
+    assert 'Release Compliance Hold' in delivery.text
     assert 'AI Delivery Review' in delivery.text
     assert 'reviewDeliveryWithAi' in delivery.text
     assert '/api/v1/ai/delivery/analyze' in delivery.text

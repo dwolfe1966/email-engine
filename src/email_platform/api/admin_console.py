@@ -4386,10 +4386,19 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
         <label>Click target URL
           <input id="clickTargetUrl" placeholder="https://email-engine.app/" />
         </label>
+        <label>Domain policy
+          <select id="domainPolicyId">
+            <option value="">Select domain policy</option>
+          </select>
+        </label>
         <div class="actions">
           <button id="processQueued">Process Queued</button>
           <button class="secondary" id="loadJobs">Load Jobs</button>
           <button class="secondary" id="loadRecords">Load Records</button>
+          <button class="secondary" id="loadDomainPolicies">Load Domain Policies</button>
+          <button class="secondary" id="loadReputationDashboard">Reputation Dashboard</button>
+          <button class="secondary" id="applyComplianceHold">Apply Compliance Hold</button>
+          <button class="secondary" id="releaseComplianceHold">Release Compliance Hold</button>
           <button class="secondary" id="requeueRecord">Requeue Record</button>
           <button class="secondary" id="skipRecord">Skip Record</button>
           <button class="secondary" id="deadLetterRecord">Dead-letter Record</button>
@@ -4421,10 +4430,11 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
   </main>
   <script>
     const result = document.getElementById("result");
-    const campaigns = [];
-    const jobs = [];
-    const records = [];
-    let lastDeliveryRun = null;
+	    const campaigns = [];
+	    const jobs = [];
+	    const records = [];
+	    const domainPolicies = [];
+	    let lastDeliveryRun = null;
     const initialParams = new URLSearchParams(location.search);
 
     function writeResult(data, ok = true) {
@@ -4485,16 +4495,25 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       }
     }
 
-    function renderRecords(items) {
-      records.splice(0, records.length, ...items);
-      const select = resetSelect("sendRecordId", "Select send record");
+	    function renderRecords(items) {
+	      records.splice(0, records.length, ...items);
+	      const select = resetSelect("sendRecordId", "Select send record");
       items.forEach((item) => {
         select.appendChild(option(`${item.status} - ${item.to_email} - ${item.id}`, item.id));
       });
       if (initialParams.get("send_record_id")) {
         select.value = initialParams.get("send_record_id");
-      }
-    }
+	      }
+	    }
+
+	    function renderDomainPolicies(items) {
+	      domainPolicies.splice(0, domainPolicies.length, ...items);
+	      const select = resetSelect("domainPolicyId", "Select domain policy");
+	      items.forEach((item) => {
+	        const status = item.paused_until ? "paused" : "active";
+	        select.appendChild(option(`${item.domain} - ${status} - ${item.id}`, item.id));
+	      });
+	    }
 
     function limitQuery() {
       return `limit=${encodeURIComponent(value("limit") || "25")}&offset=0`;
@@ -4616,9 +4635,60 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       await request(`/api/v1/delivery-attempts/list?${params.toString()}`);
     }
 
-    async function loadSuppressions() {
-      await request(`/api/v1/suppressions?${limitQuery()}`);
-    }
+	    async function loadSuppressions() {
+	      await request(`/api/v1/suppressions?${limitQuery()}`);
+	    }
+
+	    async function loadDomainPolicies() {
+	      const data = await request(`/api/v1/domain-delivery-policies/list?limit=100&offset=0`);
+	      renderDomainPolicies(data.items || []);
+	      return data;
+	    }
+
+	    async function loadReputationDashboard() {
+	      if (!value("domainPolicyId")) {
+	        writeResult("Select a domain policy first.", false);
+	        return;
+	      }
+	      await request(`/api/v1/domain-delivery-policies/${value("domainPolicyId")}/reputation-dashboard`);
+	    }
+
+	    async function applyComplianceHold() {
+	      if (!value("domainPolicyId")) {
+	        writeResult("Select a domain policy first.", false);
+	        return;
+	      }
+	      const reason = prompt("Reason for the compliance hold?", "Operator compliance review") || "";
+	      if (!reason.trim()) {
+	        writeResult("Compliance hold reason is required.", false);
+	        return;
+	      }
+	      await request(`/api/v1/domain-delivery-policies/${value("domainPolicyId")}/compliance-hold`, {
+	        method: "POST",
+	        headers: { "Content-Type": "application/json" },
+	        body: JSON.stringify({
+	          reason,
+	          abuse_type: "operator_review",
+	          operator: "admin_delivery",
+	          paused_hours: 24
+	        })
+	      });
+	      await loadDomainPolicies();
+	    }
+
+	    async function releaseComplianceHold() {
+	      if (!value("domainPolicyId")) {
+	        writeResult("Select a domain policy first.", false);
+	        return;
+	      }
+	      const reason = prompt("Release reason?", "review_cleared") || "review_cleared";
+	      await request(`/api/v1/domain-delivery-policies/${value("domainPolicyId")}/release-compliance-hold`, {
+	        method: "POST",
+	        headers: { "Content-Type": "application/json" },
+	        body: JSON.stringify({ reason, operator: "admin_delivery" })
+	      });
+	      await loadDomainPolicies();
+	    }
 
     async function trackingLinks() {
       if (!value("sendRecordId")) {
@@ -4665,12 +4735,24 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
     document.getElementById("loadJobs").addEventListener("click", () => {
       loadJobs().catch((error) => writeResult(error.message, false));
     });
-    document.getElementById("loadRecords").addEventListener("click", () => {
-      loadRecords().catch((error) => writeResult(error.message, false));
-    });
-    document.getElementById("requeueRecord").addEventListener("click", () => {
-      recordAction("/requeue").catch((error) => writeResult(error.message, false));
-    });
+	    document.getElementById("loadRecords").addEventListener("click", () => {
+	      loadRecords().catch((error) => writeResult(error.message, false));
+	    });
+	    document.getElementById("loadDomainPolicies").addEventListener("click", () => {
+	      loadDomainPolicies().catch((error) => writeResult(error.message, false));
+	    });
+	    document.getElementById("loadReputationDashboard").addEventListener("click", () => {
+	      loadReputationDashboard().catch((error) => writeResult(error.message, false));
+	    });
+	    document.getElementById("applyComplianceHold").addEventListener("click", () => {
+	      applyComplianceHold().catch((error) => writeResult(error.message, false));
+	    });
+	    document.getElementById("releaseComplianceHold").addEventListener("click", () => {
+	      releaseComplianceHold().catch((error) => writeResult(error.message, false));
+	    });
+	    document.getElementById("requeueRecord").addEventListener("click", () => {
+	      recordAction("/requeue").catch((error) => writeResult(error.message, false));
+	    });
     document.getElementById("skipRecord").addEventListener("click", () => {
       recordAction("/skip").catch((error) => writeResult(error.message, false));
     });
@@ -4703,10 +4785,11 @@ ADMIN_DELIVERY_HTML = r"""<!doctype html>
       document.getElementById("aiDeliveryPanel").hidden = true;
     });
 
-    loadCampaigns()
-      .then(loadJobs)
-      .then(loadRecords)
-      .then(() => {
+	    loadCampaigns()
+	      .then(loadJobs)
+	      .then(loadRecords)
+	      .then(loadDomainPolicies)
+	      .then(() => {
         if (value("sendRecordId")) {
           return trackingLinks();
         }

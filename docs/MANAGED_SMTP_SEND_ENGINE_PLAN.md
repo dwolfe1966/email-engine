@@ -407,7 +407,18 @@ Recommended sixteenth code slice:
 5. Surface active compliance hold status and recommendations in the reputation dashboard.
    **Done.**
 
+## Seventeenth Implementation Slice
+
+Recommended seventeenth code slice:
+
+1. Surface managed-SMTP domain compliance controls in the React Delivery page. **Done.**
+2. Add domain policy loading, reputation dashboard loading, compliance hold, and compliance release
+   frontend actions. **Done.**
+3. Add legacy `/admin/delivery` controls for domain policy selection, dashboard loading, hold, and
+   release. **Done.**
+4. Rebuild the ESP frontend bundle with the new controls. **Done.**
+
 ## Follow-On Slices
 
-1. Surface compliance hold/release controls in the Delivery/Analytics frontend.
-2. Run low-volume controlled delivery tests before production sends.
+1. Run low-volume controlled delivery tests before production sends.
+2. Add runbook automation around DNS verification, seed sends, and feedback smoke validation.

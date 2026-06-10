@@ -458,6 +458,38 @@ type DomainDeliverability = {
   bounce_rate: number;
 };
 
+type DomainDeliveryPolicyRead = {
+  id: string;
+  domain: string;
+  route_id: string | null;
+  max_per_minute: number | null;
+  max_concurrent: number | null;
+  warmup_stage: string | null;
+  paused_until: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
+type DomainReputationDashboardRead = {
+  domain: string;
+  route_id: string | null;
+  route_name: string | null;
+  route_type: string | null;
+  warmup_stage: string | null;
+  ip_pool: string | null;
+  max_per_minute: number | null;
+  max_concurrent: number | null;
+  paused_until: string | null;
+  authentication_status: string;
+  reputation_status: string;
+  throttle_status: string;
+  compliance_status: string;
+  compliance_reason: string | null;
+  bounce_rate: number;
+  complaint_rate: number;
+  send_record_count: number;
+  recommendations: string[];
+};
+
 type CampaignRead = {
   id: string;
   name: string;
@@ -9484,6 +9516,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
   const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
+  const [domainPolicies, setDomainPolicies] = useState<DomainDeliveryPolicyRead[]>([]);
+  const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
+  const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
@@ -9494,6 +9529,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (!selectedRecordId && sendRecords.length) setSelectedRecordId(sendRecords[0].id);
   }, [sendJobs, selectedJobId, selectedRecordId, sendRecords]);
 
+  useEffect(() => {
+    let active = true;
+    fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0')
+      .then((data) => {
+        if (!active) return;
+        const items = data.items || [];
+        setDomainPolicies(items);
+        if (!selectedDomainPolicyId && items.length) setSelectedDomainPolicyId(items[0].id);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [selectedDomainPolicyId]);
+
   const queuedRecords = countRecordsByStatus(sendRecords, queuedDeliveryStatuses);
   const failedRecords = countRecordsByStatus(sendRecords, failedDeliveryStatuses);
   const deadLetteredRecords = sendRecords.filter((record) => record.status === 'dead_lettered').length;
@@ -9501,6 +9551,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const activeJobs = sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
+  const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => queuedDeliveryStatuses.includes(record.status) && Number(record.attempt_count || 0) > 0).length;
   const blockedRecords = countRecordsByStatus(sendRecords, blockedDeliveryStatuses);
@@ -9643,6 +9694,39 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: 'warn',
     },
   ];
+  const complianceAuditLog = Array.isArray(selectedDomainPolicy?.metadata_json?.compliance_audit_log)
+    ? selectedDomainPolicy.metadata_json.compliance_audit_log
+    : [];
+  const activeComplianceHold = selectedDomainPolicy?.metadata_json?.compliance_hold;
+  const complianceHoldStatus = typeof activeComplianceHold === 'object' && activeComplianceHold !== null && 'status' in activeComplianceHold
+    ? String((activeComplianceHold as Record<string, unknown>).status)
+    : 'clear';
+  const domainComplianceItems = [
+    {
+      label: 'Compliance hold',
+      value: domainDashboard?.compliance_status || complianceHoldStatus,
+      detail: domainDashboard?.compliance_reason || selectedDomainPolicy?.paused_until || 'No active domain hold loaded',
+      tone: domainDashboard?.compliance_status === 'hold' || complianceHoldStatus === 'active' ? 'warn' : 'good',
+    },
+    {
+      label: 'Reputation status',
+      value: domainDashboard?.reputation_status || 'Not loaded',
+      detail: domainDashboard ? `${formatPct(domainDashboard.bounce_rate)} bounce, ${formatPct(domainDashboard.complaint_rate)} complaint` : 'Load dashboard for reputation rates',
+      tone: domainDashboard?.reputation_status === 'risk' ? 'warn' : 'good',
+    },
+    {
+      label: 'Throttle status',
+      value: domainDashboard?.throttle_status || 'Not loaded',
+      detail: selectedDomainPolicy ? `${selectedDomainPolicy.max_per_minute || 'no'} per-minute / ${selectedDomainPolicy.max_concurrent || 'no'} concurrent` : 'Select a domain policy',
+      tone: domainDashboard?.throttle_status === 'paused' ? 'warn' : 'good',
+    },
+    {
+      label: 'Compliance audit',
+      value: formatInt(complianceAuditLog.length),
+      detail: complianceAuditLog.length ? 'hold/release audit entries stored on policy metadata' : 'No hold/release audit entries loaded',
+      tone: complianceAuditLog.length ? 'warn' : 'good',
+    },
+  ];
 
   async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -9759,6 +9843,64 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function loadDomainPolicies() {
+    await runDeliveryOperation('Loading domain delivery policies', async () => {
+      const data = await fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0');
+      const items = data.items || [];
+      setDomainPolicies(items);
+      if (!selectedDomainPolicyId && items.length) setSelectedDomainPolicyId(items[0].id);
+      return `Loaded ${formatInt(items.length)} domain delivery policy row(s).`;
+    });
+  }
+
+  async function loadDomainReputationDashboard() {
+    await runDeliveryOperation('Loading domain reputation dashboard', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const data = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
+      setDomainDashboard(data);
+      return `Loaded ${data.domain} reputation dashboard: ${data.reputation_status}, compliance ${data.compliance_status}.`;
+    });
+  }
+
+  async function applyDomainComplianceHold() {
+    await runDeliveryOperation('Applying domain compliance hold', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const reason = window.prompt('Reason for the compliance hold?', domainDashboard?.compliance_reason || 'Operator compliance review') || '';
+      if (!reason.trim()) throw new Error('Compliance hold reason is required.');
+      const policy = await fetchJson<DomainDeliveryPolicyRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/compliance-hold`, {
+        method: 'POST',
+        body: JSON.stringify({
+          reason,
+          abuse_type: 'operator_review',
+          operator: 'esp_admin',
+          paused_hours: 24,
+        }),
+      });
+      setDomainPolicies((items) => items.map((item) => item.id === policy.id ? policy : item));
+      const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
+      setDomainDashboard(dashboard);
+      return `Applied compliance hold for ${policy.domain}; delivery is paused until ${policy.paused_until || 'review release'}.`;
+    });
+  }
+
+  async function releaseDomainComplianceHold() {
+    await runDeliveryOperation('Releasing domain compliance hold', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const reason = window.prompt('Release reason?', 'review_cleared') || 'review_cleared';
+      const policy = await fetchJson<DomainDeliveryPolicyRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/release-compliance-hold`, {
+        method: 'POST',
+        body: JSON.stringify({
+          reason,
+          operator: 'esp_admin',
+        }),
+      });
+      setDomainPolicies((items) => items.map((item) => item.id === policy.id ? policy : item));
+      const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
+      setDomainDashboard(dashboard);
+      return `Released compliance hold for ${policy.domain}; delivery policy claiming can resume.`;
+    });
+  }
+
   async function reviewDeliveryWithAi() {
     await runDeliveryOperation('Running AI Delivery Review', async () => {
       const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
@@ -9855,6 +9997,57 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
               <small>{item.detail}</small>
             </article>
           ))}
+        </div>
+      </section>
+      <section className="panel full-span domain-compliance-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Managed SMTP Domain Compliance</h2>
+            <span className="muted">Compliance hold, release, reputation dashboard, and policy audit controls for owned SMTP domains.</span>
+          </div>
+          <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
+        </div>
+        <div className="form-grid">
+          <label className="wide-field">
+            Domain policy
+            <select value={selectedDomainPolicyId} onChange={(event) => {
+              setSelectedDomainPolicyId(event.target.value);
+              setDomainDashboard(null);
+            }}>
+              <option value="">Select domain policy</option>
+              {domainPolicies.map((policy) => (
+                <option value={policy.id} key={policy.id}>
+                  {policy.domain} | {policy.warmup_stage || 'no warmup'} | {policy.paused_until ? 'paused' : 'active'}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Warmup
+            <input value={selectedDomainPolicy?.warmup_stage || 'No warmup stage'} readOnly />
+          </label>
+          <label>
+            Route
+            <input value={selectedDomainPolicy?.route_id?.slice(0, 8) || 'No route'} readOnly />
+          </label>
+          <label className="wide-field">
+            Latest recommendation
+            <input value={domainDashboard?.recommendations?.[0] || 'Load the reputation dashboard for domain-specific guidance.'} readOnly />
+          </label>
+        </div>
+        <div className="delivery-triage-grid">
+          {domainComplianceItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+        <div className="button-row">
+          <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
+          <button className="ghost" onClick={applyDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Apply Compliance Hold</button>
+          <button className="ghost" onClick={releaseDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Release Compliance Hold</button>
         </div>
       </section>
       <section className="panel table-panel full-span">

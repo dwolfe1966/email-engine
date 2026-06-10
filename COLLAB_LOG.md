@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP compliance controls in Delivery UI
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added a Managed SMTP Domain Compliance panel to the React Delivery page.
+- The panel can load domain policies, load a reputation dashboard, apply a compliance hold, and
+  release a compliance hold through the new domain-policy endpoints.
+- Added equivalent domain policy selector and hold/release controls to legacy `/admin/delivery`.
+- Rebuilt the ESP frontend bundle.
+
+### Why
+
+Operators now have a visible control surface for the abuse/compliance stop mechanism added to the
+managed-SMTP domain policy API.
+
+### What needs to happen next
+
+- Run low-volume controlled delivery tests after DNS, DKIM, feedback ingestion, reputation dashboard,
+  and compliance hold/release controls are verified together.
+- Add runbook automation for seed send setup and feedback smoke validation.
+
+### Compatibility notes
+
+- No API migration is required. This consumes the domain policy endpoints added in the previous slice.
+
+---
+
 ## 2026-06-09 — Managed SMTP compliance hold controls
 
 **Pushed by:** Codex
