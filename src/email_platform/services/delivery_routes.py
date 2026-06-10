@@ -65,6 +65,16 @@ class DeliveryClaimDecision:
     domain_policy_id: UUID | None = None
 
 
+@dataclass(frozen=True)
+class ManagedSmtpIdentity:
+    domain: str
+    bounce_domain: str | None = None
+    envelope_from: str | None = None
+    dkim_selector: str | None = None
+    dkim_key_ref: str | None = None
+    dkim_signing_ready: bool = False
+
+
 class DnsLookupUnavailable(ValueError):
     pass
 
@@ -1294,6 +1304,56 @@ class DeliveryRouteService:
             .where(DeliveryAttempt.started_at >= cutoff)
             .where(DeliveryAttempt.status.in_(['submitting', 'submitted']))
         ) or 0
+
+    def managed_smtp_identity_for_record(
+        self,
+        record: EmailSendRecord,
+    ) -> ManagedSmtpIdentity | None:
+        domain = self._domain_for_record(record)
+        if not domain:
+            return None
+        policy = self._domain_policy(domain)
+        if not policy or not policy.route_id:
+            return None
+        route = self.db.get(DeliveryRoute, policy.route_id)
+        if not route or route.route_type != DeliveryRouteType.managed_smtp:
+            return None
+        metadata = policy.metadata_json or {}
+        authentication = metadata.get('domain_authentication')
+        bounce_domain = (
+            str(authentication.get('bounce_domain'))
+            if isinstance(authentication, dict) and authentication.get('bounce_domain')
+            else None
+        )
+        dkim_key = metadata.get('dkim_key')
+        dkim_selector = (
+            str(dkim_key.get('selector'))
+            if isinstance(dkim_key, dict) and dkim_key.get('selector')
+            else None
+        )
+        dkim_key_ref = (
+            str(dkim_key.get('key_ref'))
+            if isinstance(dkim_key, dict) and dkim_key.get('key_ref')
+            else None
+        )
+        envelope_from = self._managed_smtp_envelope_from(record, bounce_domain)
+        return ManagedSmtpIdentity(
+            domain=domain,
+            bounce_domain=bounce_domain,
+            envelope_from=envelope_from,
+            dkim_selector=dkim_selector,
+            dkim_key_ref=dkim_key_ref,
+            dkim_signing_ready=bool(dkim_selector and dkim_key_ref),
+        )
+
+    def _managed_smtp_envelope_from(
+        self,
+        record: EmailSendRecord,
+        bounce_domain: str | None,
+    ) -> str | None:
+        if not bounce_domain:
+            return None
+        return f'bounces+{record.id}@{bounce_domain.lower()}'
 
     def _active_domain_attempt_count(self, domain: str) -> int:
         return self.db.scalar(

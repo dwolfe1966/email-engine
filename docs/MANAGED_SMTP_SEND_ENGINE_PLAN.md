@@ -477,8 +477,17 @@ Recommended twenty-third code slice:
    **Done.**
 4. Return per-policy maintenance results for cron/operator logs. **Done.**
 
+## Twenty-Fourth Implementation Slice
+
+Recommended twenty-fourth code slice:
+
+1. Add managed-SMTP message preparation for bounce-domain envelope sender routing. **Done.**
+2. Surface DKIM selector/key-reference metadata on delivery attempts and sent events. **Done.**
+3. Add optional Postfix DKIM milter configuration for MTA-side signing. **Done.**
+4. Document the DKIM private-key boundary and bounce-domain DSN routing contract. **Done.**
+
 ## Follow-On Slices
 
-1. Add production hardening for DKIM signing and bounce-domain routing.
-2. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
-3. Add durable feedback idempotency and raw MTA feedback retention.
+1. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
+2. Add durable feedback idempotency and raw MTA feedback retention.
+3. Add DSN mailbox/parser integration for bounce-domain inbound mail.

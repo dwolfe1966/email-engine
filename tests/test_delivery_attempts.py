@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from email_platform.models.entities import EmailSendRecord, EmailSendStatus
 from email_platform.services.delivery import DeliveryService
+from email_platform.services.delivery_routes import ManagedSmtpIdentity
 
 
 class FakeDb:
@@ -35,6 +36,9 @@ class FakeRouteService:
             max_concurrent=None,
             source='settings',
         )
+
+    def managed_smtp_identity_for_record(self, record):
+        return None
 
 
 class SelectiveRouteService:
@@ -120,6 +124,45 @@ def test_delivery_service_starts_attempt_with_route_context() -> None:
     assert attempt.status == 'submitting'
     assert attempt.metadata_json['route_source'] == 'settings'
     assert attempt.metadata_json['to_domain'] == 'example.com'
+
+
+def test_delivery_service_prepares_managed_smtp_envelope_and_signing_headers() -> None:
+    service = DeliveryService.__new__(DeliveryService)
+    record = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='recipient@example.com',
+        variables={},
+        attempt_count=1,
+    )
+    attempt = SimpleNamespace(
+        route_type='managed_smtp',
+        metadata_json={},
+    )
+    service.route_service = SimpleNamespace(
+        managed_smtp_identity_for_record=lambda _record: ManagedSmtpIdentity(
+            domain='example.com',
+            bounce_domain='returns.example.com',
+            envelope_from=f'bounces+{record.id}@returns.example.com',
+            dkim_selector='ee3',
+            dkim_key_ref='vault://dkim/example/ee3',
+            dkim_signing_ready=True,
+        )
+    )
+
+    options = service._managed_smtp_message_options(record, attempt)
+
+    assert options['envelope_from'] == f'bounces+{record.id}@returns.example.com'
+    assert options['headers']['X-Email-Engine-Route'] == 'managed_smtp'
+    assert options['headers']['X-Email-Engine-DKIM-Selector'] == 'ee3'
+    assert options['headers']['X-Email-Engine-DKIM-Key-Ref'] == 'vault://dkim/example/ee3'
+    assert attempt.metadata_json['bounce_domain'] == 'returns.example.com'
+    assert attempt.metadata_json['envelope_from'] == f'bounces+{record.id}@returns.example.com'
+    assert attempt.metadata_json['dkim_signing_ready'] is True
+    assert service._managed_smtp_event_metadata(attempt)['dkim_selector'] == 'ee3'
 
 
 def test_delivery_service_marks_retryable_failure_attempt_deferred() -> None:

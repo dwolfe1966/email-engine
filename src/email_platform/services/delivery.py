@@ -73,6 +73,7 @@ class DeliveryService:
                         subject=subject,
                         html_body=html,
                         text_body=text,
+                        **self._managed_smtp_message_options(record, attempt),
                     )
                 )
                 record.status = EmailSendStatus.submitted
@@ -87,7 +88,10 @@ class DeliveryService:
                     provider_message_id=result.provider_message_id,
                     smtp_response_code=result.status_code,
                     smtp_response=f'Provider accepted message with status {result.status_code}',
-                    metadata_json={'status_code': result.status_code},
+                    metadata_json={
+                        'status_code': result.status_code,
+                        **self._managed_smtp_event_metadata(attempt),
+                    },
                 )
                 sent_count += 1
                 self.event_service.record_no_commit(
@@ -104,6 +108,7 @@ class DeliveryService:
                             'send_record_id': str(record.id),
                             'send_job_id': str(record.send_job_id),
                             'source': 'delivery_worker',
+                            **self._managed_smtp_event_metadata(attempt),
                         },
                     )
                 )
@@ -252,6 +257,52 @@ class DeliveryService:
         self.db.add(attempt)
         self.db.flush()
         return attempt
+
+    def _managed_smtp_message_options(
+        self,
+        record: EmailSendRecord,
+        attempt: DeliveryAttempt,
+    ) -> dict[str, object]:
+        if attempt.route_type != 'managed_smtp':
+            return {}
+        identity = self.route_service.managed_smtp_identity_for_record(record)
+        if not identity:
+            return {}
+        headers: dict[str, str] = {
+            'X-Email-Engine-Route': 'managed_smtp',
+            'X-Email-Engine-Domain': identity.domain,
+        }
+        metadata_json: dict[str, object] = {
+            'managed_smtp_domain': identity.domain,
+            'dkim_signing_ready': identity.dkim_signing_ready,
+        }
+        if identity.bounce_domain:
+            headers['X-Email-Engine-Bounce-Domain'] = identity.bounce_domain
+            metadata_json['bounce_domain'] = identity.bounce_domain
+        if identity.envelope_from:
+            metadata_json['envelope_from'] = identity.envelope_from
+        if identity.dkim_selector:
+            headers['X-Email-Engine-DKIM-Selector'] = identity.dkim_selector
+            metadata_json['dkim_selector'] = identity.dkim_selector
+        if identity.dkim_key_ref:
+            headers['X-Email-Engine-DKIM-Key-Ref'] = identity.dkim_key_ref
+            metadata_json['dkim_key_ref'] = identity.dkim_key_ref
+        attempt.metadata_json = {**attempt.metadata_json, **metadata_json}
+        return {
+            'envelope_from': identity.envelope_from,
+            'headers': headers,
+        }
+
+    def _managed_smtp_event_metadata(self, attempt: DeliveryAttempt) -> dict[str, object]:
+        keys = {
+            'managed_smtp_domain',
+            'bounce_domain',
+            'envelope_from',
+            'dkim_selector',
+            'dkim_key_ref',
+            'dkim_signing_ready',
+        }
+        return {key: value for key, value in attempt.metadata_json.items() if key in keys}
 
     def _complete_attempt(
         self,

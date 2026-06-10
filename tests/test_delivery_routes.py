@@ -386,6 +386,31 @@ def test_create_domain_dkim_key_returns_private_key_once_and_persists_public_met
     assert db.refreshed == [policy]
 
 
+def test_managed_smtp_identity_uses_bounce_domain_and_dkim_metadata() -> None:
+    route = SimpleNamespace(id=uuid4(), route_type=DeliveryRouteType.managed_smtp)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        metadata_json={
+            'domain_authentication': {'bounce_domain': 'returns.example.com'},
+            'dkim_key': {'selector': 'ee3', 'key_ref': 'vault://dkim/example/ee3'},
+        },
+    )
+    record = SimpleNamespace(id=uuid4(), to_email='recipient@example.com')
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
+
+    identity = service.managed_smtp_identity_for_record(record)
+
+    assert identity is not None
+    assert identity.domain == 'example.com'
+    assert identity.bounce_domain == 'returns.example.com'
+    assert identity.envelope_from == f'bounces+{record.id}@returns.example.com'
+    assert identity.dkim_selector == 'ee3'
+    assert identity.dkim_key_ref == 'vault://dkim/example/ee3'
+    assert identity.dkim_signing_ready
+
+
 def test_verify_domain_authentication_checks_required_dns_records() -> None:
     policy = SimpleNamespace(
         id=uuid4(),

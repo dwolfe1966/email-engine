@@ -15,5 +15,12 @@ postconf -e "smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destina
 postconf -e "maximal_queue_lifetime = 1d"
 postconf -e "bounce_queue_lifetime = 1d"
 
+if [ -n "${POSTFIX_DKIM_MILTER:-}" ]; then
+  postconf -e "milter_default_action = accept"
+  postconf -e "milter_protocol = 6"
+  postconf -e "smtpd_milters = ${POSTFIX_DKIM_MILTER}"
+  postconf -e "non_smtpd_milters = ${POSTFIX_DKIM_MILTER}"
+fi
+
 rsyslogd
 postfix start-fg

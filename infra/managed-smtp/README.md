@@ -40,8 +40,21 @@ observability, and blocklist monitoring.
    DEFAULT_FROM_EMAIL=no-reply@<staging-domain>
    ```
 
-4. Send only to a low-volume seed list on a staging domain.
-5. Post a signed feedback smoke event:
+4. Configure a managed-SMTP domain policy with:
+
+   - a domain authentication plan containing the bounce domain, for example
+     `returns.<staging-domain>`
+   - a DKIM key reference created through
+     `/api/v1/domain-delivery-policies/{policy_id}/dkim-key`
+   - a managed-SMTP delivery route pointing at this Postfix submission service
+
+   Email Engine uses the bounce domain as the SMTP envelope sender
+   (`bounces+<send_record_id>@<bounce-domain>`) and adds
+   `X-Email-Engine-DKIM-Selector` / `X-Email-Engine-DKIM-Key-Ref` headers so the MTA-side signer
+   can select the correct key without storing private DKIM material in Email Engine metadata.
+
+5. Send only to a low-volume seed list on a staging domain.
+6. Post a signed feedback smoke event:
 
    ```bash
    MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
@@ -49,7 +62,7 @@ observability, and blocklist monitoring.
    python scripts/managed_smtp_feedback_smoke.py
    ```
 
-6. Confirm `/api/v1/analytics/overview`, Delivery Manager, and suppressions reflect the feedback.
+7. Confirm `/api/v1/analytics/overview`, Delivery Manager, and suppressions reflect the feedback.
 
 For the fuller controlled-delivery runbook, use:
 
@@ -65,6 +78,24 @@ python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
 The script fails closed on active compliance holds, reputation risk, paused throttles, missing SMTP
 diagnostics, and required DNS verification failures unless explicit override flags are supplied for
 review-only runs.
+
+## DKIM Signing Boundary
+
+Private DKIM keys should live in the MTA signer or a secret manager, not in Email Engine policy
+metadata. The staging Postfix entrypoint supports an optional `POSTFIX_DKIM_MILTER` value, for
+example `inet:opendkim:8891`, which configures `smtpd_milters` and `non_smtpd_milters`.
+
+The signer should map `X-Email-Engine-DKIM-Selector` and `X-Email-Engine-DKIM-Key-Ref` to the
+actual private key and sign as the policy domain. The existing DKIM key API returns the private key
+once for operator storage and keeps only selector, public key, DNS record, and key reference in
+policy metadata.
+
+## Bounce Routing Boundary
+
+Email Engine sets the SMTP envelope sender for managed-SMTP records when the domain policy has a
+bounce domain. Postfix will emit DSNs to that return path. Production deployments should route the
+bounce domain MX back to the managed MTA and feed DSNs or Postfix logs into
+`/api/v1/delivery/managed-smtp/feedback`.
 
 ## MTA Boundary
 

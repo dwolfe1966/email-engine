@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DKIM and bounce-domain boundary hardening
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Managed-SMTP delivery now prepares a bounce-domain SMTP envelope sender when the domain policy
+  has a bounce domain.
+- Delivery attempts and sent events now include managed-SMTP identity metadata such as bounce
+  domain, envelope sender, DKIM selector, DKIM key reference, and signing readiness.
+- SMTP messages can carry signer hint headers for the MTA boundary.
+- The staging Postfix entrypoint supports optional `POSTFIX_DKIM_MILTER` configuration.
+
+### Why
+
+Private DKIM keys should stay at the MTA signer or secret-manager boundary. Email Engine now passes
+the routing/signing identity needed by Postfix/OpenDKIM while preserving that private-key boundary.
+
+### What needs to happen next
+
+- Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
+- Add durable feedback idempotency and raw MTA feedback retention.
+- Add DSN mailbox/parser integration for bounce-domain inbound mail.
+
+### Compatibility notes
+
+- No migration is required. New message fields are additive, and existing providers ignore the
+  extra headers/envelope fields unless they support them.
+
+---
+
 ## 2026-06-10 — Managed SMTP scheduled maintenance endpoint
 
 **Pushed by:** Codex

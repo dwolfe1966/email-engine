@@ -47,6 +47,8 @@ def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:
 
     assert 'smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination' in entrypoint
     assert 'smtpd_recipient_restrictions=permit_mynetworks,reject' in master
+    assert 'POSTFIX_DKIM_MILTER' in entrypoint
+    assert 'smtpd_milters' in entrypoint
     assert 'postfix start-fg' in entrypoint
 
 

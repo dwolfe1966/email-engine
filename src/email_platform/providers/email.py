@@ -17,6 +17,8 @@ class EmailMessage:
     subject: str
     html_body: str
     text_body: str | None = None
+    envelope_from: str | None = None
+    headers: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,8 @@ class SmtpEmailProvider(EmailProvider):
         mime['Subject'] = message.subject
         mime['From'] = message.from_email
         mime['To'] = message.to_email
+        for name, value in (message.headers or {}).items():
+            mime[name] = value
         if message.text_body:
             mime.attach(MIMEText(message.text_body, 'plain'))
         mime.attach(MIMEText(message.html_body, 'html'))
@@ -80,7 +84,11 @@ class SmtpEmailProvider(EmailProvider):
                 server.starttls()
             if self.settings.smtp_username and self.settings.smtp_password:
                 server.login(self.settings.smtp_username, self.settings.smtp_password)
-            server.sendmail(message.from_email, [message.to_email], mime.as_string())
+            server.sendmail(
+                message.envelope_from or message.from_email,
+                [message.to_email],
+                mime.as_string(),
+            )
         return EmailDeliveryResult(provider='smtp', provider_message_id=None, status_code=250)
 
 
