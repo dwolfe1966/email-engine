@@ -1,5 +1,7 @@
 import importlib.util
 import mailbox
+import os
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -324,6 +326,30 @@ def test_managed_smtp_dsn_quarantine_tool_lists_and_purges_maildir_messages(tmp_
     assert second_key in remaining
 
 
+def test_managed_smtp_dsn_quarantine_tool_reports_backlog_health(tmp_path) -> None:
+    module = load_script_module(DSN_QUARANTINE_SCRIPT)
+    quarantine = tmp_path / 'quarantine'
+    maildir = mailbox.Maildir(quarantine, create=True)
+    key = maildir.add('From: junk@example.com\nSubject: old message\n\nHello.')
+    maildir.flush()
+    message_path = Path(maildir._path) / maildir._lookup(key)
+    old_timestamp = time.time() - 3 * 3600
+    os.utime(message_path, (old_timestamp, old_timestamp))
+
+    stats = module.quarantine_stats(
+        str(quarantine),
+        warning_count=1,
+        critical_count=10,
+        max_age_hours=1,
+    )
+
+    assert stats['status'] == 'warning'
+    assert stats['message_count'] == 1
+    assert stats['stale_count'] == 1
+    assert stats['oldest_age_hours'] >= 3
+    assert stats['reasons']
+
+
 def test_managed_smtp_dsn_quarantine_tool_contract() -> None:
     source = DSN_QUARANTINE_SCRIPT.read_text()
 
@@ -336,6 +362,11 @@ def test_managed_smtp_dsn_quarantine_tool_contract() -> None:
         'purge-older-than-days',
         'purge-all',
         'dry-run',
+        '--check',
+        'warning-count',
+        'critical-count',
+        'max-age-hours',
+        'MANAGED_SMTP_DSN_QUARANTINE',
         'preview-chars',
     ]
     for token in expected_tokens:
@@ -372,6 +403,7 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
     expected_render_tokens = [
         'email-engine-managed-smtp-dsn-ingestion',
         'email-engine-managed-smtp-maintenance',
+        'email-engine-managed-smtp-quarantine-check',
         'type: cron',
         'runtime: docker',
         'dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-maintenance',
@@ -384,6 +416,7 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
         'MANAGED_SMTP_DSN_PATH',
         'MANAGED_SMTP_DSN_ARCHIVE',
         'MANAGED_SMTP_DSN_QUARANTINE',
+        'managed_smtp_dsn_quarantine.py --check',
     ]
     for token in expected_render_tokens:
         assert token in render_yaml

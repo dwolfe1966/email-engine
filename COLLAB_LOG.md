@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DSN quarantine backlog alerting
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- `scripts/managed_smtp_dsn_quarantine.py` now supports `--check` mode.
+- Check mode reports quarantine count, stale message count, oldest age, status, and threshold
+  reasons as JSON.
+- It exits `0` for ok, `1` for warning, and `2` for critical so cron/platform alerts can notify
+  operators.
+- `render.yaml` now includes a daily managed-SMTP quarantine check cron job.
+
+### Why
+
+Quarantine review tooling is useful, but production operations also need an automatic signal when
+malformed DSN mailbox messages accumulate or sit unresolved too long.
+
+### What needs to happen next
+
+- Add deeper MTA-side deployment automation for production Postfix/OpenDKIM once infrastructure is
+  chosen.
+- Consider adding mailbox-level metrics to the API once the production MTA host model is finalized.
+
+### Compatibility notes
+
+- No migration is required. The Render cron job needs `MANAGED_SMTP_DSN_QUARANTINE` configured to
+  point at the quarantine Maildir.
+
+---
+
 ## 2026-06-10 — Managed SMTP DSN quarantine review tool
 
 **Pushed by:** Codex

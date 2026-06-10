@@ -538,3 +538,4 @@ Recommended twenty-ninth code slice:
 2. Add recurring production job configuration for the chosen deploy platform. **Done.**
 3. Add richer DSN quarantine/error handling for malformed inbound bounce messages. **Done.**
 4. Add operator tooling for reviewing or purging quarantined DSN mailbox messages. **Done.**
+5. Add scheduler-friendly DSN quarantine backlog alerting. **Done.**

@@ -196,8 +196,13 @@ Review quarantined DSN mailbox messages before purging:
 
 ```bash
 python scripts/managed_smtp_dsn_quarantine.py --json /path/to/quarantine-Maildir
+python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --check --warning-count 5 --critical-count 25 --max-age-hours 24
 python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-older-than-days 30 --dry-run
 ```
+
+The checked-in Render Blueprint runs the same quarantine check daily. It exits non-zero when the
+quarantine backlog reaches the warning/critical count thresholds or contains messages older than
+the configured age, so platform cron failure alerts can notify operators.
 
 ## Health Check
 

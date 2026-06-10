@@ -61,6 +61,18 @@ services:
       - key: EMAIL_ENGINE_COOKIE
         sync: false
 
+  - type: cron
+    name: email-engine-managed-smtp-quarantine-check
+    runtime: docker
+    plan: starter
+    schedule: "47 6 * * *"
+    dockerCommand: python scripts/managed_smtp_dsn_quarantine.py --check --warning-count 5 --critical-count 25 --max-age-hours 24
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: MANAGED_SMTP_DSN_QUARANTINE
+        sync: false
+
 databases:
   - name: email-engine-db
     plan: starter

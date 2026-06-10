@@ -2,6 +2,7 @@
 import argparse
 import json
 import mailbox
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -69,6 +70,52 @@ def list_quarantine(path: str, *, limit: int, preview_chars: int) -> list[dict[s
     return rows
 
 
+def message_age_hours(maildir: mailbox.Maildir, key: str, now: float | None = None) -> float:
+    now = now if now is not None else time.time()
+    path_info = maildir._lookup(key)  # noqa: SLF001 - stdlib Maildir exposes no public path lookup.
+    message_path = Path(path_info)
+    if not message_path.is_absolute():
+        message_path = Path(maildir._path) / message_path  # noqa: SLF001 - stdlib Maildir path.
+    return max(0.0, (now - message_path.stat().st_mtime) / 3600)
+
+
+def quarantine_stats(
+    path: str,
+    *,
+    warning_count: int,
+    critical_count: int,
+    max_age_hours: float,
+) -> dict[str, Any]:
+    maildir = load_maildir(path)
+    keys = sorted(maildir.keys())
+    now = time.time()
+    ages = [message_age_hours(maildir, key, now) for key in keys]
+    oldest_age_hours = max(ages) if ages else 0.0
+    stale_count = sum(1 for age in ages if age >= max_age_hours)
+    status = 'ok'
+    reasons: list[str] = []
+    if len(keys) >= critical_count:
+        status = 'critical'
+        reasons.append(f'quarantine count {len(keys)} >= critical threshold {critical_count}')
+    elif len(keys) >= warning_count:
+        status = 'warning'
+        reasons.append(f'quarantine count {len(keys)} >= warning threshold {warning_count}')
+    if stale_count:
+        status = 'critical' if status == 'critical' else 'warning'
+        reasons.append(f'{stale_count} message(s) older than {max_age_hours:g} hour(s)')
+    return {
+        'status': status,
+        'message_count': len(keys),
+        'warning_count': warning_count,
+        'critical_count': critical_count,
+        'max_age_hours': max_age_hours,
+        'oldest_age_hours': round(oldest_age_hours, 2),
+        'stale_count': stale_count,
+        'reasons': reasons,
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def purge_quarantine(
     path: str,
     *,
@@ -79,14 +126,13 @@ def purge_quarantine(
 ) -> dict[str, Any]:
     maildir = load_maildir(path)
     selected = set(keys)
-    cutoff = time.time() - older_than_days * 86400 if older_than_days is not None else None
+    max_age_hours = older_than_days * 24 if older_than_days is not None else None
     removed: list[str] = []
     skipped: list[str] = []
     for key in sorted(maildir.keys()):
         remove = all_messages or key in selected
-        if cutoff is not None:
-            path_info = maildir._lookup(key)  # noqa: SLF001 - stdlib Maildir exposes no public path lookup.
-            remove = remove or Path(path_info).stat().st_mtime < cutoff
+        if max_age_hours is not None:
+            remove = remove or message_age_hours(maildir, key) > max_age_hours
         if not remove:
             skipped.append(key)
             continue
@@ -108,17 +154,38 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description='Inspect or purge managed-SMTP DSN quarantine Maildir messages.',
     )
-    parser.add_argument('path')
+    parser.add_argument('path', nargs='?', default=os.environ.get('MANAGED_SMTP_DSN_QUARANTINE'))
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--limit', type=int, default=50)
     parser.add_argument('--preview-chars', type=int, default=240)
+    parser.add_argument('--check', action='store_true')
+    parser.add_argument('--warning-count', type=int, default=5)
+    parser.add_argument('--critical-count', type=int, default=25)
+    parser.add_argument('--max-age-hours', type=float, default=24)
     parser.add_argument('--purge-key', action='append', default=[])
     parser.add_argument('--purge-older-than-days', type=int)
     parser.add_argument('--purge-all', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
 
+    if not args.path:
+        print('Quarantine Maildir path is required or MANAGED_SMTP_DSN_QUARANTINE must be set', file=sys.stderr)
+        return 2
+
     try:
+        if args.check:
+            result = quarantine_stats(
+                args.path,
+                warning_count=args.warning_count,
+                critical_count=args.critical_count,
+                max_age_hours=args.max_age_hours,
+            )
+            print(json.dumps(result, indent=2))
+            if result['status'] == 'critical':
+                return 2
+            if result['status'] == 'warning':
+                return 1
+            return 0
         if args.purge_key or args.purge_older_than_days is not None or args.purge_all:
             result = purge_quarantine(
                 args.path,

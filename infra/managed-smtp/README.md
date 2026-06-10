@@ -142,9 +142,13 @@ python scripts/managed_smtp_dsn_quarantine.py --json /path/to/quarantine-Maildir
 To remove a reviewed message by Maildir key, or to preview an age-based cleanup:
 
 ```bash
+python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --check --warning-count 5 --critical-count 25 --max-age-hours 24
 python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-key '<maildir-key>'
 python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-older-than-days 30 --dry-run
 ```
+
+`--check` exits with `0` for ok, `1` for warning, and `2` for critical so cron or platform job
+alerts can surface quarantine backlog issues.
 
 ## MTA Boundary
 
