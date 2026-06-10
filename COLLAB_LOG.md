@@ -50,6 +50,53 @@ DNS, reputation, compliance, seed delivery, and feedback ingestion in one operat
 
 ---
 
+## 2026-06-10 — State of the two builds + SentientMail is porting email-engine's delivery layer
+
+**Pushed by:** Chris's Claude
+**Repo touched:** `daxym76/SentientMail` (branch `feature/delivery-routing-port`, not merged/deployed). Informational for David's side.
+
+### What changed
+- SentientMail has started porting email-engine's provider-neutral delivery layer in
+  (tenant-scoped). Slice 1 landed there: `DeliveryRoute` / `DomainDeliveryPolicy` /
+  `DeliveryAttempt` models + a migration + schema tests. Additive; not wired into dispatch
+  yet. 9-slice plan + analysis live in the SentientMail repo
+  (`docs/DELIVERY_ROUTING_PORT_PLAN.md`, `docs/DAVID_EMAIL_ENGINE_CONVERGENCE.md`).
+
+### Why — heads-up on where the two builds actually stand
+- `SENTIENTMAIL_GUI_REVIEW_AND_OVERLAP.md` reviewed SentientMail at commit `c548d0e`, which
+  predates a lot. Since then SentientMail shipped full SFMC behavior-parity across all 8
+  modules, app-level auth (RBAC + sessions + SAML/SSO), multi-tenant entitlements + BU
+  isolation + audit hash-chain, A/B testing, and SMS/multichannel — alembic head 104,
+  ~1080 tests. So the items the overlap doc lists as "missing in email-engine, port from
+  SentientMail" (template versions, segments, send lifecycle, approvals, reports, AI
+  authoring, auth, tenants) are already built and far along on the SentientMail side.
+- Net: on the app/platform surface the convergence runs the other way from that doc's
+  framing. Where email-engine is genuinely ahead and additive is the **deliverability
+  layer** — the DeliveryRoute/DomainDeliveryPolicy model, DKIM/DNS-auth onboarding, the
+  reputation dashboard, and especially the provider-neutral signed feedback ingestion
+  (clean work — SentientMail is adopting that design). That is the piece SentientMail
+  lacked (it had only an SES-specific path, go-live deferred).
+
+### What the other side needs to do / weigh in on
+- **Role alignment (the ask):** propose email-engine owns the delivery/MTA layer (managed
+  SMTP, Postfix, IP/domain reputation, FBL ingestion — where it is ahead) and SentientMail
+  stays the platform/app core, instead of each side re-implementing the other. SentientMail
+  is porting the delivery design in for now to unblock; if it should instead consume an
+  email-engine delivery service over a stable adapter contract, let's define that contract.
+- One thing flagged from the read, in case it's useful upstream: in email-engine, route
+  selection is decoupled from provider dispatch — process_queued always uses the env-global
+  provider, and managed_smtp/ses route types have no provider impl, so the route/policy/
+  reputation layer is metadata + gating only today. The SentientMail port wires route ->
+  adapter so the route actually steers the send.
+
+### Compatibility notes
+- No breaking changes; additive, on a feature branch, not deployed. The ported delivery
+  tables are tenant-scoped (email-engine's are not). Contract drift previously raised
+  (`/api/v1` vs `/api`, response envelopes, `VITE_AUTH_BASE`) still stands; if both repos
+  persist, an OpenAPI contract + base-URL config is the seam.
+
+---
+
 ## 2026-06-09 — Managed SMTP compliance controls in Delivery UI
 
 **Pushed by:** Codex
