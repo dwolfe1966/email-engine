@@ -15,6 +15,9 @@ observability, and blocklist monitoring.
   submission on host port `2587`.
 - `scripts/managed_smtp_feedback_smoke.py`: signs and posts a sample feedback event to Email
   Engine's managed-SMTP feedback endpoint.
+- `scripts/managed_smtp_controlled_delivery.py`: runs the controlled-delivery readiness sequence:
+  diagnostics, domain DNS verification, reputation/compliance dashboard, optional seed send, and
+  optional signed feedback smoke.
 
 ## Staging Flow
 
@@ -45,6 +48,21 @@ observability, and blocklist monitoring.
    ```
 
 6. Confirm `/api/v1/analytics/overview`, Delivery Manager, and suppressions reflect the feedback.
+
+For the fuller controlled-delivery runbook, use:
+
+```bash
+DOMAIN_POLICY_ID=<domain-policy-id> \
+CAMPAIGN_ID=<campaign-id> \
+SEED_EMAIL=seed@example.com \
+MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
+BASE_URL=https://<email-engine-api> \
+python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
+```
+
+The script fails closed on active compliance holds, reputation risk, paused throttles, missing SMTP
+diagnostics, and required DNS verification failures unless explicit override flags are supplied for
+review-only runs.
 
 ## MTA Boundary
 

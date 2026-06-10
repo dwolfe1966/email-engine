@@ -120,6 +120,21 @@ The MTA or feedback worker should post signed feedback to
 `/api/v1/delivery/managed-smtp/feedback`. See `infra/managed-smtp/README.md` and
 `scripts/managed_smtp_feedback_smoke.py`.
 
+Before production sends, run the controlled delivery script against a staging domain policy and a
+seed campaign:
+
+```bash
+DOMAIN_POLICY_ID=<domain-policy-id> \
+CAMPAIGN_ID=<campaign-id> \
+SEED_EMAIL=seed@example.com \
+MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
+BASE_URL=https://<email-engine-api> \
+python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
+```
+
+It verifies diagnostics, DNS authentication, reputation/compliance readiness, optional seed delivery,
+and signed managed-SMTP feedback ingestion in one operator runbook.
+
 ## Health Check
 
 Use:

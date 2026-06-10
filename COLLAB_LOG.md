@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP controlled delivery runbook
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_controlled_delivery.py`.
+- The script checks diagnostics, domain DNS authentication, reputation dashboard state, and
+  compliance hold state before optional seed delivery.
+- Optional flags can send a campaign seed test and post signed managed-SMTP feedback smoke.
+- Updated managed-SMTP staging and deployment docs with the controlled-delivery command.
+
+### Why
+
+Owned SMTP needs a repeatable low-volume staging gate before production sends. The new runbook keeps
+DNS, reputation, compliance, seed delivery, and feedback ingestion in one operator sequence.
+
+### What needs to happen next
+
+- Add DSN/MTA log parser plumbing that emits signed `ManagedSmtpFeedbackEvent` payloads.
+- Harden production SMTP with DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
+  automation.
+
+### Compatibility notes
+
+- No migration is required. Seed sending and feedback posting are opt-in script flags.
+
+---
+
 ## 2026-06-09 — Managed SMTP compliance controls in Delivery UI
 
 **Pushed by:** Codex

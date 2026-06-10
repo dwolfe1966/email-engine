@@ -418,7 +418,18 @@ Recommended seventeenth code slice:
    release. **Done.**
 4. Rebuild the ESP frontend bundle with the new controls. **Done.**
 
+## Eighteenth Implementation Slice
+
+Recommended eighteenth code slice:
+
+1. Add a controlled-delivery runbook script for managed-SMTP staging. **Done.**
+2. Sequence diagnostics, domain DNS verification, reputation dashboard, and compliance readiness
+   checks before seed sends. **Done.**
+3. Support explicit optional seed test send and signed feedback smoke steps. **Done.**
+4. Document the controlled-delivery command in staging and deployment docs. **Done.**
+
 ## Follow-On Slices
 
-1. Run low-volume controlled delivery tests before production sends.
-2. Add runbook automation around DNS verification, seed sends, and feedback smoke validation.
+1. Add DSN/MTA log parser plumbing that emits signed `ManagedSmtpFeedbackEvent` payloads.
+2. Add production hardening for DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
+   automation.

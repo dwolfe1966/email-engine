@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INFRA = ROOT / 'infra' / 'managed-smtp'
 SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_feedback_smoke.py'
+CONTROLLED_DELIVERY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_controlled_delivery.py'
 
 
 def test_managed_smtp_staging_scaffold_documents_postfix_boundary() -> None:
@@ -48,6 +49,29 @@ def test_managed_smtp_feedback_smoke_uses_signed_feedback_contract() -> None:
         'X-Email-Engine-Signature',
         "timestamp.encode('utf-8') + b'.' + body",
         '/api/v1/delivery/managed-smtp/feedback',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+
+def test_managed_smtp_controlled_delivery_runbook_sequences_readiness_and_smoke() -> None:
+    source = CONTROLLED_DELIVERY_SCRIPT.read_text()
+
+    expected_tokens = [
+        'DOMAIN_POLICY_ID',
+        'SEED_EMAIL',
+        'CAMPAIGN_ID',
+        'EMAIL_ENGINE_COOKIE',
+        '/api/v1/system/diagnostics',
+        '/api/v1/domain-delivery-policies/{policy_id}/verify-authentication',
+        '/api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard',
+        '/api/v1/campaigns/{campaign_id}/test-send',
+        '/api/v1/delivery/managed-smtp/feedback',
+        'managed_smtp_controlled_delivery',
+        'allow-compliance-hold',
+        'allow-reputation-risk',
+        'timestamp.encode',
+        "b'.' + body",
     ]
     for token in expected_tokens:
         assert token in source
