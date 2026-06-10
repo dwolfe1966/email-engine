@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP Postfix log feedback bridge
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_log_feedback.py`.
+- The script parses Postfix `smtp` delivery log lines into `ManagedSmtpFeedbackEvent` payloads.
+- It maps `sent` to `delivered`, `bounced` to `dsn_bounce`, and `deferred`/`expired` to
+  `tempfail`.
+- It can print normalized JSON for inspection or post signed feedback to
+  `/api/v1/delivery/managed-smtp/feedback`.
+- Updated managed-SMTP staging and deployment docs with the log-forwarding command.
+
+### Why
+
+The managed SMTP stack needs MTA-originated delivery feedback, not only manual smoke events, so
+Postfix delivery outcomes can feed the same provider-neutral lifecycle, suppression, and analytics
+path.
+
+### What needs to happen next
+
+- Add production hardening for DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
+  automation.
+- Add durable feedback idempotency and raw MTA feedback retention.
+
+### Compatibility notes
+
+- No migration is required. The script emits the existing managed-SMTP feedback contract.
+
+---
+
 ## 2026-06-10 — Managed SMTP controlled delivery runbook
 
 **Pushed by:** Codex

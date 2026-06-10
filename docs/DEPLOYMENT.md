@@ -135,6 +135,15 @@ python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
 It verifies diagnostics, DNS authentication, reputation/compliance readiness, optional seed delivery,
 and signed managed-SMTP feedback ingestion in one operator runbook.
 
+For staging MTA log forwarding, normalize Postfix delivery lines into signed feedback events:
+
+```bash
+tail -F /var/log/mail.log \
+  | MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
+    BASE_URL=https://<email-engine-api> \
+    python scripts/managed_smtp_log_feedback.py --post -
+```
+
 ## Health Check
 
 Use:

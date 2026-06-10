@@ -428,8 +428,18 @@ Recommended eighteenth code slice:
 3. Support explicit optional seed test send and signed feedback smoke steps. **Done.**
 4. Document the controlled-delivery command in staging and deployment docs. **Done.**
 
+## Nineteenth Implementation Slice
+
+Recommended nineteenth code slice:
+
+1. Add a Postfix MTA log parser for managed-SMTP feedback. **Done.**
+2. Map Postfix `sent`, `bounced`, `deferred`, and `expired` delivery statuses into
+   `ManagedSmtpFeedbackEvent` payloads. **Done.**
+3. Support signed posting to `/api/v1/delivery/managed-smtp/feedback`. **Done.**
+4. Document staging log forwarding from `/var/log/mail.log`. **Done.**
+
 ## Follow-On Slices
 
-1. Add DSN/MTA log parser plumbing that emits signed `ManagedSmtpFeedbackEvent` payloads.
-2. Add production hardening for DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
+1. Add production hardening for DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
    automation.
+2. Add durable feedback idempotency and raw MTA feedback retention.

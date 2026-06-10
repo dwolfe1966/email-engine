@@ -18,6 +18,8 @@ observability, and blocklist monitoring.
 - `scripts/managed_smtp_controlled_delivery.py`: runs the controlled-delivery readiness sequence:
   diagnostics, domain DNS verification, reputation/compliance dashboard, optional seed send, and
   optional signed feedback smoke.
+- `scripts/managed_smtp_log_feedback.py`: parses Postfix `smtp` delivery log lines into
+  `ManagedSmtpFeedbackEvent` payloads and can post them with the same signed feedback contract.
 
 ## Staging Flow
 
@@ -77,3 +79,16 @@ Postfix handles SMTP transport. Email Engine remains responsible for:
 
 The first staging feedback path is API-based. Later slices should add DSN parsing and MTA log
 forwarding that emit the same signed `ManagedSmtpFeedbackEvent` payloads.
+
+For a first MTA-log bridge, pipe Postfix delivery logs through:
+
+```bash
+tail -F /var/log/mail.log \
+  | MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
+    BASE_URL=https://<email-engine-api> \
+    python scripts/managed_smtp_log_feedback.py --post -
+```
+
+Without `--post`, the script prints normalized feedback JSON for inspection. It currently maps
+Postfix `status=sent` to `delivered`, `status=bounced` to `dsn_bounce`, and `status=deferred` or
+`status=expired` to `tempfail`.
