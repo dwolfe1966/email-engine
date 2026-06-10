@@ -12,6 +12,7 @@ LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
 DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
+MTA_PREFLIGHT_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_preflight.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
 PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
@@ -157,6 +158,69 @@ def test_managed_smtp_production_hardening_runbook_covers_mta_controls() -> None
         assert token in source
 
     assert 'PRODUCTION_HARDENING.md' in readme
+
+
+def test_managed_smtp_mta_preflight_validates_mounts_tls_and_dkim(tmp_path) -> None:
+    module = load_script_module(MTA_PREFLIGHT_SCRIPT)
+    root = tmp_path / 'mta'
+    env = {
+        'POSTFIX_MYHOSTNAME': 'smtp.example.com',
+        'POSTFIX_MYDOMAIN': 'example.com',
+        'POSTFIX_MYNETWORKS': '127.0.0.0/8',
+        'POSTFIX_SPOOL_DIR': str(root / 'postfix' / 'spool'),
+        'POSTFIX_LOG_DIR': str(root / 'postfix' / 'log'),
+        'POSTFIX_TLS_DIR': str(root / 'postfix' / 'tls'),
+        'POSTFIX_TLS_CERT_FILE': '/etc/postfix/tls/tls.crt',
+        'POSTFIX_TLS_KEY_FILE': '/etc/postfix/tls/tls.key',
+        'OPENDKIM_DOMAINS': 'example.com,example.net',
+        'OPENDKIM_SELECTOR': 'ee1',
+        'OPENDKIM_KEYS_DIR': str(root / 'opendkim' / 'keys'),
+        'MANAGED_SMTP_DSN_MAILDIR': str(root / 'mail' / 'returns'),
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR': str(root / 'mail' / 'returns-archive'),
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR': str(root / 'mail' / 'returns-quarantine'),
+    }
+    for key in module.REQUIRED_DIRS:
+        Path(env[key]).mkdir(parents=True)
+    (Path(env['POSTFIX_TLS_DIR']) / 'tls.crt').write_text('cert')
+    (Path(env['POSTFIX_TLS_DIR']) / 'tls.key').write_text('key')
+    for domain in ['example.com', 'example.net']:
+        key_dir = Path(env['OPENDKIM_KEYS_DIR']) / domain
+        key_dir.mkdir(parents=True, exist_ok=True)
+        (key_dir / 'ee1.private').write_text('private')
+
+    result = module.check_preflight(env)
+
+    assert result['ok'] is True
+    assert not result['errors']
+    assert any(item['key'] == 'POSTFIX_TLS_CERT_FILE' for item in result['checked'])
+    assert sum(1 for item in result['checked'] if item['key'] == 'OPENDKIM_PRIVATE_KEY') == 2
+
+
+def test_managed_smtp_mta_preflight_reports_missing_requirements(tmp_path) -> None:
+    module = load_script_module(MTA_PREFLIGHT_SCRIPT)
+    env = {
+        'POSTFIX_MYHOSTNAME': 'smtp.example.com',
+        'POSTFIX_MYDOMAIN': 'example.com',
+        'POSTFIX_MYNETWORKS': '127.0.0.0/8',
+        'POSTFIX_SPOOL_DIR': str(tmp_path / 'spool'),
+        'POSTFIX_LOG_DIR': str(tmp_path / 'log'),
+        'POSTFIX_TLS_DIR': str(tmp_path / 'tls'),
+        'POSTFIX_TLS_CERT_FILE': '/etc/postfix/tls/tls.crt',
+        'POSTFIX_TLS_KEY_FILE': '/etc/postfix/tls/tls.key',
+        'OPENDKIM_DOMAINS': 'example.com',
+        'OPENDKIM_SELECTOR': 'ee1',
+        'OPENDKIM_KEYS_DIR': str(tmp_path / 'keys'),
+        'MANAGED_SMTP_DSN_MAILDIR': str(tmp_path / 'returns'),
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR': str(tmp_path / 'archive'),
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR': str(tmp_path / 'quarantine'),
+    }
+
+    result = module.check_preflight(env)
+
+    assert result['ok'] is False
+    assert any('Missing directory for POSTFIX_SPOOL_DIR' in error for error in result['errors'])
+    assert any('Missing TLS file for POSTFIX_TLS_CERT_FILE' in error for error in result['errors'])
+    assert any('Missing DKIM private key for example.com' in error for error in result['errors'])
 
 
 def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:

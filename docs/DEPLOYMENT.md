@@ -143,6 +143,8 @@ environment.
 Mount Postfix spool, logs, inbound DSNs, DSN archive, and DSN quarantine on durable host paths with
 `POSTFIX_SPOOL_DIR`, `POSTFIX_LOG_DIR`, `MANAGED_SMTP_DSN_MAILDIR`,
 `MANAGED_SMTP_DSN_ARCHIVE_DIR`, and `MANAGED_SMTP_DSN_QUARANTINE_DIR`.
+Run `python scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example`
+on the MTA host before starting the production compose stack.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

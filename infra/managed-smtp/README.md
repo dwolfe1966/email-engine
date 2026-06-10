@@ -108,6 +108,7 @@ install -m 0400 privkey.pem /srv/email-engine/postfix/tls/tls.key
 mkdir -p /srv/email-engine/postfix/spool /srv/email-engine/postfix/log
 mkdir -p /srv/email-engine/mail/returns /srv/email-engine/mail/returns-archive
 mkdir -p /srv/email-engine/mail/returns-quarantine
+python scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example
 docker compose --env-file infra/managed-smtp/production.env.example \
   -f infra/managed-smtp/docker-compose.production.yml up --build -d
 ```
@@ -130,6 +131,8 @@ scheduler jobs with `MANAGED_SMTP_DSN_PATH=/var/mail/dsn`,
 them at equivalent mounted paths on the scheduler host.
 
 Before production traffic, complete `infra/managed-smtp/PRODUCTION_HARDENING.md`.
+Run `scripts/managed_smtp_mta_preflight.py` before starting the production stack to validate
+required env vars, host mounts, TLS files, and DKIM private keys.
 
 ## Bounce Routing Boundary
 

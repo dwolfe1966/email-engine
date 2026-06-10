@@ -76,10 +76,12 @@ control plane while Postfix/OpenDKIM run on a dedicated MTA host.
 
 Before raising production volume:
 
-1. DNS authentication verification passes.
-2. Reputation dashboard is clear.
-3. No active compliance hold exists.
-4. Blocklist scan has no hits.
-5. DSN ingestion, quarantine check, and log feedback jobs are running.
-6. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
-7. Emergency pause/resume procedures are tested by an operator.
+1. `scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example`
+   passes on the MTA host.
+2. DNS authentication verification passes.
+3. Reputation dashboard is clear.
+4. No active compliance hold exists.
+5. Blocklist scan has no hits.
+6. DSN ingestion, quarantine check, and log feedback jobs are running.
+7. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
+8. Emergency pause/resume procedures are tested by an operator.

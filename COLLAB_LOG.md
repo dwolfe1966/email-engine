@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP production MTA preflight
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_mta_preflight.py`.
+- The script validates required production MTA env vars, host mount directories, Postfix TLS
+  certificate/key files, and OpenDKIM private-key paths for each configured domain.
+- Deployment and managed-SMTP docs now include the preflight command before starting production
+  compose.
+
+### Why
+
+The production compose stack now depends on several host-mounted paths and secrets. Operators need a
+single fail-fast check before starting Postfix/OpenDKIM.
+
+### What needs to happen next
+
+- Add a production DNS/MTA smoke script that checks SMTP banner, STARTTLS, DKIM signing, and signed
+  feedback after the stack is running.
+
+### Compatibility notes
+
+- No migration is required. The script is optional and only reads env/path state unless
+  `--create-dirs` is used.
+
+---
+
 ## 2026-06-10 — Managed SMTP production MTA host mounts
 
 **Pushed by:** Codex
