@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DSN quarantine review tool
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_dsn_quarantine.py`.
+- Operators can list quarantined Maildir messages as text or JSON with subject, sender, quarantine
+  reason, content type, date, and body preview.
+- Operators can purge reviewed messages by Maildir key, purge all messages, or dry-run/purge
+  messages older than a configured age.
+- Deployment and managed-SMTP docs now include quarantine review and cleanup commands.
+
+### Why
+
+The DSN ingestion path can now quarantine malformed or non-DSN mailbox messages. Production
+operators need a controlled way to inspect and clean up that quarantine without deleting inbound
+mail blindly.
+
+### What needs to happen next
+
+- Consider scheduled quarantine alerting once production mailbox volume is known.
+- Add deeper MTA-side deployment automation for production Postfix/OpenDKIM once infrastructure is
+  chosen.
+
+### Compatibility notes
+
+- No migration is required. The tool operates directly on a Maildir path configured by
+  `MANAGED_SMTP_DSN_QUARANTINE`.
+
+---
+
 ## 2026-06-10 — Provider feedback evidence UI
 
 **Pushed by:** Codex

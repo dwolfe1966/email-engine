@@ -8,6 +8,7 @@ SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_feedback_smoke.py'
 CONTROLLED_DELIVERY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_controlled_delivery.py'
 LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
 DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
+DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
@@ -271,6 +272,71 @@ def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> No
         'quarantine_maildir_messages',
         'MANAGED_SMTP_DSN_ARCHIVE',
         'MANAGED_SMTP_DSN_QUARANTINE',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+
+def test_managed_smtp_dsn_quarantine_tool_lists_and_purges_maildir_messages(tmp_path) -> None:
+    module = load_script_module(DSN_QUARANTINE_SCRIPT)
+    quarantine = tmp_path / 'quarantine'
+    maildir = mailbox.Maildir(quarantine, create=True)
+    first_key = maildir.add(
+        'From: autoresponder@example.com\n'
+        'Subject: Out of office\n'
+        'X-Email-Engine-Quarantine-Reason: no managed SMTP DSN feedback events parsed\n'
+        '\n'
+        'I am away from the office.'
+    )
+    second_key = maildir.add('From: junk@example.com\nSubject: not a DSN\n\nHello.')
+    maildir.flush()
+
+    rows = module.list_quarantine(str(quarantine), limit=10, preview_chars=12)
+
+    assert [row['key'] for row in rows] == sorted([first_key, second_key])
+    first_row = next(row for row in rows if row['key'] == first_key)
+    assert first_row['subject'] == 'Out of office'
+    assert first_row['quarantine_reason'] == 'no managed SMTP DSN feedback events parsed'
+    assert first_row['preview'] == 'I am away fr'
+
+    dry_run = module.purge_quarantine(
+        str(quarantine),
+        keys=[first_key],
+        older_than_days=None,
+        all_messages=False,
+        dry_run=True,
+    )
+
+    assert dry_run['removed_count'] == 1
+    assert len(mailbox.Maildir(quarantine, create=False)) == 2
+
+    result = module.purge_quarantine(
+        str(quarantine),
+        keys=[first_key],
+        older_than_days=None,
+        all_messages=False,
+        dry_run=False,
+    )
+
+    assert result['removed_keys'] == [first_key]
+    remaining = mailbox.Maildir(quarantine, create=False)
+    assert len(remaining) == 1
+    assert second_key in remaining
+
+
+def test_managed_smtp_dsn_quarantine_tool_contract() -> None:
+    source = DSN_QUARANTINE_SCRIPT.read_text()
+
+    expected_tokens = [
+        'managed-SMTP DSN quarantine Maildir',
+        'X-Email-Engine-Quarantine-Reason',
+        'list_quarantine',
+        'purge_quarantine',
+        'purge-key',
+        'purge-older-than-days',
+        'purge-all',
+        'dry-run',
+        'preview-chars',
     ]
     for token in expected_tokens:
         assert token in source

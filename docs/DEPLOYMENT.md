@@ -192,6 +192,13 @@ When `MANAGED_SMTP_DSN_QUARANTINE` is set, malformed or non-DSN mailbox messages
 Maildir instead of being replayed on every scheduler run. Successfully parsed messages are still
 archived only after their feedback post succeeds.
 
+Review quarantined DSN mailbox messages before purging:
+
+```bash
+python scripts/managed_smtp_dsn_quarantine.py --json /path/to/quarantine-Maildir
+python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-older-than-days 30 --dry-run
+```
+
 ## Health Check
 
 Use:

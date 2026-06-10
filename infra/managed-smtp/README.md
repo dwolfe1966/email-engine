@@ -133,6 +133,19 @@ is set, DSN Maildir messages are moved to the archive only after successful feed
 When `MANAGED_SMTP_DSN_QUARANTINE` or `--quarantine-maildir` is set, malformed or non-DSN messages
 are moved to the quarantine Maildir without blocking valid DSNs in the same batch.
 
+To review quarantined mailbox messages:
+
+```bash
+python scripts/managed_smtp_dsn_quarantine.py --json /path/to/quarantine-Maildir
+```
+
+To remove a reviewed message by Maildir key, or to preview an age-based cleanup:
+
+```bash
+python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-key '<maildir-key>'
+python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purge-older-than-days 30 --dry-run
+```
+
 ## MTA Boundary
 
 Postfix handles SMTP transport. Email Engine remains responsible for:
