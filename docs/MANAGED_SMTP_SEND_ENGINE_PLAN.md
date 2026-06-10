@@ -438,8 +438,18 @@ Recommended nineteenth code slice:
 3. Support signed posting to `/api/v1/delivery/managed-smtp/feedback`. **Done.**
 4. Document staging log forwarding from `/var/log/mail.log`. **Done.**
 
+## Twentieth Implementation Slice
+
+Recommended twentieth code slice:
+
+1. Extend the managed-SMTP reputation dashboard with blocklist status, blocklist hits, sending IPs,
+   and warmup progression state. **Done.**
+2. Treat active blocklist hits as reputation risk and warmup health failures. **Done.**
+3. Gate the controlled-delivery runbook on listed IPs/domains and warmup holds. **Done.**
+4. Document the expanded readiness contract for production managed-SMTP preflight. **Done.**
+
 ## Follow-On Slices
 
-1. Add production hardening for DKIM signing, bounce-domain routing, blocklist checks, and IP warmup
-   automation.
+1. Add production hardening for DKIM signing, bounce-domain routing, automated blocklist scanners,
+   and IP warmup progression jobs.
 2. Add durable feedback idempotency and raw MTA feedback retention.

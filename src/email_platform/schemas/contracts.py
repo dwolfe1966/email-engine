@@ -1209,7 +1209,14 @@ class DomainReputationDashboardRead(BaseModel):
     route_name: str | None = None
     route_type: DeliveryRouteType | None = None
     warmup_stage: str | None = None
+    warmup_status: str
+    warmup_daily_limit: int | None = None
+    warmup_stage_order: int | None = None
     ip_pool: str | None = None
+    ip_addresses: list[str] = Field(default_factory=list)
+    blocklist_status: str
+    blocklist_hits: list[str] = Field(default_factory=list)
+    blocklist_checked_at: str | None = None
     max_per_minute: int | None = None
     max_concurrent: int | None = None
     paused_until: datetime | None = None

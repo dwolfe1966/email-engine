@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP blocklist and warmup readiness signals
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Expanded the domain reputation dashboard response with sending IPs, blocklist status/hits/check
+  timestamp, and warmup status/limits/order fields.
+- Active blocklist hits now force reputation risk, and high bounce/complaint rates hold warmup
+  progression.
+- The controlled-delivery runbook now fails preflight when the dashboard reports listed IPs/domains
+  or a warmup hold.
+
+### Why
+
+Managed SMTP needs production readiness gates before scale-up. Operators should see whether the
+domain/IP pool has passed blocklist preflight and whether warmup is safe to advance.
+
+### What needs to happen next
+
+- Add automated blocklist scanner jobs that write `blocklist_hits` and `blocklist_checked_at` into
+  domain policy metadata.
+- Add warmup progression automation that advances stages from measured delivery outcomes.
+- Continue hardening DKIM signing and bounce-domain routing around the managed Postfix boundary.
+
+### Compatibility notes
+
+- No migration is required. New dashboard fields are additive and read from existing policy
+  metadata / route config.
+
+---
+
 ## 2026-06-10 — Managed SMTP Postfix log feedback bridge
 
 **Pushed by:** Codex

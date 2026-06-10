@@ -117,7 +117,8 @@ Sending and events:
   records rather than silently passing.
 - `GET /api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard` combines domain policy
   warmup/throttle/IP-pool metadata, authentication verification state, and domain deliverability
-  rollups into one managed-SMTP readiness view, including active compliance-hold state when present.
+  rollups into one managed-SMTP readiness view. The response also surfaces active compliance holds,
+  blocklist preflight state, sending IP addresses, and warmup progression status when present.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/compliance-hold` pauses a domain policy for
   operator abuse/compliance review and appends a hold entry to policy metadata audit history.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold` clears the active

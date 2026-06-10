@@ -40,7 +40,11 @@ def request_json(
     cookie: str | None = None,
     headers: dict[str, str] | None = None,
 ) -> Any:
-    body = json.dumps(payload, separators=(',', ':')).encode('utf-8') if payload is not None else None
+    body = (
+        json.dumps(payload, separators=(',', ':')).encode('utf-8')
+        if payload is not None
+        else None
+    )
     request_headers = {'Accept': 'application/json', **(headers or {})}
     if body is not None:
         request_headers['Content-Type'] = 'application/json'
@@ -93,12 +97,20 @@ def verify_domain_authentication(
         cookie=cookie,
     )
     records = verification.get('records', []) if isinstance(verification, dict) else []
-    failed = [record for record in records if record.get('required') and record.get('status') != 'verified']
+    failed = [
+        record
+        for record in records
+        if record.get('required') and record.get('status') != 'verified'
+    ]
+    detail = (
+        f'{len(records) - len(failed)} verified or optional record(s), '
+        f'{len(failed)} required issue(s)'
+    )
     append_result(
         results,
         'dns_verification',
         bool(verification.get('verified')) and not failed,
-        f'{len(records) - len(failed)} verified or optional record(s), {len(failed)} required issue(s)',
+        detail,
     )
 
 
@@ -118,14 +130,19 @@ def load_reputation_dashboard(
     compliance_ok = allow_compliance_hold or dashboard.get('compliance_status') != 'hold'
     reputation_ok = allow_reputation_risk or dashboard.get('reputation_status') != 'risk'
     throttle_ok = dashboard.get('throttle_status') != 'paused'
-    ok = compliance_ok and reputation_ok and throttle_ok
+    blocklist_ok = dashboard.get('blocklist_status') != 'listed'
+    warmup_ok = dashboard.get('warmup_status') != 'hold'
+    ok = compliance_ok and reputation_ok and throttle_ok and blocklist_ok and warmup_ok
     append_result(
         results,
         'reputation_dashboard',
         ok,
         (
             f'domain={dashboard.get("domain")}, reputation={dashboard.get("reputation_status")}, '
-            f'compliance={dashboard.get("compliance_status")}, throttle={dashboard.get("throttle_status")}'
+            f'compliance={dashboard.get("compliance_status")}, '
+            f'throttle={dashboard.get("throttle_status")}, '
+            f'blocklist={dashboard.get("blocklist_status")}, '
+            f'warmup={dashboard.get("warmup_status")}'
         ),
     )
     return dashboard
@@ -189,7 +206,10 @@ def post_feedback_smoke(
         results,
         'feedback_smoke',
         int(response.get('processed_count', 0)) >= 1,
-        f'processed={response.get("processed_count")}, updated={response.get("updated_send_records")}',
+        (
+            f'processed={response.get("processed_count")}, '
+            f'updated={response.get("updated_send_records")}'
+        ),
     )
 
 

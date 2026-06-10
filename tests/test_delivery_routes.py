@@ -4,10 +4,10 @@ from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.schemas.contracts import (
+    DomainAuthenticationPlanRequest,
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
-    DomainAuthenticationPlanRequest,
     DomainDkimKeyCreateRequest,
 )
 from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
@@ -466,7 +466,7 @@ def test_domain_reputation_dashboard_combines_policy_route_and_deliverability() 
         id=uuid4(),
         name='managed-smtp-primary',
         route_type=DeliveryRouteType.managed_smtp,
-        config={'ip_pool': 'pool-a'},
+        config={'ip_pool': 'pool-a', 'ip_addresses': ['192.0.2.10']},
     )
     policy = SimpleNamespace(
         id=uuid4(),
@@ -476,7 +476,12 @@ def test_domain_reputation_dashboard_combines_policy_route_and_deliverability() 
         max_per_minute=25,
         max_concurrent=2,
         paused_until=None,
-        metadata_json={'domain_authentication_verification': {'verified': True}},
+        metadata_json={
+            'domain_authentication_verification': {'verified': True},
+            'blocklist_checked_at': '2026-06-10T12:00:00',
+            'warmup_daily_limit': 100,
+            'warmup_stage_order': 1,
+        },
     )
     deliverability = DomainDeliverabilityRead(
         domain='example.com',
@@ -505,6 +510,11 @@ def test_domain_reputation_dashboard_combines_policy_route_and_deliverability() 
     assert dashboard.domain == 'example.com'
     assert dashboard.route_name == 'managed-smtp-primary'
     assert dashboard.ip_pool == 'pool-a'
+    assert dashboard.ip_addresses == ['192.0.2.10']
+    assert dashboard.blocklist_status == 'clear'
+    assert dashboard.warmup_status == 'active'
+    assert dashboard.warmup_daily_limit == 100
+    assert dashboard.warmup_stage_order == 1
     assert dashboard.authentication_status == 'verified'
     assert dashboard.reputation_status == 'healthy'
     assert dashboard.throttle_status == 'limited'
@@ -564,4 +574,68 @@ def test_domain_reputation_dashboard_flags_risk_and_missing_controls() -> None:
         in dashboard.recommendations
     )
     assert 'Assign an IP pool before production managed-SMTP sends.' in dashboard.recommendations
+    assert 'Attach sending IP addresses before blocklist preflight.' in dashboard.recommendations
+    assert (
+        'Run blocklist checks for assigned IPs before production sends.'
+        in dashboard.recommendations
+    )
     assert 'Set throttle limits before staging or production sends.' in dashboard.recommendations
+
+
+def test_domain_reputation_dashboard_blocks_listed_ips_and_holds_warmup() -> None:
+    route = SimpleNamespace(
+        id=uuid4(),
+        name='managed-smtp-primary',
+        route_type=DeliveryRouteType.managed_smtp,
+        config={'ip_pool': 'pool-a', 'ip_addresses': ['192.0.2.10']},
+    )
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        route_id=route.id,
+        warmup_stage='stage_1',
+        max_per_minute=25,
+        max_concurrent=2,
+        paused_until=None,
+        metadata_json={
+            'domain_authentication_verification': {'verified': True},
+            'blocklist_hits': ['zen.spamhaus.org'],
+            'blocklist_checked_at': '2026-06-10T12:00:00',
+        },
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=0,
+        suppressed_count=0,
+        delivered_count=90,
+        opened_count=10,
+        clicked_count=2,
+        bounced_count=6,
+        complained_count=0,
+        unsubscribed_count=0,
+        open_rate=0.1,
+        click_rate=0.02,
+        bounce_rate=0.06,
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+    service.get_domain_policy = lambda policy_id: policy
+
+    dashboard = service.domain_reputation_dashboard(policy.id, deliverability=deliverability)
+
+    assert dashboard is not None
+    assert dashboard.blocklist_status == 'listed'
+    assert dashboard.blocklist_hits == ['zen.spamhaus.org']
+    assert dashboard.reputation_status == 'risk'
+    assert dashboard.warmup_status == 'hold'
+    assert (
+        'Pause managed-SMTP scaling until listed IPs or domains are remediated.'
+        in dashboard.recommendations
+    )
+    assert (
+        'Hold warmup progression until bounce and complaint rates recover.'
+        in dashboard.recommendations
+    )

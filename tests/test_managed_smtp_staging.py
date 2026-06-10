@@ -1,6 +1,5 @@
-from pathlib import Path
 import importlib.util
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INFRA = ROOT / 'infra' / 'managed-smtp'
@@ -81,6 +80,8 @@ def test_managed_smtp_controlled_delivery_runbook_sequences_readiness_and_smoke(
         'managed_smtp_controlled_delivery',
         'allow-compliance-hold',
         'allow-reputation-risk',
+        'blocklist_status',
+        'warmup_status',
         'timestamp.encode',
         "b'.' + body",
     ]
@@ -91,9 +92,24 @@ def test_managed_smtp_controlled_delivery_runbook_sequences_readiness_and_smoke(
 def test_managed_smtp_log_feedback_parser_maps_postfix_statuses_to_feedback_events() -> None:
     module = load_script_module(LOG_FEEDBACK_SCRIPT)
     lines = [
-        'Jun 10 12:00:01 mx postfix/smtp[123]: ABC123DEF: to=<seed@example.com>, relay=mx.example.net[192.0.2.10]:25, delay=1.2, delays=0.1/0.1/0.5/0.5, dsn=2.0.0, status=sent (250 2.0.0 Ok: queued as 12345)',
-        'Jun 10 12:00:02 mx postfix/smtp[124]: BAD987654: to=<bad@example.com>, relay=mx.example.net[192.0.2.11]:25, delay=2.0, delays=0.2/0.1/0.7/1.0, dsn=5.1.1, status=bounced (550 5.1.1 User unknown)',
-        'Jun 10 12:00:03 mx postfix/smtp[125]: DEF456ABC: to=<later@example.com>, relay=mx.example.net[192.0.2.12]:25, delay=3.0, delays=0.3/0.1/1.2/1.4, dsn=4.2.0, status=deferred (421 4.2.0 Try again later)',
+        (
+            'Jun 10 12:00:01 mx postfix/smtp[123]: ABC123DEF: to=<seed@example.com>, '
+            'relay=mx.example.net[192.0.2.10]:25, delay=1.2, '
+            'delays=0.1/0.1/0.5/0.5, dsn=2.0.0, '
+            'status=sent (250 2.0.0 Ok: queued as 12345)'
+        ),
+        (
+            'Jun 10 12:00:02 mx postfix/smtp[124]: BAD987654: to=<bad@example.com>, '
+            'relay=mx.example.net[192.0.2.11]:25, delay=2.0, '
+            'delays=0.2/0.1/0.7/1.0, dsn=5.1.1, '
+            'status=bounced (550 5.1.1 User unknown)'
+        ),
+        (
+            'Jun 10 12:00:03 mx postfix/smtp[125]: DEF456ABC: to=<later@example.com>, '
+            'relay=mx.example.net[192.0.2.12]:25, delay=3.0, '
+            'delays=0.3/0.1/1.2/1.4, dsn=4.2.0, '
+            'status=deferred (421 4.2.0 Try again later)'
+        ),
     ]
 
     events = module.parse_postfix_lines(lines)

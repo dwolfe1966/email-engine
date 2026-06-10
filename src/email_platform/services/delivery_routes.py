@@ -19,7 +19,6 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     DeliveryRouteCreate,
     DeliveryRouteUpdate,
-    DomainDeliverabilityRead,
     DomainAuthenticationDnsRecord,
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
@@ -27,11 +26,12 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationVerificationRecord,
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
-    DomainReputationDashboardRead,
+    DomainDeliverabilityRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
+    DomainReputationDashboardRead,
 )
 
 
@@ -474,6 +474,19 @@ class DeliveryRouteService:
             isinstance(verification, dict) and verification.get('verified')
         )
         ip_pool = self._metadata_string(metadata, 'ip_pool') or self._route_ip_pool(route)
+        ip_addresses = self._metadata_list(metadata, 'ip_addresses') or self._route_ip_addresses(
+            route
+        )
+        blocklist_hits = self._metadata_list(metadata, 'blocklist_hits') or self._route_list(
+            route,
+            'blocklist_hits',
+        )
+        blocklist_checked_at = self._metadata_string(metadata, 'blocklist_checked_at')
+        blocklist_status = self._blocklist_status(
+            blocklist_hits=blocklist_hits,
+            blocklist_checked_at=blocklist_checked_at,
+            ip_addresses=ip_addresses,
+        )
         send_record_count = deliverability.send_record_count if deliverability else 0
         sent_count = deliverability.sent_count if deliverability else 0
         delivered_count = deliverability.delivered_count if deliverability else 0
@@ -481,10 +494,17 @@ class DeliveryRouteService:
         complained_count = deliverability.complained_count if deliverability else 0
         bounce_rate = deliverability.bounce_rate if deliverability else 0.0
         complaint_rate = self._rate(complained_count, max(sent_count, send_record_count))
+        warmup_status = self._warmup_status(
+            policy=policy,
+            send_record_count=send_record_count,
+            bounce_rate=bounce_rate,
+            complaint_rate=complaint_rate,
+        )
         reputation_status = self._reputation_status(
             bounce_rate=bounce_rate,
             complaint_rate=complaint_rate,
             authentication_verified=authentication_verified,
+            blocklist_hits=blocklist_hits,
         )
         compliance_hold = metadata.get('compliance_hold')
         compliance_active = bool(
@@ -502,7 +522,14 @@ class DeliveryRouteService:
             route_name=route.name if route else None,
             route_type=route.route_type if route else None,
             warmup_stage=policy.warmup_stage,
+            warmup_status=warmup_status,
+            warmup_daily_limit=self._metadata_int(metadata, 'warmup_daily_limit'),
+            warmup_stage_order=self._metadata_int(metadata, 'warmup_stage_order'),
             ip_pool=ip_pool,
+            ip_addresses=ip_addresses,
+            blocklist_status=blocklist_status,
+            blocklist_hits=blocklist_hits,
+            blocklist_checked_at=blocklist_checked_at,
             max_per_minute=policy.max_per_minute,
             max_concurrent=policy.max_concurrent,
             paused_until=policy.paused_until,
@@ -527,6 +554,10 @@ class DeliveryRouteService:
                 bounce_rate=bounce_rate,
                 complaint_rate=complaint_rate,
                 ip_pool=ip_pool,
+                ip_addresses=ip_addresses,
+                blocklist_status=blocklist_status,
+                blocklist_hits=blocklist_hits,
+                warmup_status=warmup_status,
                 compliance_active=compliance_active,
             ),
         )
@@ -711,7 +742,10 @@ class DeliveryRouteService:
                 'Configure Postfix DKIM signing with the matching private key and selector.',
                 'Send a low-volume seed message through the managed SMTP route.',
                 'Post a signed managed-SMTP feedback smoke event and confirm analytics update.',
-                'Move DMARC policy from none only after alignment and bounce handling are verified.',
+                (
+                    'Move DMARC policy from none only after alignment and bounce handling are '
+                    'verified.'
+                ),
             ],
         )
 
@@ -753,9 +787,76 @@ class DeliveryRouteService:
         value = route.config.get('ip_pool') or route.config.get('ip_pool_name')
         return str(value) if value else None
 
+    def _route_ip_addresses(self, route: DeliveryRoute | None) -> list[str]:
+        if not route or not isinstance(route.config, dict):
+            return []
+        values = self._list_from_value(route.config.get('ip_addresses'))
+        if values:
+            return values
+        single = route.config.get('ip_address')
+        return [str(single)] if single else []
+
+    def _route_list(self, route: DeliveryRoute | None, key: str) -> list[str]:
+        if not route or not isinstance(route.config, dict):
+            return []
+        return self._list_from_value(route.config.get(key))
+
     def _metadata_string(self, metadata: dict[str, object], key: str) -> str | None:
         value = metadata.get(key)
         return str(value) if value else None
+
+    def _metadata_int(self, metadata: dict[str, object], key: str) -> int | None:
+        value = metadata.get(key)
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+        return None
+
+    def _metadata_list(self, metadata: dict[str, object], key: str) -> list[str]:
+        return self._list_from_value(metadata.get(key))
+
+    def _list_from_value(self, value: object) -> list[str]:
+        if isinstance(value, list):
+            return [str(item) for item in value if item]
+        if isinstance(value, tuple):
+            return [str(item) for item in value if item]
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []
+
+    def _blocklist_status(
+        self,
+        *,
+        blocklist_hits: list[str],
+        blocklist_checked_at: str | None,
+        ip_addresses: list[str],
+    ) -> str:
+        if blocklist_hits:
+            return 'listed'
+        if blocklist_checked_at and ip_addresses:
+            return 'clear'
+        return 'unknown'
+
+    def _warmup_status(
+        self,
+        *,
+        policy: DomainDeliveryPolicy,
+        send_record_count: int,
+        bounce_rate: float,
+        complaint_rate: float,
+    ) -> str:
+        if complaint_rate >= 0.001 or bounce_rate >= 0.05:
+            return 'hold'
+        if not policy.warmup_stage:
+            return 'unset'
+        if send_record_count == 0:
+            return 'ready_for_seed'
+        if bounce_rate >= 0.02:
+            return 'watch'
+        return 'active'
 
     def _append_compliance_audit(
         self,
@@ -784,7 +885,10 @@ class DeliveryRouteService:
         bounce_rate: float,
         complaint_rate: float,
         authentication_verified: bool,
+        blocklist_hits: list[str] | None = None,
     ) -> str:
+        if blocklist_hits:
+            return 'risk'
         if complaint_rate >= 0.001 or bounce_rate >= 0.05:
             return 'risk'
         if not authentication_verified:
@@ -803,6 +907,10 @@ class DeliveryRouteService:
         bounce_rate: float,
         complaint_rate: float,
         ip_pool: str | None,
+        ip_addresses: list[str],
+        blocklist_status: str,
+        blocklist_hits: list[str],
+        warmup_status: str,
         compliance_active: bool = False,
     ) -> list[str]:
         recommendations: list[str] = []
@@ -814,12 +922,30 @@ class DeliveryRouteService:
             recommendations.append('Verify DKIM, SPF, DMARC, and bounce-domain DNS before scaling.')
         if not ip_pool:
             recommendations.append('Assign an IP pool before production managed-SMTP sends.')
+        if not ip_addresses:
+            recommendations.append('Attach sending IP addresses before blocklist preflight.')
+        if blocklist_status == 'listed':
+            recommendations.append(
+                'Pause managed-SMTP scaling until listed IPs or domains are remediated.'
+            )
+        elif blocklist_status == 'unknown':
+            recommendations.append('Run blocklist checks for assigned IPs before production sends.')
         if not policy.warmup_stage:
             recommendations.append('Set a warmup stage for this sending domain.')
+        if warmup_status == 'hold':
+            recommendations.append(
+                'Hold warmup progression until bounce and complaint rates recover.'
+            )
+        elif warmup_status == 'ready_for_seed':
+            recommendations.append(
+                'Run a low-volume seed test before moving this warmup stage forward.'
+            )
         if not policy.max_per_minute and not policy.max_concurrent:
             recommendations.append('Set throttle limits before staging or production sends.')
         if reputation_status == 'risk':
-            recommendations.append('Pause or reduce volume until bounce and complaint causes are reviewed.')
+            recommendations.append(
+                'Pause or reduce volume until bounce and complaint causes are reviewed.'
+            )
         elif bounce_rate >= 0.02:
             recommendations.append('Keep this domain in warmup watch until bounce rate improves.')
         if complaint_rate > 0:
