@@ -25,6 +25,8 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationPlanRequest,
     DomainAuthenticationVerificationRead,
     DomainAuthenticationVerificationRecord,
+    DomainComplianceHoldRequest,
+    DomainComplianceReleaseRequest,
     DomainReputationDashboardRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
@@ -276,6 +278,84 @@ class DeliveryRouteService:
         self.db.refresh(policy)
         return policy
 
+    def apply_domain_compliance_hold(
+        self,
+        policy_id: UUID,
+        payload: DomainComplianceHoldRequest,
+    ) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        held_at = datetime.utcnow()
+        held_until = held_at + timedelta(hours=payload.paused_hours)
+        metadata = dict(policy.metadata_json or {})
+        hold = {
+            'status': 'active',
+            'reason': payload.reason.strip(),
+            'abuse_type': payload.abuse_type.strip(),
+            'operator': payload.operator,
+            'held_at': held_at.isoformat(),
+            'held_until': held_until.isoformat(),
+        }
+        metadata['compliance_hold'] = hold
+        metadata['compliance_audit_log'] = self._append_compliance_audit(
+            metadata,
+            {
+                'action': 'hold',
+                'status': 'active',
+                'reason': hold['reason'],
+                'abuse_type': hold['abuse_type'],
+                'operator': payload.operator,
+                'occurred_at': held_at.isoformat(),
+                'held_until': held_until.isoformat(),
+                'previous_paused_until': (
+                    policy.paused_until.isoformat() if policy.paused_until else None
+                ),
+            },
+        )
+        policy.paused_until = held_until
+        policy.metadata_json = metadata
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
+    def release_domain_compliance_hold(
+        self,
+        policy_id: UUID,
+        payload: DomainComplianceReleaseRequest,
+    ) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        released_at = datetime.utcnow()
+        metadata = dict(policy.metadata_json or {})
+        previous_hold = metadata.get('compliance_hold')
+        metadata['compliance_hold'] = {
+            'status': 'released',
+            'reason': payload.reason.strip(),
+            'operator': payload.operator,
+            'released_at': released_at.isoformat(),
+            'previous_hold': previous_hold if isinstance(previous_hold, dict) else None,
+        }
+        metadata['compliance_audit_log'] = self._append_compliance_audit(
+            metadata,
+            {
+                'action': 'release',
+                'status': 'released',
+                'reason': payload.reason.strip(),
+                'operator': payload.operator,
+                'occurred_at': released_at.isoformat(),
+                'previous_paused_until': (
+                    policy.paused_until.isoformat() if policy.paused_until else None
+                ),
+            },
+        )
+        policy.paused_until = None
+        policy.metadata_json = metadata
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
     def delete_domain_policy(self, policy_id: UUID) -> bool:
         policy = self.get_domain_policy(policy_id)
         if not policy:
@@ -406,6 +486,15 @@ class DeliveryRouteService:
             complaint_rate=complaint_rate,
             authentication_verified=authentication_verified,
         )
+        compliance_hold = metadata.get('compliance_hold')
+        compliance_active = bool(
+            isinstance(compliance_hold, dict) and compliance_hold.get('status') == 'active'
+        )
+        compliance_reason = (
+            str(compliance_hold.get('reason'))
+            if isinstance(compliance_hold, dict) and compliance_hold.get('reason')
+            else None
+        )
         throttle_status = self._throttle_status(policy)
         return DomainReputationDashboardRead(
             domain=policy.domain,
@@ -421,6 +510,8 @@ class DeliveryRouteService:
             authentication_status='verified' if authentication_verified else 'pending',
             reputation_status=reputation_status,
             throttle_status=throttle_status,
+            compliance_status='hold' if compliance_active else 'clear',
+            compliance_reason=compliance_reason,
             send_record_count=send_record_count,
             sent_count=sent_count,
             delivered_count=delivered_count,
@@ -436,6 +527,7 @@ class DeliveryRouteService:
                 bounce_rate=bounce_rate,
                 complaint_rate=complaint_rate,
                 ip_pool=ip_pool,
+                compliance_active=compliance_active,
             ),
         )
 
@@ -665,6 +757,16 @@ class DeliveryRouteService:
         value = metadata.get(key)
         return str(value) if value else None
 
+    def _append_compliance_audit(
+        self,
+        metadata: dict[str, object],
+        entry: dict[str, object],
+    ) -> list[object]:
+        existing = metadata.get('compliance_audit_log')
+        entries = list(existing) if isinstance(existing, list) else []
+        entries.append(entry)
+        return entries[-50:]
+
     def _rate(self, numerator: int, denominator: int) -> float:
         if denominator <= 0:
             return 0.0
@@ -701,8 +803,13 @@ class DeliveryRouteService:
         bounce_rate: float,
         complaint_rate: float,
         ip_pool: str | None,
+        compliance_active: bool = False,
     ) -> list[str]:
         recommendations: list[str] = []
+        if compliance_active:
+            recommendations.append(
+                'Resolve or release the compliance hold before managed-SMTP sending resumes.'
+            )
         if not authentication_verified:
             recommendations.append('Verify DKIM, SPF, DMARC, and bounce-domain DNS before scaling.')
         if not ip_pool:

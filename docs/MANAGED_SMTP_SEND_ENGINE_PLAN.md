@@ -395,7 +395,19 @@ Recommended fifteenth code slice:
 5. Return reputation status, throttle status, complaint rate, bounce rate, and operator
    recommendations. **Done.**
 
+## Sixteenth Implementation Slice
+
+Recommended sixteenth code slice:
+
+1. Add domain-level abuse/compliance hold and release request contracts. **Done.**
+2. Add `/api/v1/domain-delivery-policies/{policy_id}/compliance-hold`. **Done.**
+3. Add `/api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold`. **Done.**
+4. Persist active compliance hold state and bounded audit history on domain policy metadata.
+   **Done.**
+5. Surface active compliance hold status and recommendations in the reputation dashboard.
+   **Done.**
+
 ## Follow-On Slices
 
-1. Add abuse/compliance controls and audit logging.
+1. Surface compliance hold/release controls in the Delivery/Analytics frontend.
 2. Run low-volume controlled delivery tests before production sends.

@@ -117,7 +117,11 @@ Sending and events:
   records rather than silently passing.
 - `GET /api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard` combines domain policy
   warmup/throttle/IP-pool metadata, authentication verification state, and domain deliverability
-  rollups into one managed-SMTP readiness view.
+  rollups into one managed-SMTP readiness view, including active compliance-hold state when present.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/compliance-hold` pauses a domain policy for
+  operator abuse/compliance review and appends a hold entry to policy metadata audit history.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold` clears the active
+  compliance hold, resumes domain policy claiming, and appends a release entry to the audit history.
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.
 - SendGrid Event Webhook signature verification is supported through `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`. Set `SENDGRID_EVENT_WEBHOOK_REQUIRE_SIGNATURE=true` in production after the public key is configured.
 - `POST /api/v1/delivery/managed-smtp/feedback` ingests owned-MTA feedback events such as

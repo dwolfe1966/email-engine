@@ -692,6 +692,18 @@ class DomainDeliveryPolicyUpdate(BaseModel):
     metadata_json: JsonObject | None = None
 
 
+class DomainComplianceHoldRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+    abuse_type: str = Field(default='manual_review', min_length=1, max_length=100)
+    operator: str | None = Field(default=None, max_length=200)
+    paused_hours: int = Field(default=24, ge=1, le=24 * 30)
+
+
+class DomainComplianceReleaseRequest(BaseModel):
+    reason: str = Field(default='review_cleared', min_length=1, max_length=500)
+    operator: str | None = Field(default=None, max_length=200)
+
+
 class DomainAuthenticationPlanRequest(BaseModel):
     dkim_selector: str = 'ee1'
     bounce_subdomain: str = 'bounces'
@@ -1205,6 +1217,8 @@ class DomainReputationDashboardRead(BaseModel):
     authentication_status: str
     reputation_status: str
     throttle_status: str
+    compliance_status: str = 'clear'
+    compliance_reason: str | None = None
     send_record_count: int = 0
     sent_count: int = 0
     delivered_count: int = 0

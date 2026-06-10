@@ -113,6 +113,8 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
     DomainAuthenticationVerificationRead,
+    DomainComplianceHoldRequest,
+    DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyRead,
@@ -2995,6 +2997,21 @@ def pause_domain_delivery_policy(
 
 
 @router.post(
+    '/domain-delivery-policies/{policy_id}/compliance-hold',
+    response_model=DomainDeliveryPolicyRead,
+)
+def apply_domain_delivery_compliance_hold(
+    policy_id: UUID,
+    payload: DomainComplianceHoldRequest,
+    db: DbSession,
+) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).apply_domain_compliance_hold(policy_id, payload)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.post(
     '/domain-delivery-policies/{policy_id}/authentication-plan',
     response_model=DomainAuthenticationPlanRead,
 )
@@ -3064,6 +3081,21 @@ def get_domain_delivery_reputation_dashboard(
 )
 def resume_domain_delivery_policy(policy_id: UUID, db: DbSession) -> DomainDeliveryPolicy:
     policy = DeliveryRouteService(db).resume_domain_policy(policy_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/release-compliance-hold',
+    response_model=DomainDeliveryPolicyRead,
+)
+def release_domain_delivery_compliance_hold(
+    policy_id: UUID,
+    payload: DomainComplianceReleaseRequest,
+    db: DbSession,
+) -> DomainDeliveryPolicy:
+    policy = DeliveryRouteService(db).release_domain_compliance_hold(policy_id, payload)
     if not policy:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return policy

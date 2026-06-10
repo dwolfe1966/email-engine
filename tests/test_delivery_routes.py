@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.schemas.contracts import (
+    DomainComplianceHoldRequest,
+    DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
     DomainAuthenticationPlanRequest,
     DomainDkimKeyCreateRequest,
@@ -180,6 +182,80 @@ def test_delivery_claim_decision_blocks_paused_domain_policy() -> None:
     assert decision.reason == 'domain_policy_paused'
     assert decision.domain == 'gmail.com'
     assert decision.domain_policy_id == policy.id
+
+
+def test_domain_compliance_hold_pauses_policy_and_writes_audit_metadata() -> None:
+    previous_pause = datetime.utcnow() + timedelta(minutes=30)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=previous_pause,
+        metadata_json={'existing': 'value'},
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db)
+
+    updated = service.apply_domain_compliance_hold(
+        policy.id,
+        DomainComplianceHoldRequest(
+            reason='Complaint spike from seed list',
+            abuse_type='complaint_spike',
+            operator='ops@example.com',
+            paused_hours=4,
+        ),
+    )
+
+    assert updated is policy
+    assert policy.paused_until is not None
+    assert policy.paused_until > datetime.utcnow() + timedelta(hours=3)
+    assert policy.metadata_json['existing'] == 'value'
+    hold = policy.metadata_json['compliance_hold']
+    assert hold['status'] == 'active'
+    assert hold['reason'] == 'Complaint spike from seed list'
+    assert hold['abuse_type'] == 'complaint_spike'
+    assert hold['operator'] == 'ops@example.com'
+    audit_log = policy.metadata_json['compliance_audit_log']
+    assert len(audit_log) == 1
+    assert audit_log[0]['action'] == 'hold'
+    assert audit_log[0]['previous_paused_until'] == previous_pause.isoformat()
+    assert db.committed
+    assert db.refreshed == [policy]
+
+
+def test_domain_compliance_release_clears_pause_and_appends_audit_metadata() -> None:
+    active_hold = {
+        'status': 'active',
+        'reason': 'Manual review',
+        'abuse_type': 'manual_review',
+    }
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='gmail.com',
+        paused_until=datetime.utcnow() + timedelta(hours=2),
+        metadata_json={
+            'compliance_hold': active_hold,
+            'compliance_audit_log': [{'action': 'hold'}],
+        },
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db)
+
+    updated = service.release_domain_compliance_hold(
+        policy.id,
+        DomainComplianceReleaseRequest(reason='Review cleared', operator='ops@example.com'),
+    )
+
+    assert updated is policy
+    assert policy.paused_until is None
+    hold = policy.metadata_json['compliance_hold']
+    assert hold['status'] == 'released'
+    assert hold['reason'] == 'Review cleared'
+    assert hold['operator'] == 'ops@example.com'
+    assert hold['previous_hold'] == active_hold
+    audit_log = policy.metadata_json['compliance_audit_log']
+    assert [entry['action'] for entry in audit_log] == ['hold', 'release']
+    assert db.committed
+    assert db.refreshed == [policy]
 
 
 def test_delivery_claim_decision_blocks_per_minute_limit() -> None:
@@ -446,7 +522,12 @@ def test_domain_reputation_dashboard_flags_risk_and_missing_controls() -> None:
         max_per_minute=None,
         max_concurrent=None,
         paused_until=None,
-        metadata_json={},
+        metadata_json={
+            'compliance_hold': {
+                'status': 'active',
+                'reason': 'Complaint spike review',
+            }
+        },
     )
     deliverability = DomainDeliverabilityRead(
         domain='example.com',
@@ -475,6 +556,12 @@ def test_domain_reputation_dashboard_flags_risk_and_missing_controls() -> None:
     assert dashboard.authentication_status == 'pending'
     assert dashboard.reputation_status == 'risk'
     assert dashboard.throttle_status == 'unlimited'
+    assert dashboard.compliance_status == 'hold'
+    assert dashboard.compliance_reason == 'Complaint spike review'
     assert dashboard.complaint_rate == 0.01
+    assert (
+        'Resolve or release the compliance hold before managed-SMTP sending resumes.'
+        in dashboard.recommendations
+    )
     assert 'Assign an IP pool before production managed-SMTP sends.' in dashboard.recommendations
     assert 'Set throttle limits before staging or production sends.' in dashboard.recommendations

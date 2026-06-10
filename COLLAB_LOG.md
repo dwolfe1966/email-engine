@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP compliance hold controls
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added domain compliance hold and release request contracts.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/compliance-hold`.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold`.
+- Compliance holds pause domain policy claiming and persist active hold state plus bounded audit
+  history in domain policy metadata.
+- The reputation dashboard now reports `compliance_status` and `compliance_reason`, and recommends
+  releasing or resolving active holds before managed-SMTP sending resumes.
+
+### Why
+
+Managed SMTP needs an operator-controlled stop mechanism for abuse, complaint, or compliance review
+before owned-MTA sending can safely move into controlled delivery tests.
+
+### What needs to happen next
+
+- Surface compliance hold/release controls in the frontend Delivery/Analytics views.
+- Run low-volume controlled delivery tests after DNS, DKIM, feedback, reputation, and compliance
+  controls are verified.
+
+### Compatibility notes
+
+- No migration is required; hold state and audit entries are stored in existing domain policy metadata.
+
+---
+
 ## 2026-06-09 — Managed SMTP reputation dashboard foundation
 
 **Pushed by:** Codex
