@@ -692,6 +692,32 @@ class DomainDeliveryPolicyUpdate(BaseModel):
     metadata_json: JsonObject | None = None
 
 
+class DomainAuthenticationPlanRequest(BaseModel):
+    dkim_selector: str = 'ee1'
+    bounce_subdomain: str = 'bounces'
+    mta_hostname: str | None = None
+    dkim_public_key: str | None = None
+    dmarc_policy: str = 'none'
+
+
+class DomainAuthenticationDnsRecord(BaseModel):
+    record_type: str
+    name: str
+    value: str
+    purpose: str
+    required: bool = True
+
+
+class DomainAuthenticationPlanRead(BaseModel):
+    domain: str
+    dkim_selector: str
+    bounce_domain: str
+    mta_hostname: str | None = None
+    dmarc_policy: str
+    dns_records: list[DomainAuthenticationDnsRecord]
+    next_steps: list[str]
+
+
 class DomainDeliveryPolicyRead(DomainDeliveryPolicyCreate):
     id: UUID
 

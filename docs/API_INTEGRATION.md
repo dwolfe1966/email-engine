@@ -106,6 +106,9 @@ Sending and events:
 - `POST /api/v1/campaigns/{campaign_id}/clone` creates a draft copy of a campaign. Editing campaign content resets its status to `draft`; use approve rather than PATCH to enter `scheduled`.
 - `POST /api/v1/campaigns/{campaign_id}/launch` creates durable campaign send jobs and queued send records. Dry runs remain allowed before approval.
 - `POST /api/v1/delivery/process-queued` is an operator endpoint that processes queued send records through the configured provider. Use `campaign_id` or `send_job_id` to target a specific queued campaign/job. It is a bridge toward a true worker/scheduler process.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/authentication-plan` generates and stores
+  managed-SMTP DNS onboarding instructions for a domain policy, including DKIM, SPF, DMARC,
+  bounce-domain MX, staging MTA MX, and staging MTA A-record placeholders.
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.
 - SendGrid Event Webhook signature verification is supported through `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`. Set `SENDGRID_EVENT_WEBHOOK_REQUIRE_SIGNATURE=true` in production after the public key is configured.
 - `POST /api/v1/delivery/managed-smtp/feedback` ingests owned-MTA feedback events such as

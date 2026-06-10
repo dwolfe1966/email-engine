@@ -17,6 +17,9 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     DeliveryRouteCreate,
     DeliveryRouteUpdate,
+    DomainAuthenticationDnsRecord,
+    DomainAuthenticationPlanRead,
+    DomainAuthenticationPlanRequest,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
 )
@@ -217,6 +220,23 @@ class DeliveryRouteService:
         self.db.commit()
         return True
 
+    def build_domain_authentication_plan(
+        self,
+        policy_id: UUID,
+        payload: DomainAuthenticationPlanRequest,
+    ) -> DomainAuthenticationPlanRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        plan = self._domain_authentication_plan(policy.domain, payload)
+        policy.metadata_json = {
+            **(policy.metadata_json or {}),
+            'domain_authentication': plan.model_dump(),
+        }
+        self.db.commit()
+        self.db.refresh(policy)
+        return plan
+
     def select_for_record(
         self,
         record: EmailSendRecord,
@@ -333,6 +353,73 @@ class DeliveryRouteService:
             return DeliveryRouteType(email_provider)
         except ValueError:
             return None
+
+    def _domain_authentication_plan(
+        self,
+        domain: str,
+        payload: DomainAuthenticationPlanRequest,
+    ) -> DomainAuthenticationPlanRead:
+        normalized_domain = domain.lower()
+        selector = payload.dkim_selector.strip().lower() or 'ee1'
+        bounce_subdomain = payload.bounce_subdomain.strip().lower() or 'bounces'
+        bounce_domain = f'{bounce_subdomain}.{normalized_domain}'
+        dkim_public_key = payload.dkim_public_key or 'REPLACE_WITH_DKIM_PUBLIC_KEY'
+        mta_hostname = payload.mta_hostname or f'smtp.{normalized_domain}'
+        records = [
+            DomainAuthenticationDnsRecord(
+                record_type='TXT',
+                name=f'{selector}._domainkey.{normalized_domain}',
+                value=f'v=DKIM1; k=rsa; p={dkim_public_key}',
+                purpose='Authorize Email Engine managed SMTP DKIM signing for this domain.',
+            ),
+            DomainAuthenticationDnsRecord(
+                record_type='TXT',
+                name=normalized_domain,
+                value='v=spf1 mx -all',
+                purpose='Authorize the domain MX path for managed SMTP staging sends.',
+            ),
+            DomainAuthenticationDnsRecord(
+                record_type='TXT',
+                name=f'_dmarc.{normalized_domain}',
+                value=f'v=DMARC1; p={payload.dmarc_policy}; rua=mailto:dmarc@{normalized_domain}',
+                purpose='Publish DMARC policy and aggregate-report destination.',
+            ),
+            DomainAuthenticationDnsRecord(
+                record_type='MX',
+                name=bounce_domain,
+                value=f'10 {mta_hostname}',
+                purpose='Route DSN and bounce handling traffic for the managed SMTP return path.',
+            ),
+            DomainAuthenticationDnsRecord(
+                record_type='MX',
+                name=normalized_domain,
+                value=f'10 {mta_hostname}',
+                purpose='Point staging-domain mail routing at the managed SMTP host.',
+                required=False,
+            ),
+            DomainAuthenticationDnsRecord(
+                record_type='A',
+                name=mta_hostname,
+                value='REPLACE_WITH_MTA_IPV4',
+                purpose='Map the staging MTA hostname to its server IP.',
+                required=False,
+            ),
+        ]
+        return DomainAuthenticationPlanRead(
+            domain=normalized_domain,
+            dkim_selector=selector,
+            bounce_domain=bounce_domain,
+            mta_hostname=mta_hostname,
+            dmarc_policy=payload.dmarc_policy,
+            dns_records=records,
+            next_steps=[
+                'Publish required DNS records on the staging domain.',
+                'Configure Postfix DKIM signing with the matching private key and selector.',
+                'Send a low-volume seed message through the managed SMTP route.',
+                'Post a signed managed-SMTP feedback smoke event and confirm analytics update.',
+                'Move DMARC policy from none only after alignment and bounce handling are verified.',
+            ],
+        )
 
     def _domain_for_record(self, record: EmailSendRecord) -> str | None:
         if '@' not in record.to_email:

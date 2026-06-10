@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP domain authentication onboarding
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added domain-authentication plan schemas for managed-SMTP onboarding.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/authentication-plan`.
+- The plan generates DKIM, SPF, DMARC, bounce-domain MX, staging-domain MX, and MTA hostname
+  A-record instructions.
+- Generated plans are persisted under `DomainDeliveryPolicy.metadata_json["domain_authentication"]`.
+
+### Why
+
+The Postfix staging path needs a product-level domain onboarding workflow before real seed testing:
+operators need deterministic DNS instructions tied to the domain policy that controls routing and
+warmup.
+
+### What needs to happen next
+
+- Add DNS verification so the platform can tell whether DKIM/SPF/DMARC/bounce-domain records are
+  actually published.
+- Add DKIM private-key management and Postfix/OpenDKIM wiring for the selected selector.
+
+### Compatibility notes
+
+- No schema migration is required; the plan is stored in existing domain policy metadata.
+
+---
+
 ## 2026-06-09 — Managed SMTP Postfix staging scaffold
 
 **Pushed by:** Codex

@@ -208,7 +208,8 @@ Selection criteria:
 - Security posture and abuse controls.
 
 Initial deployment should use the checked-in Postfix staging scaffold, a constrained staging domain,
-and a low-volume seed list. Production use requires DNS, DKIM, SPF, DMARC, bounce domain, abuse
+the domain authentication plan endpoint, and a low-volume seed list. Production use requires DNS
+verification, DKIM key management, SPF/DMARC alignment checks, bounce-domain processing, abuse
 monitoring, blocklist checks, warmup policy, and emergency pause controls.
 
 ## First Implementation Slice
@@ -359,9 +360,21 @@ Recommended twelfth code slice:
 4. Add a signed managed-SMTP feedback smoke script. **Done.**
 5. Document the staging flow and Email Engine/MTA responsibility boundary. **Done.**
 
+## Thirteenth Implementation Slice
+
+Recommended thirteenth code slice:
+
+1. Add domain-authentication request/read schemas for DKIM, SPF, DMARC, and bounce-domain DNS
+   onboarding. **Done.**
+2. Add `/api/v1/domain-delivery-policies/{policy_id}/authentication-plan`. **Done.**
+3. Generate deterministic DKIM, SPF, DMARC, return-path/bounce MX, staging-domain MX, and MTA
+   hostname A-record instructions. **Done.**
+4. Persist the generated plan under `DomainDeliveryPolicy.metadata_json["domain_authentication"]`.
+   **Done.**
+
 ## Follow-On Slices
 
-1. Add DKIM/SPF/DMARC/bounce-domain onboarding workflow.
+1. Add DNS verification and DKIM private-key management.
 2. Add IP pool, warmup, throttle, and reputation dashboards.
 3. Add abuse/compliance controls and audit logging.
 4. Run low-volume controlled delivery tests before production sends.

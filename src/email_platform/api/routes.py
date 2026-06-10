@@ -111,6 +111,8 @@ from email_platform.schemas.contracts import (
     DeliveryRouteUpdate,
     DeliveryRunRead,
     DomainDeliverabilityRead,
+    DomainAuthenticationPlanRead,
+    DomainAuthenticationPlanRequest,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyRead,
     DomainDeliveryPolicyUpdate,
@@ -2986,6 +2988,21 @@ def pause_domain_delivery_policy(
     if not policy:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return policy
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/authentication-plan',
+    response_model=DomainAuthenticationPlanRead,
+)
+def build_domain_delivery_authentication_plan(
+    policy_id: UUID,
+    payload: DomainAuthenticationPlanRequest,
+    db: DbSession,
+) -> DomainAuthenticationPlanRead:
+    plan = DeliveryRouteService(db).build_domain_authentication_plan(policy_id, payload)
+    if not plan:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return plan
 
 
 @router.post(

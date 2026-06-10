@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
+from email_platform.schemas.contracts import DomainAuthenticationPlanRequest
 from email_platform.services.delivery_routes import DeliveryRouteService
 
 
@@ -10,6 +11,8 @@ class FakeDb:
     def __init__(self, scalar_results=None, get_result=None) -> None:
         self.scalar_results = list(scalar_results or [])
         self.get_result = get_result
+        self.committed = False
+        self.refreshed = []
 
     def scalar(self, statement):
         if self.scalar_results:
@@ -18,6 +21,12 @@ class FakeDb:
 
     def get(self, model, item_id):
         return self.get_result
+
+    def commit(self):
+        self.committed = True
+
+    def refresh(self, item):
+        self.refreshed.append(item)
 
 
 def test_delivery_route_selector_falls_back_to_settings_provider() -> None:
@@ -200,3 +209,48 @@ def test_delivery_claim_decision_allows_under_limits() -> None:
     assert decision.can_claim
     assert decision.domain == 'gmail.com'
     assert decision.domain_policy_id == policy.id
+
+
+def test_domain_authentication_plan_generates_dns_records_and_persists_metadata() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='Example.COM',
+        metadata_json={'existing': 'value'},
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db)
+
+    plan = service.build_domain_authentication_plan(
+        policy.id,
+        DomainAuthenticationPlanRequest(
+            dkim_selector='EE2',
+            bounce_subdomain='returns',
+            mta_hostname='smtp-staging.example.com',
+            dkim_public_key='abc123',
+        ),
+    )
+
+    assert plan is not None
+    assert plan.domain == 'example.com'
+    assert plan.dkim_selector == 'ee2'
+    assert plan.bounce_domain == 'returns.example.com'
+    assert db.committed
+    assert db.refreshed == [policy]
+    records = {(record.record_type, record.name): record.value for record in plan.dns_records}
+    assert records[('TXT', 'ee2._domainkey.example.com')] == 'v=DKIM1; k=rsa; p=abc123'
+    assert records[('TXT', 'example.com')] == 'v=spf1 mx -all'
+    assert records[('TXT', '_dmarc.example.com')].startswith('v=DMARC1; p=none')
+    assert records[('MX', 'returns.example.com')] == '10 smtp-staging.example.com'
+    assert policy.metadata_json['existing'] == 'value'
+    assert policy.metadata_json['domain_authentication']['bounce_domain'] == 'returns.example.com'
+
+
+def test_domain_authentication_plan_returns_none_for_missing_policy() -> None:
+    service = DeliveryRouteService(FakeDb(get_result=None))
+
+    plan = service.build_domain_authentication_plan(
+        uuid4(),
+        DomainAuthenticationPlanRequest(),
+    )
+
+    assert plan is None
