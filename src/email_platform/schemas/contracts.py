@@ -775,6 +775,33 @@ class DomainBlocklistScanRead(BaseModel):
     records: list[DomainBlocklistScanRecord] = Field(default_factory=list)
 
 
+class DomainWarmupProgressionRequest(BaseModel):
+    advance: bool = True
+    next_stage: str | None = None
+    next_daily_limit: int | None = Field(default=None, ge=1)
+    max_bounce_rate: float = Field(default=0.02, ge=0, le=1)
+    max_complaint_rate: float = Field(default=0.001, ge=0, le=1)
+    min_sent_count: int = Field(default=25, ge=0)
+    operator: str | None = Field(default=None, max_length=200)
+
+
+class DomainWarmupProgressionRead(BaseModel):
+    domain: str
+    previous_stage: str | None = None
+    current_stage: str | None = None
+    previous_daily_limit: int | None = None
+    current_daily_limit: int | None = None
+    previous_stage_order: int | None = None
+    current_stage_order: int | None = None
+    action: str
+    status: str
+    reason: str
+    evaluated_at: str
+    sent_count: int = 0
+    bounce_rate: float = 0.0
+    complaint_rate: float = 0.0
+
+
 class DomainAuthenticationVerificationRecord(BaseModel):
     record_type: str
     name: str

@@ -10,6 +10,7 @@ from email_platform.schemas.contracts import (
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
     DomainDkimKeyCreateRequest,
+    DomainWarmupProgressionRequest,
 )
 from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
 
@@ -699,3 +700,90 @@ def test_domain_reputation_dashboard_blocks_listed_ips_and_holds_warmup() -> Non
         'Hold warmup progression until bounce and complaint rates recover.'
         in dashboard.recommendations
     )
+
+
+def test_progress_domain_warmup_advances_healthy_stage() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        warmup_stage='stage_1',
+        metadata_json={'warmup_daily_limit': 100, 'warmup_stage_order': 1},
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=0,
+        suppressed_count=0,
+        delivered_count=98,
+        opened_count=10,
+        clicked_count=2,
+        bounced_count=1,
+        complained_count=0,
+        unsubscribed_count=0,
+        open_rate=0.1,
+        click_rate=0.02,
+        bounce_rate=0.01,
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db)
+
+    result = service.progress_domain_warmup(
+        policy.id,
+        DomainWarmupProgressionRequest(),
+        deliverability=deliverability,
+    )
+
+    assert result is not None
+    assert result.action == 'advance'
+    assert result.current_stage == 'stage_2'
+    assert result.current_daily_limit == 200
+    assert policy.warmup_stage == 'stage_2'
+    assert policy.metadata_json['warmup_stage_order'] == 2
+    assert policy.metadata_json['warmup_daily_limit'] == 200
+    assert policy.metadata_json['warmup_audit_log'][-1]['action'] == 'advance'
+    assert db.committed
+
+
+def test_progress_domain_warmup_holds_on_complaint_rate() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        warmup_stage='stage_1',
+        metadata_json={'warmup_daily_limit': 100, 'warmup_stage_order': 1},
+    )
+    deliverability = DomainDeliverabilityRead(
+        domain='example.com',
+        provider='managed_smtp',
+        send_record_count=100,
+        queued_count=0,
+        sent_count=100,
+        failed_count=0,
+        suppressed_count=0,
+        delivered_count=95,
+        opened_count=10,
+        clicked_count=2,
+        bounced_count=1,
+        complained_count=1,
+        unsubscribed_count=0,
+        open_rate=0.1,
+        click_rate=0.02,
+        bounce_rate=0.01,
+    )
+    service = DeliveryRouteService(FakeDb(get_result=policy))
+
+    result = service.progress_domain_warmup(
+        policy.id,
+        DomainWarmupProgressionRequest(),
+        deliverability=deliverability,
+    )
+
+    assert result is not None
+    assert result.action == 'hold'
+    assert result.status == 'hold'
+    assert result.current_stage == 'stage_1'
+    assert policy.warmup_stage == 'stage_1'
+    assert policy.metadata_json['warmup_status'] == 'hold'
+    assert policy.metadata_json['warmup_hold_reason'] == result.reason

@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP warmup progression endpoint
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `POST /api/v1/domain-delivery-policies/{policy_id}/warmup-progress`.
+- The endpoint evaluates current domain deliverability against sent-volume, bounce-rate,
+  complaint-rate, and blocklist gates.
+- Healthy domains can advance warmup stage/order/daily limit; risky domains are held with
+  `warmup_hold_reason`, `warmup_status`, and `warmup_audit_log` metadata.
+
+### Why
+
+Managed SMTP needs an operator-controlled path to scale sending volume without manually editing
+policy metadata. Warmup progression now has a repeatable API contract and audit trail.
+
+### What needs to happen next
+
+- Add scheduled jobs that run blocklist scans and warmup progression across managed-SMTP policies.
+- Continue DKIM signing and bounce-domain routing hardening around the managed Postfix boundary.
+
+### Compatibility notes
+
+- No migration is required. The endpoint is additive and writes existing policy metadata JSON plus
+  `warmup_stage` on the domain policy.
+
+---
+
 ## 2026-06-10 — Managed SMTP blocklist scan endpoint
 
 **Pushed by:** Codex

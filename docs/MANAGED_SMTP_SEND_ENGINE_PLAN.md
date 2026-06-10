@@ -457,8 +457,18 @@ Recommended twenty-first code slice:
 3. Persist scan status, hits, checked timestamp, and IP addresses into policy metadata. **Done.**
 4. Cover listed and DNS-unavailable scan outcomes in service tests. **Done.**
 
+## Twenty-Second Implementation Slice
+
+Recommended twenty-second code slice:
+
+1. Add a managed-SMTP warmup progression endpoint for domain policies. **Done.**
+2. Evaluate sent volume, bounce rate, complaint rate, and blocklist hits before progression.
+   **Done.**
+3. Advance warmup stage/order/daily limit when health gates pass. **Done.**
+4. Persist warmup hold/evaluation/audit metadata for operator review. **Done.**
+
 ## Follow-On Slices
 
 1. Add production hardening for DKIM signing, bounce-domain routing, scheduled blocklist scans, and
-   IP warmup progression jobs.
+   scheduled IP warmup progression jobs.
 2. Add durable feedback idempotency and raw MTA feedback retention.

@@ -124,6 +124,8 @@ from email_platform.schemas.contracts import (
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
     DomainReputationDashboardRead,
+    DomainWarmupProgressionRead,
+    DomainWarmupProgressionRequest,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -3087,6 +3089,31 @@ def get_domain_delivery_reputation_dashboard(
     domain_rows, _total = AnalyticsService(db).domain_deliverability(limit=1000)
     deliverability = next((row for row in domain_rows if row.domain == policy.domain), None)
     result = service.domain_reputation_dashboard(policy_id, deliverability=deliverability)
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/warmup-progress',
+    response_model=DomainWarmupProgressionRead,
+)
+def progress_domain_delivery_warmup(
+    policy_id: UUID,
+    payload: DomainWarmupProgressionRequest,
+    db: DbSession,
+) -> DomainWarmupProgressionRead:
+    service = DeliveryRouteService(db)
+    policy = service.get_domain_policy(policy_id)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    domain_rows, _total = AnalyticsService(db).domain_deliverability(limit=1000)
+    deliverability = next((row for row in domain_rows if row.domain == policy.domain), None)
+    result = service.progress_domain_warmup(
+        policy_id,
+        payload,
+        deliverability=deliverability,
+    )
     if not result:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return result

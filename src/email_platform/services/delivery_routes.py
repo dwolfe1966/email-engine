@@ -35,6 +35,8 @@ from email_platform.schemas.contracts import (
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
     DomainReputationDashboardRead,
+    DomainWarmupProgressionRead,
+    DomainWarmupProgressionRequest,
 )
 
 
@@ -508,6 +510,89 @@ class DeliveryRouteService:
             records=records,
         )
 
+    def progress_domain_warmup(
+        self,
+        policy_id: UUID,
+        payload: DomainWarmupProgressionRequest,
+        deliverability: DomainDeliverabilityRead | None = None,
+    ) -> DomainWarmupProgressionRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        metadata = dict(policy.metadata_json or {})
+        evaluated_at = datetime.utcnow().isoformat()
+        previous_stage = policy.warmup_stage
+        previous_daily_limit = self._metadata_int(metadata, 'warmup_daily_limit')
+        previous_stage_order = self._metadata_int(metadata, 'warmup_stage_order')
+        sent_count = deliverability.sent_count if deliverability else 0
+        bounce_rate = deliverability.bounce_rate if deliverability else 0.0
+        complaint_rate = self._rate(
+            deliverability.complained_count if deliverability else 0,
+            max(sent_count, deliverability.send_record_count if deliverability else 0),
+        )
+        action, status, reason = self._warmup_progression_decision(
+            payload=payload,
+            metadata=metadata,
+            sent_count=sent_count,
+            bounce_rate=bounce_rate,
+            complaint_rate=complaint_rate,
+        )
+        current_stage = previous_stage
+        current_daily_limit = previous_daily_limit
+        current_stage_order = previous_stage_order
+        if action == 'advance':
+            current_stage_order = (previous_stage_order or 0) + 1
+            current_stage = payload.next_stage or f'stage_{current_stage_order}'
+            current_daily_limit = payload.next_daily_limit or self._next_warmup_daily_limit(
+                previous_daily_limit
+            )
+            policy.warmup_stage = current_stage
+            metadata['warmup_stage_order'] = current_stage_order
+            metadata['warmup_daily_limit'] = current_daily_limit
+            metadata['warmup_last_advanced_at'] = evaluated_at
+        elif action == 'hold':
+            metadata['warmup_hold_reason'] = reason
+            metadata['warmup_last_hold_at'] = evaluated_at
+
+        metadata['warmup_status'] = status
+        metadata['warmup_last_evaluated_at'] = evaluated_at
+        metadata['warmup_audit_log'] = self._append_warmup_audit(
+            metadata,
+            {
+                'action': action,
+                'status': status,
+                'reason': reason,
+                'operator': payload.operator,
+                'evaluated_at': evaluated_at,
+                'previous_stage': previous_stage,
+                'current_stage': current_stage,
+                'previous_daily_limit': previous_daily_limit,
+                'current_daily_limit': current_daily_limit,
+                'sent_count': sent_count,
+                'bounce_rate': bounce_rate,
+                'complaint_rate': complaint_rate,
+            },
+        )
+        policy.metadata_json = metadata
+        self.db.commit()
+        self.db.refresh(policy)
+        return DomainWarmupProgressionRead(
+            domain=policy.domain.lower(),
+            previous_stage=previous_stage,
+            current_stage=current_stage,
+            previous_daily_limit=previous_daily_limit,
+            current_daily_limit=current_daily_limit,
+            previous_stage_order=previous_stage_order,
+            current_stage_order=current_stage_order,
+            action=action,
+            status=status,
+            reason=reason,
+            evaluated_at=evaluated_at,
+            sent_count=sent_count,
+            bounce_rate=bounce_rate,
+            complaint_rate=complaint_rate,
+        )
+
     def domain_reputation_dashboard(
         self,
         policy_id: UUID,
@@ -961,6 +1046,32 @@ class DeliveryRouteService:
             return 'clear'
         return 'unknown'
 
+    def _warmup_progression_decision(
+        self,
+        *,
+        payload: DomainWarmupProgressionRequest,
+        metadata: dict[str, object],
+        sent_count: int,
+        bounce_rate: float,
+        complaint_rate: float,
+    ) -> tuple[str, str, str]:
+        if self._metadata_list(metadata, 'blocklist_hits'):
+            return 'hold', 'hold', 'Blocklist hits must be remediated before warmup advances.'
+        if complaint_rate >= payload.max_complaint_rate:
+            return 'hold', 'hold', 'Complaint rate exceeds warmup progression threshold.'
+        if bounce_rate >= payload.max_bounce_rate:
+            return 'hold', 'hold', 'Bounce rate exceeds warmup progression threshold.'
+        if sent_count < payload.min_sent_count:
+            return 'wait', 'active', 'Not enough sent volume to evaluate warmup advancement.'
+        if not payload.advance:
+            return 'keep', 'active', 'Warmup health is acceptable; advancement was not requested.'
+        return 'advance', 'active', 'Warmup health is acceptable; advanced to next stage.'
+
+    def _next_warmup_daily_limit(self, previous_daily_limit: int | None) -> int:
+        if previous_daily_limit is None:
+            return 100
+        return max(previous_daily_limit + 1, previous_daily_limit * 2)
+
     def _warmup_status(
         self,
         *,
@@ -985,6 +1096,16 @@ class DeliveryRouteService:
         entry: dict[str, object],
     ) -> list[object]:
         existing = metadata.get('compliance_audit_log')
+        entries = list(existing) if isinstance(existing, list) else []
+        entries.append(entry)
+        return entries[-50:]
+
+    def _append_warmup_audit(
+        self,
+        metadata: dict[str, object],
+        entry: dict[str, object],
+    ) -> list[object]:
+        existing = metadata.get('warmup_audit_log')
         entries = list(existing) if isinstance(existing, list) else []
         entries.append(entry)
         return entries[-50:]

@@ -122,6 +122,9 @@ Sending and events:
   warmup/throttle/IP-pool metadata, authentication verification state, and domain deliverability
   rollups into one managed-SMTP readiness view. The response also surfaces active compliance holds,
   blocklist preflight state, sending IP addresses, and warmup progression status when present.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/warmup-progress` evaluates current domain
+  deliverability against warmup thresholds, then advances, holds, waits, or keeps the warmup stage
+  while recording audit metadata.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/compliance-hold` pauses a domain policy for
   operator abuse/compliance review and appends a hold entry to policy metadata audit history.
 - `POST /api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold` clears the active
