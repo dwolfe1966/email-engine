@@ -138,6 +138,9 @@ Mount DKIM private keys outside the repo at `OPENDKIM_KEYS_DIR`, using
 `<domain>/<selector>.private` paths. Email Engine keeps only DKIM DNS/key-reference metadata; the
 MTA signer owns private key material.
 
+Before production managed-SMTP traffic, complete the host hardening checklist in
+`infra/managed-smtp/PRODUCTION_HARDENING.md`.
+
 The MTA or feedback worker should post signed feedback to
 `/api/v1/delivery/managed-smtp/feedback`. See `infra/managed-smtp/README.md` and
 `scripts/managed_smtp_feedback_smoke.py`.

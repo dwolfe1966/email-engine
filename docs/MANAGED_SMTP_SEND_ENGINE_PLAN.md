@@ -540,3 +540,4 @@ Recommended twenty-ninth code slice:
 4. Add operator tooling for reviewing or purging quarantined DSN mailbox messages. **Done.**
 5. Add scheduler-friendly DSN quarantine backlog alerting. **Done.**
 6. Add production-shape Postfix/OpenDKIM deployment scaffold. **Done.**
+7. Add production MTA host hardening guidance. **Done.**

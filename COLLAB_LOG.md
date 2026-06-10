@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP production hardening runbook
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `infra/managed-smtp/PRODUCTION_HARDENING.md`.
+- The runbook covers network exposure, TLS/identity, DKIM key custody, queue and Maildir retention,
+  log feedback, abuse controls, backups, recovery, and preflight checks.
+- Deployment and managed-SMTP docs now point operators to the hardening checklist before production
+  managed-SMTP traffic.
+
+### Why
+
+The Postfix/OpenDKIM compose scaffold is not enough by itself. Production managed SMTP needs a
+repeatable host checklist so operators do not skip firewall, secret custody, retention, backup, and
+emergency-pause work.
+
+### What needs to happen next
+
+- Decide exact production MTA host paths for Postfix logs and DSN Maildirs.
+- Add concrete TLS certificate mount/configuration once the MTA hosting target is chosen.
+
+### Compatibility notes
+
+- No migration or runtime behavior change. This is operational documentation only.
+
+---
+
 ## 2026-06-10 — Managed SMTP Postfix OpenDKIM production scaffold
 
 **Pushed by:** Codex

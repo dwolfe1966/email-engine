@@ -16,6 +16,7 @@ observability, and blocklist monitoring.
 - `docker-compose.production.yml`: production-shape Postfix plus OpenDKIM milter scaffold.
 - `opendkim/`: DKIM signer container that builds OpenDKIM tables from mounted private keys.
 - `production.env.example`: required production MTA/OpenDKIM environment variables.
+- `PRODUCTION_HARDENING.md`: production host, DNS, TLS, queue, backup, and abuse-control checklist.
 - `scripts/managed_smtp_feedback_smoke.py`: signs and posts a sample feedback event to Email
   Engine's managed-SMTP feedback endpoint.
 - `scripts/managed_smtp_controlled_delivery.py`: runs the controlled-delivery readiness sequence:
@@ -109,6 +110,8 @@ docker compose --env-file infra/managed-smtp/production.env.example \
 OpenDKIM entrypoint expects `/etc/opendkim/keys/<domain>/<selector>.private` and writes KeyTable,
 SigningTable, and TrustedHosts files inside the container. Postfix connects to the signer through
 `POSTFIX_DKIM_MILTER=inet:managed-smtp-opendkim:8891`.
+
+Before production traffic, complete `infra/managed-smtp/PRODUCTION_HARDENING.md`.
 
 ## Bounce Routing Boundary
 

@@ -14,6 +14,7 @@ DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
+PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
 
 
 def load_script_module(path: Path):
@@ -81,6 +82,40 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
     assert 'Missing DKIM private key' in opendkim_entrypoint
     assert '/etc/opendkim/keys/${domain}/${SELECTOR}.private' in opendkim_entrypoint
     assert 'OPENDKIM_KEYS_DIR=/srv/email-engine/opendkim/keys' in env_example
+
+
+def test_managed_smtp_production_hardening_runbook_covers_mta_controls() -> None:
+    source = PRODUCTION_HARDENING.read_text()
+    readme = (INFRA / 'README.md').read_text()
+
+    expected_tokens = [
+        'Network Boundary',
+        'Allow inbound TCP `25`',
+        'Allow inbound TCP `587` only from trusted Email Engine workers',
+        'Do not expose OpenDKIM port `8891` publicly',
+        'TLS And Identity',
+        'PTR',
+        'SPF',
+        'DKIM',
+        'DMARC',
+        'Key And Secret Custody',
+        'OPENDKIM_KEYS_DIR',
+        '0400',
+        'Queue And Mailbox Retention',
+        'MANAGED_SMTP_DSN_ARCHIVE',
+        'MANAGED_SMTP_DSN_QUARANTINE',
+        'Logs And Feedback',
+        'managed_smtp_log_feedback.py --post',
+        '/api/v1/provider-feedback-events/list',
+        'Abuse Controls',
+        'compliance hold',
+        'Backup And Recovery',
+        'emergency domain pause',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+    assert 'PRODUCTION_HARDENING.md' in readme
 
 
 def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:
