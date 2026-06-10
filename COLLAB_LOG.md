@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP Postfix OpenDKIM production scaffold
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `infra/managed-smtp/docker-compose.production.yml` with Postfix and OpenDKIM services.
+- Added `infra/managed-smtp/opendkim/` Dockerfile, entrypoint, and OpenDKIM config.
+- Added `infra/managed-smtp/production.env.example` for production MTA/OpenDKIM settings.
+- Deployment docs now describe mounting DKIM private keys outside the repo and running the
+  production-shape compose stack.
+
+### Why
+
+Managed SMTP has API, feedback, DSN, scheduler, and operator pieces. The next infrastructure step is
+a concrete MTA-side deployment scaffold where Postfix uses OpenDKIM as an internal milter while
+Email Engine keeps private DKIM material out of application metadata.
+
+### What needs to happen next
+
+- Add production host hardening guidance for firewall rules, TLS certificates, queue retention,
+  logging, backups, and secret rotation.
+- Decide where MTA logs and DSN Maildirs will be mounted for the production scheduler jobs.
+
+### Compatibility notes
+
+- No migration is required. This adds optional infrastructure files and does not change application
+  runtime behavior.
+
+---
+
 ## 2026-06-10 — Managed SMTP DSN quarantine backlog alerting
 
 **Pushed by:** Codex

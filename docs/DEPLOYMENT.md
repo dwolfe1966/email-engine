@@ -127,6 +127,17 @@ SMTP_USE_TLS=false
 MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret>
 ```
 
+For a production-shape owned MTA host, use the checked-in Postfix/OpenDKIM compose scaffold:
+
+```bash
+docker compose --env-file infra/managed-smtp/production.env.example \
+  -f infra/managed-smtp/docker-compose.production.yml up --build -d
+```
+
+Mount DKIM private keys outside the repo at `OPENDKIM_KEYS_DIR`, using
+`<domain>/<selector>.private` paths. Email Engine keeps only DKIM DNS/key-reference metadata; the
+MTA signer owns private key material.
+
 The MTA or feedback worker should post signed feedback to
 `/api/v1/delivery/managed-smtp/feedback`. See `infra/managed-smtp/README.md` and
 `scripts/managed_smtp_feedback_smoke.py`.

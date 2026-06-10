@@ -1,0 +1,38 @@
+services:
+  managed-smtp-postfix:
+    build:
+      context: ./postfix
+    environment:
+      POSTFIX_MYHOSTNAME: ${POSTFIX_MYHOSTNAME:?set POSTFIX_MYHOSTNAME}
+      POSTFIX_MYDOMAIN: ${POSTFIX_MYDOMAIN:?set POSTFIX_MYDOMAIN}
+      POSTFIX_MYNETWORKS: ${POSTFIX_MYNETWORKS:?set POSTFIX_MYNETWORKS}
+      POSTFIX_RELAYHOST: ${POSTFIX_RELAYHOST:-}
+      POSTFIX_DKIM_MILTER: inet:managed-smtp-opendkim:8891
+    ports:
+      - "${POSTFIX_SMTP_PORT:-25}:25"
+      - "${POSTFIX_SUBMISSION_PORT:-587}:587"
+    volumes:
+      - managed-smtp-spool:/var/spool/postfix
+      - managed-smtp-log:/var/log
+    depends_on:
+      - managed-smtp-opendkim
+    restart: unless-stopped
+
+  managed-smtp-opendkim:
+    build:
+      context: ./opendkim
+    environment:
+      OPENDKIM_DOMAINS: ${OPENDKIM_DOMAINS:?set OPENDKIM_DOMAINS}
+      OPENDKIM_SELECTOR: ${OPENDKIM_SELECTOR:-ee1}
+      OPENDKIM_TRUSTED_HOSTS: ${OPENDKIM_TRUSTED_HOSTS:-127.0.0.1 localhost managed-smtp-postfix}
+    ports:
+      - "127.0.0.1:${OPENDKIM_DEBUG_PORT:-8891}:8891"
+    volumes:
+      - ${OPENDKIM_KEYS_DIR:?set OPENDKIM_KEYS_DIR}:/etc/opendkim/keys:ro
+      - managed-smtp-opendkim:/var/run/opendkim
+    restart: unless-stopped
+
+volumes:
+  managed-smtp-spool:
+  managed-smtp-log:
+  managed-smtp-opendkim:

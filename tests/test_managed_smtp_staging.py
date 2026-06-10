@@ -49,6 +49,40 @@ def test_managed_smtp_staging_compose_exposes_constrained_ports() -> None:
     assert 'managed-smtp-spool' in compose
 
 
+def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
+    compose = (INFRA / 'docker-compose.production.yml').read_text()
+    env_example = (INFRA / 'production.env.example').read_text()
+    opendkim_conf = (INFRA / 'opendkim' / 'opendkim.conf').read_text()
+    opendkim_entrypoint = (INFRA / 'opendkim' / 'entrypoint.sh').read_text()
+
+    expected_compose_tokens = [
+        'managed-smtp-postfix',
+        'managed-smtp-opendkim',
+        'POSTFIX_DKIM_MILTER: inet:managed-smtp-opendkim:8891',
+        'OPENDKIM_DOMAINS',
+        'OPENDKIM_SELECTOR',
+        'OPENDKIM_KEYS_DIR',
+        '/etc/opendkim/keys:ro',
+        'depends_on',
+    ]
+    for token in expected_compose_tokens:
+        assert token in compose
+
+    expected_opendkim_tokens = [
+        'Socket                  inet:8891@0.0.0.0',
+        'KeyTable                /etc/opendkim/KeyTable',
+        'SigningTable            refile:/etc/opendkim/SigningTable',
+        'InternalHosts           /etc/opendkim/TrustedHosts',
+        'RequireSafeKeys         yes',
+    ]
+    for token in expected_opendkim_tokens:
+        assert token in opendkim_conf
+
+    assert 'Missing DKIM private key' in opendkim_entrypoint
+    assert '/etc/opendkim/keys/${domain}/${SELECTOR}.private' in opendkim_entrypoint
+    assert 'OPENDKIM_KEYS_DIR=/srv/email-engine/opendkim/keys' in env_example
+
+
 def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:
     entrypoint = (INFRA / 'postfix' / 'entrypoint.sh').read_text()
     master = (INFRA / 'postfix' / 'master.cf').read_text()

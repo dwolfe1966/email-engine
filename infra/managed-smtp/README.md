@@ -13,6 +13,9 @@ observability, and blocklist monitoring.
 - `postfix/`: minimal Postfix container for constrained staging.
 - `docker-compose.staging.yml`: standalone MTA compose file with SMTP on host port `2525` and
   submission on host port `2587`.
+- `docker-compose.production.yml`: production-shape Postfix plus OpenDKIM milter scaffold.
+- `opendkim/`: DKIM signer container that builds OpenDKIM tables from mounted private keys.
+- `production.env.example`: required production MTA/OpenDKIM environment variables.
 - `scripts/managed_smtp_feedback_smoke.py`: signs and posts a sample feedback event to Email
   Engine's managed-SMTP feedback endpoint.
 - `scripts/managed_smtp_controlled_delivery.py`: runs the controlled-delivery readiness sequence:
@@ -91,6 +94,21 @@ The signer should map `X-Email-Engine-DKIM-Selector` and `X-Email-Engine-DKIM-Ke
 actual private key and sign as the policy domain. The existing DKIM key API returns the private key
 once for operator storage and keeps only selector, public key, DNS record, and key reference in
 policy metadata.
+
+For a production-shape DKIM signer, prepare mounted key material and start the Postfix/OpenDKIM
+compose file:
+
+```bash
+mkdir -p /srv/email-engine/opendkim/keys/example.com
+install -m 0400 ee1.private /srv/email-engine/opendkim/keys/example.com/ee1.private
+docker compose --env-file infra/managed-smtp/production.env.example \
+  -f infra/managed-smtp/docker-compose.production.yml up --build -d
+```
+
+`OPENDKIM_DOMAINS` accepts a comma-separated or space-separated domain list. For each domain, the
+OpenDKIM entrypoint expects `/etc/opendkim/keys/<domain>/<selector>.private` and writes KeyTable,
+SigningTable, and TrustedHosts files inside the container. Postfix connects to the signer through
+`POSTFIX_DKIM_MILTER=inet:managed-smtp-opendkim:8891`.
 
 ## Bounce Routing Boundary
 
