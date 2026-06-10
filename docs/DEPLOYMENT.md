@@ -137,6 +137,9 @@ docker compose --env-file infra/managed-smtp/production.env.example \
 Mount DKIM private keys outside the repo at `OPENDKIM_KEYS_DIR`, using
 `<domain>/<selector>.private` paths. Email Engine keeps only DKIM DNS/key-reference metadata; the
 MTA signer owns private key material.
+Mount the Postfix certificate and private key outside the repo at `POSTFIX_TLS_DIR` as `tls.crt`
+and `tls.key`, or override `POSTFIX_TLS_CERT_FILE` / `POSTFIX_TLS_KEY_FILE` in the compose
+environment.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

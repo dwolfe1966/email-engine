@@ -8,12 +8,17 @@ services:
       POSTFIX_MYNETWORKS: ${POSTFIX_MYNETWORKS:?set POSTFIX_MYNETWORKS}
       POSTFIX_RELAYHOST: ${POSTFIX_RELAYHOST:-}
       POSTFIX_DKIM_MILTER: inet:managed-smtp-opendkim:8891
+      POSTFIX_TLS_CERT_FILE: ${POSTFIX_TLS_CERT_FILE:-/etc/postfix/tls/tls.crt}
+      POSTFIX_TLS_KEY_FILE: ${POSTFIX_TLS_KEY_FILE:-/etc/postfix/tls/tls.key}
+      POSTFIX_TLS_SECURITY_LEVEL: ${POSTFIX_TLS_SECURITY_LEVEL:-may}
+      POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL: ${POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL:-may}
     ports:
       - "${POSTFIX_SMTP_PORT:-25}:25"
       - "${POSTFIX_SUBMISSION_PORT:-587}:587"
     volumes:
       - managed-smtp-spool:/var/spool/postfix
       - managed-smtp-log:/var/log
+      - ${POSTFIX_TLS_DIR:?set POSTFIX_TLS_DIR}:/etc/postfix/tls:ro
     depends_on:
       - managed-smtp-opendkim
     restart: unless-stopped

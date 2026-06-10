@@ -102,6 +102,9 @@ compose file:
 ```bash
 mkdir -p /srv/email-engine/opendkim/keys/example.com
 install -m 0400 ee1.private /srv/email-engine/opendkim/keys/example.com/ee1.private
+mkdir -p /srv/email-engine/postfix/tls
+install -m 0444 fullchain.pem /srv/email-engine/postfix/tls/tls.crt
+install -m 0400 privkey.pem /srv/email-engine/postfix/tls/tls.key
 docker compose --env-file infra/managed-smtp/production.env.example \
   -f infra/managed-smtp/docker-compose.production.yml up --build -d
 ```
@@ -110,6 +113,10 @@ docker compose --env-file infra/managed-smtp/production.env.example \
 OpenDKIM entrypoint expects `/etc/opendkim/keys/<domain>/<selector>.private` and writes KeyTable,
 SigningTable, and TrustedHosts files inside the container. Postfix connects to the signer through
 `POSTFIX_DKIM_MILTER=inet:managed-smtp-opendkim:8891`.
+
+The production compose file also mounts `POSTFIX_TLS_DIR` at `/etc/postfix/tls`. By default the
+Postfix entrypoint expects `tls.crt` and `tls.key`, configures `smtpd_tls_cert_file` /
+`smtpd_tls_key_file`, and exits before startup if either file is missing.
 
 Before production traffic, complete `infra/managed-smtp/PRODUCTION_HARDENING.md`.
 

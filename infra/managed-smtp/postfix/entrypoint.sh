@@ -15,6 +15,24 @@ postconf -e "smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destina
 postconf -e "maximal_queue_lifetime = 1d"
 postconf -e "bounce_queue_lifetime = 1d"
 
+if [ -n "${POSTFIX_TLS_CERT_FILE:-}" ] || [ -n "${POSTFIX_TLS_KEY_FILE:-}" ]; then
+  : "${POSTFIX_TLS_CERT_FILE:?POSTFIX_TLS_CERT_FILE is required when POSTFIX_TLS_KEY_FILE is set}"
+  : "${POSTFIX_TLS_KEY_FILE:?POSTFIX_TLS_KEY_FILE is required when POSTFIX_TLS_CERT_FILE is set}"
+  if [ ! -f "${POSTFIX_TLS_CERT_FILE}" ]; then
+    echo "Missing Postfix TLS certificate: ${POSTFIX_TLS_CERT_FILE}" >&2
+    exit 2
+  fi
+  if [ ! -f "${POSTFIX_TLS_KEY_FILE}" ]; then
+    echo "Missing Postfix TLS private key: ${POSTFIX_TLS_KEY_FILE}" >&2
+    exit 2
+  fi
+  postconf -e "smtpd_tls_cert_file = ${POSTFIX_TLS_CERT_FILE}"
+  postconf -e "smtpd_tls_key_file = ${POSTFIX_TLS_KEY_FILE}"
+  postconf -e "smtpd_tls_security_level = ${POSTFIX_TLS_SECURITY_LEVEL:-may}"
+  postconf -e "smtpd_tls_auth_only = yes"
+  postconf -e "smtp_tls_security_level = ${POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL:-may}"
+fi
+
 if [ -n "${POSTFIX_DKIM_MILTER:-}" ]; then
   postconf -e "milter_default_action = accept"
   postconf -e "milter_protocol = 6"

@@ -60,6 +60,10 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
         'managed-smtp-postfix',
         'managed-smtp-opendkim',
         'POSTFIX_DKIM_MILTER: inet:managed-smtp-opendkim:8891',
+        'POSTFIX_TLS_CERT_FILE',
+        'POSTFIX_TLS_KEY_FILE',
+        'POSTFIX_TLS_DIR',
+        '/etc/postfix/tls:ro',
         'OPENDKIM_DOMAINS',
         'OPENDKIM_SELECTOR',
         'OPENDKIM_KEYS_DIR',
@@ -82,6 +86,24 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
     assert 'Missing DKIM private key' in opendkim_entrypoint
     assert '/etc/opendkim/keys/${domain}/${SELECTOR}.private' in opendkim_entrypoint
     assert 'OPENDKIM_KEYS_DIR=/srv/email-engine/opendkim/keys' in env_example
+    assert 'POSTFIX_TLS_DIR=/srv/email-engine/postfix/tls' in env_example
+
+
+def test_postfix_entrypoint_configures_tls_certificate_mounts() -> None:
+    entrypoint = (INFRA / 'postfix' / 'entrypoint.sh').read_text()
+
+    expected_tokens = [
+        'POSTFIX_TLS_CERT_FILE',
+        'POSTFIX_TLS_KEY_FILE',
+        'Missing Postfix TLS certificate',
+        'Missing Postfix TLS private key',
+        'smtpd_tls_cert_file',
+        'smtpd_tls_key_file',
+        'smtpd_tls_auth_only = yes',
+        'POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL',
+    ]
+    for token in expected_tokens:
+        assert token in entrypoint
 
 
 def test_managed_smtp_production_hardening_runbook_covers_mta_controls() -> None:
@@ -94,6 +116,9 @@ def test_managed_smtp_production_hardening_runbook_covers_mta_controls() -> None
         'Allow inbound TCP `587` only from trusted Email Engine workers',
         'Do not expose OpenDKIM port `8891` publicly',
         'TLS And Identity',
+        'POSTFIX_TLS_DIR',
+        'POSTFIX_TLS_CERT_FILE',
+        'POSTFIX_TLS_KEY_FILE',
         'PTR',
         'SPF',
         'DKIM',

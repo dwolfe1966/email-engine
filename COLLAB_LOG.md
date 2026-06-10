@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP Postfix TLS certificate mount
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Production Postfix compose now mounts `POSTFIX_TLS_DIR` into `/etc/postfix/tls`.
+- The Postfix entrypoint supports `POSTFIX_TLS_CERT_FILE`, `POSTFIX_TLS_KEY_FILE`,
+  `POSTFIX_TLS_SECURITY_LEVEL`, and `POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL`.
+- The entrypoint fails before startup when TLS cert/key settings are incomplete or mounted files are
+  missing.
+- Production env example and docs now show the expected `tls.crt` / `tls.key` mount contract.
+
+### Why
+
+The production MTA scaffold exposed SMTP/submission ports but did not yet define how real TLS
+identity is mounted and applied. This keeps certificate/private-key material outside the repo while
+making the Postfix TLS contract explicit.
+
+### What needs to happen next
+
+- Decide exact production MTA host paths for Postfix logs and DSN Maildirs.
+- Add log/DSN host mounts to the production compose scaffold once those paths are chosen.
+
+### Compatibility notes
+
+- Existing staging behavior is unchanged. Production compose now requires `POSTFIX_TLS_DIR` and the
+  default `tls.crt` / `tls.key` files unless the cert/key env vars are overridden.
+
+---
+
 ## 2026-06-10 — Managed SMTP production hardening runbook
 
 **Pushed by:** Codex

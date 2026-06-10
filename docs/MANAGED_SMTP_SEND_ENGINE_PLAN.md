@@ -541,3 +541,4 @@ Recommended twenty-ninth code slice:
 5. Add scheduler-friendly DSN quarantine backlog alerting. **Done.**
 6. Add production-shape Postfix/OpenDKIM deployment scaffold. **Done.**
 7. Add production MTA host hardening guidance. **Done.**
+8. Add Postfix TLS certificate mount/configuration support. **Done.**

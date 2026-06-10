@@ -18,6 +18,8 @@ control plane while Postfix/OpenDKIM run on a dedicated MTA host.
 
 - Provision a real certificate for `POSTFIX_MYHOSTNAME`, ideally through the host secret manager or
   certificate automation.
+- Mount the certificate at `POSTFIX_TLS_DIR` and set `POSTFIX_TLS_CERT_FILE` /
+  `POSTFIX_TLS_KEY_FILE` so Postfix can advertise STARTTLS on SMTP/submission.
 - Set DNS `A`, `PTR`, SPF, DKIM, DMARC, and bounce-domain MX records before production warmup.
 - Verify each domain policy through `/api/v1/domain-delivery-policies/{policy_id}/verify-authentication`
   before enabling real traffic.
