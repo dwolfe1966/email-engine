@@ -7,6 +7,7 @@ SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_feedback_smoke.py'
 CONTROLLED_DELIVERY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_controlled_delivery.py'
 LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
 DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
+MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 
 
 def load_script_module(path: Path):
@@ -201,6 +202,25 @@ def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> No
         '/api/v1/delivery/managed-smtp/feedback',
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'mailbox.Maildir',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+
+def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestion() -> None:
+    source = MAINTENANCE_RUNBOOK_SCRIPT.read_text()
+
+    expected_tokens = [
+        '/api/v1/domain-delivery-policies/managed-smtp-maintenance',
+        'managed_smtp_dsn_feedback',
+        'MANAGED_SMTP_DSN_PATH',
+        'MANAGED_SMTP_FEEDBACK_SECRET',
+        'skip-maintenance',
+        'skip-dsn',
+        'skip-blocklist-scan',
+        'skip-warmup-progression',
+        'no-advance-warmup',
+        'managed_smtp_maintenance_runbook',
     ]
     for token in expected_tokens:
         assert token in source

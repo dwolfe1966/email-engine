@@ -153,6 +153,18 @@ BASE_URL=https://<email-engine-api> \
 python scripts/managed_smtp_dsn_feedback.py --post /path/to/Maildir
 ```
 
+For scheduled maintenance, use the combined runbook from cron or your scheduler. It runs the
+managed-SMTP maintenance endpoint and, when `MANAGED_SMTP_DSN_PATH` is set, ingests DSN mailbox
+feedback in the same run:
+
+```bash
+BASE_URL=https://<email-engine-api> \
+EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
+MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
+MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
+python scripts/managed_smtp_maintenance_runbook.py
+```
+
 ## Health Check
 
 Use:

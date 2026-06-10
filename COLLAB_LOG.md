@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP scheduled maintenance runbook
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_maintenance_runbook.py`.
+- The runbook calls `/api/v1/domain-delivery-policies/managed-smtp-maintenance`.
+- When `MANAGED_SMTP_DSN_PATH` or `--dsn-path` is configured, it also parses and posts DSN feedback
+  using the existing DSN bridge.
+- Deployment docs now include a cron/scheduler command.
+
+### Why
+
+Managed SMTP maintenance now has multiple operator-safe pieces: blocklist checks, warmup
+progression, and DSN ingestion. This gives deployment operators one scheduler entrypoint.
+
+### What needs to happen next
+
+- Add operator UI controls for retained provider feedback inspection.
+- Add mailbox cleanup or acknowledgement after successful DSN feedback posting.
+- Add recurring job configuration for the chosen production deploy platform.
+
+### Compatibility notes
+
+- No migration is required. The runbook calls existing API endpoints/scripts.
+
+---
+
 ## 2026-06-10 — Provider feedback retention list API
 
 **Pushed by:** Codex

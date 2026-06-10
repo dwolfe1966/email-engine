@@ -111,6 +111,18 @@ Without `--post`, the script prints the normalized feedback payloads for inspect
 `Action: failed` or `5.x.x` status to `dsn_bounce`, `Action: delayed` or `4.x.x` status to
 `tempfail`, and successful DSN actions to `delivered`.
 
+For scheduler wiring, use the combined runbook:
+
+```bash
+BASE_URL=https://<email-engine-api> \
+MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
+MANAGED_SMTP_DSN_PATH=/path/to/Maildir \
+python scripts/managed_smtp_maintenance_runbook.py
+```
+
+The runbook calls `/api/v1/domain-delivery-policies/managed-smtp-maintenance` and then posts parsed
+DSN feedback when a DSN path is configured.
+
 ## MTA Boundary
 
 Postfix handles SMTP transport. Email Engine remains responsible for:

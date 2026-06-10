@@ -514,8 +514,17 @@ Recommended twenty-seventh code slice:
 3. Return retained raw payload and metadata JSON for debugging MTA/provider evidence. **Done.**
 4. Add route contract and feedback service tests. **Done.**
 
+## Twenty-Eighth Implementation Slice
+
+Recommended twenty-eighth code slice:
+
+1. Add a deployable managed-SMTP maintenance runbook script. **Done.**
+2. Call scheduled managed-SMTP maintenance from the runbook. **Done.**
+3. Optionally ingest bounce-domain DSN Maildir/file feedback in the same scheduler run. **Done.**
+4. Document cron/scheduler usage for deploys. **Done.**
+
 ## Follow-On Slices
 
-1. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
-2. Add operator UI controls for retained provider feedback events.
-3. Add DSN mailbox cleanup/acknowledgement after successful feedback posting.
+1. Add operator UI controls for retained provider feedback events.
+2. Add DSN mailbox cleanup/acknowledgement after successful feedback posting.
+3. Add recurring production job configuration for the chosen deploy platform.
