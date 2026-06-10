@@ -1,3 +1,5 @@
+import secrets
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -7,10 +9,10 @@ from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
 from email_platform.models.entities import (
+    DeliveryAttempt,
     DeliveryRoute,
     DeliveryRouteStatus,
     DeliveryRouteType,
-    DeliveryAttempt,
     DomainDeliveryPolicy,
     EmailSendRecord,
 )
@@ -20,8 +22,12 @@ from email_platform.schemas.contracts import (
     DomainAuthenticationDnsRecord,
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
+    DomainAuthenticationVerificationRead,
+    DomainAuthenticationVerificationRecord,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
+    DomainDkimKeyCreateRead,
+    DomainDkimKeyCreateRequest,
 )
 
 
@@ -47,9 +53,65 @@ class DeliveryClaimDecision:
     domain_policy_id: UUID | None = None
 
 
+class DnsLookupUnavailable(ValueError):
+    pass
+
+
+class SystemDnsResolver:
+    def lookup(self, record_type: str, name: str) -> list[str]:
+        try:
+            completed = subprocess.run(
+                ['dig', '+short', record_type, name],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            raise DnsLookupUnavailable(str(exc)) from exc
+        if completed.returncode != 0:
+            raise DnsLookupUnavailable(completed.stderr.strip() or 'DNS lookup failed')
+        return [line.strip().strip('"') for line in completed.stdout.splitlines() if line.strip()]
+
+
+class OpensslDkimKeyGenerator:
+    def generate(self, key_size: int) -> tuple[str, str]:
+        try:
+            private_result = subprocess.run(
+                ['openssl', 'genrsa', str(key_size)],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            public_result = subprocess.run(
+                ['openssl', 'rsa', '-pubout'],
+                input=private_result.stdout,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise ValueError('OpenSSL is required to generate DKIM keys') from exc
+        public_key = ''.join(
+            line.strip()
+            for line in public_result.stdout.splitlines()
+            if 'BEGIN PUBLIC KEY' not in line and 'END PUBLIC KEY' not in line
+        )
+        return private_result.stdout, public_key
+
+
 class DeliveryRouteService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        dns_resolver: SystemDnsResolver | None = None,
+        dkim_key_generator: OpensslDkimKeyGenerator | None = None,
+    ) -> None:
         self.db = db
+        self.dns_resolver = dns_resolver or SystemDnsResolver()
+        self.dkim_key_generator = dkim_key_generator or OpensslDkimKeyGenerator()
 
     def create(self, payload: DeliveryRouteCreate) -> DeliveryRoute:
         route = DeliveryRoute(**payload.model_dump())
@@ -237,6 +299,84 @@ class DeliveryRouteService:
         self.db.refresh(policy)
         return plan
 
+    def create_domain_dkim_key(
+        self,
+        policy_id: UUID,
+        payload: DomainDkimKeyCreateRequest,
+    ) -> DomainDkimKeyCreateRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        selector = payload.dkim_selector.strip().lower() or 'ee1'
+        private_key_pem, public_key = self.dkim_key_generator.generate(payload.key_size)
+        key_ref = (
+            payload.key_ref
+            or f'dkim/{policy.domain.lower()}/{selector}/{secrets.token_urlsafe(8)}'
+        )
+        dns_record = DomainAuthenticationDnsRecord(
+            record_type='TXT',
+            name=f'{selector}._domainkey.{policy.domain.lower()}',
+            value=f'v=DKIM1; k=rsa; p={public_key}',
+            purpose='Authorize Email Engine managed SMTP DKIM signing for this domain.',
+        )
+        policy.metadata_json = {
+            **(policy.metadata_json or {}),
+            'dkim_key': {
+                'selector': selector,
+                'key_ref': key_ref,
+                'public_key': public_key,
+                'dns_record': dns_record.model_dump(),
+                'created_at': datetime.utcnow().isoformat(),
+            },
+        }
+        self.db.commit()
+        self.db.refresh(policy)
+        return DomainDkimKeyCreateRead(
+            domain=policy.domain.lower(),
+            dkim_selector=selector,
+            key_ref=key_ref,
+            public_key=public_key,
+            private_key_pem=private_key_pem,
+            dns_record=dns_record,
+        )
+
+    def verify_domain_authentication(
+        self,
+        policy_id: UUID,
+    ) -> DomainAuthenticationVerificationRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        plan_data = (policy.metadata_json or {}).get('domain_authentication')
+        if not isinstance(plan_data, dict):
+            return DomainAuthenticationVerificationRead(
+                domain=policy.domain.lower(),
+                verified=False,
+                records=[],
+            )
+        records = [
+            self._verify_dns_record(DomainAuthenticationDnsRecord.model_validate(record))
+            for record in plan_data.get('dns_records', [])
+            if isinstance(record, dict)
+        ]
+        policy.metadata_json = {
+            **(policy.metadata_json or {}),
+            'domain_authentication_verification': {
+                'verified': all(
+                    record.status == 'verified' for record in records if record.required
+                ),
+                'checked_at': datetime.utcnow().isoformat(),
+                'records': [record.model_dump() for record in records],
+            },
+        }
+        self.db.commit()
+        self.db.refresh(policy)
+        return DomainAuthenticationVerificationRead(
+            domain=policy.domain.lower(),
+            verified=all(record.status == 'verified' for record in records if record.required),
+            records=records,
+        )
+
     def select_for_record(
         self,
         record: EmailSendRecord,
@@ -420,6 +560,38 @@ class DeliveryRouteService:
                 'Move DMARC policy from none only after alignment and bounce handling are verified.',
             ],
         )
+
+    def _verify_dns_record(
+        self,
+        expected: DomainAuthenticationDnsRecord,
+    ) -> DomainAuthenticationVerificationRecord:
+        try:
+            observed = self.dns_resolver.lookup(expected.record_type, expected.name)
+        except DnsLookupUnavailable as exc:
+            return DomainAuthenticationVerificationRecord(
+                record_type=expected.record_type,
+                name=expected.name,
+                expected_value=expected.value,
+                observed_values=[],
+                status='unchecked',
+                message=str(exc) or 'DNS lookup unavailable',
+                required=expected.required,
+            )
+        normalized_expected = self._normalize_dns_value(expected.value)
+        observed_normalized = [self._normalize_dns_value(value) for value in observed]
+        verified = normalized_expected in observed_normalized
+        return DomainAuthenticationVerificationRecord(
+            record_type=expected.record_type,
+            name=expected.name,
+            expected_value=expected.value,
+            observed_values=observed,
+            status='verified' if verified else 'mismatch',
+            message='Record matches expected value' if verified else 'Expected value not found',
+            required=expected.required,
+        )
+
+    def _normalize_dns_value(self, value: str) -> str:
+        return ' '.join(value.replace('"', '').split()).lower()
 
     def _domain_for_record(self, record: EmailSendRecord) -> str | None:
         if '@' not in record.to_email:

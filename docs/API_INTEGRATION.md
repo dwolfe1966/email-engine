@@ -109,6 +109,12 @@ Sending and events:
 - `POST /api/v1/domain-delivery-policies/{policy_id}/authentication-plan` generates and stores
   managed-SMTP DNS onboarding instructions for a domain policy, including DKIM, SPF, DMARC,
   bounce-domain MX, staging MTA MX, and staging MTA A-record placeholders.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/dkim-key` generates a DKIM keypair for the
+  domain policy. The private key is returned once and only the key reference, public key, and DNS
+  record are stored in policy metadata.
+- `POST /api/v1/domain-delivery-policies/{policy_id}/verify-authentication` checks the stored DNS
+  onboarding plan against DNS when the runtime has `dig`; unavailable lookups return `unchecked`
+  records rather than silently passing.
 - `POST /api/v1/provider-webhooks/sendgrid` ingests SendGrid delivery, bounce, complaint, and unsubscribe events. Bounce, dropped, spam report, and unsubscribe events create suppression records that block future sends.
 - SendGrid Event Webhook signature verification is supported through `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`. Set `SENDGRID_EVENT_WEBHOOK_REQUIRE_SIGNATURE=true` in production after the public key is configured.
 - `POST /api/v1/delivery/managed-smtp/feedback` ingests owned-MTA feedback events such as

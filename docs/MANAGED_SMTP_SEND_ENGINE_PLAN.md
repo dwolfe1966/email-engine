@@ -208,9 +208,9 @@ Selection criteria:
 - Security posture and abuse controls.
 
 Initial deployment should use the checked-in Postfix staging scaffold, a constrained staging domain,
-the domain authentication plan endpoint, and a low-volume seed list. Production use requires DNS
-verification, DKIM key management, SPF/DMARC alignment checks, bounce-domain processing, abuse
-monitoring, blocklist checks, warmup policy, and emergency pause controls.
+the domain authentication plan and verification endpoints, DKIM key management, and a low-volume
+seed list. Production use still requires SPF/DMARC alignment automation, bounce-domain processing,
+abuse monitoring, blocklist checks, warmup policy, and emergency pause controls.
 
 ## First Implementation Slice
 
@@ -372,9 +372,19 @@ Recommended thirteenth code slice:
 4. Persist the generated plan under `DomainDeliveryPolicy.metadata_json["domain_authentication"]`.
    **Done.**
 
+## Fourteenth Implementation Slice
+
+Recommended fourteenth code slice:
+
+1. Add DKIM key generation for domain delivery policies. **Done.**
+2. Return the generated private key once and persist only key reference, public key, and DNS record
+   metadata. **Done.**
+3. Add `/api/v1/domain-delivery-policies/{policy_id}/dkim-key`. **Done.**
+4. Add DNS verification for stored domain-authentication plans. **Done.**
+5. Add `/api/v1/domain-delivery-policies/{policy_id}/verify-authentication`. **Done.**
+
 ## Follow-On Slices
 
-1. Add DNS verification and DKIM private-key management.
-2. Add IP pool, warmup, throttle, and reputation dashboards.
-3. Add abuse/compliance controls and audit logging.
-4. Run low-volume controlled delivery tests before production sends.
+1. Add IP pool, warmup, throttle, and reputation dashboards.
+2. Add abuse/compliance controls and audit logging.
+3. Run low-volume controlled delivery tests before production sends.

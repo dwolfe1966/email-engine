@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-09 — Managed SMTP DNS verification and DKIM key management
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added DKIM key generation for domain delivery policies.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/dkim-key`.
+- The DKIM private key is returned once; policy metadata stores only the key reference, public key,
+  and DNS record.
+- Added DNS verification for stored domain-authentication plans.
+- Added `/api/v1/domain-delivery-policies/{policy_id}/verify-authentication`.
+
+### Why
+
+The managed-SMTP staging path now needs operational checks before seed sends: operators must be
+able to generate DKIM material and verify that required DNS records have propagated.
+
+### What needs to happen next
+
+- Add IP pool, warmup, throttle, and reputation dashboards tied to domain policy state.
+- Add Postfix/OpenDKIM wiring that consumes the generated key reference in staging.
+
+### Compatibility notes
+
+- No migration is required; key metadata and verification results are stored in existing domain
+  policy metadata.
+- DNS verification uses system DNS tooling when available and reports `unchecked` rather than
+  passing records it cannot query.
+
+---
+
 ## 2026-06-09 — Managed SMTP domain authentication onboarding
 
 **Pushed by:** Codex

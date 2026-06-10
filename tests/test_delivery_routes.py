@@ -3,8 +3,11 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
-from email_platform.schemas.contracts import DomainAuthenticationPlanRequest
-from email_platform.services.delivery_routes import DeliveryRouteService
+from email_platform.schemas.contracts import (
+    DomainAuthenticationPlanRequest,
+    DomainDkimKeyCreateRequest,
+)
+from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
 
 
 class FakeDb:
@@ -27,6 +30,25 @@ class FakeDb:
 
     def refresh(self, item):
         self.refreshed.append(item)
+
+
+class FakeDkimKeyGenerator:
+    def generate(self, key_size: int) -> tuple[str, str]:
+        return (
+            '-----BEGIN PRIVATE KEY-----\nfake-private-key\n-----END PRIVATE KEY-----\n',
+            'fake-public-key',
+        )
+
+
+class FakeDnsResolver:
+    def __init__(self, records=None, fail: bool = False) -> None:
+        self.records = records or {}
+        self.fail = fail
+
+    def lookup(self, record_type: str, name: str) -> list[str]:
+        if self.fail:
+            raise DnsLookupUnavailable('dig unavailable')
+        return self.records.get((record_type, name), [])
 
 
 def test_delivery_route_selector_falls_back_to_settings_provider() -> None:
@@ -254,3 +276,109 @@ def test_domain_authentication_plan_returns_none_for_missing_policy() -> None:
     )
 
     assert plan is None
+
+
+def test_create_domain_dkim_key_returns_private_key_once_and_persists_public_metadata() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        metadata_json={},
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db, dkim_key_generator=FakeDkimKeyGenerator())
+
+    result = service.create_domain_dkim_key(
+        policy.id,
+        DomainDkimKeyCreateRequest(dkim_selector='EE3', key_ref='vault://dkim/example/ee3'),
+    )
+
+    assert result is not None
+    assert result.domain == 'example.com'
+    assert result.dkim_selector == 'ee3'
+    assert result.key_ref == 'vault://dkim/example/ee3'
+    assert 'fake-private-key' in result.private_key_pem
+    assert result.public_key == 'fake-public-key'
+    assert result.dns_record.name == 'ee3._domainkey.example.com'
+    assert policy.metadata_json['dkim_key']['key_ref'] == 'vault://dkim/example/ee3'
+    assert policy.metadata_json['dkim_key']['public_key'] == 'fake-public-key'
+    assert 'private' not in policy.metadata_json['dkim_key']
+    assert db.committed
+    assert db.refreshed == [policy]
+
+
+def test_verify_domain_authentication_checks_required_dns_records() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        metadata_json={
+            'domain_authentication': {
+                'dns_records': [
+                    {
+                        'record_type': 'TXT',
+                        'name': 'ee1._domainkey.example.com',
+                        'value': 'v=DKIM1; k=rsa; p=abc123',
+                        'purpose': 'DKIM',
+                        'required': True,
+                    },
+                    {
+                        'record_type': 'TXT',
+                        'name': 'example.com',
+                        'value': 'v=spf1 mx -all',
+                        'purpose': 'SPF',
+                        'required': True,
+                    },
+                ],
+            },
+        },
+    )
+    resolver = FakeDnsResolver(
+        {
+            ('TXT', 'ee1._domainkey.example.com'): ['"v=DKIM1; k=rsa; p=abc123"'],
+            ('TXT', 'example.com'): ['v=spf1 mx -all'],
+        }
+    )
+    service = DeliveryRouteService(FakeDb(get_result=policy), dns_resolver=resolver)
+
+    result = service.verify_domain_authentication(policy.id)
+
+    assert result is not None
+    assert result.verified
+    assert [record.status for record in result.records] == ['verified', 'verified']
+    assert policy.metadata_json['domain_authentication_verification']['verified']
+
+
+def test_verify_domain_authentication_reports_mismatch_and_unavailable_lookup() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='example.com',
+        metadata_json={
+            'domain_authentication': {
+                'dns_records': [
+                    {
+                        'record_type': 'TXT',
+                        'name': 'example.com',
+                        'value': 'v=spf1 mx -all',
+                        'purpose': 'SPF',
+                        'required': True,
+                    },
+                ],
+            },
+        },
+    )
+    mismatch = DeliveryRouteService(
+        FakeDb(get_result=policy),
+        dns_resolver=FakeDnsResolver(
+            {('TXT', 'example.com'): ['v=spf1 include:_spf.example.com -all']}
+        ),
+    ).verify_domain_authentication(policy.id)
+    unavailable = DeliveryRouteService(
+        FakeDb(get_result=policy),
+        dns_resolver=FakeDnsResolver(fail=True),
+    ).verify_domain_authentication(policy.id)
+
+    assert mismatch is not None
+    assert not mismatch.verified
+    assert mismatch.records[0].status == 'mismatch'
+    assert unavailable is not None
+    assert not unavailable.verified
+    assert unavailable.records[0].status == 'unchecked'

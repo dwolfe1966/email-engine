@@ -110,12 +110,15 @@ from email_platform.schemas.contracts import (
     DeliveryRouteRead,
     DeliveryRouteUpdate,
     DeliveryRunRead,
-    DomainDeliverabilityRead,
     DomainAuthenticationPlanRead,
     DomainAuthenticationPlanRequest,
+    DomainAuthenticationVerificationRead,
+    DomainDeliverabilityRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyRead,
     DomainDeliveryPolicyUpdate,
+    DomainDkimKeyCreateRead,
+    DomainDkimKeyCreateRequest,
     EmailSendRecordRead,
     EmailSendRequest,
     EmailSendResponse,
@@ -3003,6 +3006,35 @@ def build_domain_delivery_authentication_plan(
     if not plan:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return plan
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/dkim-key',
+    response_model=DomainDkimKeyCreateRead,
+)
+def create_domain_delivery_dkim_key(
+    policy_id: UUID,
+    payload: DomainDkimKeyCreateRequest,
+    db: DbSession,
+) -> DomainDkimKeyCreateRead:
+    result = DeliveryRouteService(db).create_domain_dkim_key(policy_id, payload)
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/verify-authentication',
+    response_model=DomainAuthenticationVerificationRead,
+)
+def verify_domain_delivery_authentication(
+    policy_id: UUID,
+    db: DbSession,
+) -> DomainAuthenticationVerificationRead:
+    result = DeliveryRouteService(db).verify_domain_authentication(policy_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
 
 
 @router.post(

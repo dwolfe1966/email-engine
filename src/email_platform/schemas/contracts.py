@@ -718,6 +718,37 @@ class DomainAuthenticationPlanRead(BaseModel):
     next_steps: list[str]
 
 
+class DomainDkimKeyCreateRequest(BaseModel):
+    dkim_selector: str = 'ee1'
+    key_ref: str | None = None
+    key_size: int = 2048
+
+
+class DomainDkimKeyCreateRead(BaseModel):
+    domain: str
+    dkim_selector: str
+    key_ref: str
+    public_key: str
+    private_key_pem: str
+    dns_record: DomainAuthenticationDnsRecord
+
+
+class DomainAuthenticationVerificationRecord(BaseModel):
+    record_type: str
+    name: str
+    expected_value: str
+    observed_values: list[str] = Field(default_factory=list)
+    status: str
+    message: str
+    required: bool = True
+
+
+class DomainAuthenticationVerificationRead(BaseModel):
+    domain: str
+    verified: bool
+    records: list[DomainAuthenticationVerificationRecord]
+
+
 class DomainDeliveryPolicyRead(DomainDeliveryPolicyCreate):
     id: UUID
 
