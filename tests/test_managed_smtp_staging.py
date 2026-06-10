@@ -6,6 +6,7 @@ INFRA = ROOT / 'infra' / 'managed-smtp'
 SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_feedback_smoke.py'
 CONTROLLED_DELIVERY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_controlled_delivery.py'
 LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
+DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 
 
 def load_script_module(path: Path):
@@ -140,6 +141,66 @@ def test_managed_smtp_log_feedback_script_posts_signed_feedback_contract() -> No
         "timestamp.encode('utf-8') + b'.' + body",
         '/api/v1/delivery/managed-smtp/feedback',
         'MANAGED_SMTP_FEEDBACK_SECRET',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+
+def test_managed_smtp_dsn_feedback_parser_maps_delivery_status_to_feedback_events() -> None:
+    module = load_script_module(DSN_FEEDBACK_SCRIPT)
+    raw_message = """From: MAILER-DAEMON@example.com
+To: bounces+record@example.com
+Subject: Delivery Status Notification (Failure)
+Content-Type: multipart/report; report-type=delivery-status; boundary=\"dsn-boundary\"
+
+--dsn-boundary
+Content-Type: text/plain
+
+Delivery failed.
+
+--dsn-boundary
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mx.example.com
+Original-Envelope-Id: ABC123DEF
+
+Final-Recipient: rfc822; bad@example.net
+Action: failed
+Status: 5.1.1
+Remote-MTA: dns; mx.example.net
+Diagnostic-Code: smtp; 550 5.1.1 User unknown
+
+--dsn-boundary--
+"""
+
+    events = module.parse_dsn_text(raw_message)
+
+    assert len(events) == 1
+    event = events[0]
+    assert event['email'] == 'bad@example.net'
+    assert event['event'] == 'dsn_bounce'
+    assert event['provider_message_id'] == 'ABC123DEF'
+    assert event['smtp_response_code'] == 550
+    assert event['diagnostic_code'] == 'smtp; 550 5.1.1 User unknown'
+    assert event['metadata_json']['source'] == 'managed_smtp_dsn_feedback'
+    assert event['metadata_json']['postfix_queue_id'] == 'ABC123DEF'
+
+
+def test_managed_smtp_dsn_feedback_script_posts_signed_feedback_contract() -> None:
+    source = DSN_FEEDBACK_SCRIPT.read_text()
+
+    expected_tokens = [
+        'ManagedSmtpFeedbackEvent',
+        'message/delivery-status',
+        'managed_smtp_dsn_feedback',
+        'Original-Envelope-Id',
+        'Final-Recipient',
+        'X-Email-Engine-Timestamp',
+        'X-Email-Engine-Signature',
+        "timestamp.encode('utf-8') + b'.' + body",
+        '/api/v1/delivery/managed-smtp/feedback',
+        'MANAGED_SMTP_FEEDBACK_SECRET',
+        'mailbox.Maildir',
     ]
     for token in expected_tokens:
         assert token in source

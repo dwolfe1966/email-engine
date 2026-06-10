@@ -496,8 +496,17 @@ Recommended twenty-fifth code slice:
    **Done.**
 4. Return duplicate counts from provider feedback ingestion responses. **Done.**
 
+## Twenty-Sixth Implementation Slice
+
+Recommended twenty-sixth code slice:
+
+1. Add an RFC822 DSN parser for bounce-domain inbound mail. **Done.**
+2. Map DSN delivery-status actions and status classes into managed-SMTP feedback events. **Done.**
+3. Support stdin, file, and Maildir inputs for deployment mailbox integration. **Done.**
+4. Support signed posting to `/api/v1/delivery/managed-smtp/feedback`. **Done.**
+
 ## Follow-On Slices
 
 1. Add an external cron/deploy runbook for calling managed-SMTP maintenance on schedule.
-2. Add DSN mailbox/parser integration for bounce-domain inbound mail.
-3. Add operator UI/API views for retained provider feedback events.
+2. Add operator UI/API views for retained provider feedback events.
+3. Add DSN mailbox cleanup/acknowledgement after successful feedback posting.

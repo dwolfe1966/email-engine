@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP DSN mailbox feedback bridge
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_dsn_feedback.py`.
+- The script parses RFC822 `message/delivery-status` DSN messages from stdin, a file, or a Maildir.
+- DSN `failed` / `5.x.x` outcomes map to `dsn_bounce`; `delayed` / `4.x.x` outcomes map to
+  `tempfail`; successful DSN actions map to `delivered`.
+- Parsed DSNs can post signed `ManagedSmtpFeedbackEvent` payloads to
+  `/api/v1/delivery/managed-smtp/feedback`.
+
+### Why
+
+Bounce-domain routing needs an inbound-mail bridge, not only Postfix log parsing. This lets a
+production MTA or mailbox processor feed DSNs into the same durable feedback/idempotency path.
+
+### What needs to happen next
+
+- Add a deploy cron/runbook that runs managed-SMTP maintenance and DSN ingestion on schedule.
+- Add mailbox cleanup or acknowledgement after successful DSN feedback posting.
+- Add operator views or API list endpoints for retained provider feedback.
+
+### Compatibility notes
+
+- No migration is required for this slice. It reuses the existing managed-SMTP feedback endpoint.
+
+---
+
 ## 2026-06-10 — Durable managed SMTP feedback idempotency and retention
 
 **Pushed by:** Codex

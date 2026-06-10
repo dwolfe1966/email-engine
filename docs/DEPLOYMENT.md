@@ -144,6 +144,15 @@ tail -F /var/log/mail.log \
     python scripts/managed_smtp_log_feedback.py --post -
 ```
 
+For bounce-domain DSN mailbox forwarding, normalize RFC822 DSN messages into the same feedback
+path:
+
+```bash
+MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
+BASE_URL=https://<email-engine-api> \
+python scripts/managed_smtp_dsn_feedback.py --post /path/to/Maildir
+```
+
 ## Health Check
 
 Use:

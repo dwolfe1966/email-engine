@@ -20,6 +20,8 @@ observability, and blocklist monitoring.
   optional signed feedback smoke.
 - `scripts/managed_smtp_log_feedback.py`: parses Postfix `smtp` delivery log lines into
   `ManagedSmtpFeedbackEvent` payloads and can post them with the same signed feedback contract.
+- `scripts/managed_smtp_dsn_feedback.py`: parses RFC822 DSN bounce messages from stdin, a file, or
+  a Maildir into `ManagedSmtpFeedbackEvent` payloads.
 
 ## Staging Flow
 
@@ -97,6 +99,18 @@ bounce domain. Postfix will emit DSNs to that return path. Production deployment
 bounce domain MX back to the managed MTA and feed DSNs or Postfix logs into
 `/api/v1/delivery/managed-smtp/feedback`.
 
+To normalize received DSN messages from a bounce-domain mailbox or Maildir:
+
+```bash
+MANAGED_SMTP_FEEDBACK_SECRET=<secret> \
+BASE_URL=https://<email-engine-api> \
+python scripts/managed_smtp_dsn_feedback.py --post /path/to/Maildir
+```
+
+Without `--post`, the script prints the normalized feedback payloads for inspection. It maps DSN
+`Action: failed` or `5.x.x` status to `dsn_bounce`, `Action: delayed` or `4.x.x` status to
+`tempfail`, and successful DSN actions to `delivered`.
+
 ## MTA Boundary
 
 Postfix handles SMTP transport. Email Engine remains responsible for:
@@ -108,8 +122,8 @@ Postfix handles SMTP transport. Email Engine remains responsible for:
 - suppression creation
 - analytics rollups
 
-The first staging feedback path is API-based. Later slices should add DSN parsing and MTA log
-forwarding that emit the same signed `ManagedSmtpFeedbackEvent` payloads.
+The first staging feedback path is API-based. DSN parsing and MTA log forwarding both emit the same
+signed `ManagedSmtpFeedbackEvent` payloads.
 
 For a first MTA-log bridge, pipe Postfix delivery logs through:
 
