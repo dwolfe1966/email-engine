@@ -16,8 +16,11 @@ services:
       - "${POSTFIX_SMTP_PORT:-25}:25"
       - "${POSTFIX_SUBMISSION_PORT:-587}:587"
     volumes:
-      - managed-smtp-spool:/var/spool/postfix
-      - managed-smtp-log:/var/log
+      - ${POSTFIX_SPOOL_DIR:?set POSTFIX_SPOOL_DIR}:/var/spool/postfix
+      - ${POSTFIX_LOG_DIR:?set POSTFIX_LOG_DIR}:/var/log
+      - ${MANAGED_SMTP_DSN_MAILDIR:?set MANAGED_SMTP_DSN_MAILDIR}:/var/mail/dsn
+      - ${MANAGED_SMTP_DSN_ARCHIVE_DIR:?set MANAGED_SMTP_DSN_ARCHIVE_DIR}:/var/mail/dsn-archive
+      - ${MANAGED_SMTP_DSN_QUARANTINE_DIR:?set MANAGED_SMTP_DSN_QUARANTINE_DIR}:/var/mail/dsn-quarantine
       - ${POSTFIX_TLS_DIR:?set POSTFIX_TLS_DIR}:/etc/postfix/tls:ro
     depends_on:
       - managed-smtp-opendkim
@@ -38,6 +41,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  managed-smtp-spool:
-  managed-smtp-log:
   managed-smtp-opendkim:

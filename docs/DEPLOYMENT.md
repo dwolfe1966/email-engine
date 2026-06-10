@@ -140,6 +140,9 @@ MTA signer owns private key material.
 Mount the Postfix certificate and private key outside the repo at `POSTFIX_TLS_DIR` as `tls.crt`
 and `tls.key`, or override `POSTFIX_TLS_CERT_FILE` / `POSTFIX_TLS_KEY_FILE` in the compose
 environment.
+Mount Postfix spool, logs, inbound DSNs, DSN archive, and DSN quarantine on durable host paths with
+`POSTFIX_SPOOL_DIR`, `POSTFIX_LOG_DIR`, `MANAGED_SMTP_DSN_MAILDIR`,
+`MANAGED_SMTP_DSN_ARCHIVE_DIR`, and `MANAGED_SMTP_DSN_QUARANTINE_DIR`.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

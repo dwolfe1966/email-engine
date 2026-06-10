@@ -64,6 +64,14 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
         'POSTFIX_TLS_KEY_FILE',
         'POSTFIX_TLS_DIR',
         '/etc/postfix/tls:ro',
+        'POSTFIX_SPOOL_DIR',
+        'POSTFIX_LOG_DIR',
+        'MANAGED_SMTP_DSN_MAILDIR',
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR',
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR',
+        '/var/mail/dsn',
+        '/var/mail/dsn-archive',
+        '/var/mail/dsn-quarantine',
         'OPENDKIM_DOMAINS',
         'OPENDKIM_SELECTOR',
         'OPENDKIM_KEYS_DIR',
@@ -87,6 +95,9 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
     assert '/etc/opendkim/keys/${domain}/${SELECTOR}.private' in opendkim_entrypoint
     assert 'OPENDKIM_KEYS_DIR=/srv/email-engine/opendkim/keys' in env_example
     assert 'POSTFIX_TLS_DIR=/srv/email-engine/postfix/tls' in env_example
+    assert 'POSTFIX_SPOOL_DIR=/srv/email-engine/postfix/spool' in env_example
+    assert 'POSTFIX_LOG_DIR=/srv/email-engine/postfix/log' in env_example
+    assert 'MANAGED_SMTP_DSN_MAILDIR=/srv/email-engine/mail/returns' in env_example
 
 
 def test_postfix_entrypoint_configures_tls_certificate_mounts() -> None:
@@ -127,9 +138,14 @@ def test_managed_smtp_production_hardening_runbook_covers_mta_controls() -> None
         'OPENDKIM_KEYS_DIR',
         '0400',
         'Queue And Mailbox Retention',
+        'POSTFIX_SPOOL_DIR',
+        'MANAGED_SMTP_DSN_MAILDIR',
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR',
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR',
         'MANAGED_SMTP_DSN_ARCHIVE',
         'MANAGED_SMTP_DSN_QUARANTINE',
         'Logs And Feedback',
+        'POSTFIX_LOG_DIR',
         'managed_smtp_log_feedback.py --post',
         '/api/v1/provider-feedback-events/list',
         'Abuse Controls',

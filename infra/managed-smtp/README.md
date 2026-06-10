@@ -105,6 +105,9 @@ install -m 0400 ee1.private /srv/email-engine/opendkim/keys/example.com/ee1.priv
 mkdir -p /srv/email-engine/postfix/tls
 install -m 0444 fullchain.pem /srv/email-engine/postfix/tls/tls.crt
 install -m 0400 privkey.pem /srv/email-engine/postfix/tls/tls.key
+mkdir -p /srv/email-engine/postfix/spool /srv/email-engine/postfix/log
+mkdir -p /srv/email-engine/mail/returns /srv/email-engine/mail/returns-archive
+mkdir -p /srv/email-engine/mail/returns-quarantine
 docker compose --env-file infra/managed-smtp/production.env.example \
   -f infra/managed-smtp/docker-compose.production.yml up --build -d
 ```
@@ -117,6 +120,14 @@ SigningTable, and TrustedHosts files inside the container. Postfix connects to t
 The production compose file also mounts `POSTFIX_TLS_DIR` at `/etc/postfix/tls`. By default the
 Postfix entrypoint expects `tls.crt` and `tls.key`, configures `smtpd_tls_cert_file` /
 `smtpd_tls_key_file`, and exits before startup if either file is missing.
+
+Postfix queue, logs, inbound DSNs, DSN archive, and quarantine paths are explicit host mounts:
+`POSTFIX_SPOOL_DIR`, `POSTFIX_LOG_DIR`, `MANAGED_SMTP_DSN_MAILDIR`,
+`MANAGED_SMTP_DSN_ARCHIVE_DIR`, and `MANAGED_SMTP_DSN_QUARANTINE_DIR`. Configure Email Engine
+scheduler jobs with `MANAGED_SMTP_DSN_PATH=/var/mail/dsn`,
+`MANAGED_SMTP_DSN_ARCHIVE=/var/mail/dsn-archive`, and
+`MANAGED_SMTP_DSN_QUARANTINE=/var/mail/dsn-quarantine` when they run on the same MTA host, or point
+them at equivalent mounted paths on the scheduler host.
 
 Before production traffic, complete `infra/managed-smtp/PRODUCTION_HARDENING.md`.
 

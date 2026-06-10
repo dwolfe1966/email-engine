@@ -38,15 +38,17 @@ control plane while Postfix/OpenDKIM run on a dedicated MTA host.
 ## Queue And Mailbox Retention
 
 - Keep Postfix queue lifetime conservative during warmup; the scaffold defaults to one day.
-- Back up or snapshot the Postfix spool before MTA host maintenance.
-- Mount DSN inbound, archive, and quarantine Maildirs on durable host storage.
+- Back up or snapshot `POSTFIX_SPOOL_DIR` before MTA host maintenance.
+- Mount DSN inbound, archive, and quarantine Maildirs on durable host storage through
+  `MANAGED_SMTP_DSN_MAILDIR`, `MANAGED_SMTP_DSN_ARCHIVE_DIR`, and
+  `MANAGED_SMTP_DSN_QUARANTINE_DIR`.
 - Run the DSN ingestion scheduler with `MANAGED_SMTP_DSN_ARCHIVE` and
   `MANAGED_SMTP_DSN_QUARANTINE` so processed and malformed messages leave the inbound mailbox.
 - Run `scripts/managed_smtp_dsn_quarantine.py --check` from cron and alert on non-zero exits.
 
 ## Logs And Feedback
 
-- Persist `/var/log/mail.log` or container logs to durable storage.
+- Persist `/var/log/mail.log` or container logs to durable storage through `POSTFIX_LOG_DIR`.
 - Forward Postfix delivery logs through `scripts/managed_smtp_log_feedback.py --post` or ingest DSNs
   through `scripts/managed_smtp_dsn_feedback.py --post`.
 - Keep retained provider feedback available through `/api/v1/provider-feedback-events/list` for

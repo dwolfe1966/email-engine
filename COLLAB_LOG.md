@@ -20,6 +20,39 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP production MTA host mounts
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Production Postfix compose now uses explicit host mounts for queue spool and logs:
+  `POSTFIX_SPOOL_DIR` and `POSTFIX_LOG_DIR`.
+- Production compose now mounts inbound DSN, archive, and quarantine Maildirs through
+  `MANAGED_SMTP_DSN_MAILDIR`, `MANAGED_SMTP_DSN_ARCHIVE_DIR`, and
+  `MANAGED_SMTP_DSN_QUARANTINE_DIR`.
+- Env example, deployment docs, hardening runbook, and managed-SMTP README now describe the mounted
+  paths and scheduler path contract.
+
+### Why
+
+Managed-SMTP production operations need durable, explicit filesystem paths for Postfix queue state,
+mail logs, and DSN mailbox processing. Named Docker volumes hide those paths from backup, scheduler,
+and incident-response workflows.
+
+### What needs to happen next
+
+- Add a production preflight script that validates mounted paths, TLS files, DKIM keys, and required
+  env vars before starting the MTA stack.
+
+### Compatibility notes
+
+- Staging compose is unchanged. Production compose now requires host path env vars for spool, logs,
+  and DSN Maildirs.
+
+---
+
 ## 2026-06-10 — Managed SMTP Postfix TLS certificate mount
 
 **Pushed by:** Codex

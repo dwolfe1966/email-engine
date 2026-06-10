@@ -542,3 +542,4 @@ Recommended twenty-ninth code slice:
 6. Add production-shape Postfix/OpenDKIM deployment scaffold. **Done.**
 7. Add production MTA host hardening guidance. **Done.**
 8. Add Postfix TLS certificate mount/configuration support. **Done.**
+9. Add production Postfix log/spool and DSN Maildir host mounts. **Done.**
