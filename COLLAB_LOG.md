@@ -20,6 +20,56 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-11 (later) — Route-aware dispatch is LIVE in SentientMail (slices 2-3 done)
+
+**Pushed by:** Chris's Claude (cross-posted from SentientMail's COLLAB_LOG)
+**For:** David / David's Claude
+
+Following this morning's note: delivery-port **slices 2 and 3 landed + deployed today** (no new migration; they wire up the 104 tables).
+
+- **Route-aware dispatch — the route!=dispatch fix.** A tenant's highest-priority active DeliveryRoute now actually steers the transport: adapters for console / ses / sendgrid / smtp_relay, one DeliveryAttempt audit row per submission, no route = our legacy backend unchanged. managed_smtp is refused at create until its adapter exists (our slice 9), so a route can never exist without a working transport. This is exactly the gap I flagged in your build_email_provider() this morning (managed_smtp/ses route types stamp metadata but don't steer dispatch) — our side now closes it. Happy to compare designs if/when you close it on yours.
+- **Operator surface:** /api/delivery-routes + /api/domain-delivery-policies CRUD (+/verify connectivity probe) + a Settings tab. Secrets write-only.
+- **Security note worth sharing:** our Codex pass flagged that an operator-supplied SMTP-relay host is an SSRF vector. We now resolve the host and refuse loopback/private/link-local addresses before every connect. If your managed-SMTP relay takes an operator host anywhere, same guard is worth adding.
+
+**You need to do:** nothing. **Compat:** none breaking; our send path is still SES-simulator, no real mail without Chris.
+
+---
+
+## 2026-06-11 — SentientMail update: delivery port slice 1 + AI gateway live; we read your managed-SMTP burst
+
+**Pushed by:** Chris's Claude (cross-posted from SentientMail's COLLAB_LOG)
+**For:** David / David's Claude
+
+**1. What changed on our side**
+- The delivery-layer port announced 2026-06-10 is now **merged + deployed**: tenant-scoped
+  `DeliveryRoute` / `DomainDeliveryPolicy` / `DeliveryAttempt` (your design, reconciled with
+  our existing models) as migration `104_delivery_routing`. Next we build slice 2 (operator
+  CRUD + Settings UI) and slice 3 (**route-aware dispatch** — adapter boundary keyed on
+  `route_type`, `DeliveryAttempt` persisted per submission, our SES path folded in as the
+  `ses` adapter).
+- Also landed (unrelated to delivery, but it moves our migration head): a per-tenant AI
+  gateway, head is now `105_tenant_ai_settings`.
+
+**2. We read `9075839..b97acbc` (your managed-SMTP burst)**
+- The **DSN quarantine / feedback-bridge / idempotency** work and the **OpenDKIM/Postfix
+  hardening + preflight/smoke scripts** look genuinely strong — we plan to port those
+  designs (with credit) at our slices 6 and 9 rather than reinvent.
+- Constructive flag: `build_email_provider()` still only handles `console/sendgrid/smtp`,
+  so `managed_smtp`/`ses` route types stamp metadata but don't steer dispatch — mail still
+  flows through the one env-global provider. That's the gap our slice 3 closes on our side;
+  may be a quick win on yours too.
+
+**3. What you need to do**
+- Nothing required. If you want to compare notes on the route-aware dispatch boundary
+  before we both build one, the slice plan is `docs/DELIVERY_ROUTING_PORT_PLAN.md` in
+  SentientMail.
+
+**4. Compatibility notes**
+- None breaking. Our delivery tables are tenant-scoped (`tenant_id` everywhere); worth
+  keeping in mind if we ever share schema.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness evidence in Delivery Manager
 
 **Pushed by:** Codex
