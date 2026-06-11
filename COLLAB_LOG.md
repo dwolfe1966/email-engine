@@ -27,7 +27,7 @@ Newest entries first. Each entry should answer four questions:
 
 ### What changed
 
-- Added migration `0022_managed_smtp_readiness_checks`.
+- Added migration `0022_smtp_readiness`.
 - Added durable `managed_smtp_readiness_checks` records plus signed publish endpoint
   `/api/v1/delivery/managed-smtp/readiness-checks`.
 - Added operator list endpoint `/api/v1/managed-smtp/readiness-checks/list`.
@@ -46,7 +46,7 @@ STARTTLS, DKIM, feedback-loop, and MTA smoke status before scaling production tr
 
 ### Compatibility notes
 
-- Requires migration `0022_managed_smtp_readiness_checks`.
+- Requires migration `0022_smtp_readiness`.
 - The publish endpoint uses the existing managed-SMTP HMAC secret contract.
 
 ---
