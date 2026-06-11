@@ -26,6 +26,8 @@ observability, and blocklist monitoring.
   `ManagedSmtpFeedbackEvent` payloads and can post them with the same signed feedback contract.
 - `scripts/managed_smtp_dsn_feedback.py`: parses RFC822 DSN bounce messages from stdin, a file, or
   a Maildir into `ManagedSmtpFeedbackEvent` payloads.
+- `scripts/managed_smtp_mta_smoke.py`: checks a running production MTA banner, EHLO, STARTTLS,
+  optional test submission, and optional signed feedback ingestion.
 
 ## Staging Flow
 
@@ -111,6 +113,12 @@ mkdir -p /srv/email-engine/mail/returns-quarantine
 python scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example
 docker compose --env-file infra/managed-smtp/production.env.example \
   -f infra/managed-smtp/docker-compose.production.yml up --build -d
+python scripts/managed_smtp_mta_smoke.py \
+  --host smtp.example.com \
+  --port 587 \
+  --require-starttls \
+  --starttls-handshake \
+  --json
 ```
 
 `OPENDKIM_DOMAINS` accepts a comma-separated or space-separated domain list. For each domain, the
@@ -133,6 +141,10 @@ them at equivalent mounted paths on the scheduler host.
 Before production traffic, complete `infra/managed-smtp/PRODUCTION_HARDENING.md`.
 Run `scripts/managed_smtp_mta_preflight.py` before starting the production stack to validate
 required env vars, host mounts, TLS files, and DKIM private keys.
+After the stack is running, run `scripts/managed_smtp_mta_smoke.py` against the public MTA hostname
+to verify the SMTP banner, EHLO capabilities, and STARTTLS handshake before sending seed traffic.
+For an end-to-end seed run, add `--send-test --post-feedback` with `DEFAULT_FROM_EMAIL`,
+`SEED_EMAIL`, `BASE_URL`, and `MANAGED_SMTP_FEEDBACK_SECRET` configured.
 
 ## Bounce Routing Boundary
 

@@ -13,6 +13,7 @@ DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 MTA_PREFLIGHT_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_preflight.py'
+MTA_SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_smoke.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
 PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
@@ -221,6 +222,126 @@ def test_managed_smtp_mta_preflight_reports_missing_requirements(tmp_path) -> No
     assert any('Missing directory for POSTFIX_SPOOL_DIR' in error for error in result['errors'])
     assert any('Missing TLS file for POSTFIX_TLS_CERT_FILE' in error for error in result['errors'])
     assert any('Missing DKIM private key for example.com' in error for error in result['errors'])
+
+
+def test_managed_smtp_mta_smoke_probes_starttls_with_injected_smtp() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+
+    class FakeSMTP:
+        instances = []
+
+        def __init__(self, timeout):
+            self.timeout = timeout
+            self.esmtp_features = {'starttls': '', '8bitmime': ''}
+            self.started_tls = False
+            self.quit_called = False
+            FakeSMTP.instances.append(self)
+
+        def connect(self, host, port):
+            self.host = host
+            self.port = port
+            return 220, b'mx.example.com ESMTP Postfix'
+
+        def ehlo(self, name):
+            self.ehlo_name = name
+            return 250, b'mx.example.com'
+
+        def starttls(self, context=None):
+            self.started_tls = True
+            return 220, b'2.0.0 Ready to start TLS'
+
+        def quit(self):
+            self.quit_called = True
+
+    result = module.smtp_probe(
+        'mx.example.com',
+        587,
+        ehlo_name='email-engine-test',
+        require_starttls=True,
+        starttls_handshake=True,
+        timeout=5,
+        smtp_factory=FakeSMTP,
+    )
+
+    assert result['ok'] is True
+    assert result['banner_code'] == 220
+    assert result['has_starttls'] is True
+    assert result['starttls_code'] == 220
+    assert FakeSMTP.instances[0].started_tls is True
+    assert FakeSMTP.instances[0].quit_called is True
+
+
+def test_managed_smtp_mta_smoke_reports_missing_starttls() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+
+    class FakeSMTP:
+        def __init__(self, timeout):
+            self.esmtp_features = {}
+
+        def connect(self, host, port):
+            return 220, b'mx.example.com ESMTP Postfix'
+
+        def ehlo(self, name):
+            return 250, b'mx.example.com'
+
+        def quit(self):
+            pass
+
+    result = module.smtp_probe(
+        'mx.example.com',
+        587,
+        require_starttls=True,
+        smtp_factory=FakeSMTP,
+    )
+
+    assert result['ok'] is False
+    assert result['has_starttls'] is False
+    assert result['error'] == 'SMTP server did not advertise STARTTLS'
+
+
+def test_managed_smtp_mta_smoke_builds_message_and_signed_feedback_contract() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+    message = module.build_test_message(
+        'sender@example.com',
+        'seed@example.net',
+        'Smoke',
+        'Hello',
+    )
+    payload = module.build_feedback_payload('seed@example.net', 'queue-id-123')
+    body = b'[{"ok":true}]'
+    headers = module.sign_feedback('secret', body, timestamp='1718040000')
+
+    assert message['X-Email-Engine-Smoke'] == 'managed_smtp_mta_smoke'
+    assert payload[0]['metadata_json']['source'] == 'managed_smtp_mta_smoke'
+    assert payload[0]['event'] == 'delivered'
+    assert headers['X-Email-Engine-Timestamp'] == '1718040000'
+    assert headers['X-Email-Engine-Signature']
+
+
+def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
+    source = MTA_SMOKE_SCRIPT.read_text()
+    readme = (INFRA / 'README.md').read_text()
+    deployment = (ROOT / 'docs' / 'DEPLOYMENT.md').read_text()
+    hardening = PRODUCTION_HARDENING.read_text()
+
+    expected_tokens = [
+        'managed_smtp_mta_smoke',
+        'smtplib.SMTP',
+        'starttls',
+        'X-Email-Engine-Smoke',
+        '/api/v1/delivery/managed-smtp/feedback',
+        'X-Email-Engine-Signature',
+        'MANAGED_SMTP_FEEDBACK_SECRET',
+        'require-starttls',
+        'send-test',
+        'post-feedback',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+    assert 'managed_smtp_mta_smoke.py' in readme
+    assert 'managed_smtp_mta_smoke.py' in deployment
+    assert 'managed_smtp_mta_smoke.py' in hardening
 
 
 def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:

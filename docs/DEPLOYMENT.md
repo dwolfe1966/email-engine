@@ -145,6 +145,19 @@ Mount Postfix spool, logs, inbound DSNs, DSN archive, and DSN quarantine on dura
 `MANAGED_SMTP_DSN_ARCHIVE_DIR`, and `MANAGED_SMTP_DSN_QUARANTINE_DIR`.
 Run `python scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example`
 on the MTA host before starting the production compose stack.
+After the production MTA is running, verify the public submission path and STARTTLS handshake:
+
+```bash
+python scripts/managed_smtp_mta_smoke.py \
+  --host smtp.example.com \
+  --port 587 \
+  --require-starttls \
+  --starttls-handshake \
+  --json
+```
+
+For a seed-send plus feedback-ingestion smoke, add `--send-test --post-feedback` with
+`DEFAULT_FROM_EMAIL`, `SEED_EMAIL`, `BASE_URL`, and `MANAGED_SMTP_FEEDBACK_SECRET` configured.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

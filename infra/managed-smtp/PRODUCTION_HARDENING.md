@@ -78,10 +78,12 @@ Before raising production volume:
 
 1. `scripts/managed_smtp_mta_preflight.py --env-file infra/managed-smtp/production.env.example`
    passes on the MTA host.
-2. DNS authentication verification passes.
-3. Reputation dashboard is clear.
-4. No active compliance hold exists.
-5. Blocklist scan has no hits.
-6. DSN ingestion, quarantine check, and log feedback jobs are running.
-7. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
-8. Emergency pause/resume procedures are tested by an operator.
+2. `scripts/managed_smtp_mta_smoke.py --host <mta-host> --port 587 --require-starttls
+   --starttls-handshake` passes against the running production MTA.
+3. DNS authentication verification passes.
+4. Reputation dashboard is clear.
+5. No active compliance hold exists.
+6. Blocklist scan has no hits.
+7. DSN ingestion, quarantine check, and log feedback jobs are running.
+8. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
+9. Emergency pause/resume procedures are tested by an operator.

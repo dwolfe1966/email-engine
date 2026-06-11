@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-10 — Managed SMTP production MTA smoke
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_mta_smoke.py`.
+- The script verifies a running managed-SMTP MTA banner, EHLO features, required STARTTLS
+  advertisement, optional STARTTLS handshake, optional SMTP test submission, and optional signed
+  feedback ingestion.
+- Deployment, hardening, and managed-SMTP docs now place the smoke check after production compose
+  startup and before seed traffic.
+
+### Why
+
+The preflight validates filesystem/env state before startup. Operators also need a post-start
+network smoke check that proves the public submission path and feedback loop are reachable.
+
+### What needs to happen next
+
+- Add DKIM-signature verification to the post-start smoke path after a seed message can be captured
+  from a controlled mailbox or test inbox.
+
+### Compatibility notes
+
+- No migration is required. The script defaults to read-only SMTP probing unless `--send-test` or
+  `--post-feedback` is explicitly supplied.
+
+---
+
 ## 2026-06-10 — Managed SMTP production MTA preflight
 
 **Pushed by:** Codex

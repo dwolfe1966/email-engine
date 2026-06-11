@@ -544,3 +544,5 @@ Recommended twenty-ninth code slice:
 8. Add Postfix TLS certificate mount/configuration support. **Done.**
 9. Add production Postfix log/spool and DSN Maildir host mounts. **Done.**
 10. Add production MTA preflight validation for env vars, mounts, TLS, and DKIM keys. **Done.**
+11. Add production MTA smoke validation for SMTP banner, EHLO, STARTTLS, optional test submission,
+    and optional signed feedback ingestion. **Done.**
