@@ -153,6 +153,7 @@ python scripts/managed_smtp_mta_smoke.py \
   --port 587 \
   --require-starttls \
   --starttls-handshake \
+  --post-readiness \
   --json
 ```
 
@@ -174,6 +175,8 @@ python scripts/managed_smtp_mta_smoke.py \
 
 The `--verify-dkim-crypto` option uses `dkimpy` and DNS to verify the actual signature, not just
 the visible `DKIM-Signature` tags.
+Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to publish the smoke
+result into the ESP Delivery Manager.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

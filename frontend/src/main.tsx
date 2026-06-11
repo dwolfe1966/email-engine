@@ -625,6 +625,18 @@ type ProviderFeedbackEventRead = {
   received_at: string;
 };
 
+type ManagedSmtpReadinessCheckRead = {
+  id: string;
+  source: string;
+  check_type: string;
+  status: string;
+  domain: string | null;
+  host: string | null;
+  summary: string | null;
+  result_json: Record<string, unknown>;
+  created_at: string;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9531,6 +9543,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
   const [providerFeedbackEvents, setProviderFeedbackEvents] = useState<ProviderFeedbackEventRead[]>([]);
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
+  const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
+  const [readinessCheckTotal, setReadinessCheckTotal] = useState(0);
   const [feedbackFilters, setFeedbackFilters] = useState({
     provider: '',
     source: '',
@@ -9582,6 +9596,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
+  const readinessWarningCount = readinessChecks.filter((check) => check.status !== 'ok').length;
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9885,6 +9900,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       setProviderFeedbackTotal(data.total || 0);
       const warningCount = (data.items || []).filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
       return `Loaded ${formatInt(data.items?.length || 0)} provider feedback event(s), ${formatInt(warningCount)} requiring delivery review.`;
+    });
+  }
+
+  async function loadReadinessChecks() {
+    await runDeliveryOperation('Loading managed SMTP readiness checks', async () => {
+      const data = await fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>('/api/v1/managed-smtp/readiness-checks/list?limit=25&offset=0');
+      setReadinessChecks(data.items || []);
+      setReadinessCheckTotal(data.total || 0);
+      const warningCount = (data.items || []).filter((check) => check.status !== 'ok').length;
+      return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(warningCount)} needing review.`;
     });
   }
 
@@ -10251,6 +10276,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={loadTrackingLinks} disabled={busy || !selectedRecordId}>Tracking Links</button>
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
           <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+          <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
           <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
         </div>
@@ -10326,6 +10352,57 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <div className="ai-empty-state">
             <strong>No delivery attempt audit loaded</strong>
             <span>Load Attempt Audit after processing queues or selecting a record to inspect claim-blocked and dead-letter rows.</span>
+          </div>
+        )}
+      </section>
+      <section className="panel full-span provider-feedback-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Managed SMTP Readiness</h2>
+            <span className="muted">Published MTA smoke, STARTTLS, DKIM, and feedback-loop checks from managed SMTP hosts.</span>
+          </div>
+          <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
+        </div>
+        {readinessChecks.length ? (
+          <>
+            <div className="delivery-triage-grid">
+              <article className={readinessWarningCount ? 'warn' : 'good'}>
+                <span>Loaded checks</span>
+                <strong>{formatInt(readinessChecks.length)}</strong>
+                <small>{formatInt(readinessCheckTotal)} readiness check(s) retained.</small>
+              </article>
+              <article className={readinessWarningCount ? 'warn' : 'good'}>
+                <span>Needs review</span>
+                <strong>{formatInt(readinessWarningCount)}</strong>
+                <small>Failed or warning readiness checks.</small>
+              </article>
+            </div>
+            <div className="provider-feedback-list">
+              {readinessChecks.slice(0, 8).map((check) => (
+                <article className={check.status === 'ok' ? 'good' : 'warn'} key={check.id}>
+                  <div>
+                    <span>{check.source} / {check.check_type}</span>
+                    <strong>{check.summary || check.status}</strong>
+                  </div>
+                  <small>{check.created_at}</small>
+                  <dl>
+                    <div><dt>status</dt><dd>{check.status}</dd></div>
+                    <div><dt>domain</dt><dd>{check.domain || '-'}</dd></div>
+                    <div><dt>host</dt><dd>{check.host || '-'}</dd></div>
+                    <div><dt>check</dt><dd>{check.id.slice(0, 8)}</dd></div>
+                  </dl>
+                  <details>
+                    <summary>Readiness result</summary>
+                    <pre className="json-preview">{JSON.stringify(check.result_json, null, 2)}</pre>
+                  </details>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="ai-empty-state">
+            <strong>No managed SMTP readiness checks loaded</strong>
+            <span>Load SMTP Readiness after publishing smoke results from the managed MTA host.</span>
           </div>
         )}
       </section>

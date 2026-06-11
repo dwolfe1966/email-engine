@@ -1008,6 +1008,23 @@ class ProviderFeedbackEventRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class ManagedSmtpReadinessCheckCreate(BaseModel):
+    source: str = 'managed_smtp_mta_smoke'
+    check_type: str = 'mta_smoke'
+    status: str
+    domain: str | None = None
+    host: str | None = None
+    summary: str | None = None
+    result_json: JsonObject = Field(default_factory=dict)
+
+
+class ManagedSmtpReadinessCheckRead(ManagedSmtpReadinessCheckCreate):
+    id: UUID
+    created_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

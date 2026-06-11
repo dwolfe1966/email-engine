@@ -148,6 +148,8 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFeedbackEvent,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpReadinessCheckCreate,
+    ManagedSmtpReadinessCheckRead,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -193,6 +195,7 @@ from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
+from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
@@ -3470,6 +3473,68 @@ def list_provider_feedback_events(
             event_name=event_name,
             email=email,
             provider_message_id=provider_message_id,
+        ),
+    }
+
+
+@router.post(
+    '/delivery/managed-smtp/readiness-checks',
+    response_model=ManagedSmtpReadinessCheckRead,
+)
+async def create_managed_smtp_readiness_check(
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> ManagedSmtpReadinessCheckRead:
+    raw_body = await request.body()
+    try:
+        ManagedSmtpFeedbackVerifier(settings).verify(
+            raw_body,
+            request.headers.get(ManagedSmtpFeedbackVerifier.signature_header),
+            request.headers.get(ManagedSmtpFeedbackVerifier.timestamp_header),
+        )
+    except WebhookSignatureError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    try:
+        payload = ManagedSmtpReadinessCheckCreate.model_validate_json(raw_body)
+        return ManagedSmtpReadinessService(db).create(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    '/managed-smtp/readiness-checks/list',
+    response_model=ListResponse[ManagedSmtpReadinessCheckRead],
+)
+def list_managed_smtp_readiness_checks(
+    db: DbSession,
+    source: str | None = None,
+    check_type: str | None = None,
+    status: str | None = None,
+    domain: str | None = None,
+    host: str | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = ManagedSmtpReadinessService(db)
+    return {
+        'items': service.list_checks(
+            source=source,
+            check_type=check_type,
+            status=status,
+            domain=domain,
+            host=host,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_checks(
+            source=source,
+            check_type=check_type,
+            status=status,
+            domain=domain,
+            host=host,
         ),
     }
 

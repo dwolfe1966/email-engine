@@ -7,7 +7,9 @@ from email_platform.models.entities import (
     SuppressionReason,
 )
 from email_platform.schemas.contracts import ManagedSmtpFeedbackEvent
+from email_platform.schemas.contracts import ManagedSmtpReadinessCheckCreate
 from email_platform.services.feedback import DeliveryFeedback, FeedbackIngestionService
+from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 
 
 class FakeDb:
@@ -31,6 +33,22 @@ class FakeFeedbackListDb:
     def scalar(self, statement):
         self.statements.append(statement)
         return self.total
+
+
+class FakeReadinessDb:
+    def __init__(self) -> None:
+        self.rows = []
+        self.committed = False
+        self.refreshed = None
+
+    def add(self, row) -> None:
+        self.rows.append(row)
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def refresh(self, row) -> None:
+        self.refreshed = row
 
 
 class FakeEventService:
@@ -110,6 +128,31 @@ def test_feedback_ingestion_updates_record_events_and_suppressions() -> None:
     assert service.suppressions.payloads[0]['reason'] == SuppressionReason.hard_bounce
     assert service.suppressions.payloads[0]['contact_id'] == record.contact_id
     assert len(service.raw_feedback) == 1
+
+
+def test_managed_smtp_readiness_service_normalizes_and_persists_check() -> None:
+    db = FakeReadinessDb()
+    service = ManagedSmtpReadinessService(db)
+
+    check = service.create(
+        ManagedSmtpReadinessCheckCreate(
+            source=' managed_smtp_mta_smoke ',
+            check_type='mta_smoke',
+            status='OK',
+            domain='Example.COM',
+            host='SMTP.Example.COM',
+            summary='Ready',
+            result_json={'ok': True},
+        )
+    )
+
+    assert check.status == 'ok'
+    assert check.domain == 'example.com'
+    assert check.host == 'smtp.example.com'
+    assert check.result_json == {'ok': True}
+    assert db.rows == [check]
+    assert db.committed is True
+    assert db.refreshed is check
 
 
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:

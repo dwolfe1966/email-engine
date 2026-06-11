@@ -307,6 +307,59 @@ def post_feedback_smoke(
         return result
 
 
+def build_readiness_payload(
+    steps: list[dict[str, Any]],
+    *,
+    host: str | None = None,
+    domain: str | None = None,
+    source: str = 'managed_smtp_mta_smoke',
+    check_type: str = 'mta_smoke',
+) -> dict[str, Any]:
+    ok = all(step.get('ok') for step in steps)
+    failed_steps = [str(step.get('name', 'unknown')) for step in steps if not step.get('ok')]
+    summary = 'Managed SMTP smoke passed' if ok else f'Managed SMTP smoke failed: {", ".join(failed_steps)}'
+    return {
+        'source': source,
+        'check_type': check_type,
+        'status': 'ok' if ok else 'failed',
+        'domain': domain,
+        'host': host,
+        'summary': summary,
+        'result_json': {'ok': ok, 'steps': steps},
+    }
+
+
+def post_readiness_check(
+    base_url: str,
+    secret: str,
+    payload: dict[str, Any],
+    *,
+    timeout: float = 15,
+) -> dict[str, Any]:
+    body = json.dumps(payload, separators=(',', ':')).encode('utf-8')
+    request = urllib.request.Request(
+        f'{base_url.rstrip("/")}/api/v1/delivery/managed-smtp/readiness-checks',
+        data=body,
+        method='POST',
+        headers={
+            'Content-Type': 'application/json',
+            **sign_feedback(secret, body),
+        },
+    )
+    result: dict[str, Any] = {'name': 'readiness_publish', 'ok': False, 'base_url': base_url}
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            response_body = response.read().decode('utf-8')
+            result.update({'ok': 200 <= response.status < 300, 'status': response.status, 'body': response_body})
+            return result
+    except urllib.error.HTTPError as exc:
+        result.update({'status': exc.code, 'body': exc.read().decode('utf-8'), 'error': 'HTTP error'})
+        return result
+    except OSError as exc:
+        result['error'] = str(exc)
+        return result
+
+
 def _decode_smtp_value(value: Any) -> str:
     if isinstance(value, bytes):
         return value.decode('utf-8', errors='replace')
@@ -338,6 +391,7 @@ def main() -> int:
     parser.add_argument('--subject', default='Managed SMTP MTA smoke')
     parser.add_argument('--body', default='Managed SMTP MTA smoke test from Email Engine.')
     parser.add_argument('--post-feedback', action='store_true')
+    parser.add_argument('--post-readiness', action='store_true')
     parser.add_argument('--base-url', default=os.environ.get('BASE_URL', 'http://localhost:8000'))
     parser.add_argument('--feedback-secret', default=os.environ.get('MANAGED_SMTP_FEEDBACK_SECRET'))
     parser.add_argument('--provider-message-id', default=f'managed-smtp-mta-smoke-{int(time.time())}')
@@ -350,14 +404,23 @@ def main() -> int:
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()
 
-    if args.skip_smtp_probe and not args.send_test and not args.post_feedback and not args.verify_dkim_message:
+    if (
+        args.skip_smtp_probe
+        and not args.send_test
+        and not args.post_feedback
+        and not args.post_readiness
+        and not args.verify_dkim_message
+    ):
         print('--skip-smtp-probe requires at least one other smoke step', file=sys.stderr)
         return 2
     if args.send_test and (not args.from_email or not args.to_email):
         print('--send-test requires --from-email and --to-email, or DEFAULT_FROM_EMAIL and SEED_EMAIL', file=sys.stderr)
         return 2
-    if args.post_feedback and (not args.feedback_secret or not args.to_email):
-        print('--post-feedback requires MANAGED_SMTP_FEEDBACK_SECRET and --to-email or SEED_EMAIL', file=sys.stderr)
+    if (args.post_feedback or args.post_readiness) and not args.feedback_secret:
+        print('--post-feedback/--post-readiness require MANAGED_SMTP_FEEDBACK_SECRET', file=sys.stderr)
+        return 2
+    if args.post_feedback and not args.to_email:
+        print('--post-feedback requires --to-email or SEED_EMAIL', file=sys.stderr)
         return 2
 
     steps = []
@@ -403,6 +466,20 @@ def main() -> int:
                 args.feedback_secret,
                 email=args.to_email,
                 provider_message_id=args.provider_message_id,
+                timeout=args.timeout,
+            )
+        )
+    if args.post_readiness:
+        readiness_payload = build_readiness_payload(
+            steps,
+            host=args.host,
+            domain=args.dkim_domain,
+        )
+        steps.append(
+            post_readiness_check(
+                args.base_url,
+                args.feedback_secret,
+                readiness_payload,
                 timeout=args.timeout,
             )
         )

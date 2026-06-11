@@ -20,6 +20,37 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness evidence in Delivery Manager
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added migration `0022_managed_smtp_readiness_checks`.
+- Added durable `managed_smtp_readiness_checks` records plus signed publish endpoint
+  `/api/v1/delivery/managed-smtp/readiness-checks`.
+- Added operator list endpoint `/api/v1/managed-smtp/readiness-checks/list`.
+- Extended `scripts/managed_smtp_mta_smoke.py` with `--post-readiness`.
+- Delivery Manager now includes a Managed SMTP Readiness panel for published MTA smoke results.
+
+### Why
+
+Managed-SMTP host checks should not live only in CLI output. Operators need ESP-visible evidence of
+STARTTLS, DKIM, feedback-loop, and MTA smoke status before scaling production traffic.
+
+### What needs to happen next
+
+- Run `alembic upgrade head` against the Vercel/Neon production database after deployment.
+- Consider adding filters and trend rollups once readiness records accumulate.
+
+### Compatibility notes
+
+- Requires migration `0022_managed_smtp_readiness_checks`.
+- The publish endpoint uses the existing managed-SMTP HMAC secret contract.
+
+---
+
 ## 2026-06-11 — Managed SMTP cryptographic DKIM smoke
 
 **Pushed by:** Codex

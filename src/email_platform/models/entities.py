@@ -623,6 +623,20 @@ class ProviderFeedbackEvent(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class ManagedSmtpReadinessCheck(Base):
+    __tablename__ = 'managed_smtp_readiness_checks'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    source: Mapped[str] = mapped_column(String(100), index=True)
+    check_type: Mapped[str] = mapped_column(String(100), index=True)
+    status: Mapped[str] = mapped_column(String(40), index=True)
+    domain: Mapped[str | None] = mapped_column(String(255), index=True)
+    host: Mapped[str | None] = mapped_column(String(255), index=True)
+    summary: Mapped[str | None] = mapped_column(String(500))
+    result_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class User(Base):
     """Operator user. Multi-tenant identity model will layer on top of this
     later (see PRODUCT_BACKLOG.md P0). For the single-tenant scaffold, every

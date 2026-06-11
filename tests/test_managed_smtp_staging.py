@@ -318,6 +318,27 @@ def test_managed_smtp_mta_smoke_builds_message_and_signed_feedback_contract() ->
     assert headers['X-Email-Engine-Signature']
 
 
+def test_managed_smtp_mta_smoke_builds_readiness_payload() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+
+    payload = module.build_readiness_payload(
+        [
+            {'name': 'smtp_probe', 'ok': True},
+            {'name': 'dkim_message', 'ok': False, 'error': 'bad signature'},
+        ],
+        host='smtp.example.com',
+        domain='example.com',
+    )
+
+    assert payload['source'] == 'managed_smtp_mta_smoke'
+    assert payload['check_type'] == 'mta_smoke'
+    assert payload['status'] == 'failed'
+    assert payload['domain'] == 'example.com'
+    assert payload['host'] == 'smtp.example.com'
+    assert payload['result_json']['ok'] is False
+    assert payload['result_json']['steps'][1]['name'] == 'dkim_message'
+
+
 def test_managed_smtp_mta_smoke_verifies_captured_dkim_message() -> None:
     module = load_script_module(MTA_SMOKE_SCRIPT)
     raw_message = b"""DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=ee1;
@@ -428,6 +449,8 @@ def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
         'require-starttls',
         'send-test',
         'post-feedback',
+        'post-readiness',
+        '/api/v1/delivery/managed-smtp/readiness-checks',
         'DKIM-Signature',
         'verify-dkim-message',
         'dkim-domain',
