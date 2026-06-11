@@ -174,6 +174,8 @@ def verify_captured_dkim_message(
     expected_domain: str | None = None,
     expected_selector: str | None = None,
     require_from_domain: bool = False,
+    verify_crypto: bool = False,
+    dkim_verifier: Callable[[bytes], bool] | None = None,
 ) -> dict[str, Any]:
     message = BytesParser(policy=policy.default).parsebytes(raw_message)
     from_header = message.get('From', '')
@@ -196,6 +198,7 @@ def verify_captured_dkim_message(
         'expected_domain': expected_domain,
         'expected_selector': expected_selector,
         'require_from_domain': require_from_domain,
+        'verify_crypto': verify_crypto,
         'signature_count': len(signatures),
         'signatures': signatures,
     }
@@ -214,6 +217,12 @@ def verify_captured_dkim_message(
             continue
         if require_from_domain and signature_domain != from_domain:
             continue
+        if verify_crypto:
+            crypto_result = verify_dkim_crypto(raw_message, dkim_verifier=dkim_verifier)
+            result['crypto_verification'] = crypto_result
+            if not crypto_result['ok']:
+                result['error'] = crypto_result['error']
+                return result
         result['ok'] = True
         result['matched_signature'] = signature
         return result
@@ -227,6 +236,29 @@ def verify_captured_dkim_message(
         requirements.append('d=From domain')
     result['error'] = 'No DKIM signature matched required tags: ' + ', '.join(requirements)
     return result
+
+
+def verify_dkim_crypto(
+    raw_message: bytes,
+    *,
+    dkim_verifier: Callable[[bytes], bool] | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {'ok': False, 'library': 'dkimpy'}
+    try:
+        if dkim_verifier is None:
+            try:
+                import dkim  # type: ignore[import-not-found]
+            except ModuleNotFoundError:
+                result['error'] = 'dkimpy is required for cryptographic DKIM verification'
+                return result
+            dkim_verifier = dkim.verify
+        result['ok'] = bool(dkim_verifier(raw_message))
+        if not result['ok']:
+            result['error'] = 'Cryptographic DKIM verification failed'
+        return result
+    except Exception as exc:
+        result['error'] = f'Cryptographic DKIM verification errored: {exc}'
+        return result
 
 
 def sign_feedback(secret: str, body: bytes, timestamp: str | None = None) -> dict[str, str]:
@@ -314,6 +346,7 @@ def main() -> int:
     parser.add_argument('--dkim-domain', default=os.environ.get('DKIM_DOMAIN'))
     parser.add_argument('--dkim-selector', default=os.environ.get('DKIM_SELECTOR') or os.environ.get('OPENDKIM_SELECTOR'))
     parser.add_argument('--require-dkim-from-domain', action='store_true')
+    parser.add_argument('--verify-dkim-crypto', action='store_true')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()
 
@@ -346,6 +379,7 @@ def main() -> int:
                 expected_domain=args.dkim_domain,
                 expected_selector=args.dkim_selector,
                 require_from_domain=args.require_dkim_from_domain,
+                verify_crypto=args.verify_dkim_crypto,
             )
         )
     if args.send_test:

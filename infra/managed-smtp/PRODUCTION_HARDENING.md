@@ -82,7 +82,7 @@ Before raising production volume:
    --starttls-handshake` passes against the running production MTA.
 3. A captured seed message passes `scripts/managed_smtp_mta_smoke.py --skip-smtp-probe
    --verify-dkim-message <seed.eml> --dkim-domain <domain> --dkim-selector <selector>
-   --require-dkim-from-domain`.
+   --require-dkim-from-domain --verify-dkim-crypto`.
 4. DNS authentication verification passes.
 5. Reputation dashboard is clear.
 6. No active compliance hold exists.

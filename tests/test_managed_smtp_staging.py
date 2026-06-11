@@ -343,6 +343,54 @@ Hello
     assert result['from_domain'] == 'example.com'
 
 
+def test_managed_smtp_mta_smoke_supports_cryptographic_dkim_verifier() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+    raw_message = b"""DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=ee1; b=abc
+From: sender@example.com
+
+Hello
+"""
+    seen_messages = []
+
+    def fake_verifier(message):
+        seen_messages.append(message)
+        return True
+
+    result = module.verify_captured_dkim_message(
+        raw_message,
+        expected_domain='example.com',
+        expected_selector='ee1',
+        verify_crypto=True,
+        dkim_verifier=fake_verifier,
+    )
+
+    assert result['ok'] is True
+    assert result['crypto_verification']['ok'] is True
+    assert result['crypto_verification']['library'] == 'dkimpy'
+    assert seen_messages == [raw_message]
+
+
+def test_managed_smtp_mta_smoke_fails_closed_on_crypto_dkim_failure() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+    raw_message = b"""DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=ee1; b=abc
+From: sender@example.com
+
+Hello
+"""
+
+    result = module.verify_captured_dkim_message(
+        raw_message,
+        expected_domain='example.com',
+        expected_selector='ee1',
+        verify_crypto=True,
+        dkim_verifier=lambda message: False,
+    )
+
+    assert result['ok'] is False
+    assert result['crypto_verification']['ok'] is False
+    assert result['error'] == 'Cryptographic DKIM verification failed'
+
+
 def test_managed_smtp_mta_smoke_reports_missing_or_mismatched_dkim() -> None:
     module = load_script_module(MTA_SMOKE_SCRIPT)
     missing = module.verify_captured_dkim_message(b'From: sender@example.com\n\nHello')
@@ -386,6 +434,8 @@ def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
         'dkim-selector',
         'require-dkim-from-domain',
         'skip-smtp-probe',
+        'verify-dkim-crypto',
+        'dkimpy',
     ]
     for token in expected_tokens:
         assert token in source

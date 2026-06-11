@@ -155,8 +155,13 @@ python scripts/managed_smtp_mta_smoke.py \
   --dkim-domain example.com \
   --dkim-selector ee1 \
   --require-dkim-from-domain \
+  --verify-dkim-crypto \
   --json
 ```
+
+`--verify-dkim-crypto` uses `dkimpy` to validate the captured message against DNS-published DKIM
+public keys. Without it, the script still fails closed on missing or mismatched `DKIM-Signature`
+domain/selector tags, but it does not prove the cryptographic signature.
 
 ## Bounce Routing Boundary
 

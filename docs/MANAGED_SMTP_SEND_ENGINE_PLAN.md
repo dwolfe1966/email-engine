@@ -547,3 +547,4 @@ Recommended twenty-ninth code slice:
 11. Add production MTA smoke validation for SMTP banner, EHLO, STARTTLS, optional test submission,
     and optional signed feedback ingestion. **Done.**
 12. Add captured seed-message DKIM signature domain/selector smoke validation. **Done.**
+13. Add optional cryptographic DKIM verification for captured seed-message smoke checks. **Done.**

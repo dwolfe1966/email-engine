@@ -168,8 +168,12 @@ python scripts/managed_smtp_mta_smoke.py \
   --dkim-domain example.com \
   --dkim-selector ee1 \
   --require-dkim-from-domain \
+  --verify-dkim-crypto \
   --json
 ```
+
+The `--verify-dkim-crypto` option uses `dkimpy` and DNS to verify the actual signature, not just
+the visible `DKIM-Signature` tags.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

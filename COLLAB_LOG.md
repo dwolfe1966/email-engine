@@ -20,6 +20,35 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-11 — Managed SMTP cryptographic DKIM smoke
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `dkimpy` as a runtime dependency.
+- Extended `scripts/managed_smtp_mta_smoke.py` with `--verify-dkim-crypto` for DNS-backed
+  cryptographic DKIM verification of captured seed `.eml` messages.
+- Deployment, hardening, and managed-SMTP docs now show the stronger DKIM smoke command.
+
+### Why
+
+The prior captured-message smoke confirmed visible DKIM `d=` and `s=` tags. Production warmup
+should also prove the signature validates against DNS-published public keys before scaling volume.
+
+### What needs to happen next
+
+- Feed these smoke results into a durable operator-visible readiness record if we want the ESP UI
+  to show MTA host checks alongside provider feedback and reputation state.
+
+### Compatibility notes
+
+- No database migration is required. Runtime installs now include `dkimpy`; existing delivery APIs
+  and UI contracts are unchanged.
+
+---
+
 ## 2026-06-11 — Managed SMTP captured DKIM smoke
 
 **Pushed by:** Codex
