@@ -10,7 +10,11 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from email import policy
 from email.message import EmailMessage
+from email.parser import BytesParser
+from email.utils import parseaddr
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -152,6 +156,79 @@ def build_feedback_payload(email: str, provider_message_id: str) -> list[dict[st
     ]
 
 
+def parse_dkim_signature(value: str) -> dict[str, str]:
+    tags: dict[str, str] = {}
+    for raw_part in value.replace('\r\n', '\n').replace('\n', '').split(';'):
+        if '=' not in raw_part:
+            continue
+        key, tag_value = raw_part.split('=', 1)
+        key = key.strip().lower()
+        if key:
+            tags[key] = tag_value.strip()
+    return tags
+
+
+def verify_captured_dkim_message(
+    raw_message: bytes,
+    *,
+    expected_domain: str | None = None,
+    expected_selector: str | None = None,
+    require_from_domain: bool = False,
+) -> dict[str, Any]:
+    message = BytesParser(policy=policy.default).parsebytes(raw_message)
+    from_header = message.get('From', '')
+    from_email = parseaddr(from_header)[1]
+    from_domain = from_email.rsplit('@', 1)[1].lower() if '@' in from_email else None
+    signatures = [
+        {
+            'domain': tags.get('d'),
+            'selector': tags.get('s'),
+            'identity': tags.get('i'),
+            'algorithm': tags.get('a'),
+        }
+        for tags in (parse_dkim_signature(value) for value in message.get_all('DKIM-Signature', []))
+    ]
+
+    result: dict[str, Any] = {
+        'name': 'dkim_message',
+        'ok': False,
+        'from_domain': from_domain,
+        'expected_domain': expected_domain,
+        'expected_selector': expected_selector,
+        'require_from_domain': require_from_domain,
+        'signature_count': len(signatures),
+        'signatures': signatures,
+    }
+    if not signatures:
+        result['error'] = 'Captured message does not contain a DKIM-Signature header'
+        return result
+
+    expected_domain = expected_domain.lower() if expected_domain else None
+    expected_selector = expected_selector.lower() if expected_selector else None
+    for signature in signatures:
+        signature_domain = signature.get('domain').lower() if signature.get('domain') else None
+        signature_selector = signature.get('selector').lower() if signature.get('selector') else None
+        if expected_domain and signature_domain != expected_domain:
+            continue
+        if expected_selector and signature_selector != expected_selector:
+            continue
+        if require_from_domain and signature_domain != from_domain:
+            continue
+        result['ok'] = True
+        result['matched_signature'] = signature
+        return result
+
+    requirements: list[str] = []
+    if expected_domain:
+        requirements.append(f'd={expected_domain}')
+    if expected_selector:
+        requirements.append(f's={expected_selector}')
+    if require_from_domain:
+        requirements.append('d=From domain')
+    result['error'] = 'No DKIM signature matched required tags: ' + ', '.join(requirements)
+    return result
+
+
 def sign_feedback(secret: str, body: bytes, timestamp: str | None = None) -> dict[str, str]:
     timestamp = timestamp or str(int(time.time()))
     signature = hmac.new(
@@ -232,9 +309,17 @@ def main() -> int:
     parser.add_argument('--base-url', default=os.environ.get('BASE_URL', 'http://localhost:8000'))
     parser.add_argument('--feedback-secret', default=os.environ.get('MANAGED_SMTP_FEEDBACK_SECRET'))
     parser.add_argument('--provider-message-id', default=f'managed-smtp-mta-smoke-{int(time.time())}')
+    parser.add_argument('--skip-smtp-probe', action='store_true')
+    parser.add_argument('--verify-dkim-message')
+    parser.add_argument('--dkim-domain', default=os.environ.get('DKIM_DOMAIN'))
+    parser.add_argument('--dkim-selector', default=os.environ.get('DKIM_SELECTOR') or os.environ.get('OPENDKIM_SELECTOR'))
+    parser.add_argument('--require-dkim-from-domain', action='store_true')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()
 
+    if args.skip_smtp_probe and not args.send_test and not args.post_feedback and not args.verify_dkim_message:
+        print('--skip-smtp-probe requires at least one other smoke step', file=sys.stderr)
+        return 2
     if args.send_test and (not args.from_email or not args.to_email):
         print('--send-test requires --from-email and --to-email, or DEFAULT_FROM_EMAIL and SEED_EMAIL', file=sys.stderr)
         return 2
@@ -242,16 +327,27 @@ def main() -> int:
         print('--post-feedback requires MANAGED_SMTP_FEEDBACK_SECRET and --to-email or SEED_EMAIL', file=sys.stderr)
         return 2
 
-    steps = [
-        smtp_probe(
-            args.host,
-            args.port,
-            ehlo_name=args.ehlo_name,
-            require_starttls=args.require_starttls,
-            starttls_handshake=args.starttls_handshake,
-            timeout=args.timeout,
+    steps = []
+    if not args.skip_smtp_probe:
+        steps.append(
+            smtp_probe(
+                args.host,
+                args.port,
+                ehlo_name=args.ehlo_name,
+                require_starttls=args.require_starttls,
+                starttls_handshake=args.starttls_handshake,
+                timeout=args.timeout,
+            )
         )
-    ]
+    if args.verify_dkim_message:
+        steps.append(
+            verify_captured_dkim_message(
+                Path(args.verify_dkim_message).read_bytes(),
+                expected_domain=args.dkim_domain,
+                expected_selector=args.dkim_selector,
+                require_from_domain=args.require_dkim_from_domain,
+            )
+        )
     if args.send_test:
         steps.append(
             smtp_submit(

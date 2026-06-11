@@ -80,10 +80,13 @@ Before raising production volume:
    passes on the MTA host.
 2. `scripts/managed_smtp_mta_smoke.py --host <mta-host> --port 587 --require-starttls
    --starttls-handshake` passes against the running production MTA.
-3. DNS authentication verification passes.
-4. Reputation dashboard is clear.
-5. No active compliance hold exists.
-6. Blocklist scan has no hits.
-7. DSN ingestion, quarantine check, and log feedback jobs are running.
-8. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
-9. Emergency pause/resume procedures are tested by an operator.
+3. A captured seed message passes `scripts/managed_smtp_mta_smoke.py --skip-smtp-probe
+   --verify-dkim-message <seed.eml> --dkim-domain <domain> --dkim-selector <selector>
+   --require-dkim-from-domain`.
+4. DNS authentication verification passes.
+5. Reputation dashboard is clear.
+6. No active compliance hold exists.
+7. Blocklist scan has no hits.
+8. DSN ingestion, quarantine check, and log feedback jobs are running.
+9. Provider feedback evidence UI shows retained MTA feedback events after seed sends.
+10. Emergency pause/resume procedures are tested by an operator.

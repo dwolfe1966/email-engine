@@ -158,6 +158,18 @@ python scripts/managed_smtp_mta_smoke.py \
 
 For a seed-send plus feedback-ingestion smoke, add `--send-test --post-feedback` with
 `DEFAULT_FROM_EMAIL`, `SEED_EMAIL`, `BASE_URL`, and `MANAGED_SMTP_FEEDBACK_SECRET` configured.
+After capturing the delivered seed message as RFC822/`.eml`, verify the DKIM signer stamped the
+expected domain and selector:
+
+```bash
+python scripts/managed_smtp_mta_smoke.py \
+  --skip-smtp-probe \
+  --verify-dkim-message /path/to/captured-seed.eml \
+  --dkim-domain example.com \
+  --dkim-selector ee1 \
+  --require-dkim-from-domain \
+  --json
+```
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

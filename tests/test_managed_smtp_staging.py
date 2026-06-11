@@ -318,6 +318,51 @@ def test_managed_smtp_mta_smoke_builds_message_and_signed_feedback_contract() ->
     assert headers['X-Email-Engine-Signature']
 
 
+def test_managed_smtp_mta_smoke_verifies_captured_dkim_message() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+    raw_message = b"""DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=ee1;
+ bh=abc; b=def
+From: Sender <sender@example.com>
+To: seed@example.net
+Subject: Smoke
+
+Hello
+"""
+
+    result = module.verify_captured_dkim_message(
+        raw_message,
+        expected_domain='example.com',
+        expected_selector='ee1',
+        require_from_domain=True,
+    )
+
+    assert result['ok'] is True
+    assert result['signature_count'] == 1
+    assert result['matched_signature']['domain'] == 'example.com'
+    assert result['matched_signature']['selector'] == 'ee1'
+    assert result['from_domain'] == 'example.com'
+
+
+def test_managed_smtp_mta_smoke_reports_missing_or_mismatched_dkim() -> None:
+    module = load_script_module(MTA_SMOKE_SCRIPT)
+    missing = module.verify_captured_dkim_message(b'From: sender@example.com\n\nHello')
+    mismatched = module.verify_captured_dkim_message(
+        b"""DKIM-Signature: v=1; a=rsa-sha256; d=other.example; s=ee2; b=abc
+From: sender@example.com
+
+Hello
+""",
+        expected_domain='example.com',
+        expected_selector='ee1',
+        require_from_domain=True,
+    )
+
+    assert missing['ok'] is False
+    assert missing['error'] == 'Captured message does not contain a DKIM-Signature header'
+    assert mismatched['ok'] is False
+    assert 'No DKIM signature matched required tags' in mismatched['error']
+
+
 def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
     source = MTA_SMOKE_SCRIPT.read_text()
     readme = (INFRA / 'README.md').read_text()
@@ -335,6 +380,12 @@ def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
         'require-starttls',
         'send-test',
         'post-feedback',
+        'DKIM-Signature',
+        'verify-dkim-message',
+        'dkim-domain',
+        'dkim-selector',
+        'require-dkim-from-domain',
+        'skip-smtp-probe',
     ]
     for token in expected_tokens:
         assert token in source

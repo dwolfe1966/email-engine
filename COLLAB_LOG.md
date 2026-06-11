@@ -20,6 +20,36 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-11 — Managed SMTP captured DKIM smoke
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Extended `scripts/managed_smtp_mta_smoke.py` with captured-message DKIM header validation.
+- Operators can pass `--verify-dkim-message <seed.eml>` with expected `--dkim-domain` and
+  `--dkim-selector`, and optionally require the DKIM `d=` tag to match the From domain.
+- Deployment, hardening, and managed-SMTP docs now include the captured seed-message DKIM check.
+
+### Why
+
+The MTA smoke path already checks the SMTP network boundary. Production warmup also needs a
+post-delivery check that confirms OpenDKIM stamped the expected outbound identity before volume
+increases.
+
+### What needs to happen next
+
+- Add cryptographic DKIM verification with DNS public-key lookup if we decide to add `dkimpy` or an
+  equivalent verifier dependency.
+
+### Compatibility notes
+
+- No migration is required. This is an optional smoke-script enhancement and does not change runtime
+  delivery behavior.
+
+---
+
 ## 2026-06-10 — Managed SMTP production MTA smoke
 
 **Pushed by:** Codex

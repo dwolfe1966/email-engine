@@ -27,7 +27,7 @@ observability, and blocklist monitoring.
 - `scripts/managed_smtp_dsn_feedback.py`: parses RFC822 DSN bounce messages from stdin, a file, or
   a Maildir into `ManagedSmtpFeedbackEvent` payloads.
 - `scripts/managed_smtp_mta_smoke.py`: checks a running production MTA banner, EHLO, STARTTLS,
-  optional test submission, and optional signed feedback ingestion.
+  optional test submission, captured-message DKIM headers, and optional signed feedback ingestion.
 
 ## Staging Flow
 
@@ -145,6 +145,18 @@ After the stack is running, run `scripts/managed_smtp_mta_smoke.py` against the 
 to verify the SMTP banner, EHLO capabilities, and STARTTLS handshake before sending seed traffic.
 For an end-to-end seed run, add `--send-test --post-feedback` with `DEFAULT_FROM_EMAIL`,
 `SEED_EMAIL`, `BASE_URL`, and `MANAGED_SMTP_FEEDBACK_SECRET` configured.
+After a seed message is captured from the destination mailbox, verify the signer stamped the
+expected domain and selector:
+
+```bash
+python scripts/managed_smtp_mta_smoke.py \
+  --skip-smtp-probe \
+  --verify-dkim-message /path/to/captured-seed.eml \
+  --dkim-domain example.com \
+  --dkim-selector ee1 \
+  --require-dkim-from-domain \
+  --json
+```
 
 ## Bounce Routing Boundary
 
