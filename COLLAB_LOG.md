@@ -70,6 +70,33 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness trend endpoint
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `/api/v1/managed-smtp/readiness-checks/trend`.
+- The trend response computes sample size, ok/warning/failed counts, ok/failure rates, recent
+  window comparison, and a trend label from existing readiness records.
+- Delivery Manager now shows Recent trend and Window comparison cards in Managed SMTP Readiness.
+
+### Why
+
+Operators need to see whether MTA smoke health is stabilizing or regressing, not only the latest
+individual readiness row.
+
+### What needs to happen next
+
+- Consider charting readiness trend history if the UI needs more than compact status cards.
+
+### Compatibility notes
+
+- No migration is required. The endpoint reads existing `managed_smtp_readiness_checks` rows.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness summary endpoint
 
 **Pushed by:** Codex

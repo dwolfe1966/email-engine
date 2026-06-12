@@ -218,6 +218,51 @@ def test_managed_smtp_readiness_summary_counts_latest_and_latest_success() -> No
     assert summary.latest_success.result_json == {'ok': True}
 
 
+def test_managed_smtp_readiness_trend_detects_regression() -> None:
+    def check(status: str):
+        return type(
+            'Check',
+            (),
+            {
+                'status': status,
+                'source': 'managed_smtp_mta_smoke',
+                'check_type': 'mta_smoke',
+                'domain': 'example.com',
+                'host': 'smtp.example.com',
+                'summary': status,
+                'result_json': {'ok': status == 'ok'},
+                'id': uuid4(),
+                'created_at': datetime.utcnow(),
+            },
+        )()
+
+    class FakeTrendService(ManagedSmtpReadinessService):
+        def __init__(self) -> None:
+            pass
+
+        def list_checks(self, **kwargs):
+            return [
+                check('failed'),
+                check('warning'),
+                check('ok'),
+                check('ok'),
+                check('ok'),
+                check('ok'),
+            ]
+
+    trend = FakeTrendService().trend(domain='example.com', host='smtp.example.com', limit=6)
+
+    assert trend.sample_size == 6
+    assert trend.ok_count == 4
+    assert trend.warning_count == 1
+    assert trend.failed_count == 1
+    assert trend.failure_rate == 2 / 6
+    assert trend.latest_window_failure_rate == 2 / 3
+    assert trend.previous_window_failure_rate == 0
+    assert trend.trend == 'regressing'
+    assert len(trend.recent_checks) == 6
+
+
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:
     service = FakeFeedbackIngestionService(record=None)
     feedback = DeliveryFeedback(

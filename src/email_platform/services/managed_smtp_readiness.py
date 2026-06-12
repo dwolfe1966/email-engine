@@ -7,6 +7,7 @@ from email_platform.models.entities import ManagedSmtpReadinessCheck
 from email_platform.schemas.contracts import (
     ManagedSmtpReadinessCheckCreate,
     ManagedSmtpReadinessSummaryRead,
+    ManagedSmtpReadinessTrendRead,
 )
 
 
@@ -124,6 +125,64 @@ class ManagedSmtpReadinessService:
             latest_check=latest_check,
             latest_success=latest_success,
         )
+
+    def trend(
+        self,
+        *,
+        source: str | None = None,
+        check_type: str | None = None,
+        domain: str | None = None,
+        host: str | None = None,
+        limit: int = 20,
+    ) -> ManagedSmtpReadinessTrendRead:
+        checks = self.list_checks(
+            source=source,
+            check_type=check_type,
+            domain=domain,
+            host=host,
+            limit=limit,
+            offset=0,
+        )
+        sample_size = len(checks)
+        ok_count = sum(1 for check in checks if check.status == 'ok')
+        warning_count = sum(1 for check in checks if check.status == 'warning')
+        failed_count = sum(1 for check in checks if check.status == 'failed')
+        latest_window = checks[: max(1, sample_size // 2)] if checks else []
+        previous_window = checks[len(latest_window) :] if checks else []
+        latest_failure_rate = self._failure_rate(latest_window)
+        previous_failure_rate = self._failure_rate(previous_window)
+        return ManagedSmtpReadinessTrendRead(
+            sample_size=sample_size,
+            ok_count=ok_count,
+            warning_count=warning_count,
+            failed_count=failed_count,
+            ok_rate=(ok_count / sample_size) if sample_size else 0.0,
+            failure_rate=((warning_count + failed_count) / sample_size) if sample_size else 0.0,
+            trend=self._trend_label(latest_failure_rate, previous_failure_rate, sample_size),
+            latest_window_failure_rate=latest_failure_rate,
+            previous_window_failure_rate=previous_failure_rate,
+            recent_checks=checks,
+        )
+
+    def _failure_rate(self, checks: list[ManagedSmtpReadinessCheck]) -> float:
+        if not checks:
+            return 0.0
+        failed = sum(1 for check in checks if check.status != 'ok')
+        return failed / len(checks)
+
+    def _trend_label(
+        self,
+        latest_failure_rate: float,
+        previous_failure_rate: float,
+        sample_size: int,
+    ) -> str:
+        if sample_size < 4:
+            return 'insufficient_data'
+        if latest_failure_rate < previous_failure_rate:
+            return 'improving'
+        if latest_failure_rate > previous_failure_rate:
+            return 'regressing'
+        return 'stable'
 
     def _latest_check(
         self,

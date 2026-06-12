@@ -646,6 +646,19 @@ type ManagedSmtpReadinessSummaryRead = {
   latest_success: ManagedSmtpReadinessCheckRead | null;
 };
 
+type ManagedSmtpReadinessTrendRead = {
+  sample_size: number;
+  ok_count: number;
+  warning_count: number;
+  failed_count: number;
+  ok_rate: number;
+  failure_rate: number;
+  trend: string;
+  latest_window_failure_rate: number;
+  previous_window_failure_rate: number;
+  recent_checks: ManagedSmtpReadinessCheckRead[];
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9555,6 +9568,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
   const [readinessCheckTotal, setReadinessCheckTotal] = useState(0);
   const [readinessSummary, setReadinessSummary] = useState<ManagedSmtpReadinessSummaryRead | null>(null);
+  const [readinessTrend, setReadinessTrend] = useState<ManagedSmtpReadinessTrendRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9937,13 +9951,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           summaryParams.set(key, value.trim());
         }
       });
-      const [data, summary] = await Promise.all([
+      const [data, summary, trend] = await Promise.all([
         fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`),
         fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${summaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessTrendRead>(`/api/v1/managed-smtp/readiness-checks/trend?${summaryParams.toString()}`),
       ]);
       setReadinessChecks(data.items || []);
       setReadinessCheckTotal(data.total || 0);
       setReadinessSummary(summary);
+      setReadinessTrend(trend);
       const warningCount = summary.warning_count + summary.failed_count;
       return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(warningCount)} needing review.`;
     });
@@ -10443,6 +10459,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <span>Passing checks</span>
                 <strong>{formatInt(readinessSummary?.ok_count || 0)}</strong>
                 <small>Backend readiness summary across matching checks.</small>
+              </article>
+              <article className={readinessTrend?.trend === 'regressing' ? 'warn' : 'good'}>
+                <span>Recent trend</span>
+                <strong>{readinessTrend?.trend || 'Not loaded'}</strong>
+                <small>{readinessTrend ? `${formatPct(readinessTrend.failure_rate)} failure rate across ${formatInt(readinessTrend.sample_size)} recent check(s).` : 'Load readiness to calculate trend.'}</small>
+              </article>
+              <article className={readinessTrend && readinessTrend.latest_window_failure_rate > readinessTrend.previous_window_failure_rate ? 'warn' : 'good'}>
+                <span>Window comparison</span>
+                <strong>{readinessTrend ? `${formatPct(readinessTrend.latest_window_failure_rate)} / ${formatPct(readinessTrend.previous_window_failure_rate)}` : '-'}</strong>
+                <small>Latest window failure rate versus previous window.</small>
               </article>
               <article className={latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}>
                 <span>Latest check</span>

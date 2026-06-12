@@ -1034,6 +1034,19 @@ class ManagedSmtpReadinessSummaryRead(BaseModel):
     latest_success: ManagedSmtpReadinessCheckRead | None = None
 
 
+class ManagedSmtpReadinessTrendRead(BaseModel):
+    sample_size: int
+    ok_count: int
+    warning_count: int
+    failed_count: int
+    ok_rate: float
+    failure_rate: float
+    trend: str
+    latest_window_failure_rate: float
+    previous_window_failure_rate: float
+    recent_checks: list[ManagedSmtpReadinessCheckRead] = Field(default_factory=list)
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType
