@@ -94,6 +94,8 @@ services:
         sync: false
       - key: MANAGED_SMTP_READINESS_WEBHOOK_FORMAT
         value: raw
+      - key: MANAGED_SMTP_READINESS_NOTIFY_STATE
+        value: /tmp/managed-smtp-readiness-notify.json
 
 databases:
   - name: email-engine-db

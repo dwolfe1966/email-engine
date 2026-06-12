@@ -273,6 +273,7 @@ MANAGED_SMTP_READINESS_WEBHOOK_URL=https://hooks.example/managed-smtp-readiness 
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER=Authorization \
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE='Bearer <token>' \
 MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=raw \
+MANAGED_SMTP_READINESS_NOTIFY_STATE=/tmp/managed-smtp-readiness-notify.json \
 python scripts/managed_smtp_readiness_notify.py
 ```
 
@@ -280,8 +281,9 @@ The dispatcher exits quietly when `should_notify` is false. When the API says a 
 be sent, it posts the full notification payload, including the dedupe key, to the configured
 webhook URL. Use `MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=slack` or `--webhook-format slack` for a
 Slack incoming-webhook body instead of raw JSON. Use `--dry-run` to print the payload without
-posting. The Render Blueprint runs this check every 15 minutes as
-`email-engine-managed-smtp-readiness-notify`.
+posting. Set `MANAGED_SMTP_READINESS_NOTIFY_STATE` or `--state-path` to suppress repeat posts for
+the same dedupe key; use `--force` to bypass that state. The Render Blueprint runs this check every
+15 minutes as `email-engine-managed-smtp-readiness-notify`.
 
 ## Health Check
 

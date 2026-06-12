@@ -70,6 +70,35 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-12 — Managed SMTP readiness notification dedupe state
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `MANAGED_SMTP_READINESS_NOTIFY_STATE` / `--state-path` to
+  `scripts/managed_smtp_readiness_notify.py`.
+- The dispatcher now records the last posted readiness `dedupe_key` and suppresses repeat posts for
+  the same key unless `--force` is supplied.
+- Render, docs, and managed-SMTP staging tests now cover notification dedupe state.
+
+### Why
+
+The readiness notification cron should not repeatedly post the same active alert on every scheduler
+run when the underlying readiness evidence has not changed.
+
+### What needs to happen next
+
+- If Render cron containers do not preserve `/tmp` between runs, mount or configure a persistent
+  state path for production dedupe.
+
+### Compatibility notes
+
+- No migration is required. Dedupe state is local to the dispatcher process environment.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness webhook formatting
 
 **Pushed by:** Codex

@@ -238,13 +238,16 @@ MANAGED_SMTP_READINESS_WEBHOOK_URL=https://hooks.example/managed-smtp-readiness 
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER=Authorization \
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE='Bearer <token>' \
 MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=raw \
+MANAGED_SMTP_READINESS_NOTIFY_STATE=/tmp/managed-smtp-readiness-notify.json \
 python scripts/managed_smtp_readiness_notify.py
 ```
 
 The dispatcher calls `/api/v1/managed-smtp/readiness-checks/notification`, exits quietly when
 `should_notify` is false, and posts the full notification payload plus dedupe key when an alert
 needs routing. Set `MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=slack` for a Slack incoming-webhook body.
-The checked-in Render Blueprint runs this every 15 minutes.
+Set `MANAGED_SMTP_READINESS_NOTIFY_STATE` or `--state-path` to suppress repeat posts for the same
+dedupe key; use `--force` to bypass state. The checked-in Render Blueprint runs this every 15
+minutes.
 
 ## MTA Boundary
 

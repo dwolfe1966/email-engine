@@ -6,6 +6,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 
@@ -107,13 +108,35 @@ def format_webhook_payload(notification: dict[str, Any], payload_format: str) ->
     }
 
 
+def read_state(path: str | None) -> dict[str, Any]:
+    if not path:
+        return {}
+    state_path = Path(path)
+    if not state_path.exists():
+        return {}
+    try:
+        return json.loads(state_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise NotificationError(f'Could not read readiness notification state: {exc}') from exc
+
+
+def write_state(path: str | None, state: dict[str, Any]) -> None:
+    if not path:
+        return
+    state_path = Path(path)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True))
+
+
 def dispatch_notification(args) -> dict[str, Any]:
     notification = request_json(args.base_url, notification_path(args), cookie=args.cookie)
     webhook_payload = format_webhook_payload(notification, args.webhook_format)
+    state = read_state(args.state_path)
+    dedupe_key = notification.get('dedupe_key')
     result: dict[str, Any] = {
         'should_notify': bool(notification.get('should_notify')),
         'severity': notification.get('severity'),
-        'dedupe_key': notification.get('dedupe_key'),
+        'dedupe_key': dedupe_key,
         'title': notification.get('title'),
         'alert_count': notification.get('alert_count', 0),
         'webhook_format': args.webhook_format,
@@ -121,6 +144,9 @@ def dispatch_notification(args) -> dict[str, Any]:
     }
     if not notification.get('should_notify'):
         result['status'] = 'quiet'
+        return result
+    if args.state_path and not args.force and state.get('last_dedupe_key') == dedupe_key:
+        result['status'] = 'deduped'
         return result
     if args.dry_run:
         result['status'] = 'dry_run'
@@ -134,6 +160,15 @@ def dispatch_notification(args) -> dict[str, Any]:
         auth_header=args.webhook_auth_header,
         auth_value=args.webhook_auth_value,
     )
+    if args.state_path:
+        state.update(
+            {
+                'last_dedupe_key': dedupe_key,
+                'last_severity': notification.get('severity'),
+                'last_title': notification.get('title'),
+            }
+        )
+        write_state(args.state_path, state)
     result['posted'] = True
     result['status'] = 'posted'
     return result
@@ -167,6 +202,11 @@ def main() -> int:
     parser.add_argument('--domain')
     parser.add_argument('--host')
     parser.add_argument('--limit', type=int, default=20)
+    parser.add_argument(
+        '--state-path',
+        default=os.environ.get('MANAGED_SMTP_READINESS_NOTIFY_STATE'),
+    )
+    parser.add_argument('--force', action='store_true')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
 

@@ -856,6 +856,8 @@ def test_managed_smtp_readiness_notify_script_dispatches_webhook_alerts(monkeypa
             'limit': 20,
             'dry_run': False,
             'webhook_format': 'raw',
+            'state_path': None,
+            'force': False,
         },
     )()
 
@@ -879,6 +881,57 @@ def test_managed_smtp_readiness_notify_script_dispatches_webhook_alerts(monkeypa
             'Bearer token',
         )
     ]
+
+
+def test_managed_smtp_readiness_notify_script_dedupes_state_file(monkeypatch, tmp_path) -> None:
+    module = load_script_module(READINESS_NOTIFY_SCRIPT)
+    posts = []
+
+    def fake_request_json(base_url, path, *, cookie=None):
+        return {
+            'should_notify': True,
+            'severity': 'critical',
+            'title': 'Managed SMTP readiness critical: smtp.example.com',
+            'message': 'Latest readiness check failed.',
+            'dedupe_key': 'managed-smtp-readiness:critical:check-id',
+            'alert_count': 1,
+        }
+
+    def fake_post_webhook(webhook_url, payload, *, auth_header=None, auth_value=None):
+        posts.append(payload)
+        return {'status_code': 200, 'response_body': 'ok'}
+
+    monkeypatch.setattr(module, 'request_json', fake_request_json)
+    monkeypatch.setattr(module, 'post_webhook', fake_post_webhook)
+    state_path = tmp_path / 'readiness-notify-state.json'
+    args = type(
+        'Args',
+        (),
+        {
+            'base_url': 'https://email-engine.example',
+            'cookie': None,
+            'webhook_url': 'https://hooks.example/managed-smtp',
+            'webhook_auth_header': None,
+            'webhook_auth_value': None,
+            'source': None,
+            'check_type': 'mta_smoke',
+            'domain': None,
+            'host': None,
+            'limit': 20,
+            'dry_run': False,
+            'webhook_format': 'raw',
+            'state_path': str(state_path),
+            'force': False,
+        },
+    )()
+
+    first = module.dispatch_notification(args)
+    second = module.dispatch_notification(args)
+
+    assert first['status'] == 'posted'
+    assert second['status'] == 'deduped'
+    assert len(posts) == 1
+    assert module.read_state(str(state_path))['last_dedupe_key'] == 'managed-smtp-readiness:critical:check-id'
 
 
 def test_managed_smtp_readiness_notify_script_formats_slack_payload() -> None:
@@ -914,6 +967,10 @@ def test_managed_smtp_readiness_notify_script_contract() -> None:
         'EMAIL_ENGINE_COOKIE',
         'should_notify',
         'dedupe_key',
+        'MANAGED_SMTP_READINESS_NOTIFY_STATE',
+        'last_dedupe_key',
+        'force',
+        'state-path',
         'slack',
         'format_webhook_payload',
         'dry-run',
@@ -950,6 +1007,7 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER',
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE',
         'MANAGED_SMTP_READINESS_WEBHOOK_FORMAT',
+        'MANAGED_SMTP_READINESS_NOTIFY_STATE',
         'managed_smtp_dsn_quarantine.py --check',
     ]
     for token in expected_render_tokens:
