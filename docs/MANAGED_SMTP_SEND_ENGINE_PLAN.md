@@ -556,3 +556,5 @@ Recommended twenty-ninth code slice:
 18. Add managed-SMTP readiness trend alert classification and Delivery Manager alert card. **Done.**
 19. Add managed-SMTP readiness alert evidence endpoint and Delivery Manager evidence list.
     **Done.**
+20. Add managed-SMTP readiness notification payload endpoint and Delivery Manager payload preview.
+    **Done.**

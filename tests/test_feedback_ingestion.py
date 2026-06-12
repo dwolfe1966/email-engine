@@ -305,6 +305,56 @@ def test_managed_smtp_readiness_alerts_returns_non_ok_evidence() -> None:
     assert 'Latest readiness check failed.' in alerts.alert_reasons
 
 
+def test_managed_smtp_readiness_notification_shapes_external_alert_payload() -> None:
+    failed_check_id = uuid4()
+
+    def check(status: str):
+        return type(
+            'Check',
+            (),
+            {
+                'status': status,
+                'source': 'managed_smtp_mta_smoke',
+                'check_type': 'mta_smoke',
+                'domain': 'example.com',
+                'host': 'smtp.example.com',
+                'summary': status,
+                'result_json': {'ok': status == 'ok'},
+                'id': failed_check_id if status == 'failed' else uuid4(),
+                'created_at': datetime.utcnow(),
+            },
+        )()
+
+    class FakeNotificationService(ManagedSmtpReadinessService):
+        def __init__(self) -> None:
+            pass
+
+        def list_checks(self, **kwargs):
+            return [
+                check('failed'),
+                check('warning'),
+                check('ok'),
+                check('ok'),
+            ]
+
+    notification = FakeNotificationService().notification(
+        domain='example.com',
+        host='smtp.example.com',
+        check_type='mta_smoke',
+        limit=4,
+    )
+
+    assert notification.should_notify is True
+    assert notification.severity == 'critical'
+    assert notification.title == 'Managed SMTP readiness critical: smtp.example.com / example.com / mta_smoke'
+    assert 'Latest readiness check failed.' in notification.message
+    assert 'smtp.example.com' in notification.message
+    assert notification.dedupe_key == f'managed-smtp-readiness:critical:{failed_check_id}'
+    assert notification.latest_alert_check is not None
+    assert notification.latest_alert_check.status == 'failed'
+    assert notification.alert_count == 2
+
+
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:
     service = FakeFeedbackIngestionService(record=None)
     feedback = DeliveryFeedback(

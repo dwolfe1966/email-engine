@@ -180,7 +180,8 @@ result into the ESP Delivery Manager. Operators can load and filter these readin
 status, domain, host, and check type from the Managed SMTP Readiness panel. The panel also uses the
 readiness summary, trend, and alerts endpoints for aggregate pass, warning, failure, latest-check,
 recent pass/fail movement, backend-classified trend alert status/reasons, and recent non-OK alert
-evidence rows.
+evidence rows. The notification endpoint shapes the same evidence into a severity/title/message and
+dedupe key for future external alert routing.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

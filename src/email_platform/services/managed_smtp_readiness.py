@@ -7,6 +7,7 @@ from email_platform.models.entities import ManagedSmtpReadinessCheck
 from email_platform.schemas.contracts import (
     ManagedSmtpReadinessAlertsRead,
     ManagedSmtpReadinessCheckCreate,
+    ManagedSmtpReadinessNotificationRead,
     ManagedSmtpReadinessSummaryRead,
     ManagedSmtpReadinessTrendRead,
 )
@@ -195,6 +196,48 @@ class ManagedSmtpReadinessService:
             alert_checks=alert_checks,
         )
 
+    def notification(
+        self,
+        *,
+        source: str | None = None,
+        check_type: str | None = None,
+        domain: str | None = None,
+        host: str | None = None,
+        limit: int = 20,
+    ) -> ManagedSmtpReadinessNotificationRead:
+        alerts = self.alerts(
+            source=source,
+            check_type=check_type,
+            domain=domain,
+            host=host,
+            limit=limit,
+        )
+        latest_alert = alerts.alert_checks[0] if alerts.alert_checks else None
+        scope = self._notification_scope(domain=domain, host=host, check_type=check_type)
+        primary_reason = alerts.alert_reasons[0] if alerts.alert_reasons else 'No readiness alert reason available.'
+        severity = alerts.alert_status if alerts.alert_status in {'critical', 'warning'} else 'info'
+        should_notify = severity in {'critical', 'warning'} and alerts.alert_count > 0
+        title = f'Managed SMTP readiness {severity}: {scope}'
+        if latest_alert:
+            message = (
+                f'{primary_reason} Latest alert evidence is {latest_alert.status} '
+                f'for {latest_alert.host or latest_alert.domain or scope}.'
+            )
+        else:
+            message = primary_reason
+        return ManagedSmtpReadinessNotificationRead(
+            should_notify=should_notify,
+            severity=severity,
+            title=title,
+            message=message,
+            dedupe_key=self._notification_dedupe_key(alerts.alert_status, latest_alert, scope),
+            alert_status=alerts.alert_status,
+            alert_reasons=alerts.alert_reasons,
+            alert_count=alerts.alert_count,
+            latest_alert_check=latest_alert,
+            alerts=alerts,
+        )
+
     def _failure_rate(self, checks: list[ManagedSmtpReadinessCheck]) -> float:
         if not checks:
             return 0.0
@@ -244,6 +287,26 @@ class ManagedSmtpReadinessService:
         if not reasons:
             reasons.append('Recent readiness checks are passing.')
         return status, reasons
+
+    def _notification_scope(
+        self,
+        *,
+        domain: str | None = None,
+        host: str | None = None,
+        check_type: str | None = None,
+    ) -> str:
+        parts = [part for part in [host, domain, check_type] if part]
+        return ' / '.join(parts) if parts else 'all managed SMTP checks'
+
+    def _notification_dedupe_key(
+        self,
+        alert_status: str,
+        latest_alert: ManagedSmtpReadinessCheck | None,
+        scope: str,
+    ) -> str:
+        if latest_alert:
+            return f'managed-smtp-readiness:{alert_status}:{latest_alert.id}'
+        return f'managed-smtp-readiness:{alert_status}:{scope}'
 
     def _latest_check(
         self,

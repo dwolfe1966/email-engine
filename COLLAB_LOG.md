@@ -70,6 +70,33 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness notification payload
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `/api/v1/managed-smtp/readiness-checks/notification`.
+- The notification payload wraps readiness alert evidence into `should_notify`, severity, title,
+  message, dedupe key, latest alert check, and the underlying alert feed.
+- Delivery Manager now previews the notification payload and dedupe key in Managed SMTP Readiness.
+
+### Why
+
+External Slack/email/webhook routing should consume one stable notification-shaped payload instead
+of reimplementing readiness alert severity, message, and dedupe logic outside the ESP.
+
+### What needs to happen next
+
+- Add a configurable outbound notification channel that posts this payload outside the ESP UI.
+
+### Compatibility notes
+
+- No migration is required. The notification payload is derived from existing readiness rows.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness alert evidence feed
 
 **Pushed by:** Codex

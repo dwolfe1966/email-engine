@@ -168,7 +168,8 @@ result into Delivery Manager's Managed SMTP Readiness panel, where operators can
 domain, host, and check type. The panel also loads aggregate pass, warning, failure, and latest-check
 state from the readiness summary endpoint, plus recent pass/fail movement and backend-classified
 trend alert status/reasons from the trend endpoint. The alerts endpoint exposes recent non-OK
-readiness evidence for future notification routing.
+readiness evidence for future notification routing, and the notification endpoint shapes that
+evidence into a severity/title/message plus dedupe key.
 
 ## Bounce Routing Boundary
 

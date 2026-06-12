@@ -151,6 +151,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessAlertsRead,
     ManagedSmtpReadinessCheckCreate,
     ManagedSmtpReadinessCheckRead,
+    ManagedSmtpReadinessNotificationRead,
     ManagedSmtpReadinessSummaryRead,
     ManagedSmtpReadinessTrendRead,
     OperatorUserCreate,
@@ -3595,6 +3596,27 @@ def alert_managed_smtp_readiness_checks(
     limit: Limit = 20,
 ) -> ManagedSmtpReadinessAlertsRead:
     return ManagedSmtpReadinessService(db).alerts(
+        source=source,
+        check_type=check_type,
+        domain=domain,
+        host=host,
+        limit=limit,
+    )
+
+
+@router.get(
+    '/managed-smtp/readiness-checks/notification',
+    response_model=ManagedSmtpReadinessNotificationRead,
+)
+def notify_managed_smtp_readiness_checks(
+    db: DbSession,
+    source: str | None = None,
+    check_type: str | None = None,
+    domain: str | None = None,
+    host: str | None = None,
+    limit: Limit = 20,
+) -> ManagedSmtpReadinessNotificationRead:
+    return ManagedSmtpReadinessService(db).notification(
         source=source,
         check_type=check_type,
         domain=domain,

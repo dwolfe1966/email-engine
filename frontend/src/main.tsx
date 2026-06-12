@@ -669,6 +669,19 @@ type ManagedSmtpReadinessAlertsRead = {
   alert_checks: ManagedSmtpReadinessCheckRead[];
 };
 
+type ManagedSmtpReadinessNotificationRead = {
+  should_notify: boolean;
+  severity: string;
+  title: string;
+  message: string;
+  dedupe_key: string;
+  alert_status: string;
+  alert_reasons: string[];
+  alert_count: number;
+  latest_alert_check: ManagedSmtpReadinessCheckRead | null;
+  alerts: ManagedSmtpReadinessAlertsRead;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9580,6 +9593,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessSummary, setReadinessSummary] = useState<ManagedSmtpReadinessSummaryRead | null>(null);
   const [readinessTrend, setReadinessTrend] = useState<ManagedSmtpReadinessTrendRead | null>(null);
   const [readinessAlerts, setReadinessAlerts] = useState<ManagedSmtpReadinessAlertsRead | null>(null);
+  const [readinessNotification, setReadinessNotification] = useState<ManagedSmtpReadinessNotificationRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9962,17 +9976,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           summaryParams.set(key, value.trim());
         }
       });
-      const [data, summary, trend, alerts] = await Promise.all([
+      const [data, summary, trend, alerts, notification] = await Promise.all([
         fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`),
         fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${summaryParams.toString()}`),
         fetchJson<ManagedSmtpReadinessTrendRead>(`/api/v1/managed-smtp/readiness-checks/trend?${summaryParams.toString()}`),
         fetchJson<ManagedSmtpReadinessAlertsRead>(`/api/v1/managed-smtp/readiness-checks/alerts?${summaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessNotificationRead>(`/api/v1/managed-smtp/readiness-checks/notification?${summaryParams.toString()}`),
       ]);
       setReadinessChecks(data.items || []);
       setReadinessCheckTotal(data.total || 0);
       setReadinessSummary(summary);
       setReadinessTrend(trend);
       setReadinessAlerts(alerts);
+      setReadinessNotification(notification);
       const warningCount = summary.warning_count + summary.failed_count;
       return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(alerts.alert_count || warningCount)} alert evidence row(s).`;
     });
@@ -10488,6 +10504,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <strong>{readinessTrend ? `${formatPct(readinessTrend.latest_window_failure_rate)} / ${formatPct(readinessTrend.previous_window_failure_rate)}` : '-'}</strong>
                 <small>Latest window failure rate versus previous window.</small>
               </article>
+              <article className={readinessNotification?.should_notify ? 'warn' : 'good'}>
+                <span>Notification payload</span>
+                <strong>{readinessNotification?.severity || 'Not loaded'}</strong>
+                <small>{readinessNotification ? readinessNotification.title : 'Load readiness to prepare external alert payload.'}</small>
+              </article>
               <article className={latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}>
                 <span>Latest check</span>
                 <strong>{latestReadinessCheck?.status || 'None'}</strong>
@@ -10499,6 +10520,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <small>{latestSuccessfulReadiness?.host || latestSuccessfulReadiness?.domain || 'No passing MTA smoke visible in loaded checks.'}</small>
               </article>
             </div>
+            {readinessNotification ? (
+              <div className="operation-banner">
+                <strong>{readinessNotification.should_notify ? 'Ready to notify' : 'Notification quiet'}</strong>
+                <span>{readinessNotification.message} Dedupe: {readinessNotification.dedupe_key}</span>
+              </div>
+            ) : null}
             {readinessAlerts?.alert_checks?.length ? (
               <div className="provider-feedback-list">
                 {readinessAlerts.alert_checks.slice(0, 4).map((check) => (

@@ -1057,6 +1057,19 @@ class ManagedSmtpReadinessAlertsRead(BaseModel):
     alert_checks: list[ManagedSmtpReadinessCheckRead] = Field(default_factory=list)
 
 
+class ManagedSmtpReadinessNotificationRead(BaseModel):
+    should_notify: bool
+    severity: str
+    title: str
+    message: str
+    dedupe_key: str
+    alert_status: str
+    alert_reasons: list[str] = Field(default_factory=list)
+    alert_count: int
+    latest_alert_check: ManagedSmtpReadinessCheckRead | None = None
+    alerts: ManagedSmtpReadinessAlertsRead
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType
