@@ -166,7 +166,8 @@ domain/selector tags, but it does not prove the cryptographic signature.
 Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to publish the smoke
 result into Delivery Manager's Managed SMTP Readiness panel, where operators can filter by status,
 domain, host, and check type. The panel also loads aggregate pass, warning, failure, and latest-check
-state from the readiness summary endpoint, plus recent pass/fail movement from the trend endpoint.
+state from the readiness summary endpoint, plus recent pass/fail movement and backend-classified
+trend alert status/reasons from the trend endpoint.
 
 ## Bounce Routing Boundary
 

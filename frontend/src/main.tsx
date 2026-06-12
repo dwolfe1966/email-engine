@@ -654,6 +654,8 @@ type ManagedSmtpReadinessTrendRead = {
   ok_rate: number;
   failure_rate: number;
   trend: string;
+  alert_status: string;
+  alert_reasons: string[];
   latest_window_failure_rate: number;
   previous_window_failure_rate: number;
   recent_checks: ManagedSmtpReadinessCheckRead[];
@@ -10464,6 +10466,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <span>Recent trend</span>
                 <strong>{readinessTrend?.trend || 'Not loaded'}</strong>
                 <small>{readinessTrend ? `${formatPct(readinessTrend.failure_rate)} failure rate across ${formatInt(readinessTrend.sample_size)} recent check(s).` : 'Load readiness to calculate trend.'}</small>
+              </article>
+              <article className={readinessTrend && ['critical', 'warning'].includes(readinessTrend.alert_status) ? 'warn' : 'good'}>
+                <span>Trend alert</span>
+                <strong>{readinessTrend?.alert_status || 'Not loaded'}</strong>
+                <small>{readinessTrend?.alert_reasons?.[0] || 'Load readiness to classify managed SMTP health.'}</small>
               </article>
               <article className={readinessTrend && readinessTrend.latest_window_failure_rate > readinessTrend.previous_window_failure_rate ? 'warn' : 'good'}>
                 <span>Window comparison</span>

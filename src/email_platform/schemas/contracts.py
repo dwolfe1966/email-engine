@@ -1042,6 +1042,8 @@ class ManagedSmtpReadinessTrendRead(BaseModel):
     ok_rate: float
     failure_rate: float
     trend: str
+    alert_status: str
+    alert_reasons: list[str] = Field(default_factory=list)
     latest_window_failure_rate: float
     previous_window_failure_rate: float
     recent_checks: list[ManagedSmtpReadinessCheckRead] = Field(default_factory=list)

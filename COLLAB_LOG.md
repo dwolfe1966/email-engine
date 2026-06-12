@@ -70,6 +70,34 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness alert classification
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Extended the managed-SMTP readiness trend response with `alert_status` and `alert_reasons`.
+- The backend now classifies recent readiness evidence as `ok`, `warning`, `critical`, or `unknown`
+  based on sample size, latest failure state, failure rate, and regression trend.
+- Delivery Manager now shows a Trend alert card in Managed SMTP Readiness using the backend
+  classification and first alert reason.
+
+### Why
+
+Operators need a direct health callout when MTA smoke evidence is regressing or unhealthy, without
+having to infer severity from raw trend percentages.
+
+### What needs to happen next
+
+- Consider adding notification routing once readiness alerts should leave the ESP UI.
+
+### Compatibility notes
+
+- No migration is required. The alert classification is derived from existing readiness rows.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness trend endpoint
 
 **Pushed by:** Codex

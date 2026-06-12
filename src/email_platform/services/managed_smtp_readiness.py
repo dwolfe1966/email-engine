@@ -151,14 +151,19 @@ class ManagedSmtpReadinessService:
         previous_window = checks[len(latest_window) :] if checks else []
         latest_failure_rate = self._failure_rate(latest_window)
         previous_failure_rate = self._failure_rate(previous_window)
+        failure_rate = ((warning_count + failed_count) / sample_size) if sample_size else 0.0
+        trend = self._trend_label(latest_failure_rate, previous_failure_rate, sample_size)
+        alert_status, alert_reasons = self._trend_alert(checks, trend, failure_rate)
         return ManagedSmtpReadinessTrendRead(
             sample_size=sample_size,
             ok_count=ok_count,
             warning_count=warning_count,
             failed_count=failed_count,
             ok_rate=(ok_count / sample_size) if sample_size else 0.0,
-            failure_rate=((warning_count + failed_count) / sample_size) if sample_size else 0.0,
-            trend=self._trend_label(latest_failure_rate, previous_failure_rate, sample_size),
+            failure_rate=failure_rate,
+            trend=trend,
+            alert_status=alert_status,
+            alert_reasons=alert_reasons,
             latest_window_failure_rate=latest_failure_rate,
             previous_window_failure_rate=previous_failure_rate,
             recent_checks=checks,
@@ -183,6 +188,36 @@ class ManagedSmtpReadinessService:
         if latest_failure_rate > previous_failure_rate:
             return 'regressing'
         return 'stable'
+
+    def _trend_alert(
+        self,
+        checks: list[ManagedSmtpReadinessCheck],
+        trend: str,
+        failure_rate: float,
+    ) -> tuple[str, list[str]]:
+        sample_size = len(checks)
+        if sample_size < 4:
+            return 'unknown', ['Not enough readiness checks to classify trend.']
+
+        status = 'ok'
+        reasons: list[str] = []
+        latest_check = checks[0] if checks else None
+        if latest_check and latest_check.status == 'failed':
+            status = 'critical'
+            reasons.append('Latest readiness check failed.')
+        if failure_rate >= 0.5:
+            status = 'critical'
+            reasons.append('At least half of recent readiness checks need review.')
+        elif failure_rate > 0:
+            status = 'warning' if status == 'ok' else status
+            reasons.append('Recent readiness checks include warning or failed results.')
+        if trend == 'regressing':
+            status = 'warning' if status == 'ok' else status
+            reasons.append('Recent readiness failure rate is increasing.')
+
+        if not reasons:
+            reasons.append('Recent readiness checks are passing.')
+        return status, reasons
 
     def _latest_check(
         self,

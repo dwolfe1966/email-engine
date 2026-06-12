@@ -260,6 +260,9 @@ def test_managed_smtp_readiness_trend_detects_regression() -> None:
     assert trend.latest_window_failure_rate == 2 / 3
     assert trend.previous_window_failure_rate == 0
     assert trend.trend == 'regressing'
+    assert trend.alert_status == 'critical'
+    assert 'Latest readiness check failed.' in trend.alert_reasons
+    assert 'Recent readiness failure rate is increasing.' in trend.alert_reasons
     assert len(trend.recent_checks) == 6
 
 
