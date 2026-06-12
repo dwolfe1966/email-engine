@@ -74,14 +74,49 @@ def notification_path(args) -> str:
     return f'/api/v1/managed-smtp/readiness-checks/notification?{params}'
 
 
+def format_webhook_payload(notification: dict[str, Any], payload_format: str) -> dict[str, Any]:
+    if payload_format == 'raw':
+        return notification
+    if payload_format != 'slack':
+        raise NotificationError('MANAGED_SMTP_READINESS_WEBHOOK_FORMAT must be raw or slack')
+    severity = str(notification.get('severity') or 'info').upper()
+    title = str(notification.get('title') or 'Managed SMTP readiness notification')
+    message = str(notification.get('message') or '')
+    dedupe_key = str(notification.get('dedupe_key') or 'none')
+    alert_count = notification.get('alert_count', 0)
+    return {
+        'text': f'[{severity}] {title}',
+        'blocks': [
+            {
+                'type': 'section',
+                'text': {
+                    'type': 'mrkdwn',
+                    'text': f'*[{severity}] {title}*\n{message}',
+                },
+            },
+            {
+                'type': 'context',
+                'elements': [
+                    {
+                        'type': 'mrkdwn',
+                        'text': f'Dedupe: `{dedupe_key}` | Alert evidence: {alert_count}',
+                    }
+                ],
+            },
+        ],
+    }
+
+
 def dispatch_notification(args) -> dict[str, Any]:
     notification = request_json(args.base_url, notification_path(args), cookie=args.cookie)
+    webhook_payload = format_webhook_payload(notification, args.webhook_format)
     result: dict[str, Any] = {
         'should_notify': bool(notification.get('should_notify')),
         'severity': notification.get('severity'),
         'dedupe_key': notification.get('dedupe_key'),
         'title': notification.get('title'),
         'alert_count': notification.get('alert_count', 0),
+        'webhook_format': args.webhook_format,
         'posted': False,
     }
     if not notification.get('should_notify'):
@@ -89,13 +124,13 @@ def dispatch_notification(args) -> dict[str, Any]:
         return result
     if args.dry_run:
         result['status'] = 'dry_run'
-        result['payload'] = notification
+        result['payload'] = webhook_payload
         return result
     if not args.webhook_url:
         raise NotificationError('MANAGED_SMTP_READINESS_WEBHOOK_URL is required when should_notify is true')
     result['webhook'] = post_webhook(
         args.webhook_url,
-        notification,
+        webhook_payload,
         auth_header=args.webhook_auth_header,
         auth_value=args.webhook_auth_value,
     )
@@ -121,6 +156,11 @@ def main() -> int:
     parser.add_argument(
         '--webhook-auth-value',
         default=os.environ.get('MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE'),
+    )
+    parser.add_argument(
+        '--webhook-format',
+        choices=['raw', 'slack'],
+        default=os.environ.get('MANAGED_SMTP_READINESS_WEBHOOK_FORMAT', 'raw'),
     )
     parser.add_argument('--source')
     parser.add_argument('--check-type', default='mta_smoke')

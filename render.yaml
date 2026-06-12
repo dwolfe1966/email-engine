@@ -92,6 +92,8 @@ services:
         sync: false
       - key: MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE
         sync: false
+      - key: MANAGED_SMTP_READINESS_WEBHOOK_FORMAT
+        value: raw
 
 databases:
   - name: email-engine-db

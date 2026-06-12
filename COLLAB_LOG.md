@@ -70,6 +70,33 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness webhook formatting
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `MANAGED_SMTP_READINESS_WEBHOOK_FORMAT` / `--webhook-format`.
+- `scripts/managed_smtp_readiness_notify.py` now supports `raw` payloads and Slack incoming-webhook
+  payloads while preserving raw JSON as the default.
+- Render, docs, and managed-SMTP staging tests now cover the webhook format option.
+
+### Why
+
+Readiness alerts should be easy to route directly to common operational channels without requiring
+another adapter service to reshape the notification payload.
+
+### What needs to happen next
+
+- Configure the production readiness webhook format based on the destination channel.
+
+### Compatibility notes
+
+- No migration is required. This only changes dispatcher payload formatting.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness notification dispatcher
 
 **Pushed by:** Codex

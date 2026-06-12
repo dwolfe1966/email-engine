@@ -855,6 +855,7 @@ def test_managed_smtp_readiness_notify_script_dispatches_webhook_alerts(monkeypa
             'host': None,
             'limit': 20,
             'dry_run': False,
+            'webhook_format': 'raw',
         },
     )()
 
@@ -880,6 +881,27 @@ def test_managed_smtp_readiness_notify_script_dispatches_webhook_alerts(monkeypa
     ]
 
 
+def test_managed_smtp_readiness_notify_script_formats_slack_payload() -> None:
+    module = load_script_module(READINESS_NOTIFY_SCRIPT)
+
+    payload = module.format_webhook_payload(
+        {
+            'severity': 'critical',
+            'title': 'Managed SMTP readiness critical: smtp.example.com',
+            'message': 'Latest readiness check failed.',
+            'dedupe_key': 'managed-smtp-readiness:critical:check-id',
+            'alert_count': 2,
+        },
+        'slack',
+    )
+
+    assert payload['text'] == '[CRITICAL] Managed SMTP readiness critical: smtp.example.com'
+    assert payload['blocks'][0]['type'] == 'section'
+    assert 'Latest readiness check failed.' in payload['blocks'][0]['text']['text']
+    assert 'managed-smtp-readiness:critical:check-id' in payload['blocks'][1]['elements'][0]['text']
+    assert 'Alert evidence: 2' in payload['blocks'][1]['elements'][0]['text']
+
+
 def test_managed_smtp_readiness_notify_script_contract() -> None:
     source = READINESS_NOTIFY_SCRIPT.read_text()
 
@@ -888,9 +910,12 @@ def test_managed_smtp_readiness_notify_script_contract() -> None:
         'MANAGED_SMTP_READINESS_WEBHOOK_URL',
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER',
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE',
+        'MANAGED_SMTP_READINESS_WEBHOOK_FORMAT',
         'EMAIL_ENGINE_COOKIE',
         'should_notify',
         'dedupe_key',
+        'slack',
+        'format_webhook_payload',
         'dry-run',
         'NotificationError',
     ]
@@ -924,6 +949,7 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
         'MANAGED_SMTP_READINESS_WEBHOOK_URL',
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER',
         'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE',
+        'MANAGED_SMTP_READINESS_WEBHOOK_FORMAT',
         'managed_smtp_dsn_quarantine.py --check',
     ]
     for token in expected_render_tokens:

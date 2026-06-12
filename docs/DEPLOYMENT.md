@@ -272,13 +272,16 @@ EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
 MANAGED_SMTP_READINESS_WEBHOOK_URL=https://hooks.example/managed-smtp-readiness \
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER=Authorization \
 MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE='Bearer <token>' \
+MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=raw \
 python scripts/managed_smtp_readiness_notify.py
 ```
 
 The dispatcher exits quietly when `should_notify` is false. When the API says a notification should
 be sent, it posts the full notification payload, including the dedupe key, to the configured
-webhook URL. Use `--dry-run` to print the payload without posting. The Render Blueprint runs this
-check every 15 minutes as `email-engine-managed-smtp-readiness-notify`.
+webhook URL. Use `MANAGED_SMTP_READINESS_WEBHOOK_FORMAT=slack` or `--webhook-format slack` for a
+Slack incoming-webhook body instead of raw JSON. Use `--dry-run` to print the payload without
+posting. The Render Blueprint runs this check every 15 minutes as
+`email-engine-managed-smtp-readiness-notify`.
 
 ## Health Check
 
