@@ -204,6 +204,8 @@ python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
 
 It verifies diagnostics, DNS authentication, reputation/compliance readiness, optional seed delivery,
 and signed managed-SMTP feedback ingestion in one operator runbook.
+For the full provider-agnostic sequence to send the first real managed-SMTP email, follow
+`docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
 
 For staging MTA log forwarding, normalize Postfix delivery lines into signed feedback events:
 

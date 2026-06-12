@@ -18,6 +18,7 @@ MTA_SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_smoke.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
 PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
+FIRST_SEND_RUNBOOK = ROOT / 'docs' / 'FIRST_MANAGED_SMTP_SEND_RUNBOOK.md'
 
 
 def load_script_module(path: Path):
@@ -978,6 +979,31 @@ def test_managed_smtp_readiness_notify_script_contract() -> None:
     ]
     for token in expected_tokens:
         assert token in source
+
+
+def test_first_managed_smtp_send_runbook_covers_first_email_sequence() -> None:
+    runbook = FIRST_SEND_RUNBOOK.read_text()
+
+    expected_tokens = [
+        'First Managed SMTP Send Runbook',
+        'Outbound SMTP delivery',
+        'reverse DNS/PTR',
+        'SPF',
+        'DKIM',
+        'DMARC',
+        'managed_smtp',
+        'managed_smtp_mta_preflight.py',
+        'docker-compose.production.yml',
+        'managed_smtp_mta_smoke.py',
+        '--send-test',
+        '--verify-dkim-crypto',
+        'managed_smtp_log_feedback.py',
+        'managed_smtp_dsn_feedback.py',
+        'managed_smtp_readiness_notify.py --dry-run',
+        'Go/No-Go Criteria',
+    ]
+    for token in expected_tokens:
+        assert token in runbook
 
 
 def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:

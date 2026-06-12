@@ -562,3 +562,4 @@ Recommended twenty-ninth code slice:
     **Done.**
 22. Add raw/Slack webhook formatting for managed-SMTP readiness notification dispatch. **Done.**
 23. Add dedupe-state support for managed-SMTP readiness notification dispatch. **Done.**
+24. Add provider-agnostic first managed-SMTP send runbook. **Done.**

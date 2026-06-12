@@ -163,6 +163,8 @@ python scripts/managed_smtp_mta_smoke.py \
 `--verify-dkim-crypto` uses `dkimpy` to validate the captured message against DNS-published DKIM
 public keys. Without it, the script still fails closed on missing or mismatched `DKIM-Signature`
 domain/selector tags, but it does not prove the cryptographic signature.
+For the full provider-agnostic sequence to send the first real managed-SMTP email, follow
+`docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
 Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to publish the smoke
 result into Delivery Manager's Managed SMTP Readiness panel, where operators can filter by status,
 domain, host, and check type. The panel also loads aggregate pass, warning, failure, and latest-check

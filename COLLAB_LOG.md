@@ -70,6 +70,35 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-12 — First managed SMTP send runbook
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
+- The runbook defines the provider-agnostic sequence for provisioning an MTA host, configuring DNS,
+  starting Postfix/OpenDKIM, running readiness smoke checks, sending one seed message, verifying
+  DKIM, and confirming feedback/readiness/alert paths.
+- Linked the runbook from deployment and managed-SMTP infra docs.
+
+### Why
+
+Provider selection is now the next architectural decision. Once that decision comes back, we need a
+clear implementation handoff for sending the first actual email through the managed-SMTP path.
+
+### What needs to happen next
+
+- Use `docs/MTA_PROVIDER_ANALYSIS_PROMPT.md` to choose the MTA host provider, then apply the
+  first-send runbook to that provider-specific deployment.
+
+### Compatibility notes
+
+- No migration is required. This is a docs/runbook slice.
+
+---
+
 ## 2026-06-12 — Managed SMTP readiness notification dedupe state
 
 **Pushed by:** Codex
