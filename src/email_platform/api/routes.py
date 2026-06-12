@@ -148,6 +148,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFeedbackEvent,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpReadinessAlertsRead,
     ManagedSmtpReadinessCheckCreate,
     ManagedSmtpReadinessCheckRead,
     ManagedSmtpReadinessSummaryRead,
@@ -3573,6 +3574,27 @@ def trend_managed_smtp_readiness_checks(
     limit: Limit = 20,
 ) -> ManagedSmtpReadinessTrendRead:
     return ManagedSmtpReadinessService(db).trend(
+        source=source,
+        check_type=check_type,
+        domain=domain,
+        host=host,
+        limit=limit,
+    )
+
+
+@router.get(
+    '/managed-smtp/readiness-checks/alerts',
+    response_model=ManagedSmtpReadinessAlertsRead,
+)
+def alert_managed_smtp_readiness_checks(
+    db: DbSession,
+    source: str | None = None,
+    check_type: str | None = None,
+    domain: str | None = None,
+    host: str | None = None,
+    limit: Limit = 20,
+) -> ManagedSmtpReadinessAlertsRead:
+    return ManagedSmtpReadinessService(db).alerts(
         source=source,
         check_type=check_type,
         domain=domain,

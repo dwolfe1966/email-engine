@@ -167,7 +167,8 @@ Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to pub
 result into Delivery Manager's Managed SMTP Readiness panel, where operators can filter by status,
 domain, host, and check type. The panel also loads aggregate pass, warning, failure, and latest-check
 state from the readiness summary endpoint, plus recent pass/fail movement and backend-classified
-trend alert status/reasons from the trend endpoint.
+trend alert status/reasons from the trend endpoint. The alerts endpoint exposes recent non-OK
+readiness evidence for future notification routing.
 
 ## Bounce Routing Boundary
 

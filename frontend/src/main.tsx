@@ -661,6 +661,14 @@ type ManagedSmtpReadinessTrendRead = {
   recent_checks: ManagedSmtpReadinessCheckRead[];
 };
 
+type ManagedSmtpReadinessAlertsRead = {
+  alert_status: string;
+  alert_reasons: string[];
+  alert_count: number;
+  trend: ManagedSmtpReadinessTrendRead;
+  alert_checks: ManagedSmtpReadinessCheckRead[];
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9571,6 +9579,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessCheckTotal, setReadinessCheckTotal] = useState(0);
   const [readinessSummary, setReadinessSummary] = useState<ManagedSmtpReadinessSummaryRead | null>(null);
   const [readinessTrend, setReadinessTrend] = useState<ManagedSmtpReadinessTrendRead | null>(null);
+  const [readinessAlerts, setReadinessAlerts] = useState<ManagedSmtpReadinessAlertsRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9953,17 +9962,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           summaryParams.set(key, value.trim());
         }
       });
-      const [data, summary, trend] = await Promise.all([
+      const [data, summary, trend, alerts] = await Promise.all([
         fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`),
         fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${summaryParams.toString()}`),
         fetchJson<ManagedSmtpReadinessTrendRead>(`/api/v1/managed-smtp/readiness-checks/trend?${summaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessAlertsRead>(`/api/v1/managed-smtp/readiness-checks/alerts?${summaryParams.toString()}`),
       ]);
       setReadinessChecks(data.items || []);
       setReadinessCheckTotal(data.total || 0);
       setReadinessSummary(summary);
       setReadinessTrend(trend);
+      setReadinessAlerts(alerts);
       const warningCount = summary.warning_count + summary.failed_count;
-      return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(warningCount)} needing review.`;
+      return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(alerts.alert_count || warningCount)} alert evidence row(s).`;
     });
   }
 
@@ -10488,6 +10499,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <small>{latestSuccessfulReadiness?.host || latestSuccessfulReadiness?.domain || 'No passing MTA smoke visible in loaded checks.'}</small>
               </article>
             </div>
+            {readinessAlerts?.alert_checks?.length ? (
+              <div className="provider-feedback-list">
+                {readinessAlerts.alert_checks.slice(0, 4).map((check) => (
+                  <article className="warn" key={`alert-${check.id}`}>
+                    <div>
+                      <span>Alert evidence</span>
+                      <strong>{check.summary || `${check.status} readiness check`}</strong>
+                    </div>
+                    <small>{check.created_at}</small>
+                    <dl>
+                      <div><dt>status</dt><dd>{check.status}</dd></div>
+                      <div><dt>domain</dt><dd>{check.domain || '-'}</dd></div>
+                      <div><dt>host</dt><dd>{check.host || '-'}</dd></div>
+                      <div><dt>reason</dt><dd>{readinessAlerts.alert_reasons[0] || readinessAlerts.alert_status}</dd></div>
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className="provider-feedback-list">
               {readinessChecks.slice(0, 8).map((check) => (
                 <article className={check.status === 'ok' ? 'good' : 'warn'} key={check.id}>

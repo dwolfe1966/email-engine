@@ -266,6 +266,45 @@ def test_managed_smtp_readiness_trend_detects_regression() -> None:
     assert len(trend.recent_checks) == 6
 
 
+def test_managed_smtp_readiness_alerts_returns_non_ok_evidence() -> None:
+    def check(status: str):
+        return type(
+            'Check',
+            (),
+            {
+                'status': status,
+                'source': 'managed_smtp_mta_smoke',
+                'check_type': 'mta_smoke',
+                'domain': 'example.com',
+                'host': 'smtp.example.com',
+                'summary': status,
+                'result_json': {'ok': status == 'ok'},
+                'id': uuid4(),
+                'created_at': datetime.utcnow(),
+            },
+        )()
+
+    class FakeAlertService(ManagedSmtpReadinessService):
+        def __init__(self) -> None:
+            pass
+
+        def list_checks(self, **kwargs):
+            return [
+                check('failed'),
+                check('warning'),
+                check('ok'),
+                check('ok'),
+            ]
+
+    alerts = FakeAlertService().alerts(domain='example.com', host='smtp.example.com', limit=4)
+
+    assert alerts.alert_status == 'critical'
+    assert alerts.alert_count == 2
+    assert [check.status for check in alerts.alert_checks] == ['failed', 'warning']
+    assert alerts.trend.sample_size == 4
+    assert 'Latest readiness check failed.' in alerts.alert_reasons
+
+
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:
     service = FakeFeedbackIngestionService(record=None)
     feedback = DeliveryFeedback(

@@ -178,8 +178,9 @@ the visible `DKIM-Signature` tags.
 Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to publish the smoke
 result into the ESP Delivery Manager. Operators can load and filter these readiness checks by
 status, domain, host, and check type from the Managed SMTP Readiness panel. The panel also uses the
-readiness summary and trend endpoints for aggregate pass, warning, failure, latest-check, recent
-pass/fail movement, and backend-classified trend alert status/reasons.
+readiness summary, trend, and alerts endpoints for aggregate pass, warning, failure, latest-check,
+recent pass/fail movement, backend-classified trend alert status/reasons, and recent non-OK alert
+evidence rows.
 
 Before production managed-SMTP traffic, complete the host hardening checklist in
 `infra/managed-smtp/PRODUCTION_HARDENING.md`.

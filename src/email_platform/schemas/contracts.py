@@ -1049,6 +1049,14 @@ class ManagedSmtpReadinessTrendRead(BaseModel):
     recent_checks: list[ManagedSmtpReadinessCheckRead] = Field(default_factory=list)
 
 
+class ManagedSmtpReadinessAlertsRead(BaseModel):
+    alert_status: str
+    alert_reasons: list[str] = Field(default_factory=list)
+    alert_count: int
+    trend: ManagedSmtpReadinessTrendRead
+    alert_checks: list[ManagedSmtpReadinessCheckRead] = Field(default_factory=list)
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

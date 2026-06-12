@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from email_platform.models.entities import ManagedSmtpReadinessCheck
 from email_platform.schemas.contracts import (
+    ManagedSmtpReadinessAlertsRead,
     ManagedSmtpReadinessCheckCreate,
     ManagedSmtpReadinessSummaryRead,
     ManagedSmtpReadinessTrendRead,
@@ -167,6 +168,31 @@ class ManagedSmtpReadinessService:
             latest_window_failure_rate=latest_failure_rate,
             previous_window_failure_rate=previous_failure_rate,
             recent_checks=checks,
+        )
+
+    def alerts(
+        self,
+        *,
+        source: str | None = None,
+        check_type: str | None = None,
+        domain: str | None = None,
+        host: str | None = None,
+        limit: int = 20,
+    ) -> ManagedSmtpReadinessAlertsRead:
+        trend = self.trend(
+            source=source,
+            check_type=check_type,
+            domain=domain,
+            host=host,
+            limit=limit,
+        )
+        alert_checks = [check for check in trend.recent_checks if check.status != 'ok']
+        return ManagedSmtpReadinessAlertsRead(
+            alert_status=trend.alert_status,
+            alert_reasons=trend.alert_reasons,
+            alert_count=len(alert_checks),
+            trend=trend,
+            alert_checks=alert_checks,
         )
 
     def _failure_rate(self, checks: list[ManagedSmtpReadinessCheck]) -> float:

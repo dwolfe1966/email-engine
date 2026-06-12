@@ -70,6 +70,35 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness alert evidence feed
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `/api/v1/managed-smtp/readiness-checks/alerts`.
+- The alert feed reuses the backend readiness trend classifier and returns recent non-OK readiness
+  checks as alert evidence.
+- Delivery Manager now loads the alert feed with the existing readiness filters and shows recent
+  Alert evidence rows under Managed SMTP Readiness.
+
+### Why
+
+The trend alert card identifies severity, but notification routing and operator triage also need
+the concrete readiness checks that caused the alert.
+
+### What needs to happen next
+
+- Wire readiness alert evidence into outbound notifications once the product needs alerts outside
+  the ESP UI.
+
+### Compatibility notes
+
+- No migration is required. The alert feed reads existing `managed_smtp_readiness_checks` rows.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness alert classification
 
 **Pushed by:** Codex
