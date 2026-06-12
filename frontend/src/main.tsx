@@ -637,6 +637,15 @@ type ManagedSmtpReadinessCheckRead = {
   created_at: string;
 };
 
+type ManagedSmtpReadinessSummaryRead = {
+  total_count: number;
+  ok_count: number;
+  warning_count: number;
+  failed_count: number;
+  latest_check: ManagedSmtpReadinessCheckRead | null;
+  latest_success: ManagedSmtpReadinessCheckRead | null;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9545,6 +9554,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
   const [readinessCheckTotal, setReadinessCheckTotal] = useState(0);
+  const [readinessSummary, setReadinessSummary] = useState<ManagedSmtpReadinessSummaryRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9602,9 +9612,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
-  const readinessWarningCount = readinessChecks.filter((check) => check.status !== 'ok').length;
-  const latestReadinessCheck = readinessChecks[0];
-  const latestSuccessfulReadiness = readinessChecks.find((check) => check.status === 'ok');
+  const readinessWarningCount = readinessSummary
+    ? readinessSummary.warning_count + readinessSummary.failed_count
+    : readinessChecks.filter((check) => check.status !== 'ok').length;
+  const latestReadinessCheck = readinessSummary?.latest_check || readinessChecks[0];
+  const latestSuccessfulReadiness = readinessSummary?.latest_success || readinessChecks.find((check) => check.status === 'ok');
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9918,13 +9930,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   async function loadReadinessChecks() {
     await runDeliveryOperation('Loading managed SMTP readiness checks', async () => {
       const params = new URLSearchParams({ limit: '25', offset: '0' });
+      const summaryParams = new URLSearchParams();
       Object.entries(readinessFilters).forEach(([key, value]) => {
-        if (value.trim()) params.set(key, value.trim());
+        if (value.trim()) {
+          params.set(key, value.trim());
+          summaryParams.set(key, value.trim());
+        }
       });
-      const data = await fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`);
+      const [data, summary] = await Promise.all([
+        fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`),
+        fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${summaryParams.toString()}`),
+      ]);
       setReadinessChecks(data.items || []);
       setReadinessCheckTotal(data.total || 0);
-      const warningCount = (data.items || []).filter((check) => check.status !== 'ok').length;
+      setReadinessSummary(summary);
+      const warningCount = summary.warning_count + summary.failed_count;
       return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(warningCount)} needing review.`;
     });
   }
@@ -10412,12 +10432,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
               <article className={readinessWarningCount ? 'warn' : 'good'}>
                 <span>Loaded checks</span>
                 <strong>{formatInt(readinessChecks.length)}</strong>
-                <small>{formatInt(readinessCheckTotal)} readiness check(s) retained.</small>
+                <small>{formatInt(readinessSummary?.total_count ?? readinessCheckTotal)} readiness check(s) match the filters.</small>
               </article>
               <article className={readinessWarningCount ? 'warn' : 'good'}>
                 <span>Needs review</span>
                 <strong>{formatInt(readinessWarningCount)}</strong>
-                <small>Failed or warning readiness checks.</small>
+                <small>{formatInt(readinessSummary?.failed_count || 0)} failed, {formatInt(readinessSummary?.warning_count || 0)} warning.</small>
+              </article>
+              <article className={readinessSummary?.ok_count ? 'good' : 'warn'}>
+                <span>Passing checks</span>
+                <strong>{formatInt(readinessSummary?.ok_count || 0)}</strong>
+                <small>Backend readiness summary across matching checks.</small>
               </article>
               <article className={latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}>
                 <span>Latest check</span>

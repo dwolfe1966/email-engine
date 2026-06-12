@@ -1025,6 +1025,15 @@ class ManagedSmtpReadinessCheckRead(ManagedSmtpReadinessCheckCreate):
     model_config = {'from_attributes': True}
 
 
+class ManagedSmtpReadinessSummaryRead(BaseModel):
+    total_count: int
+    ok_count: int
+    warning_count: int
+    failed_count: int
+    latest_check: ManagedSmtpReadinessCheckRead | None = None
+    latest_success: ManagedSmtpReadinessCheckRead | None = None
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

@@ -4,7 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import ManagedSmtpReadinessCheck
-from email_platform.schemas.contracts import ManagedSmtpReadinessCheckCreate
+from email_platform.schemas.contracts import (
+    ManagedSmtpReadinessCheckCreate,
+    ManagedSmtpReadinessSummaryRead,
+)
 
 
 class ManagedSmtpReadinessService:
@@ -68,6 +71,77 @@ class ManagedSmtpReadinessService:
             count=True,
         )
         return self.db.scalar(statement) or 0
+
+    def summary(
+        self,
+        *,
+        source: str | None = None,
+        check_type: str | None = None,
+        domain: str | None = None,
+        host: str | None = None,
+    ) -> ManagedSmtpReadinessSummaryRead:
+        latest_check = self._latest_check(
+            source=source,
+            check_type=check_type,
+            domain=domain,
+            host=host,
+        )
+        latest_success = self._latest_check(
+            source=source,
+            check_type=check_type,
+            status='ok',
+            domain=domain,
+            host=host,
+        )
+        return ManagedSmtpReadinessSummaryRead(
+            total_count=self.count_checks(
+                source=source,
+                check_type=check_type,
+                domain=domain,
+                host=host,
+            ),
+            ok_count=self.count_checks(
+                source=source,
+                check_type=check_type,
+                status='ok',
+                domain=domain,
+                host=host,
+            ),
+            warning_count=self.count_checks(
+                source=source,
+                check_type=check_type,
+                status='warning',
+                domain=domain,
+                host=host,
+            ),
+            failed_count=self.count_checks(
+                source=source,
+                check_type=check_type,
+                status='failed',
+                domain=domain,
+                host=host,
+            ),
+            latest_check=latest_check,
+            latest_success=latest_success,
+        )
+
+    def _latest_check(
+        self,
+        *,
+        source: str | None = None,
+        check_type: str | None = None,
+        status: str | None = None,
+        domain: str | None = None,
+        host: str | None = None,
+    ) -> ManagedSmtpReadinessCheck | None:
+        statement = self._statement(
+            source=source,
+            check_type=check_type,
+            status=status,
+            domain=domain,
+            host=host,
+        ).order_by(ManagedSmtpReadinessCheck.created_at.desc())
+        return self.db.scalars(statement.limit(1)).first()
 
     def _statement(
         self,

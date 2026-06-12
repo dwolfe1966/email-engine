@@ -150,6 +150,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpMaintenanceRequest,
     ManagedSmtpReadinessCheckCreate,
     ManagedSmtpReadinessCheckRead,
+    ManagedSmtpReadinessSummaryRead,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -3537,6 +3538,25 @@ def list_managed_smtp_readiness_checks(
             host=host,
         ),
     }
+
+
+@router.get(
+    '/managed-smtp/readiness-checks/summary',
+    response_model=ManagedSmtpReadinessSummaryRead,
+)
+def summarize_managed_smtp_readiness_checks(
+    db: DbSession,
+    source: str | None = None,
+    check_type: str | None = None,
+    domain: str | None = None,
+    host: str | None = None,
+) -> ManagedSmtpReadinessSummaryRead:
+    return ManagedSmtpReadinessService(db).summary(
+        source=source,
+        check_type=check_type,
+        domain=domain,
+        host=host,
+    )
 
 
 @router.get('/suppressions', response_model=list[SuppressionRead])

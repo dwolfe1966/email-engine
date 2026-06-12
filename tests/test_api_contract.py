@@ -90,6 +90,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/delivery-routes/{route_id}/resume',
         '/api/v1/provider-feedback-events/list',
         '/api/v1/managed-smtp/readiness-checks/list',
+        '/api/v1/managed-smtp/readiness-checks/summary',
         '/api/v1/domain-delivery-policies',
         '/api/v1/domain-delivery-policies/list',
         '/api/v1/domain-delivery-policies/managed-smtp-maintenance',

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import uuid4
 
 from email_platform.models.entities import (
@@ -153,6 +154,68 @@ def test_managed_smtp_readiness_service_normalizes_and_persists_check() -> None:
     assert db.rows == [check]
     assert db.committed is True
     assert db.refreshed is check
+
+
+def test_managed_smtp_readiness_summary_counts_latest_and_latest_success() -> None:
+    latest = type(
+        'Check',
+        (),
+        {
+            'status': 'failed',
+            'source': 'managed_smtp_mta_smoke',
+            'check_type': 'mta_smoke',
+            'domain': 'example.com',
+            'host': 'smtp.example.com',
+            'summary': 'failed',
+            'result_json': {'ok': False},
+            'id': uuid4(),
+            'created_at': datetime.utcnow(),
+        },
+    )()
+    latest_success = type(
+        'Check',
+        (),
+        {
+            'status': 'ok',
+            'source': 'managed_smtp_mta_smoke',
+            'check_type': 'mta_smoke',
+            'domain': 'example.com',
+            'host': 'smtp.example.com',
+            'summary': 'passed',
+            'result_json': {'ok': True},
+            'id': uuid4(),
+            'created_at': datetime.utcnow(),
+        },
+    )()
+
+    class FakeSummaryService(ManagedSmtpReadinessService):
+        def __init__(self) -> None:
+            self.count_requests = []
+
+        def count_checks(self, **kwargs) -> int:
+            self.count_requests.append(kwargs)
+            return {
+                None: 5,
+                'ok': 3,
+                'warning': 1,
+                'failed': 1,
+            }[kwargs.get('status')]
+
+        def _latest_check(self, **kwargs):
+            return latest_success if kwargs.get('status') == 'ok' else latest
+
+    summary = FakeSummaryService().summary(domain='example.com', host='smtp.example.com')
+
+    assert summary.total_count == 5
+    assert summary.ok_count == 3
+    assert summary.warning_count == 1
+    assert summary.failed_count == 1
+    assert summary.latest_check is not None
+    assert summary.latest_check.status == 'failed'
+    assert summary.latest_check.host == 'smtp.example.com'
+    assert summary.latest_success is not None
+    assert summary.latest_success.status == 'ok'
+    assert summary.latest_success.result_json == {'ok': True}
 
 
 def test_feedback_ingestion_suppresses_unmatched_feedback_without_event() -> None:

@@ -70,6 +70,33 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness summary endpoint
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `/api/v1/managed-smtp/readiness-checks/summary`.
+- The summary returns total, ok, warning, failed, latest check, and latest passing check for the
+  same domain/host/source/check-type filters used by the readiness list.
+- Delivery Manager now loads the summary endpoint and uses it for aggregate readiness cards.
+
+### Why
+
+The readiness list is useful evidence, but aggregate pass/fail state should come from the backend so
+operators are not limited to whichever page of rows the UI loaded.
+
+### What needs to happen next
+
+- Consider trend rollups if readiness checks become high volume.
+
+### Compatibility notes
+
+- No migration is required; this reads the existing `managed_smtp_readiness_checks` table.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness filters in Delivery Manager
 
 **Pushed by:** Codex
