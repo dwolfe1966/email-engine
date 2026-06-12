@@ -9545,6 +9545,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
   const [readinessCheckTotal, setReadinessCheckTotal] = useState(0);
+  const [readinessFilters, setReadinessFilters] = useState({
+    status: '',
+    domain: '',
+    host: '',
+    check_type: '',
+  });
   const [feedbackFilters, setFeedbackFilters] = useState({
     provider: '',
     source: '',
@@ -9597,6 +9603,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
   const readinessWarningCount = readinessChecks.filter((check) => check.status !== 'ok').length;
+  const latestReadinessCheck = readinessChecks[0];
+  const latestSuccessfulReadiness = readinessChecks.find((check) => check.status === 'ok');
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9876,6 +9884,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     setFeedbackFilters((current) => ({ ...current, [name]: value }));
   }
 
+  function updateReadinessFilter(name: keyof typeof readinessFilters, value: string) {
+    setReadinessFilters((current) => ({ ...current, [name]: value }));
+  }
+
   function useSelectedRecordForFeedbackFilters() {
     if (!selectedRecord) {
       setStatus('Select a send record before applying feedback filters.');
@@ -9905,7 +9917,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
 
   async function loadReadinessChecks() {
     await runDeliveryOperation('Loading managed SMTP readiness checks', async () => {
-      const data = await fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>('/api/v1/managed-smtp/readiness-checks/list?limit=25&offset=0');
+      const params = new URLSearchParams({ limit: '25', offset: '0' });
+      Object.entries(readinessFilters).forEach(([key, value]) => {
+        if (value.trim()) params.set(key, value.trim());
+      });
+      const data = await fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${params.toString()}`);
       setReadinessChecks(data.items || []);
       setReadinessCheckTotal(data.total || 0);
       const warningCount = (data.items || []).filter((check) => check.status !== 'ok').length;
@@ -10363,6 +10379,33 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
         </div>
+        <div className="form-grid">
+          <label>
+            Status
+            <select value={readinessFilters.status} onChange={(event) => updateReadinessFilter('status', event.target.value)}>
+              <option value="">Any status</option>
+              <option value="ok">ok</option>
+              <option value="warning">warning</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+          <label>
+            Domain
+            <input value={readinessFilters.domain} onChange={(event) => updateReadinessFilter('domain', event.target.value)} placeholder="example.com" />
+          </label>
+          <label>
+            Host
+            <input value={readinessFilters.host} onChange={(event) => updateReadinessFilter('host', event.target.value)} placeholder="smtp.example.com" />
+          </label>
+          <label>
+            Check type
+            <input value={readinessFilters.check_type} onChange={(event) => updateReadinessFilter('check_type', event.target.value)} placeholder="mta_smoke" />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Apply Readiness Filters</button>
+          <button className="ghost" onClick={() => setReadinessFilters({ status: '', domain: '', host: '', check_type: '' })} disabled={busy}>Clear Readiness Filters</button>
+        </div>
         {readinessChecks.length ? (
           <>
             <div className="delivery-triage-grid">
@@ -10375,6 +10418,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <span>Needs review</span>
                 <strong>{formatInt(readinessWarningCount)}</strong>
                 <small>Failed or warning readiness checks.</small>
+              </article>
+              <article className={latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}>
+                <span>Latest check</span>
+                <strong>{latestReadinessCheck?.status || 'None'}</strong>
+                <small>{latestReadinessCheck?.summary || latestReadinessCheck?.created_at || 'No readiness result loaded.'}</small>
+              </article>
+              <article className={latestSuccessfulReadiness ? 'good' : 'warn'}>
+                <span>Latest pass</span>
+                <strong>{latestSuccessfulReadiness ? latestSuccessfulReadiness.created_at : 'None'}</strong>
+                <small>{latestSuccessfulReadiness?.host || latestSuccessfulReadiness?.domain || 'No passing MTA smoke visible in loaded checks.'}</small>
               </article>
             </div>
             <div className="provider-feedback-list">

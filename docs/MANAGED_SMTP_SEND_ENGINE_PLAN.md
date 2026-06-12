@@ -549,3 +549,4 @@ Recommended twenty-ninth code slice:
 12. Add captured seed-message DKIM signature domain/selector smoke validation. **Done.**
 13. Add optional cryptographic DKIM verification for captured seed-message smoke checks. **Done.**
 14. Add durable managed-SMTP readiness check publishing and Delivery Manager visibility. **Done.**
+15. Add Delivery Manager readiness filters and latest pass/fail summary cards. **Done.**

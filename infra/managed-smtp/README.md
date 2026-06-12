@@ -164,7 +164,8 @@ python scripts/managed_smtp_mta_smoke.py \
 public keys. Without it, the script still fails closed on missing or mismatched `DKIM-Signature`
 domain/selector tags, but it does not prove the cryptographic signature.
 Use `--post-readiness` with `BASE_URL` and `MANAGED_SMTP_FEEDBACK_SECRET` to publish the smoke
-result into Delivery Manager's Managed SMTP Readiness panel.
+result into Delivery Manager's Managed SMTP Readiness panel, where operators can filter by status,
+domain, host, and check type.
 
 ## Bounce Routing Boundary
 

@@ -70,6 +70,34 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness filters in Delivery Manager
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Delivery Manager's Managed SMTP Readiness panel now supports status, domain, host, and check-type
+  filters.
+- The panel now summarizes latest loaded check status and latest passing readiness check.
+- Managed-SMTP deployment docs mention the operator filters.
+
+### Why
+
+Published MTA smoke results become much more useful once operators can narrow them to the host or
+domain under review and quickly see the latest pass/fail state.
+
+### What needs to happen next
+
+- Consider adding a backend summary endpoint if readiness volume grows beyond simple filtered lists.
+
+### Compatibility notes
+
+- No schema migration is required. This uses the existing `managed_smtp_readiness_checks` table and
+  list endpoint.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness evidence in Delivery Manager
 
 **Pushed by:** Codex
