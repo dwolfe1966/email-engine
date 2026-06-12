@@ -73,6 +73,26 @@ services:
       - key: MANAGED_SMTP_DSN_QUARANTINE
         sync: false
 
+  - type: cron
+    name: email-engine-managed-smtp-readiness-notify
+    runtime: docker
+    plan: starter
+    schedule: "*/15 * * * *"
+    dockerCommand: python scripts/managed_smtp_readiness_notify.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: BASE_URL
+        sync: false
+      - key: EMAIL_ENGINE_COOKIE
+        sync: false
+      - key: MANAGED_SMTP_READINESS_WEBHOOK_URL
+        sync: false
+      - key: MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER
+        sync: false
+      - key: MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE
+        sync: false
+
 databases:
   - name: email-engine-db
     plan: starter

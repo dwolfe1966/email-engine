@@ -558,3 +558,5 @@ Recommended twenty-ninth code slice:
     **Done.**
 20. Add managed-SMTP readiness notification payload endpoint and Delivery Manager payload preview.
     **Done.**
+21. Add scheduler-friendly managed-SMTP readiness notification dispatcher and Render cron job.
+    **Done.**

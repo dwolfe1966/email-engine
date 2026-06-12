@@ -229,6 +229,21 @@ python scripts/managed_smtp_dsn_quarantine.py /path/to/quarantine-Maildir --purg
 `--check` exits with `0` for ok, `1` for warning, and `2` for critical so cron or platform job
 alerts can surface quarantine backlog issues.
 
+To send managed-SMTP readiness alerts to an external webhook, run:
+
+```bash
+BASE_URL=https://<email-engine-api> \
+EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
+MANAGED_SMTP_READINESS_WEBHOOK_URL=https://hooks.example/managed-smtp-readiness \
+MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER=Authorization \
+MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE='Bearer <token>' \
+python scripts/managed_smtp_readiness_notify.py
+```
+
+The dispatcher calls `/api/v1/managed-smtp/readiness-checks/notification`, exits quietly when
+`should_notify` is false, and posts the full notification payload plus dedupe key when an alert
+needs routing. The checked-in Render Blueprint runs this every 15 minutes.
+
 ## MTA Boundary
 
 Postfix handles SMTP transport. Email Engine remains responsible for:

@@ -263,6 +263,23 @@ The checked-in Render Blueprint runs the same quarantine check daily. It exits n
 quarantine backlog reaches the warning/critical count thresholds or contains messages older than
 the configured age, so platform cron failure alerts can notify operators.
 
+Managed-SMTP readiness notifications can be dispatched from cron with the notification payload
+endpoint and a webhook destination:
+
+```bash
+BASE_URL=https://<email-engine-api> \
+EMAIL_ENGINE_COOKIE='<operator session cookie if auth is required>' \
+MANAGED_SMTP_READINESS_WEBHOOK_URL=https://hooks.example/managed-smtp-readiness \
+MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER=Authorization \
+MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE='Bearer <token>' \
+python scripts/managed_smtp_readiness_notify.py
+```
+
+The dispatcher exits quietly when `should_notify` is false. When the API says a notification should
+be sent, it posts the full notification payload, including the dedupe key, to the configured
+webhook URL. Use `--dry-run` to print the payload without posting. The Render Blueprint runs this
+check every 15 minutes as `email-engine-managed-smtp-readiness-notify`.
+
 ## Health Check
 
 Use:

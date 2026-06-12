@@ -12,6 +12,7 @@ LOG_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_log_feedback.py'
 DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
+READINESS_NOTIFY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_readiness_notify.py'
 MTA_PREFLIGHT_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_preflight.py'
 MTA_SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_smoke.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
@@ -815,6 +816,88 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
         assert token in source
 
 
+def test_managed_smtp_readiness_notify_script_dispatches_webhook_alerts(monkeypatch) -> None:
+    module = load_script_module(READINESS_NOTIFY_SCRIPT)
+    posts = []
+
+    def fake_request_json(base_url, path, *, cookie=None):
+        assert base_url == 'https://email-engine.example'
+        assert path.startswith('/api/v1/managed-smtp/readiness-checks/notification?')
+        assert 'check_type=mta_smoke' in path
+        assert cookie == 'session=operator'
+        return {
+            'should_notify': True,
+            'severity': 'critical',
+            'title': 'Managed SMTP readiness critical: smtp.example.com',
+            'message': 'Latest readiness check failed.',
+            'dedupe_key': 'managed-smtp-readiness:critical:check-id',
+            'alert_count': 1,
+        }
+
+    def fake_post_webhook(webhook_url, payload, *, auth_header=None, auth_value=None):
+        posts.append((webhook_url, payload, auth_header, auth_value))
+        return {'status_code': 202, 'response_body': 'accepted'}
+
+    monkeypatch.setattr(module, 'request_json', fake_request_json)
+    monkeypatch.setattr(module, 'post_webhook', fake_post_webhook)
+    args = type(
+        'Args',
+        (),
+        {
+            'base_url': 'https://email-engine.example',
+            'cookie': 'session=operator',
+            'webhook_url': 'https://hooks.example/managed-smtp',
+            'webhook_auth_header': 'Authorization',
+            'webhook_auth_value': 'Bearer token',
+            'source': None,
+            'check_type': 'mta_smoke',
+            'domain': None,
+            'host': None,
+            'limit': 20,
+            'dry_run': False,
+        },
+    )()
+
+    result = module.dispatch_notification(args)
+
+    assert result['status'] == 'posted'
+    assert result['posted'] is True
+    assert result['dedupe_key'] == 'managed-smtp-readiness:critical:check-id'
+    assert posts == [
+        (
+            'https://hooks.example/managed-smtp',
+            {
+                'should_notify': True,
+                'severity': 'critical',
+                'title': 'Managed SMTP readiness critical: smtp.example.com',
+                'message': 'Latest readiness check failed.',
+                'dedupe_key': 'managed-smtp-readiness:critical:check-id',
+                'alert_count': 1,
+            },
+            'Authorization',
+            'Bearer token',
+        )
+    ]
+
+
+def test_managed_smtp_readiness_notify_script_contract() -> None:
+    source = READINESS_NOTIFY_SCRIPT.read_text()
+
+    expected_tokens = [
+        '/api/v1/managed-smtp/readiness-checks/notification',
+        'MANAGED_SMTP_READINESS_WEBHOOK_URL',
+        'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER',
+        'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE',
+        'EMAIL_ENGINE_COOKIE',
+        'should_notify',
+        'dedupe_key',
+        'dry-run',
+        'NotificationError',
+    ]
+    for token in expected_tokens:
+        assert token in source
+
+
 def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
     render_yaml = RENDER_BLUEPRINT.read_text()
     dockerfile = DOCKERFILE.read_text()
@@ -823,18 +906,24 @@ def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
         'email-engine-managed-smtp-dsn-ingestion',
         'email-engine-managed-smtp-maintenance',
         'email-engine-managed-smtp-quarantine-check',
+        'email-engine-managed-smtp-readiness-notify',
         'type: cron',
         'runtime: docker',
         'dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-maintenance',
         'dockerCommand: python scripts/managed_smtp_maintenance_runbook.py --skip-dsn',
+        'dockerCommand: python scripts/managed_smtp_readiness_notify.py',
         'schedule: "*/10 * * * *"',
         'schedule: "17 6 * * *"',
+        'schedule: "*/15 * * * *"',
         'BASE_URL',
         'EMAIL_ENGINE_COOKIE',
         'MANAGED_SMTP_FEEDBACK_SECRET',
         'MANAGED_SMTP_DSN_PATH',
         'MANAGED_SMTP_DSN_ARCHIVE',
         'MANAGED_SMTP_DSN_QUARANTINE',
+        'MANAGED_SMTP_READINESS_WEBHOOK_URL',
+        'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_HEADER',
+        'MANAGED_SMTP_READINESS_WEBHOOK_AUTH_VALUE',
         'managed_smtp_dsn_quarantine.py --check',
     ]
     for token in expected_render_tokens:

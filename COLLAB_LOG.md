@@ -70,6 +70,35 @@ Following this morning's note: delivery-port **slices 2 and 3 landed + deployed 
 
 ---
 
+## 2026-06-11 — Managed SMTP readiness notification dispatcher
+
+**Pushed by:** Codex
+**Repo touched:** `dwolfe1966/email-engine` only.
+
+### What changed
+
+- Added `scripts/managed_smtp_readiness_notify.py`.
+- The script calls `/api/v1/managed-smtp/readiness-checks/notification`, exits quietly when
+  `should_notify` is false, and posts the full payload to `MANAGED_SMTP_READINESS_WEBHOOK_URL`
+  when an alert should route externally.
+- Added optional webhook auth header/value support, `--dry-run`, readiness filters, tests, docs,
+  and a Render cron job named `email-engine-managed-smtp-readiness-notify`.
+
+### Why
+
+The ESP now has notification-shaped readiness payloads; operators also need a scheduler-friendly
+way to deliver those alerts outside the UI without adding persistence or request-path side effects.
+
+### What needs to happen next
+
+- Configure the production webhook destination and auth secret for the readiness notification cron.
+
+### Compatibility notes
+
+- No migration is required. The dispatcher reads the existing notification endpoint.
+
+---
+
 ## 2026-06-11 — Managed SMTP readiness notification payload
 
 **Pushed by:** Codex
