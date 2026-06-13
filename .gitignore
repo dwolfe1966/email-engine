@@ -18,3 +18,10 @@ frontend/node_modules/
 !frontend/dist/**
 frontend/dist/assets/* [0-9].*
 frontend/dist/assets/* [0-9][0-9].*
+
+# Local secret/reference files and PII exports.
+docs/OpenAI API Key.rtf
+docs/SendGrid.rtf
+docs/twilio_2FA_recovery_code.txt
+tests/Milkbar_Email_List_6_4_.xlsx - subs*.csv
+tests/random_people_100.csv
