@@ -36,6 +36,11 @@ from email_platform.models.entities import (
     JourneyEnrollment,
     JourneyEnrollmentStatus,
     JourneyStep,
+    MtaIpPool,
+    MtaIpPoolNode,
+    MtaNode,
+    MtaOperationalStatus,
+    MtaProviderAccount,
     Suppression,
     User,
 )
@@ -154,6 +159,18 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessNotificationRead,
     ManagedSmtpReadinessSummaryRead,
     ManagedSmtpReadinessTrendRead,
+    MtaIpPoolCreate,
+    MtaIpPoolNodeCreate,
+    MtaIpPoolNodeRead,
+    MtaIpPoolNodeUpdate,
+    MtaIpPoolRead,
+    MtaIpPoolUpdate,
+    MtaNodeCreate,
+    MtaNodeRead,
+    MtaNodeUpdate,
+    MtaProviderAccountCreate,
+    MtaProviderAccountRead,
+    MtaProviderAccountUpdate,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -200,6 +217,7 @@ from email_platform.services.events import EventService
 from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
+from email_platform.services.mta_inventory import MtaInventoryError, MtaInventoryService
 from email_platform.services.provider_webhooks import ProviderWebhookService
 from email_platform.services.sending import SendingService
 from email_platform.services.suppressions import SuppressionService
@@ -3169,6 +3187,295 @@ def release_domain_delivery_compliance_hold(
     if not policy:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return policy
+
+
+def _mta_inventory_conflict(exc: MtaInventoryError) -> HTTPException:
+    return HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get(
+    '/managed-smtp/provider-accounts/list',
+    response_model=ListResponse[MtaProviderAccountRead],
+)
+def list_mta_provider_accounts(
+    db: DbSession,
+    status: MtaOperationalStatus | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = MtaInventoryService(db)
+    return {
+        'items': service.list_provider_accounts(status=status, limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_provider_accounts(status=status),
+    }
+
+
+@router.post('/managed-smtp/provider-accounts', response_model=MtaProviderAccountRead)
+def create_mta_provider_account(
+    payload: MtaProviderAccountCreate,
+    db: DbSession,
+) -> MtaProviderAccount:
+    return MtaInventoryService(db).create_provider_account(payload)
+
+
+@router.get('/managed-smtp/provider-accounts/{account_id}', response_model=MtaProviderAccountRead)
+def get_mta_provider_account(account_id: UUID, db: DbSession) -> MtaProviderAccount:
+    account = MtaInventoryService(db).get_provider_account(account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail='MTA provider account not found')
+    return account
+
+
+@router.patch(
+    '/managed-smtp/provider-accounts/{account_id}',
+    response_model=MtaProviderAccountRead,
+)
+def update_mta_provider_account(
+    account_id: UUID,
+    payload: MtaProviderAccountUpdate,
+    db: DbSession,
+) -> MtaProviderAccount:
+    account = MtaInventoryService(db).update_provider_account(account_id, payload)
+    if not account:
+        raise HTTPException(status_code=404, detail='MTA provider account not found')
+    return account
+
+
+@router.post(
+    '/managed-smtp/provider-accounts/{account_id}/pause',
+    response_model=MtaProviderAccountRead,
+)
+def pause_mta_provider_account(account_id: UUID, db: DbSession) -> MtaProviderAccount:
+    account = MtaInventoryService(db).set_provider_account_status(
+        account_id,
+        MtaOperationalStatus.paused,
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail='MTA provider account not found')
+    return account
+
+
+@router.post(
+    '/managed-smtp/provider-accounts/{account_id}/resume',
+    response_model=MtaProviderAccountRead,
+)
+def resume_mta_provider_account(account_id: UUID, db: DbSession) -> MtaProviderAccount:
+    account = MtaInventoryService(db).set_provider_account_status(
+        account_id,
+        MtaOperationalStatus.active,
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail='MTA provider account not found')
+    return account
+
+
+@router.get('/managed-smtp/nodes/list', response_model=ListResponse[MtaNodeRead])
+def list_mta_nodes(
+    db: DbSession,
+    status: MtaOperationalStatus | None = None,
+    provider_account_id: UUID | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = MtaInventoryService(db)
+    return {
+        'items': service.list_nodes(
+            status=status,
+            provider_account_id=provider_account_id,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_nodes(status=status, provider_account_id=provider_account_id),
+    }
+
+
+@router.post('/managed-smtp/nodes', response_model=MtaNodeRead)
+def create_mta_node(payload: MtaNodeCreate, db: DbSession) -> MtaNode:
+    try:
+        return MtaInventoryService(db).create_node(payload)
+    except MtaInventoryError as exc:
+        raise _mta_inventory_conflict(exc) from exc
+
+
+@router.get('/managed-smtp/nodes/{node_id}', response_model=MtaNodeRead)
+def get_mta_node(node_id: UUID, db: DbSession) -> MtaNode:
+    node = MtaInventoryService(db).get_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return node
+
+
+@router.patch('/managed-smtp/nodes/{node_id}', response_model=MtaNodeRead)
+def update_mta_node(node_id: UUID, payload: MtaNodeUpdate, db: DbSession) -> MtaNode:
+    try:
+        node = MtaInventoryService(db).update_node(node_id, payload)
+    except MtaInventoryError as exc:
+        raise _mta_inventory_conflict(exc) from exc
+    if not node:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return node
+
+
+@router.post('/managed-smtp/nodes/{node_id}/pause', response_model=MtaNodeRead)
+def pause_mta_node(node_id: UUID, db: DbSession) -> MtaNode:
+    node = MtaInventoryService(db).set_node_status(node_id, MtaOperationalStatus.paused)
+    if not node:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return node
+
+
+@router.post('/managed-smtp/nodes/{node_id}/resume', response_model=MtaNodeRead)
+def resume_mta_node(node_id: UUID, db: DbSession) -> MtaNode:
+    node = MtaInventoryService(db).set_node_status(node_id, MtaOperationalStatus.active)
+    if not node:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return node
+
+
+@router.get('/managed-smtp/ip-pools/list', response_model=ListResponse[MtaIpPoolRead])
+def list_mta_ip_pools(
+    db: DbSession,
+    status: MtaOperationalStatus | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = MtaInventoryService(db)
+    return {
+        'items': service.list_ip_pools(status=status, limit=limit, offset=offset),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_ip_pools(status=status),
+    }
+
+
+@router.post('/managed-smtp/ip-pools', response_model=MtaIpPoolRead)
+def create_mta_ip_pool(payload: MtaIpPoolCreate, db: DbSession) -> MtaIpPool:
+    return MtaInventoryService(db).create_ip_pool(payload)
+
+
+@router.get('/managed-smtp/ip-pools/{pool_id}', response_model=MtaIpPoolRead)
+def get_mta_ip_pool(pool_id: UUID, db: DbSession) -> MtaIpPool:
+    pool = MtaInventoryService(db).get_ip_pool(pool_id)
+    if not pool:
+        raise HTTPException(status_code=404, detail='MTA IP pool not found')
+    return pool
+
+
+@router.patch('/managed-smtp/ip-pools/{pool_id}', response_model=MtaIpPoolRead)
+def update_mta_ip_pool(
+    pool_id: UUID,
+    payload: MtaIpPoolUpdate,
+    db: DbSession,
+) -> MtaIpPool:
+    pool = MtaInventoryService(db).update_ip_pool(pool_id, payload)
+    if not pool:
+        raise HTTPException(status_code=404, detail='MTA IP pool not found')
+    return pool
+
+
+@router.post('/managed-smtp/ip-pools/{pool_id}/pause', response_model=MtaIpPoolRead)
+def pause_mta_ip_pool(pool_id: UUID, db: DbSession) -> MtaIpPool:
+    pool = MtaInventoryService(db).set_ip_pool_status(pool_id, MtaOperationalStatus.paused)
+    if not pool:
+        raise HTTPException(status_code=404, detail='MTA IP pool not found')
+    return pool
+
+
+@router.post('/managed-smtp/ip-pools/{pool_id}/resume', response_model=MtaIpPoolRead)
+def resume_mta_ip_pool(pool_id: UUID, db: DbSession) -> MtaIpPool:
+    pool = MtaInventoryService(db).set_ip_pool_status(pool_id, MtaOperationalStatus.active)
+    if not pool:
+        raise HTTPException(status_code=404, detail='MTA IP pool not found')
+    return pool
+
+
+@router.get(
+    '/managed-smtp/ip-pool-nodes/list',
+    response_model=ListResponse[MtaIpPoolNodeRead],
+)
+def list_mta_ip_pool_nodes(
+    db: DbSession,
+    ip_pool_id: UUID | None = None,
+    mta_node_id: UUID | None = None,
+    status: MtaOperationalStatus | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = MtaInventoryService(db)
+    return {
+        'items': service.list_pool_nodes(
+            ip_pool_id=ip_pool_id,
+            mta_node_id=mta_node_id,
+            status=status,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_pool_nodes(
+            ip_pool_id=ip_pool_id,
+            mta_node_id=mta_node_id,
+            status=status,
+        ),
+    }
+
+
+@router.post('/managed-smtp/ip-pool-nodes', response_model=MtaIpPoolNodeRead)
+def create_mta_ip_pool_node(
+    payload: MtaIpPoolNodeCreate,
+    db: DbSession,
+) -> MtaIpPoolNode:
+    try:
+        return MtaInventoryService(db).create_pool_node(payload)
+    except MtaInventoryError as exc:
+        raise _mta_inventory_conflict(exc) from exc
+
+
+@router.patch(
+    '/managed-smtp/ip-pool-nodes/{pool_node_id}',
+    response_model=MtaIpPoolNodeRead,
+)
+def update_mta_ip_pool_node(
+    pool_node_id: UUID,
+    payload: MtaIpPoolNodeUpdate,
+    db: DbSession,
+) -> MtaIpPoolNode:
+    pool_node = MtaInventoryService(db).update_pool_node(pool_node_id, payload)
+    if not pool_node:
+        raise HTTPException(status_code=404, detail='MTA IP pool node not found')
+    return pool_node
+
+
+@router.post(
+    '/managed-smtp/ip-pool-nodes/{pool_node_id}/pause',
+    response_model=MtaIpPoolNodeRead,
+)
+def pause_mta_ip_pool_node(pool_node_id: UUID, db: DbSession) -> MtaIpPoolNode:
+    pool_node = MtaInventoryService(db).set_pool_node_status(
+        pool_node_id,
+        MtaOperationalStatus.paused,
+    )
+    if not pool_node:
+        raise HTTPException(status_code=404, detail='MTA IP pool node not found')
+    return pool_node
+
+
+@router.post(
+    '/managed-smtp/ip-pool-nodes/{pool_node_id}/resume',
+    response_model=MtaIpPoolNodeRead,
+)
+def resume_mta_ip_pool_node(pool_node_id: UUID, db: DbSession) -> MtaIpPoolNode:
+    pool_node = MtaInventoryService(db).set_pool_node_status(
+        pool_node_id,
+        MtaOperationalStatus.active,
+    )
+    if not pool_node:
+        raise HTTPException(status_code=404, detail='MTA IP pool node not found')
+    return pool_node
 
 
 @router.post('/email-send-records/{send_record_id}/requeue', response_model=EmailSendRecordRead)

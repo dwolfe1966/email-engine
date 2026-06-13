@@ -18,6 +18,9 @@ from email_platform.models.entities import (
     JourneyStatus,
     JourneyStepExecutionStatus,
     JourneyStepType,
+    MtaIpPoolType,
+    MtaOperationalStatus,
+    MtaProviderType,
     SendJobStatus,
     SuppressionReason,
 )
@@ -860,6 +863,124 @@ class DomainAuthenticationVerificationRead(BaseModel):
 
 class DomainDeliveryPolicyRead(DomainDeliveryPolicyCreate):
     id: UUID
+
+    model_config = {'from_attributes': True}
+
+
+class MtaProviderAccountCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    provider: MtaProviderType
+    account_ref: str | None = Field(default=None, max_length=255)
+    region: str | None = Field(default=None, max_length=100)
+    abuse_contact_email: str | None = Field(default=None, max_length=320)
+    support_case_ref: str | None = Field(default=None, max_length=255)
+    port25_status: str = Field(default='unknown', max_length=40)
+    rdns_status: str = Field(default='unknown', max_length=40)
+    secret_ref: str | None = Field(default=None, max_length=255)
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class MtaProviderAccountUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    provider: MtaProviderType | None = None
+    status: MtaOperationalStatus | None = None
+    account_ref: str | None = Field(default=None, max_length=255)
+    region: str | None = Field(default=None, max_length=100)
+    abuse_contact_email: str | None = Field(default=None, max_length=320)
+    support_case_ref: str | None = Field(default=None, max_length=255)
+    port25_status: str | None = Field(default=None, max_length=40)
+    rdns_status: str | None = Field(default=None, max_length=40)
+    secret_ref: str | None = Field(default=None, max_length=255)
+    metadata_json: JsonObject | None = None
+
+
+class MtaProviderAccountRead(MtaProviderAccountCreate):
+    id: UUID
+    status: MtaOperationalStatus
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
+class MtaNodeCreate(BaseModel):
+    provider_account_id: UUID
+    name: str = Field(..., min_length=1, max_length=200)
+    hostname: str = Field(..., min_length=1, max_length=255)
+    public_ipv4: str | None = Field(default=None, max_length=64)
+    submission_host: str | None = Field(default=None, max_length=255)
+    submission_port: int = Field(default=587, ge=1, le=65535)
+    auth_secret_ref: str | None = Field(default=None, max_length=255)
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class MtaNodeUpdate(BaseModel):
+    provider_account_id: UUID | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    hostname: str | None = Field(default=None, min_length=1, max_length=255)
+    public_ipv4: str | None = Field(default=None, max_length=64)
+    status: MtaOperationalStatus | None = None
+    submission_host: str | None = Field(default=None, max_length=255)
+    submission_port: int | None = Field(default=None, ge=1, le=65535)
+    auth_secret_ref: str | None = Field(default=None, max_length=255)
+    last_readiness_at: datetime | None = None
+    metadata_json: JsonObject | None = None
+
+
+class MtaNodeRead(MtaNodeCreate):
+    id: UUID
+    status: MtaOperationalStatus
+    last_readiness_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
+class MtaIpPoolCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    pool_type: MtaIpPoolType
+    description: str | None = None
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class MtaIpPoolUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    pool_type: MtaIpPoolType | None = None
+    status: MtaOperationalStatus | None = None
+    description: str | None = None
+    metadata_json: JsonObject | None = None
+
+
+class MtaIpPoolRead(MtaIpPoolCreate):
+    id: UUID
+    status: MtaOperationalStatus
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
+class MtaIpPoolNodeCreate(BaseModel):
+    ip_pool_id: UUID
+    mta_node_id: UUID
+    priority: int = Field(default=100, ge=0)
+    weight: int = Field(default=100, ge=0)
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class MtaIpPoolNodeUpdate(BaseModel):
+    priority: int | None = Field(default=None, ge=0)
+    weight: int | None = Field(default=None, ge=0)
+    status: MtaOperationalStatus | None = None
+    metadata_json: JsonObject | None = None
+
+
+class MtaIpPoolNodeRead(MtaIpPoolNodeCreate):
+    id: UUID
+    status: MtaOperationalStatus
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {'from_attributes': True}
 

@@ -134,6 +134,37 @@ class DeliveryRouteStatus(StrEnum):
     disabled = 'disabled'
 
 
+class MtaProviderType(StrEnum):
+    aws = 'aws'
+    vultr = 'vultr'
+    akamai_linode = 'akamai_linode'
+    hetzner = 'hetzner'
+    ovh = 'ovh'
+    leaseweb = 'leaseweb'
+    hivelocity = 'hivelocity'
+    buyvm = 'buyvm'
+    custom = 'custom'
+
+
+class MtaOperationalStatus(StrEnum):
+    pending = 'pending'
+    active = 'active'
+    paused = 'paused'
+    draining = 'draining'
+    failed = 'failed'
+    retired = 'retired'
+    suspended = 'suspended'
+
+
+class MtaIpPoolType(StrEnum):
+    shared_marketing = 'shared_marketing'
+    shared_transactional = 'shared_transactional'
+    warmup = 'warmup'
+    quarantine = 'quarantine'
+    dedicated_customer = 'dedicated_customer'
+    internal_test = 'internal_test'
+
+
 class SuppressionReason(StrEnum):
     hard_bounce = 'hard_bounce'
     spam_complaint = 'spam_complaint'
@@ -555,6 +586,103 @@ class DomainDeliveryPolicy(Base):
     )
 
     route: Mapped[DeliveryRoute | None] = relationship()
+
+
+class MtaProviderAccount(Base):
+    __tablename__ = 'mta_provider_accounts'
+    __table_args__ = (UniqueConstraint('name', name='uq_mta_provider_accounts_name'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    provider: Mapped[MtaProviderType] = mapped_column(Enum(MtaProviderType), index=True)
+    status: Mapped[MtaOperationalStatus] = mapped_column(
+        Enum(MtaOperationalStatus), default=MtaOperationalStatus.pending, index=True
+    )
+    account_ref: Mapped[str | None] = mapped_column(String(255), index=True)
+    region: Mapped[str | None] = mapped_column(String(100), index=True)
+    abuse_contact_email: Mapped[str | None] = mapped_column(String(320))
+    support_case_ref: Mapped[str | None] = mapped_column(String(255))
+    port25_status: Mapped[str] = mapped_column(String(40), default='unknown', index=True)
+    rdns_status: Mapped[str] = mapped_column(String(40), default='unknown', index=True)
+    secret_ref: Mapped[str | None] = mapped_column(String(255))
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+
+class MtaNode(Base):
+    __tablename__ = 'mta_nodes'
+    __table_args__ = (UniqueConstraint('hostname', name='uq_mta_nodes_hostname'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    provider_account_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('mta_provider_accounts.id'), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    hostname: Mapped[str] = mapped_column(String(255), index=True)
+    public_ipv4: Mapped[str | None] = mapped_column(String(64), index=True)
+    status: Mapped[MtaOperationalStatus] = mapped_column(
+        Enum(MtaOperationalStatus), default=MtaOperationalStatus.pending, index=True
+    )
+    submission_host: Mapped[str | None] = mapped_column(String(255))
+    submission_port: Mapped[int] = mapped_column(Integer, default=587)
+    auth_secret_ref: Mapped[str | None] = mapped_column(String(255))
+    last_readiness_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    provider_account: Mapped[MtaProviderAccount] = relationship()
+
+
+class MtaIpPool(Base):
+    __tablename__ = 'mta_ip_pools'
+    __table_args__ = (UniqueConstraint('name', name='uq_mta_ip_pools_name'),)
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    pool_type: Mapped[MtaIpPoolType] = mapped_column(Enum(MtaIpPoolType), index=True)
+    status: Mapped[MtaOperationalStatus] = mapped_column(
+        Enum(MtaOperationalStatus), default=MtaOperationalStatus.paused, index=True
+    )
+    description: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+
+class MtaIpPoolNode(Base):
+    __tablename__ = 'mta_ip_pool_nodes'
+    __table_args__ = (
+        UniqueConstraint('ip_pool_id', 'mta_node_id', name='uq_mta_ip_pool_nodes_pool_node'),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    ip_pool_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('mta_ip_pools.id'), index=True
+    )
+    mta_node_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('mta_nodes.id'), index=True
+    )
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    weight: Mapped[int] = mapped_column(Integer, default=100)
+    status: Mapped[MtaOperationalStatus] = mapped_column(
+        Enum(MtaOperationalStatus), default=MtaOperationalStatus.active, index=True
+    )
+    metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=func.now()
+    )
+
+    ip_pool: Mapped[MtaIpPool] = relationship()
+    mta_node: Mapped[MtaNode] = relationship()
 
 
 class Suppression(Base):
