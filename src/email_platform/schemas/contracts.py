@@ -985,6 +985,48 @@ class MtaIpPoolNodeRead(MtaIpPoolNodeCreate):
     model_config = {'from_attributes': True}
 
 
+class ManagedSmtpRouteResolveRequest(BaseModel):
+    from_domain: str | None = Field(default=None, max_length=255)
+    recipient_domain: str | None = Field(default=None, max_length=255)
+    send_type: str = Field(default='internal_test', max_length=100)
+    route_id: UUID | None = None
+    ip_pool_id: UUID | None = None
+
+
+class ManagedSmtpRouteBlockReason(BaseModel):
+    code: str
+    message: str
+    details: JsonObject = Field(default_factory=dict)
+
+
+class ManagedSmtpResolvedRoute(BaseModel):
+    domain: str
+    delivery_route_id: UUID
+    delivery_route_name: str
+    domain_policy_id: UUID
+    ip_pool_id: UUID
+    ip_pool_name: str
+    ip_pool_type: MtaIpPoolType
+    mta_node_id: UUID
+    mta_node_name: str
+    provider_account_id: UUID
+    provider: MtaProviderType
+    hostname: str
+    public_ipv4: str | None = None
+    submission_host: str
+    submission_port: int
+    auth_secret_ref: str | None = None
+    envelope_sender_domain: str | None = None
+    dkim_selector: str | None = None
+    telemetry_tags: JsonObject = Field(default_factory=dict)
+
+
+class ManagedSmtpRouteResolutionRead(BaseModel):
+    ok: bool
+    route: ManagedSmtpResolvedRoute | None = None
+    reason: ManagedSmtpRouteBlockReason | None = None
+
+
 class DeliveryRunRead(BaseModel):
     claimed_count: int
     sent_count: int
