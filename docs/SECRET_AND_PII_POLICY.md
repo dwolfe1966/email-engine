@@ -62,3 +62,22 @@ Managed SMTP work has extra sensitive material:
 3. Move the secret into the intended secret manager or deployment environment.
 4. Rotate the secret if it may have been exposed.
 5. If the secret was already pushed, treat it as compromised and rotate it immediately.
+
+## Local Guard
+
+Run the high-confidence repository guard before committing local provider files or contact data:
+
+```bash
+python scripts/secret_pii_guard.py
+```
+
+The guard scans tracked files by default. To check local files before staging them, pass explicit
+paths:
+
+```bash
+python scripts/secret_pii_guard.py docs/SendGrid.rtf tests/contact-export.csv
+```
+
+The scanner is intentionally conservative. It catches obvious provider tokens, private-key blocks,
+forbidden local filenames, and CSVs with multiple real-looking email addresses. It is not a
+substitute for careful review.

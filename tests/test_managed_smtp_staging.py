@@ -13,6 +13,7 @@ DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 READINESS_NOTIFY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_readiness_notify.py'
+SECRET_PII_GUARD_SCRIPT = ROOT / 'scripts' / 'secret_pii_guard.py'
 MTA_PREFLIGHT_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_preflight.py'
 MTA_SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_smoke.py'
 RENDER_BLUEPRINT = ROOT / 'render.yaml'
@@ -1037,6 +1038,52 @@ def test_secret_and_pii_policy_covers_managed_smtp_local_artifacts() -> None:
     ]
     for token in expected_ignore_tokens:
         assert token in gitignore
+
+
+def test_secret_pii_guard_detects_high_confidence_secrets_and_exports(tmp_path) -> None:
+    module = load_script_module(SECRET_PII_GUARD_SCRIPT)
+    sendgrid_file = tmp_path / 'SendGrid.rtf'
+    sendgrid_token = 'SG.' + 'A' * 22 + '.' + 'B' * 43
+    sendgrid_file.write_text(f'SendGrid API Key {sendgrid_token}')
+    csv_file = tmp_path / 'contact-export.csv'
+    csv_file.write_text(
+        '\n'.join(
+            [
+                'email',
+                'one@gmail.com',
+                'two@yahoo.com',
+                'three@hotmail.com',
+                'four@icloud.com',
+                'five@outlook.com',
+            ]
+        )
+    )
+    safe_file = tmp_path / 'safe.md'
+    safe_file.write_text('Use <secret> and person@example.com in examples.')
+
+    findings = module.scan([sendgrid_file, csv_file, safe_file])
+
+    assert any(finding.reason == 'sendgrid_api_key' for finding in findings)
+    assert any(finding.reason == 'forbidden filename for local secret/PII artifact' for finding in findings)
+    assert any(finding.reason == 'PII-like CSV with multiple real email addresses' for finding in findings)
+    assert not any(finding.path == safe_file.as_posix() for finding in findings)
+
+
+def test_secret_pii_guard_script_contract() -> None:
+    source = SECRET_PII_GUARD_SCRIPT.read_text()
+
+    expected_tokens = [
+        'SG\\.',
+        'sk-',
+        'PRIVATE KEY',
+        'milkbar_email_list',
+        'PII-like CSV',
+        'git',
+        'ls-files',
+        'No secret/PII guard findings',
+    ]
+    for token in expected_tokens:
+        assert token in source
 
 
 def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
