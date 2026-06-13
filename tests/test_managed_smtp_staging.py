@@ -19,6 +19,8 @@ RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
 PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
 FIRST_SEND_RUNBOOK = ROOT / 'docs' / 'FIRST_MANAGED_SMTP_SEND_RUNBOOK.md'
+SECRET_POLICY = ROOT / 'docs' / 'SECRET_AND_PII_POLICY.md'
+GITIGNORE = ROOT / '.gitignore'
 
 
 def load_script_module(path: Path):
@@ -1004,6 +1006,37 @@ def test_first_managed_smtp_send_runbook_covers_first_email_sequence() -> None:
     ]
     for token in expected_tokens:
         assert token in runbook
+
+
+def test_secret_and_pii_policy_covers_managed_smtp_local_artifacts() -> None:
+    policy = SECRET_POLICY.read_text()
+    gitignore = GITIGNORE.read_text()
+
+    expected_policy_tokens = [
+        'Secret And PII Handling Policy',
+        'OpenAI',
+        'SendGrid',
+        'Twilio',
+        'subscriber lists',
+        'contact exports',
+        'DKIM private keys',
+        'Postfix TLS private keys',
+        'MTA logs',
+        'DSN messages',
+        'rotate it immediately',
+    ]
+    for token in expected_policy_tokens:
+        assert token in policy
+
+    expected_ignore_tokens = [
+        'docs/OpenAI API Key.rtf',
+        'docs/SendGrid.rtf',
+        'docs/twilio_2FA_recovery_code.txt',
+        'tests/Milkbar_Email_List_6_4_.xlsx - subs*.csv',
+        'tests/random_people_100.csv',
+    ]
+    for token in expected_ignore_tokens:
+        assert token in gitignore
 
 
 def test_render_blueprint_configures_managed_smtp_recurring_jobs() -> None:
