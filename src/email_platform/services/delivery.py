@@ -14,10 +14,15 @@ from email_platform.models.entities import (
     EmailSendStatus,
 )
 from email_platform.providers.email import EmailMessage, build_email_provider
-from email_platform.schemas.contracts import DeliveryRunRead, EventCreate
+from email_platform.schemas.contracts import (
+    DeliveryRunRead,
+    EventCreate,
+    ManagedSmtpRouteResolveRequest,
+)
 from email_platform.services.contacts import ContactService
 from email_platform.services.delivery_routes import DeliveryRouteService
 from email_platform.services.events import EventService
+from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
 from email_platform.services.templates import TemplateService
 from email_platform.services.tracking import TrackingService
 
@@ -34,6 +39,7 @@ class DeliveryService:
         self.settings = settings
         self.provider = build_email_provider(settings)
         self.route_service = DeliveryRouteService(db)
+        self.managed_smtp_routing_service = ManagedSmtpRoutingService(db)
         self.event_service = EventService(db)
         self.template_service = TemplateService(db)
 
@@ -242,6 +248,8 @@ class DeliveryService:
             metadata_json['max_per_minute'] = selected_route.max_per_minute
         if selected_route.max_concurrent is not None:
             metadata_json['max_concurrent'] = selected_route.max_concurrent
+        if selected_route.route_type == 'managed_smtp':
+            metadata_json.update(self._managed_smtp_route_resolution_metadata(selected_route))
         attempt = DeliveryAttempt(
             send_record_id=record.id,
             send_job_id=record.send_job_id,
@@ -257,6 +265,42 @@ class DeliveryService:
         self.db.add(attempt)
         self.db.flush()
         return attempt
+
+    def _managed_smtp_route_resolution_metadata(self, selected_route) -> dict[str, object]:
+        resolver = getattr(self, 'managed_smtp_routing_service', None)
+        if not resolver:
+            return {}
+        result = resolver.resolve(
+            ManagedSmtpRouteResolveRequest(
+                recipient_domain=selected_route.domain,
+                route_id=selected_route.route_id,
+                send_type='internal_test',
+            )
+        )
+        if not result.ok or not result.route:
+            reason = result.reason
+            return {
+                'mta_route_resolved': False,
+                'mta_route_block_code': reason.code if reason else 'UNKNOWN',
+                'mta_route_block_message': reason.message if reason else 'No reason returned.',
+                'mta_route_block_details': reason.details if reason else {},
+            }
+        route = result.route
+        return {
+            'mta_route_resolved': True,
+            'mta_provider_account_id': str(route.provider_account_id),
+            'mta_provider': route.provider.value,
+            'mta_ip_pool_id': str(route.ip_pool_id),
+            'mta_ip_pool_name': route.ip_pool_name,
+            'mta_ip_pool_type': route.ip_pool_type.value,
+            'mta_node_id': str(route.mta_node_id),
+            'mta_node_name': route.mta_node_name,
+            'mta_hostname': route.hostname,
+            'mta_public_ipv4': route.public_ipv4,
+            'mta_submission_host': route.submission_host,
+            'mta_submission_port': route.submission_port,
+            'mta_auth_secret_ref': route.auth_secret_ref,
+        }
 
     def _managed_smtp_message_options(
         self,
@@ -301,6 +345,20 @@ class DeliveryService:
             'dkim_selector',
             'dkim_key_ref',
             'dkim_signing_ready',
+            'mta_route_resolved',
+            'mta_route_block_code',
+            'mta_route_block_message',
+            'mta_provider_account_id',
+            'mta_provider',
+            'mta_ip_pool_id',
+            'mta_ip_pool_name',
+            'mta_ip_pool_type',
+            'mta_node_id',
+            'mta_node_name',
+            'mta_hostname',
+            'mta_public_ipv4',
+            'mta_submission_host',
+            'mta_submission_port',
         }
         return {key: value for key, value in attempt.metadata_json.items() if key in keys}
 

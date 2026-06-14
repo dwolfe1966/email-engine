@@ -1,7 +1,17 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
-from email_platform.models.entities import EmailSendRecord, EmailSendStatus
+from email_platform.models.entities import (
+    EmailSendRecord,
+    EmailSendStatus,
+    MtaIpPoolType,
+    MtaProviderType,
+)
+from email_platform.schemas.contracts import (
+    ManagedSmtpResolvedRoute,
+    ManagedSmtpRouteBlockReason,
+    ManagedSmtpRouteResolutionRead,
+)
 from email_platform.services.delivery import DeliveryService
 from email_platform.services.delivery_routes import ManagedSmtpIdentity
 
@@ -53,6 +63,16 @@ class SelectiveRouteService:
             domain=domain,
             domain_policy_id=uuid4() if domain == self.blocked_domain else None,
         )
+
+
+class FakeManagedSmtpRoutingService:
+    def __init__(self, result) -> None:
+        self.result = result
+        self.requests = []
+
+    def resolve(self, payload):
+        self.requests.append(payload)
+        return self.result
 
 
 def test_delivery_service_claim_records_skips_throttled_domains() -> None:
@@ -124,6 +144,124 @@ def test_delivery_service_starts_attempt_with_route_context() -> None:
     assert attempt.status == 'submitting'
     assert attempt.metadata_json['route_source'] == 'settings'
     assert attempt.metadata_json['to_domain'] == 'example.com'
+
+
+def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context() -> None:
+    db = FakeDb()
+    route_id = uuid4()
+    policy_id = uuid4()
+    provider_account_id = uuid4()
+    pool_id = uuid4()
+    node_id = uuid4()
+    service = DeliveryService.__new__(DeliveryService)
+    service.db = db
+    service.settings = SimpleNamespace(email_provider='console')
+    service.route_service = SimpleNamespace(
+        select_for_record=lambda _record, _settings: SimpleNamespace(
+            route_type='managed_smtp',
+            route_key='managed-smtp-primary',
+            route_id=route_id,
+            domain_policy_id=policy_id,
+            name='managed-smtp-primary',
+            domain='example.com',
+            warmup_stage='stage_1',
+            max_per_minute=25,
+            max_concurrent=2,
+            source='domain_policy',
+        )
+    )
+    service.managed_smtp_routing_service = FakeManagedSmtpRoutingService(
+        ManagedSmtpRouteResolutionRead(
+            ok=True,
+            route=ManagedSmtpResolvedRoute(
+                domain='example.com',
+                delivery_route_id=route_id,
+                delivery_route_name='managed-smtp-primary',
+                domain_policy_id=policy_id,
+                ip_pool_id=pool_id,
+                ip_pool_name='warmup-a',
+                ip_pool_type=MtaIpPoolType.warmup,
+                mta_node_id=node_id,
+                mta_node_name='mta-001',
+                provider_account_id=provider_account_id,
+                provider=MtaProviderType.aws,
+                hostname='mta-001.email-engine.example',
+                public_ipv4='192.0.2.10',
+                submission_host='mta-001.email-engine.example',
+                submission_port=587,
+                auth_secret_ref='secret/mta-001/submission',
+            ),
+        )
+    )
+    record = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='recipient@example.com',
+        variables={},
+        attempt_count=1,
+    )
+
+    attempt = service._start_attempt(record)
+
+    assert attempt.route_type == 'managed_smtp'
+    assert attempt.metadata_json['mta_route_resolved'] is True
+    assert attempt.metadata_json['mta_provider'] == 'aws'
+    assert attempt.metadata_json['mta_provider_account_id'] == str(provider_account_id)
+    assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'
+    assert attempt.metadata_json['mta_node_name'] == 'mta-001'
+    assert attempt.metadata_json['mta_submission_port'] == 587
+    assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'example.com'
+    assert service.managed_smtp_routing_service.requests[0].route_id == route_id
+
+
+def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() -> None:
+    db = FakeDb()
+    service = DeliveryService.__new__(DeliveryService)
+    service.db = db
+    service.settings = SimpleNamespace(email_provider='console')
+    service.route_service = SimpleNamespace(
+        select_for_record=lambda _record, _settings: SimpleNamespace(
+            route_type='managed_smtp',
+            route_key='managed-smtp-primary',
+            route_id=uuid4(),
+            domain_policy_id=uuid4(),
+            name='managed-smtp-primary',
+            domain='example.com',
+            warmup_stage=None,
+            max_per_minute=None,
+            max_concurrent=None,
+            source='domain_policy',
+        )
+    )
+    service.managed_smtp_routing_service = FakeManagedSmtpRoutingService(
+        ManagedSmtpRouteResolutionRead(
+            ok=False,
+            reason=ManagedSmtpRouteBlockReason(
+                code='NO_HEALTHY_MTA_NODE',
+                message='No active MTA node with passing readiness is available for this pool.',
+                details={'ip_pool_id': str(uuid4())},
+            ),
+        )
+    )
+    record = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='recipient@example.com',
+        variables={},
+        attempt_count=1,
+    )
+
+    attempt = service._start_attempt(record)
+
+    assert attempt.metadata_json['mta_route_resolved'] is False
+    assert attempt.metadata_json['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
+    assert 'passing readiness' in attempt.metadata_json['mta_route_block_message']
 
 
 def test_delivery_service_prepares_managed_smtp_envelope_and_signing_headers() -> None:
