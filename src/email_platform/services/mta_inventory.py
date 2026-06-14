@@ -4,6 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
+    DeliveryRoute,
+    DeliveryRouteType,
+    DomainDeliveryPolicy,
     MtaIpPool,
     MtaIpPoolNode,
     MtaNode,
@@ -11,6 +14,9 @@ from email_platform.models.entities import (
     MtaProviderAccount,
 )
 from email_platform.schemas.contracts import (
+    ManagedSmtpDeploymentNodeSummary,
+    ManagedSmtpDeploymentSummaryRead,
+    MtaInventoryCounts,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
     MtaIpPoolNodeUpdate,
@@ -20,6 +26,7 @@ from email_platform.schemas.contracts import (
     MtaProviderAccountCreate,
     MtaProviderAccountUpdate,
 )
+from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 
 
 class MtaInventoryError(ValueError):
@@ -246,6 +253,40 @@ class MtaInventoryService:
         pool_node.status = status
         return self._commit_refresh(pool_node)
 
+    def deployment_summary(self, limit: int = 10) -> ManagedSmtpDeploymentSummaryRead:
+        readiness_service = ManagedSmtpReadinessService(self.db)
+        recent_nodes = self.list_nodes(limit=limit, offset=0)
+        node_summaries = [
+            ManagedSmtpDeploymentNodeSummary(
+                node=node,
+                provider_account=self.get_provider_account(node.provider_account_id),
+                pool_memberships=self.list_pool_nodes(mta_node_id=node.id, limit=100, offset=0),
+                readiness_summary=readiness_service.summary(host=node.hostname),
+            )
+            for node in recent_nodes
+        ]
+        return ManagedSmtpDeploymentSummaryRead(
+            provider_accounts=self._inventory_counts(
+                total=self.count_provider_accounts(),
+                count_by_status=self.count_provider_accounts,
+            ),
+            nodes=self._inventory_counts(
+                total=self.count_nodes(),
+                count_by_status=self.count_nodes,
+            ),
+            ip_pools=self._inventory_counts(
+                total=self.count_ip_pools(),
+                count_by_status=self.count_ip_pools,
+            ),
+            pool_nodes=self._inventory_counts(
+                total=self.count_pool_nodes(),
+                count_by_status=self.count_pool_nodes,
+            ),
+            managed_smtp_route_count=self._managed_smtp_route_count(),
+            managed_smtp_domain_policy_count=self._managed_smtp_domain_policy_count(),
+            recent_nodes=node_summaries,
+        )
+
     def _require_provider_account(self, account_id: UUID) -> MtaProviderAccount:
         account = self.get_provider_account(account_id)
         if not account:
@@ -273,3 +314,30 @@ class MtaInventoryService:
     def _apply(item, updates: dict[str, object]) -> None:
         for key, value in updates.items():
             setattr(item, key, value)
+
+    @staticmethod
+    def _inventory_counts(total: int, count_by_status) -> MtaInventoryCounts:
+        status_counts = {
+            status.value: count_by_status(status)
+            for status in MtaOperationalStatus
+        }
+        return MtaInventoryCounts(total=total, **status_counts)
+
+    def _managed_smtp_route_count(self) -> int:
+        statement = (
+            select(func.count())
+            .select_from(DeliveryRoute)
+            .where(DeliveryRoute.route_type == DeliveryRouteType.managed_smtp)
+        )
+        return int(self.db.scalar(statement) or 0)
+
+    def _managed_smtp_domain_policy_count(self) -> int:
+        route_ids = select(DeliveryRoute.id).where(
+            DeliveryRoute.route_type == DeliveryRouteType.managed_smtp,
+        )
+        statement = (
+            select(func.count())
+            .select_from(DomainDeliveryPolicy)
+            .where(DomainDeliveryPolicy.route_id.in_(route_ids))
+        )
+        return int(self.db.scalar(statement) or 0)

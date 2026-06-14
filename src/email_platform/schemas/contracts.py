@@ -1275,6 +1275,34 @@ class ManagedSmtpReadinessNotificationRead(BaseModel):
     alerts: ManagedSmtpReadinessAlertsRead
 
 
+class MtaInventoryCounts(BaseModel):
+    total: int
+    pending: int = 0
+    active: int = 0
+    paused: int = 0
+    draining: int = 0
+    failed: int = 0
+    retired: int = 0
+    suspended: int = 0
+
+
+class ManagedSmtpDeploymentNodeSummary(BaseModel):
+    node: MtaNodeRead
+    provider_account: MtaProviderAccountRead | None = None
+    pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
+    readiness_summary: ManagedSmtpReadinessSummaryRead
+
+
+class ManagedSmtpDeploymentSummaryRead(BaseModel):
+    provider_accounts: MtaInventoryCounts
+    nodes: MtaInventoryCounts
+    ip_pools: MtaInventoryCounts
+    pool_nodes: MtaInventoryCounts
+    managed_smtp_route_count: int
+    managed_smtp_domain_policy_count: int
+    recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

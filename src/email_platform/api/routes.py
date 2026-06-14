@@ -152,6 +152,7 @@ from email_platform.schemas.contracts import (
     ListResponse,
     ManagedSmtpBootstrapRead,
     ManagedSmtpBootstrapRequest,
+    ManagedSmtpDeploymentSummaryRead,
     ManagedSmtpFeedbackEvent,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
@@ -3213,6 +3214,14 @@ def resolve_managed_smtp_route(
     db: DbSession,
 ) -> ManagedSmtpRouteResolutionRead:
     return ManagedSmtpRoutingService(db).resolve(payload)
+
+
+@router.get('/managed-smtp/deployment-summary', response_model=ManagedSmtpDeploymentSummaryRead)
+def summarize_managed_smtp_deployment(
+    db: DbSession,
+    limit: Limit = 10,
+) -> ManagedSmtpDeploymentSummaryRead:
+    return MtaInventoryService(db).deployment_summary(limit=limit)
 
 
 @router.get(
