@@ -150,6 +150,8 @@ from email_platform.schemas.contracts import (
     JourneyUpdate,
     JsonObject,
     ListResponse,
+    ManagedSmtpBootstrapRead,
+    ManagedSmtpBootstrapRequest,
     ManagedSmtpFeedbackEvent,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
@@ -218,6 +220,7 @@ from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
+from email_platform.services.managed_smtp_bootstrap import ManagedSmtpBootstrapService
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
 from email_platform.services.mta_inventory import MtaInventoryError, MtaInventoryService
@@ -3194,6 +3197,14 @@ def release_domain_delivery_compliance_hold(
 
 def _mta_inventory_conflict(exc: MtaInventoryError) -> HTTPException:
     return HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post('/managed-smtp/bootstrap', response_model=ManagedSmtpBootstrapRead)
+def bootstrap_managed_smtp(
+    payload: ManagedSmtpBootstrapRequest,
+    db: DbSession,
+) -> ManagedSmtpBootstrapRead:
+    return ManagedSmtpBootstrapService(db).bootstrap(payload)
 
 
 @router.post('/managed-smtp/resolve-route', response_model=ManagedSmtpRouteResolutionRead)

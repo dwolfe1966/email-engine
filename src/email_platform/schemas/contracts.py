@@ -1027,6 +1027,48 @@ class ManagedSmtpRouteResolutionRead(BaseModel):
     reason: ManagedSmtpRouteBlockReason | None = None
 
 
+class ManagedSmtpBootstrapRequest(BaseModel):
+    provider_account_name: str = Field(..., min_length=1, max_length=200)
+    provider: MtaProviderType
+    provider_account_ref: str | None = Field(default=None, max_length=255)
+    region: str | None = Field(default=None, max_length=100)
+    abuse_contact_email: str | None = Field(default=None, max_length=320)
+    support_case_ref: str | None = Field(default=None, max_length=255)
+    port25_status: str = Field(default='unknown', max_length=40)
+    rdns_status: str = Field(default='unknown', max_length=40)
+    provider_secret_ref: str | None = Field(default=None, max_length=255)
+    node_name: str = Field(..., min_length=1, max_length=200)
+    hostname: str = Field(..., min_length=1, max_length=255)
+    public_ipv4: str | None = Field(default=None, max_length=64)
+    submission_host: str | None = Field(default=None, max_length=255)
+    submission_port: int = Field(default=587, ge=1, le=65535)
+    auth_secret_ref: str | None = Field(default=None, max_length=255)
+    ip_pool_name: str = Field(..., min_length=1, max_length=200)
+    ip_pool_type: MtaIpPoolType = MtaIpPoolType.internal_test
+    route_name: str = Field(default='managed-smtp-primary', min_length=1, max_length=200)
+    domain: str = Field(..., min_length=1, max_length=255)
+    bounce_domain: str | None = Field(default=None, max_length=255)
+    dkim_selector: str | None = Field(default=None, max_length=100)
+    dkim_key_ref: str | None = Field(default=None, max_length=255)
+    warmup_stage: str | None = Field(default='stage_1', max_length=100)
+    max_per_minute: int | None = Field(default=25, ge=1)
+    max_concurrent: int | None = Field(default=2, ge=1)
+    activate_inventory: bool = False
+    mark_domain_verified: bool = False
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
+class ManagedSmtpBootstrapRead(BaseModel):
+    provider_account: MtaProviderAccountRead
+    node: MtaNodeRead
+    ip_pool: MtaIpPoolRead
+    pool_node: MtaIpPoolNodeRead
+    delivery_route: DeliveryRouteRead
+    domain_policy: DomainDeliveryPolicyRead
+    route_resolution: ManagedSmtpRouteResolutionRead
+    next_steps: list[str] = Field(default_factory=list)
+
+
 class DeliveryRunRead(BaseModel):
     claimed_count: int
     sent_count: int
