@@ -3,6 +3,7 @@ import mailbox
 import os
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 INFRA = ROOT / 'infra' / 'managed-smtp'
@@ -13,6 +14,7 @@ DSN_FEEDBACK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_feedback.py'
 DSN_QUARANTINE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_dsn_quarantine.py'
 MAINTENANCE_RUNBOOK_SCRIPT = ROOT / 'scripts' / 'managed_smtp_maintenance_runbook.py'
 READINESS_NOTIFY_SCRIPT = ROOT / 'scripts' / 'managed_smtp_readiness_notify.py'
+BOOTSTRAP_SCRIPT = ROOT / 'scripts' / 'managed_smtp_bootstrap.py'
 SECRET_PII_GUARD_SCRIPT = ROOT / 'scripts' / 'secret_pii_guard.py'
 MTA_PREFLIGHT_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_preflight.py'
 MTA_SMOKE_SCRIPT = ROOT / 'scripts' / 'managed_smtp_mta_smoke.py'
@@ -994,6 +996,8 @@ def test_first_managed_smtp_send_runbook_covers_first_email_sequence() -> None:
         'SPF',
         'DKIM',
         'DMARC',
+        'managed_smtp_bootstrap.py',
+        'MTA_ACTIVATE_INVENTORY=true',
         'managed_smtp',
         'managed_smtp_mta_preflight.py',
         'docker-compose.production.yml',
@@ -1007,6 +1011,50 @@ def test_first_managed_smtp_send_runbook_covers_first_email_sequence() -> None:
     ]
     for token in expected_tokens:
         assert token in runbook
+
+
+def test_managed_smtp_bootstrap_script_builds_payload() -> None:
+    module = load_script_module(BOOTSTRAP_SCRIPT)
+    payload = module.bootstrap_payload(
+        SimpleNamespace(
+            provider_account_name='aws-staging',
+            provider='aws',
+            provider_account_ref='123456789012',
+            region='us-west-2',
+            abuse_contact_email='abuse@example.com',
+            support_case_ref='case-123',
+            port25_status='approved',
+            rdns_status='configured',
+            provider_secret_ref='secret/provider/aws-staging',
+            node_name='mta-001',
+            hostname='smtp.example.com',
+            public_ipv4='192.0.2.10',
+            submission_host='smtp.example.com',
+            submission_port=587,
+            auth_secret_ref='secret/mta-001/submission',
+            ip_pool_name='internal-test',
+            ip_pool_type='internal_test',
+            route_name='managed-smtp-primary',
+            domain='example.com',
+            bounce_domain='returns.example.com',
+            dkim_selector='ee1',
+            dkim_key_ref='vault://dkim/example.com/ee1',
+            warmup_stage='stage_1',
+            max_per_minute=25,
+            max_concurrent=2,
+            activate_inventory=False,
+            mark_domain_verified=False,
+        )
+    )
+
+    assert payload['provider_account_name'] == 'aws-staging'
+    assert payload['provider'] == 'aws'
+    assert payload['node_name'] == 'mta-001'
+    assert payload['hostname'] == 'smtp.example.com'
+    assert payload['domain'] == 'example.com'
+    assert payload['bounce_domain'] == 'returns.example.com'
+    assert payload['dkim_selector'] == 'ee1'
+    assert payload['activate_inventory'] is False
 
 
 def test_secret_and_pii_policy_covers_managed_smtp_local_artifacts() -> None:

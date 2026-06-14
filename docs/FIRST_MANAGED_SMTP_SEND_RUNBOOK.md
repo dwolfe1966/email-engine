@@ -79,18 +79,39 @@ Confirm the services are healthy and the host exposes only the intended ports.
 
 ## Email Engine Configuration
 
-1. Create or update a `managed_smtp` delivery route.
-2. Create or update the domain delivery policy with:
-   - route reference
-   - sending domain
-   - bounce domain
-   - envelope sender local part
-   - DKIM selector
-   - DKIM key reference
-   - MTA hostname
-   - warmup limits
+1. Bootstrap the Email Engine control-plane mapping for the first MTA:
+
+   ```bash
+   BASE_URL=https://<email-engine-api> \
+   MTA_PROVIDER=aws \
+   MTA_PROVIDER_ACCOUNT_NAME=aws-managed-smtp-staging \
+   MTA_PROVIDER_REGION=us-west-2 \
+   MTA_NODE_NAME=mta-001 \
+   MTA_HOSTNAME=smtp.example.com \
+   MTA_PUBLIC_IPV4=<MTA public IPv4> \
+   MTA_AUTH_SECRET_REF=secret/managed-smtp/mta-001/submission \
+   MTA_IP_POOL_NAME=internal-test \
+   MTA_SENDING_DOMAIN=example.com \
+   MTA_BOUNCE_DOMAIN=returns.example.com \
+   MTA_DKIM_SELECTOR=ee1 \
+   MTA_DKIM_KEY_REF=vault://dkim/example.com/ee1 \
+   python scripts/managed_smtp_bootstrap.py
+   ```
+
+2. Confirm the response includes provider account, node, IP pool, route, domain policy, and route
+   resolution next steps.
 3. Confirm the route and domain policy appear in Delivery Manager.
 4. Keep the domain in low-volume/warmup mode before any non-seed traffic.
+5. After provider port 25, PTR/rDNS, DNS authentication, MTA deployment, and readiness checks pass,
+   rerun bootstrap with:
+
+   ```bash
+   MTA_ACTIVATE_INVENTORY=true \
+   MTA_MARK_DOMAIN_VERIFIED=true \
+   MTA_PORT25_STATUS=approved \
+   MTA_RDNS_STATUS=configured \
+   python scripts/managed_smtp_bootstrap.py
+   ```
 
 ## Smoke Sequence
 
