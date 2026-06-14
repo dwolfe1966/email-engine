@@ -682,6 +682,38 @@ type ManagedSmtpReadinessNotificationRead = {
   alerts: ManagedSmtpReadinessAlertsRead;
 };
 
+type ManagedSmtpResolvedRoute = {
+  domain: string;
+  delivery_route_id: string;
+  delivery_route_name: string;
+  domain_policy_id: string;
+  ip_pool_id: string;
+  ip_pool_name: string;
+  ip_pool_type: string;
+  mta_node_id: string;
+  mta_node_name: string;
+  provider_account_id: string;
+  provider: string;
+  hostname: string;
+  public_ipv4: string | null;
+  submission_host: string;
+  submission_port: number;
+  auth_secret_ref: string | null;
+  envelope_sender_domain: string | null;
+  dkim_selector: string | null;
+  telemetry_tags: Record<string, unknown>;
+};
+
+type ManagedSmtpRouteResolutionRead = {
+  ok: boolean;
+  route: ManagedSmtpResolvedRoute | null;
+  reason: {
+    code: string;
+    message: string;
+    details: Record<string, unknown>;
+  } | null;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9610,6 +9642,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [domainPolicies, setDomainPolicies] = useState<DomainDeliveryPolicyRead[]>([]);
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
+  const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
@@ -9824,6 +9857,41 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: complianceAuditLog.length ? 'warn' : 'good',
     },
   ];
+  const managedSmtpRouteItems = managedSmtpRouteResolution?.ok && managedSmtpRouteResolution.route
+    ? [
+      {
+        label: 'Route',
+        value: managedSmtpRouteResolution.route.delivery_route_name,
+        detail: `${managedSmtpRouteResolution.route.provider} via ${managedSmtpRouteResolution.route.hostname}`,
+        tone: 'good',
+      },
+      {
+        label: 'IP pool',
+        value: managedSmtpRouteResolution.route.ip_pool_name,
+        detail: managedSmtpRouteResolution.route.ip_pool_type,
+        tone: 'good',
+      },
+      {
+        label: 'MTA node',
+        value: managedSmtpRouteResolution.route.mta_node_name,
+        detail: managedSmtpRouteResolution.route.public_ipv4 || managedSmtpRouteResolution.route.hostname,
+        tone: 'good',
+      },
+      {
+        label: 'Submission',
+        value: `${managedSmtpRouteResolution.route.submission_host}:${managedSmtpRouteResolution.route.submission_port}`,
+        detail: managedSmtpRouteResolution.route.auth_secret_ref ? 'auth secret referenced' : 'auth secret missing',
+        tone: managedSmtpRouteResolution.route.auth_secret_ref ? 'good' : 'warn',
+      },
+    ]
+    : [
+      {
+        label: 'Route readiness',
+        value: managedSmtpRouteResolution?.reason?.code || 'Not checked',
+        detail: managedSmtpRouteResolution?.reason?.message || 'Resolve the selected domain policy route.',
+        tone: managedSmtpRouteResolution ? 'warn' : 'warn',
+      },
+    ];
 
   async function runDeliveryOperation(label: string, operation: () => Promise<string>) {
     setBusy(true);
@@ -10061,6 +10129,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function resolveManagedSmtpRoute() {
+    await runDeliveryOperation('Resolving managed SMTP route', async () => {
+      if (!selectedDomainPolicy) throw new Error('Select a domain policy.');
+      const result = await fetchJson<ManagedSmtpRouteResolutionRead>('/api/v1/managed-smtp/resolve-route', {
+        method: 'POST',
+        body: JSON.stringify({
+          from_domain: selectedDomainPolicy.domain,
+          route_id: selectedDomainPolicy.route_id,
+          send_type: 'internal_test',
+        }),
+      });
+      setManagedSmtpRouteResolution(result);
+      if (result.ok && result.route) {
+        return `Managed SMTP route ready: ${result.route.delivery_route_name} -> ${result.route.ip_pool_name} -> ${result.route.mta_node_name}.`;
+      }
+      return `Managed SMTP route blocked: ${result.reason?.code || 'UNKNOWN'} - ${result.reason?.message || 'No reason returned.'}`;
+    });
+  }
+
   async function reviewDeliveryWithAi() {
     await runDeliveryOperation('Running AI Delivery Review', async () => {
       const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
@@ -10173,6 +10260,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <select value={selectedDomainPolicyId} onChange={(event) => {
               setSelectedDomainPolicyId(event.target.value);
               setDomainDashboard(null);
+              setManagedSmtpRouteResolution(null);
             }}>
               <option value="">Select domain policy</option>
               {domainPolicies.map((policy) => (
@@ -10204,8 +10292,31 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             </article>
           ))}
         </div>
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Managed SMTP Route Resolution</h3>
+            <span className="muted">Resolve the selected domain to its IP pool, MTA node, and submission endpoint before cloud send testing.</span>
+          </div>
+          <button className="link-button" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve Route</button>
+        </div>
+        <div className="delivery-triage-grid">
+          {managedSmtpRouteItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+        {managedSmtpRouteResolution?.reason ? (
+          <details className="json-details">
+            <summary>Route block details</summary>
+            <pre className="json-preview">{JSON.stringify(managedSmtpRouteResolution.reason.details, null, 2)}</pre>
+          </details>
+        ) : null}
         <div className="button-row">
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
+          <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
           <button className="ghost" onClick={applyDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Apply Compliance Hold</button>
           <button className="ghost" onClick={releaseDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Release Compliance Hold</button>
         </div>
