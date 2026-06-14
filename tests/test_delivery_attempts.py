@@ -21,12 +21,16 @@ class FakeDb:
         self.added = []
         self.flush_count = 0
         self.records = []
+        self.commit_count = 0
 
     def add(self, item) -> None:
         self.added.append(item)
 
     def flush(self) -> None:
         self.flush_count += 1
+
+    def commit(self) -> None:
+        self.commit_count += 1
 
     def scalars(self, statement):
         return SimpleNamespace(all=lambda: self.records)
@@ -73,6 +77,21 @@ class FakeManagedSmtpRoutingService:
     def resolve(self, payload):
         self.requests.append(payload)
         return self.result
+
+
+class FailingProvider:
+    def send(self, message):
+        raise AssertionError('provider send should not be called')
+
+
+class FailingTemplateService:
+    def get(self, template_id):
+        raise AssertionError('template lookup should not be called')
+
+
+class NoopEventService:
+    def record_no_commit(self, payload):
+        raise AssertionError('event recording should not be called')
 
 
 def test_delivery_service_claim_records_skips_throttled_domains() -> None:
@@ -262,6 +281,72 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
     assert attempt.metadata_json['mta_route_resolved'] is False
     assert attempt.metadata_json['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert 'passing readiness' in attempt.metadata_json['mta_route_block_message']
+
+
+def test_delivery_service_fails_closed_for_blocked_managed_smtp_route() -> None:
+    db = FakeDb()
+    record = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.queued,
+        to_email='recipient@example.com',
+        variables={},
+        attempt_count=0,
+        max_attempts=3,
+    )
+    service = DeliveryService.__new__(DeliveryService)
+    service.db = db
+    service.settings = SimpleNamespace(email_provider='console')
+    service.provider = FailingProvider()
+    service.template_service = FailingTemplateService()
+    service.event_service = NoopEventService()
+    service.route_service = SimpleNamespace(
+        claim_decision=lambda _record, reserved_count=0: SimpleNamespace(
+            can_claim=True,
+            reason=None,
+            domain='example.com',
+            domain_policy_id=None,
+        ),
+        select_for_record=lambda _record, _settings: SimpleNamespace(
+            route_type='managed_smtp',
+            route_key='managed-smtp-primary',
+            route_id=uuid4(),
+            domain_policy_id=uuid4(),
+            name='managed-smtp-primary',
+            domain='example.com',
+            warmup_stage=None,
+            max_per_minute=None,
+            max_concurrent=None,
+            source='domain_policy',
+        ),
+    )
+    service.managed_smtp_routing_service = FakeManagedSmtpRoutingService(
+        ManagedSmtpRouteResolutionRead(
+            ok=False,
+            reason=ManagedSmtpRouteBlockReason(
+                code='DOMAIN_NOT_READY',
+                message='Domain authentication has not been verified.',
+                details={'domain': 'example.com'},
+            ),
+        )
+    )
+    db.records = [record]
+
+    result = service.process_queued(limit=1)
+
+    assert result.claimed_count == 1
+    assert result.sent_count == 0
+    assert result.failed_count == 1
+    assert record.status == EmailSendStatus.failed
+    assert record.error_message is not None
+    assert 'Managed SMTP route blocked (DOMAIN_NOT_READY)' in record.error_message
+    attempt = db.added[0]
+    assert attempt.status == 'failed'
+    assert attempt.metadata_json['mta_route_resolved'] is False
+    assert attempt.metadata_json['mta_route_block_code'] == 'DOMAIN_NOT_READY'
+    assert db.commit_count == 1
 
 
 def test_delivery_service_prepares_managed_smtp_envelope_and_signing_headers() -> None:

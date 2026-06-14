@@ -63,6 +63,11 @@ class DeliveryService:
             processed_ids.append(str(record.id))
             record.attempt_count += 1
             attempt = self._start_attempt(record)
+            block_reason = self._managed_smtp_submission_block_reason(attempt)
+            if block_reason:
+                self._handle_failure(record, attempt, block_reason, retryable=False)
+                failed_count += 1
+                continue
             template = self.template_service.get(record.template_id)
             if not template:
                 self._handle_failure(record, attempt, 'Template not found')
@@ -266,6 +271,18 @@ class DeliveryService:
         self.db.flush()
         return attempt
 
+    def _managed_smtp_submission_block_reason(self, attempt: DeliveryAttempt) -> str | None:
+        if attempt.route_type != 'managed_smtp':
+            return None
+        if attempt.metadata_json.get('mta_route_resolved') is not False:
+            return None
+        code = str(attempt.metadata_json.get('mta_route_block_code') or 'UNKNOWN')
+        message = str(
+            attempt.metadata_json.get('mta_route_block_message')
+            or 'Managed SMTP route is not ready for submission.'
+        )
+        return f'Managed SMTP route blocked ({code}): {message}'
+
     def _managed_smtp_route_resolution_metadata(self, selected_route) -> dict[str, object]:
         resolver = getattr(self, 'managed_smtp_routing_service', None)
         if not resolver:
@@ -388,9 +405,10 @@ class DeliveryService:
         record: EmailSendRecord,
         attempt: DeliveryAttempt,
         message: str,
+        retryable: bool = True,
     ) -> None:
         record.error_message = message
-        if record.attempt_count >= record.max_attempts:
+        if not retryable or record.attempt_count >= record.max_attempts:
             record.status = EmailSendStatus.failed
             record.next_attempt_at = None
             self._complete_attempt(
