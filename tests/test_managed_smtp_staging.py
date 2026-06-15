@@ -22,6 +22,7 @@ RENDER_BLUEPRINT = ROOT / 'render.yaml'
 DOCKERFILE = ROOT / 'Dockerfile'
 PRODUCTION_HARDENING = INFRA / 'PRODUCTION_HARDENING.md'
 FIRST_SEND_RUNBOOK = ROOT / 'docs' / 'FIRST_MANAGED_SMTP_SEND_RUNBOOK.md'
+MTA_DEPLOYMENT_PLAN = ROOT / 'docs' / 'MANAGED_SMTP_DEPLOYMENT_EXECUTION_PLAN.md'
 SECRET_POLICY = ROOT / 'docs' / 'SECRET_AND_PII_POLICY.md'
 GITIGNORE = ROOT / '.gitignore'
 
@@ -1015,6 +1016,33 @@ def test_first_managed_smtp_send_runbook_covers_first_email_sequence() -> None:
     ]
     for token in expected_tokens:
         assert token in runbook
+
+
+def test_managed_smtp_deployment_execution_plan_splits_control_plane_and_mta_host() -> None:
+    plan = MTA_DEPLOYMENT_PLAN.read_text()
+
+    expected_tokens = [
+        'Managed SMTP Deployment Execution Plan',
+        'Vercel',
+        'Neon',
+        'MTA host',
+        'outbound TCP port 25',
+        'PTR/rDNS',
+        'static IPv4',
+        'inbound TCP 587',
+        'docker-compose.production.yml',
+        'production.env.example',
+        'managed_smtp_mta_preflight.py',
+        'managed_smtp_mta_smoke.py',
+        'managed_smtp_bootstrap.py',
+        'MTA_ACTIVATE_INVENTORY=true',
+        'controlled delivery',
+        'first real managed-SMTP email',
+        'Rollback',
+        'No-Go',
+    ]
+    for token in expected_tokens:
+        assert token in plan
 
 
 def test_managed_smtp_bootstrap_script_builds_payload() -> None:

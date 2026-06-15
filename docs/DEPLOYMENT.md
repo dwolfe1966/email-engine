@@ -209,6 +209,8 @@ reputation/compliance readiness, optional seed delivery, and signed managed-SMTP
 in one operator runbook.
 For the full provider-agnostic sequence to send the first real managed-SMTP email, follow
 `docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
+For the end-to-end cloud-container setup sequence that separates the Vercel/Neon control plane from
+the MTA host, follow `docs/MANAGED_SMTP_DEPLOYMENT_EXECUTION_PLAN.md`.
 
 For staging MTA log forwarding, normalize Postfix delivery lines into signed feedback events:
 
