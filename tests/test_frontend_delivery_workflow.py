@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_SOURCE = ROOT / 'frontend' / 'src' / 'main.tsx'
 FRONTEND_DIST = ROOT / 'frontend' / 'dist'
@@ -57,8 +56,11 @@ def assert_delivery_triage_contract(source: str) -> None:
         '/api/v1/email-send-records/${selectedRecordId}/dead-letter',
         'ProviderFeedbackEventRead',
         'ManagedSmtpReadinessCheckRead',
+        'ManagedSmtpDeploymentSummaryRead',
         'providerFeedbackEvents',
         'providerFeedbackTotal',
+        'managedSmtpDeploymentSummary',
+        'managedSmtpDeploymentItems',
         'readinessChecks',
         'readinessCheckTotal',
         'readinessSummary',
@@ -78,6 +80,12 @@ def assert_delivery_triage_contract(source: str) -> None:
         'latestReadinessCheck',
         'latestSuccessfulReadiness',
         'Managed SMTP Readiness',
+        'Managed SMTP Deployment',
+        'Control-plane inventory for provider accounts, MTA nodes, IP pools, routes, and node readiness.',
+        'Load SMTP Deployment',
+        'No managed SMTP deployment summary loaded',
+        'function loadManagedSmtpDeploymentSummary',
+        '/api/v1/managed-smtp/deployment-summary',
         'Published MTA smoke, STARTTLS, DKIM, and feedback-loop checks',
         'Load SMTP Readiness',
         'Apply Readiness Filters',
@@ -220,6 +228,9 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Run AI Review',
         'Provider Feedback Evidence',
         'Managed SMTP Readiness',
+        'Managed SMTP Deployment',
+        'Load SMTP Deployment',
+        'No managed SMTP deployment summary loaded',
         'Load SMTP Readiness',
         'Apply Readiness Filters',
         'Clear Readiness Filters',
@@ -236,6 +247,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'No provider feedback evidence loaded',
         'Retained raw provider and managed-SMTP feedback',
         '/api/v1/provider-feedback-events/list',
+        '/api/v1/managed-smtp/deployment-summary',
         '/api/v1/managed-smtp/readiness-checks/list',
         '/api/v1/managed-smtp/readiness-checks/summary',
         '/api/v1/managed-smtp/readiness-checks/trend',

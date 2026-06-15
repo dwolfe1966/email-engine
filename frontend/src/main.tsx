@@ -714,6 +714,77 @@ type ManagedSmtpRouteResolutionRead = {
   } | null;
 };
 
+type MtaInventoryCounts = {
+  total: number;
+  pending: number;
+  active: number;
+  paused: number;
+  draining: number;
+  failed: number;
+  retired: number;
+  suspended: number;
+};
+
+type MtaProviderAccountRead = {
+  id: string;
+  name: string;
+  provider: string;
+  status: string;
+  account_ref: string | null;
+  region: string | null;
+  abuse_contact_email: string | null;
+  support_case_ref: string | null;
+  port25_status: string;
+  rdns_status: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type MtaNodeRead = {
+  id: string;
+  provider_account_id: string;
+  name: string;
+  hostname: string;
+  public_ipv4: string | null;
+  status: string;
+  submission_host: string | null;
+  submission_port: number;
+  last_readiness_at: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type MtaIpPoolNodeRead = {
+  id: string;
+  ip_pool_id: string;
+  mta_node_id: string;
+  priority: number;
+  weight: number;
+  status: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type ManagedSmtpDeploymentNodeSummary = {
+  node: MtaNodeRead;
+  provider_account: MtaProviderAccountRead | null;
+  pool_memberships: MtaIpPoolNodeRead[];
+  readiness_summary: ManagedSmtpReadinessSummaryRead;
+};
+
+type ManagedSmtpDeploymentSummaryRead = {
+  provider_accounts: MtaInventoryCounts;
+  nodes: MtaInventoryCounts;
+  ip_pools: MtaInventoryCounts;
+  pool_nodes: MtaInventoryCounts;
+  managed_smtp_route_count: number;
+  managed_smtp_domain_policy_count: number;
+  recent_nodes: ManagedSmtpDeploymentNodeSummary[];
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9626,6 +9697,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessTrend, setReadinessTrend] = useState<ManagedSmtpReadinessTrendRead | null>(null);
   const [readinessAlerts, setReadinessAlerts] = useState<ManagedSmtpReadinessAlertsRead | null>(null);
   const [readinessNotification, setReadinessNotification] = useState<ManagedSmtpReadinessNotificationRead | null>(null);
+  const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9689,6 +9761,40 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     : readinessChecks.filter((check) => check.status !== 'ok').length;
   const latestReadinessCheck = readinessSummary?.latest_check || readinessChecks[0];
   const latestSuccessfulReadiness = readinessSummary?.latest_success || readinessChecks.find((check) => check.status === 'ok');
+  const managedSmtpDeploymentItems = [
+    {
+      label: 'Provider accounts',
+      value: formatInt(managedSmtpDeploymentSummary?.provider_accounts.total || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.provider_accounts.active)} active, ${formatInt(managedSmtpDeploymentSummary.provider_accounts.pending)} pending`
+        : 'Load deployment summary for provider status.',
+      tone: managedSmtpDeploymentSummary?.provider_accounts.active ? 'good' : 'warn',
+    },
+    {
+      label: 'MTA nodes',
+      value: formatInt(managedSmtpDeploymentSummary?.nodes.total || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.nodes.active)} active, ${formatInt(managedSmtpDeploymentSummary.nodes.paused)} paused`
+        : 'Load deployment summary for node status.',
+      tone: managedSmtpDeploymentSummary?.nodes.active ? 'good' : 'warn',
+    },
+    {
+      label: 'IP pools',
+      value: formatInt(managedSmtpDeploymentSummary?.ip_pools.total || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.ip_pools.active)} active, ${formatInt(managedSmtpDeploymentSummary.pool_nodes.active)} active pool node(s)`
+        : 'Load deployment summary for pool status.',
+      tone: managedSmtpDeploymentSummary?.ip_pools.active ? 'good' : 'warn',
+    },
+    {
+      label: 'Route policies',
+      value: formatInt(managedSmtpDeploymentSummary?.managed_smtp_domain_policy_count || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.managed_smtp_route_count)} managed SMTP route(s)`
+        : 'Load deployment summary for route coverage.',
+      tone: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'good' : 'warn',
+    },
+  ];
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -9763,9 +9869,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const deliveryFoundationItems = [
     {
       label: 'Owned SMTP server',
-      value: 'Gap',
-      detail: 'Platform-owned SMTP service still needs MTA, auth, throttling, and domain controls.',
-      tone: 'warn',
+      value: managedSmtpDeploymentSummary?.nodes.total ? 'Modeled' : 'Gap',
+      detail: managedSmtpDeploymentSummary?.nodes.total
+        ? `${formatInt(managedSmtpDeploymentSummary.nodes.total)} MTA node(s) registered in deployment inventory.`
+        : 'Platform-owned SMTP service still needs MTA, auth, throttling, and domain controls.',
+      tone: managedSmtpDeploymentSummary?.nodes.total ? 'good' : 'warn',
     },
     {
       label: 'Send queues',
@@ -9789,9 +9897,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const deliveryOperationsContractItems = [
     {
       label: 'SMTP service contract',
-      value: 'Gap',
-      detail: 'Owned SMTP needs MTA configuration, authenticated submission, domain policy, TLS, and tenant-level rate controls.',
-      tone: 'warn',
+      value: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'Visible' : 'Gap',
+      detail: managedSmtpDeploymentSummary?.managed_smtp_route_count
+        ? `${formatInt(managedSmtpDeploymentSummary.managed_smtp_route_count)} route(s), ${formatInt(managedSmtpDeploymentSummary.managed_smtp_domain_policy_count)} domain policy mapping(s).`
+        : 'Owned SMTP needs MTA configuration, authenticated submission, domain policy, TLS, and tenant-level rate controls.',
+      tone: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'good' : 'warn',
     },
     {
       label: 'Queue lifecycle',
@@ -10062,6 +10172,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function loadManagedSmtpDeploymentSummary() {
+    await runDeliveryOperation('Loading managed SMTP deployment summary', async () => {
+      const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
+      setManagedSmtpDeploymentSummary(summary);
+      return `Loaded managed SMTP deployment summary: ${formatInt(summary.nodes.total)} node(s), ${formatInt(summary.managed_smtp_route_count)} route(s), ${formatInt(summary.managed_smtp_domain_policy_count)} domain policy mapping(s).`;
+    });
+  }
+
   async function loadDeliveryAttempts() {
     await runDeliveryOperation('Loading delivery attempt audit', async () => {
       const items = await refreshDeliveryAttempts();
@@ -10245,6 +10363,48 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             </article>
           ))}
         </div>
+      </section>
+      <section className="panel full-span provider-feedback-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Managed SMTP Deployment</h2>
+            <span className="muted">Control-plane inventory for provider accounts, MTA nodes, IP pools, routes, and node readiness.</span>
+          </div>
+          <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+        </div>
+        <div className="delivery-triage-grid">
+          {managedSmtpDeploymentItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
+        {managedSmtpDeploymentSummary?.recent_nodes.length ? (
+          <div className="provider-feedback-list">
+            {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
+              <article className={item.readiness_summary.latest_check?.status === 'ok' ? 'good' : 'warn'} key={item.node.id}>
+                <div>
+                  <span>{item.provider_account?.provider || 'provider'} / {item.node.status}</span>
+                  <strong>{item.node.name} - {item.node.hostname}</strong>
+                </div>
+                <small>{item.node.public_ipv4 || item.node.submission_host || 'No public IP loaded'}</small>
+                <dl>
+                  <div><dt>provider</dt><dd>{item.provider_account?.name || '-'}</dd></div>
+                  <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
+                  <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
+                  <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="ai-empty-state">
+            <strong>No managed SMTP deployment summary loaded</strong>
+            <span>Load SMTP Deployment after bootstrapping the first provider account, MTA node, IP pool, route, and domain policy.</span>
+          </div>
+        )}
       </section>
       <section className="panel full-span domain-compliance-panel">
         <div className="panel-head">
@@ -10469,6 +10629,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
           <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
           <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
+          <button className="ghost" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
           <button className="ghost" onClick={reviewDeliveryWithAi} disabled={busy}>AI Delivery Review</button>
           <button className="ghost" onClick={onRefresh} disabled={busy}>Refresh Lists</button>
         </div>
