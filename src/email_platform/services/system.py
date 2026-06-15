@@ -70,6 +70,10 @@ def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
             'default_from_email': str(settings.default_from_email),
             'sendgrid_configured': bool(settings.sendgrid_api_key),
             'smtp_configured': bool(settings.smtp_host),
+            'managed_smtp_submission_configured': bool(
+                settings.smtp_username and settings.smtp_password
+            ),
+            'managed_smtp_submission_tls_enabled': bool(settings.smtp_use_tls),
             'managed_smtp_feedback_configured': bool(settings.managed_smtp_feedback_secret),
         },
         'ai': {

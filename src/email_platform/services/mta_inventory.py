@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from email_platform.core.settings import Settings
 from email_platform.models.entities import (
     DeliveryRoute,
     DeliveryRouteType,
@@ -253,7 +254,11 @@ class MtaInventoryService:
         pool_node.status = status
         return self._commit_refresh(pool_node)
 
-    def deployment_summary(self, limit: int = 10) -> ManagedSmtpDeploymentSummaryRead:
+    def deployment_summary(
+        self,
+        limit: int = 10,
+        settings: Settings | None = None,
+    ) -> ManagedSmtpDeploymentSummaryRead:
         readiness_service = ManagedSmtpReadinessService(self.db)
         recent_nodes = self.list_nodes(limit=limit, offset=0)
         node_summaries = [
@@ -282,6 +287,10 @@ class MtaInventoryService:
                 total=self.count_pool_nodes(),
                 count_by_status=self.count_pool_nodes,
             ),
+            submission_credentials_configured=bool(
+                settings and settings.smtp_username and settings.smtp_password
+            ),
+            submission_tls_enabled=bool(settings.smtp_use_tls) if settings else True,
             managed_smtp_route_count=self._managed_smtp_route_count(),
             managed_smtp_domain_policy_count=self._managed_smtp_domain_policy_count(),
             recent_nodes=node_summaries,

@@ -780,6 +780,8 @@ type ManagedSmtpDeploymentSummaryRead = {
   nodes: MtaInventoryCounts;
   ip_pools: MtaInventoryCounts;
   pool_nodes: MtaInventoryCounts;
+  submission_credentials_configured: boolean;
+  submission_tls_enabled: boolean;
   managed_smtp_route_count: number;
   managed_smtp_domain_policy_count: number;
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
@@ -9793,6 +9795,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         ? `${formatInt(managedSmtpDeploymentSummary.managed_smtp_route_count)} managed SMTP route(s)`
         : 'Load deployment summary for route coverage.',
       tone: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'good' : 'warn',
+    },
+    {
+      label: 'Submission auth',
+      value: managedSmtpDeploymentSummary?.submission_credentials_configured ? 'Configured' : 'Missing',
+      detail: managedSmtpDeploymentSummary
+        ? `TLS ${managedSmtpDeploymentSummary.submission_tls_enabled ? 'enabled' : 'disabled'} for worker-to-MTA submission.`
+        : 'Load deployment summary for worker submission credentials.',
+      tone: managedSmtpDeploymentSummary?.submission_credentials_configured ? 'good' : 'warn',
     },
   ];
   const deliveryTriageAction = failedRecords

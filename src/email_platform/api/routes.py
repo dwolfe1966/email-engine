@@ -3219,9 +3219,10 @@ def resolve_managed_smtp_route(
 @router.get('/managed-smtp/deployment-summary', response_model=ManagedSmtpDeploymentSummaryRead)
 def summarize_managed_smtp_deployment(
     db: DbSession,
+    settings: SettingsDep,
     limit: Limit = 10,
 ) -> ManagedSmtpDeploymentSummaryRead:
-    return MtaInventoryService(db).deployment_summary(limit=limit)
+    return MtaInventoryService(db).deployment_summary(limit=limit, settings=settings)
 
 
 @router.get(

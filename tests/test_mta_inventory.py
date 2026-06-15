@@ -206,13 +206,22 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         FakeReadinessService,
     )
 
-    summary = FakeSummaryService(FakeDb()).deployment_summary(limit=5)
+    summary = FakeSummaryService(FakeDb()).deployment_summary(
+        limit=5,
+        settings=SimpleNamespace(
+            smtp_username='submission-user',
+            smtp_password='submission-password',
+            smtp_use_tls=True,
+        ),
+    )
 
     assert summary.provider_accounts.total == 1
     assert summary.provider_accounts.active == 1
     assert summary.ip_pools.paused == 1
     assert summary.managed_smtp_route_count == 1
     assert summary.managed_smtp_domain_policy_count == 1
+    assert summary.submission_credentials_configured is True
+    assert summary.submission_tls_enabled is True
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'

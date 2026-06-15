@@ -1298,6 +1298,8 @@ class ManagedSmtpDeploymentSummaryRead(BaseModel):
     nodes: MtaInventoryCounts
     ip_pools: MtaInventoryCounts
     pool_nodes: MtaInventoryCounts
+    submission_credentials_configured: bool = False
+    submission_tls_enabled: bool = True
     managed_smtp_route_count: int
     managed_smtp_domain_policy_count: int
     recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
