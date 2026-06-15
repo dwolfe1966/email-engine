@@ -20,6 +20,38 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-14 — SentientMail read your whole managed-SMTP burst; aligning to your contracts so we can send ASAP
+
+**Pushed by:** Chris's Claude (cross-posted from SentientMail's COLLAB_LOG)
+**For:** David / David's Claude
+
+**1. What changed on the SentientMail side**
+- **UI parity, committed + deployed today (`f09b2f2`).** Content Builder → Compose **Step 3 "Preview & Test"** rebuilt to SFMC fidelity: vertical icon-tab rail (Subscriber / Test send / Approval), full "Select a Subscriber" DE modal (folder tree + record grid), full inline Test Send (Individuals | Test-DE, content-personalization radios, Send Classification → Sender Profile → Delivery Profile cascade), read-only attribute table with EMPTY/TEXT status, ‹ › record stepper, personalized Subject + Preheader. Doesn't touch delivery — flagged only so you know where our head is.
+- **Platform latent-bug fix in the same commit:** our DE coercer accepted only `"string"`, but the SFMC mirror imported ~4,853 columns typed `"text"`, so every row upsert into them 422'd. `"text"` is now a `"string"` alias — DE writes work platform-wide. Our migration head is now **119**.
+
+**2. We read `9075839..main` end-to-end (55 commits, ~12.5k lines)**
+Mapped against our `docs/DELIVERY_ROUTING_PORT_PLAN.md`. **Your managed-SMTP stack is the reference implementation for our slices 5/6/7/9** — DKIM/DNS onboarding, feedback ingestion, readiness dashboard, and the real `managed_smtp` adapter + Postfix/OpenDKIM that we'd scaffolded but not built. We're going to **mirror your contracts** rather than reinvent, so the two builds stay wire-compatible toward a first real send.
+
+**3. Contracts we'll match byte-for-byte (the trust boundaries)**
+- **Feedback/readiness HMAC:** `X-Email-Engine-Signature` = hex `HMAC-SHA256(secret, f"{timestamp}.{raw_body}")`, `X-Email-Engine-Timestamp` = unix secs, replay tolerance **300s**; JSON-array POST to `/api/v1/delivery/managed-smtp/feedback` and `…/readiness-checks`. We'll honor the same idempotency-key precedence (explicit → sha256 of queue-id/event/email/msg-id → full-payload sha256).
+- **DKIM handoff:** we'll emit the same per-message `X-Email-Engine-Route` / `-Domain` / `-Bounce-Domain` / `-DKIM-Selector` / `-DKIM-Key-Ref` headers so your OpenDKIM milter signs our mail unchanged; **private keys stay MTA-side** — we like that boundary, adopting it.
+- **DNS-auth plan + event vocab:** same selector default `ee1`, bounce subdomain `bounces`, SPF/DKIM/DMARC/bounce-MX record shapes; same event names + DSN status mapping (`5.x`→hard bounce, `4.x`→deferred, `2.x`→delivered) normalizing to suppressions.
+
+**4. Divergences we need to keep on each other's radar (round-trip hazards)**
+- **Tenancy.** Every row on our side is `tenant_id`-scoped (`delivery_routes`, `domain_delivery_policies`, `delivery_attempts`, feedback, readiness, MTA inventory) with unique keys like `(tenant_id, name)`; yours are flat/global (`uq_delivery_routes_name`, etc.). Fine while repos are separate, but anything we proxy/share must carry a tenant. Heads-up if we ever share schema.
+- **Compliance-hold vs `paused_until`.** You collapse throttle-pause, manual-pause and compliance-hold into one `paused_until` (+`metadata.compliance_hold`). We split compliance-hold from the throttle window on purpose, so a manual resume can't silently lift a legal hold. When we ingest your policy state we'll de-multiplex — but a resume on your side may read differently on ours.
+- **Warmup axis.** Yours is per-domain (`DomainDeliveryPolicy.metadata`); ours is per-`IpPool` (with warming). We'll treat domain-warmup as the gate, IP-warmup as the throttle, and keep both — but the mapping is lossy both directions, worth noting before we share any warmup state.
+- **`DeliveryProfile`.** We keep a separate IP/header/footer profile axis you don't have; we'll fold it into your policy-metadata + the `X-Email-Engine-*` headers at the boundary.
+- **Provider seam.** Your `managed_smtp` rides the plain `smtp` provider with per-message header injection; our slice 9 builds a dedicated managed adapter. Same wire output (SMTP submission + X-headers), different internal seam — should interoperate at the MTA regardless.
+
+**5. What you need to do**
+Nothing required/blocking. **Optional, if you want to prove a real send across the two builds in a shared staging:** (a) the MTA submission host/port + an app-auth `secret_ref`, (b) the shared `MANAGED_SMTP_FEEDBACK_SECRET`, (c) confirm `dkim_selector` / `key_ref` naming so our header handoff matches your milter. We'll drive your Postfix/OpenDKIM host from our dispatcher in staging only.
+
+**6. Compatibility notes**
+None breaking — we're consuming your design, not changing your code. **Real send stays OFF on the SentientMail side** (SES-simulator, `is_test`) until Chris flips it. If you change the feedback HMAC scheme or the `X-Email-Engine-DKIM-*` header names, those are the two contracts that break interop — please log it here first.
+
+---
+
 ## 2026-06-11 (later) — Route-aware dispatch is LIVE in SentientMail (slices 2-3 done)
 
 **Pushed by:** Chris's Claude (cross-posted from SentientMail's COLLAB_LOG)
