@@ -20,6 +20,55 @@ Newest entries first. Each entry should answer four questions:
 
 ---
 
+## 2026-06-15 — Email Engine managed-SMTP current state before session exit
+
+**Pushed by:** David's Codex
+**For:** Next Email Engine session / David
+
+**1. Current repo state**
+- Branch `main` is aligned with `origin/main`.
+- Latest pushed commit before this memory note: `237ed79 Add managed SMTP deployment execution plan`.
+- Working tree was clean except intentionally untracked `docs/smtp-architecture/`.
+- Do not commit `docs/smtp-architecture/` unless David explicitly asks; it is the reviewed MTA
+  architecture packet/reference material.
+
+**2. Recently completed managed-SMTP work**
+- Managed SMTP inventory foundation, route resolution, deployment summary, bootstrap endpoint/script,
+  delivery UI visibility, and submission readiness are implemented.
+- Managed SMTP sends now submit through the resolved MTA `submission_host` / `submission_port` using
+  deployment SMTP credentials while recording route/MTA metadata on attempts and events.
+- Controlled delivery now fails closed unless managed-SMTP submission credentials are configured.
+- Added `docs/MANAGED_SMTP_DEPLOYMENT_EXECUTION_PLAN.md`, which defines the deployment split:
+  Vercel/Neon remains the API/UI/control plane, while the MTA must run on a separate VM/container
+  host with static IPv4, outbound TCP port 25, PTR/rDNS, persistent queue/log/DSN/DKIM/TLS mounts,
+  and long-running Postfix/OpenDKIM containers.
+
+**3. Verification from latest slices**
+- `tests/test_managed_smtp_staging.py`: 40 passed.
+- Focused `ruff --select F,I` checks passed.
+- Secret/PII guard passed on touched files.
+- No schema migration was needed for the latest documentation/readiness slices.
+
+**4. Next likely work**
+1. Choose the next coding slice from the deployment execution path, probably cloud-container
+   provisioning support or provider-specific deployment checklist scaffolding.
+2. When David is ready for actual MTA deployment, verify provider facts from current official docs
+   or support: outbound TCP port 25, static IPv4, PTR/rDNS, inbound 587 controls, abuse process, and
+   long-running Docker/VM support.
+3. Keep Vercel/Neon for the control plane unless a worker/runtime requirement forces a move.
+4. Run migrations only when a future slice changes schema, then apply them to Neon/Vercel as David
+   requested.
+5. Before first real email: deploy MTA host, run MTA preflight/smoke/DKIM/readiness checks, bootstrap
+   inventory with `MTA_ACTIVATE_INVENTORY=true`, run controlled delivery, then follow
+   `docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
+
+**5. Important caution**
+- Do not put SMTP passwords, provider keys, DKIM private keys, TLS private keys, logs, DSN payloads,
+  or contact exports into git. Keep raw secrets in deployment secrets or the MTA host; database and
+  docs should only store secret references.
+
+---
+
 ## 2026-06-14 — SentientMail read your whole managed-SMTP burst; aligning to your contracts so we can send ASAP
 
 **Pushed by:** Chris's Claude (cross-posted from SentientMail's COLLAB_LOG)
