@@ -513,6 +513,7 @@ def test_managed_smtp_controlled_delivery_runbook_sequences_readiness_and_smoke(
         '/api/v1/domain-delivery-policies/{policy_id}/reputation-dashboard',
         '/api/v1/campaigns/{campaign_id}/test-send',
         '/api/v1/delivery/managed-smtp/feedback',
+        'managed_smtp_submission_configured',
         'managed_smtp_controlled_delivery',
         'allow-compliance-hold',
         'allow-reputation-risk',

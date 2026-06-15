@@ -197,13 +197,16 @@ seed campaign:
 DOMAIN_POLICY_ID=<domain-policy-id> \
 CAMPAIGN_ID=<campaign-id> \
 SEED_EMAIL=seed@example.com \
+SMTP_USERNAME=<worker submission user> \
+SMTP_PASSWORD=<worker submission password> \
 MANAGED_SMTP_FEEDBACK_SECRET=<shared feedback secret> \
 BASE_URL=https://<email-engine-api> \
 python scripts/managed_smtp_controlled_delivery.py --send-seed --post-feedback
 ```
 
-It verifies diagnostics, DNS authentication, reputation/compliance readiness, optional seed delivery,
-and signed managed-SMTP feedback ingestion in one operator runbook.
+It verifies diagnostics, managed-SMTP submission credential readiness, DNS authentication,
+reputation/compliance readiness, optional seed delivery, and signed managed-SMTP feedback ingestion
+in one operator runbook.
 For the full provider-agnostic sequence to send the first real managed-SMTP email, follow
 `docs/FIRST_MANAGED_SMTP_SEND_RUNBOOK.md`.
 

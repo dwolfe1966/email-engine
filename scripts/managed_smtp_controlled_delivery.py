@@ -76,11 +76,16 @@ def preflight_diagnostics(base_url: str, cookie: str | None, results: list[StepR
     email = diagnostics.get('email_provider', {}) if isinstance(diagnostics, dict) else {}
     feedback_ready = bool(email.get('managed_smtp_feedback_configured'))
     smtp_ready = bool(email.get('smtp_configured'))
+    submission_ready = bool(email.get('managed_smtp_submission_configured'))
     append_result(
         results,
         'diagnostics',
-        feedback_ready and smtp_ready,
-        f'smtp_configured={smtp_ready}, managed_smtp_feedback_configured={feedback_ready}',
+        feedback_ready and smtp_ready and submission_ready,
+        (
+            f'smtp_configured={smtp_ready}, '
+            f'managed_smtp_submission_configured={submission_ready}, '
+            f'managed_smtp_feedback_configured={feedback_ready}'
+        ),
     )
 
 
