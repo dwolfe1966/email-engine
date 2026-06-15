@@ -12,6 +12,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpRouteBlockReason,
     ManagedSmtpRouteResolutionRead,
 )
+from email_platform.services import delivery as delivery_module
 from email_platform.services.delivery import DeliveryService
 from email_platform.services.delivery_routes import ManagedSmtpIdentity
 
@@ -92,6 +93,24 @@ class FailingTemplateService:
 class NoopEventService:
     def record_no_commit(self, payload):
         raise AssertionError('event recording should not be called')
+
+
+class CaptureManagedSmtpProvider:
+    calls = []
+
+    def __init__(self, settings, *, host=None, port=None, provider_name='smtp') -> None:
+        self.settings = settings
+        self.host = host
+        self.port = port
+        self.provider_name = provider_name
+        self.__class__.calls.append(self)
+
+    def send(self, message):
+        return SimpleNamespace(
+            provider=self.provider_name,
+            provider_message_id='managed-smtp-message',
+            status_code=250,
+        )
 
 
 def test_delivery_service_claim_records_skips_throttled_domains() -> None:
@@ -386,6 +405,52 @@ def test_delivery_service_prepares_managed_smtp_envelope_and_signing_headers() -
     assert attempt.metadata_json['envelope_from'] == f'bounces+{record.id}@returns.example.com'
     assert attempt.metadata_json['dkim_signing_ready'] is True
     assert service._managed_smtp_event_metadata(attempt)['dkim_selector'] == 'ee3'
+
+
+def test_delivery_service_uses_resolved_mta_submission_provider(monkeypatch) -> None:
+    monkeypatch.setattr(delivery_module, 'SmtpEmailProvider', CaptureManagedSmtpProvider)
+    CaptureManagedSmtpProvider.calls = []
+    service = DeliveryService.__new__(DeliveryService)
+    service.settings = SimpleNamespace(
+        smtp_host=None,
+        smtp_port=587,
+        smtp_use_tls=True,
+        smtp_username='mta-user',
+        smtp_password='mta-password',
+    )
+    service.provider = FailingProvider()
+    attempt = SimpleNamespace(
+        route_type='managed_smtp',
+        metadata_json={
+            'mta_route_resolved': True,
+            'mta_submission_host': 'mta-001.example.com',
+            'mta_submission_port': 2525,
+        },
+    )
+
+    provider = service._submission_provider_for_attempt(attempt)
+
+    assert isinstance(provider, CaptureManagedSmtpProvider)
+    assert provider.host == 'mta-001.example.com'
+    assert provider.port == 2525
+    assert provider.provider_name == 'managed_smtp'
+    assert attempt.metadata_json['mta_submission_provider'] == 'managed_smtp'
+
+
+def test_delivery_service_keeps_default_provider_for_unresolved_managed_smtp_attempt() -> None:
+    service = DeliveryService.__new__(DeliveryService)
+    service.provider = object()
+    attempt = SimpleNamespace(
+        route_type='managed_smtp',
+        metadata_json={
+            'mta_route_resolved': False,
+            'mta_submission_host': 'mta-001.example.com',
+            'mta_submission_port': 587,
+        },
+    )
+
+    assert service._submission_provider_for_attempt(attempt) is service.provider
+    assert 'mta_submission_provider' not in attempt.metadata_json
 
 
 def test_delivery_service_marks_retryable_failure_attempt_deferred() -> None:

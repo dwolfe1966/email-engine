@@ -13,7 +13,7 @@ from email_platform.models.entities import (
     EmailSendRecord,
     EmailSendStatus,
 )
-from email_platform.providers.email import EmailMessage, build_email_provider
+from email_platform.providers.email import EmailMessage, SmtpEmailProvider, build_email_provider
 from email_platform.schemas.contracts import (
     DeliveryRunRead,
     EventCreate,
@@ -77,7 +77,7 @@ class DeliveryService:
             try:
                 variables = self._delivery_variables(record)
                 subject, html, text = self.template_service.render(template, variables)
-                result = self.provider.send(
+                result = self._submission_provider_for_attempt(attempt).send(
                     EmailMessage(
                         to_email=record.to_email,
                         from_email=str(self.settings.default_from_email),
@@ -376,8 +376,29 @@ class DeliveryService:
             'mta_public_ipv4',
             'mta_submission_host',
             'mta_submission_port',
+            'mta_submission_provider',
         }
         return {key: value for key, value in attempt.metadata_json.items() if key in keys}
+
+    def _submission_provider_for_attempt(self, attempt: DeliveryAttempt):
+        if attempt.route_type != 'managed_smtp':
+            return self.provider
+        if attempt.metadata_json.get('mta_route_resolved') is not True:
+            return self.provider
+        host = attempt.metadata_json.get('mta_submission_host')
+        port = attempt.metadata_json.get('mta_submission_port')
+        if not host:
+            return self.provider
+        attempt.metadata_json = {
+            **attempt.metadata_json,
+            'mta_submission_provider': 'managed_smtp',
+        }
+        return SmtpEmailProvider(
+            self.settings,
+            host=str(host),
+            port=int(port) if port else None,
+            provider_name='managed_smtp',
+        )
 
     def _complete_attempt(
         self,

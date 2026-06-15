@@ -100,9 +100,15 @@ Confirm the services are healthy and the host exposes only the intended ports.
 
 2. Confirm the response includes provider account, node, IP pool, route, domain policy, and route
    resolution next steps.
-3. Confirm the route and domain policy appear in Delivery Manager.
-4. Keep the domain in low-volume/warmup mode before any non-seed traffic.
-5. After provider port 25, PTR/rDNS, DNS authentication, MTA deployment, and readiness checks pass,
+3. Configure worker SMTP submission credentials in the Email Engine deployment environment:
+   - `SMTP_USERNAME`
+   - `SMTP_PASSWORD`
+   - `SMTP_USE_TLS=true`
+4. Confirm the route and domain policy appear in Delivery Manager.
+5. Load Managed SMTP Deployment in Delivery Manager and confirm the MTA node, IP pool, route, and
+   readiness status are visible.
+6. Keep the domain in low-volume/warmup mode before any non-seed traffic.
+7. After provider port 25, PTR/rDNS, DNS authentication, MTA deployment, and readiness checks pass,
    rerun bootstrap with:
 
    ```bash
@@ -112,6 +118,10 @@ Confirm the services are healthy and the host exposes only the intended ports.
    MTA_RDNS_STATUS=configured \
    python scripts/managed_smtp_bootstrap.py
    ```
+
+When a managed-SMTP route resolves successfully, the delivery worker submits through the resolved
+MTA `submission_host` and `submission_port` while using the deployment SMTP credentials above. The
+inventory `auth_secret_ref` remains a reference only and should not contain raw credentials.
 
 ## Smoke Sequence
 

@@ -61,13 +61,23 @@ class SendGridEmailProvider(EmailProvider):
 
 
 class SmtpEmailProvider(EmailProvider):
-    def __init__(self, settings: Settings) -> None:
-        if not settings.smtp_host:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        provider_name: str = 'smtp',
+    ) -> None:
+        self.smtp_host = host or settings.smtp_host
+        if not self.smtp_host:
             raise ValueError('SMTP_HOST is required for smtp provider')
         self.settings = settings
+        self.smtp_port = port or settings.smtp_port
+        self.provider_name = provider_name
 
     def send(self, message: EmailMessage) -> EmailDeliveryResult:
-        if not self.settings.smtp_host:
+        if not self.smtp_host:
             raise ValueError('SMTP_HOST is required for smtp provider')
         mime = MIMEMultipart('alternative')
         mime['Subject'] = message.subject
@@ -79,7 +89,7 @@ class SmtpEmailProvider(EmailProvider):
             mime.attach(MIMEText(message.text_body, 'plain'))
         mime.attach(MIMEText(message.html_body, 'html'))
 
-        with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port) as server:
+        with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
             if self.settings.smtp_use_tls:
                 server.starttls()
             if self.settings.smtp_username and self.settings.smtp_password:
@@ -89,7 +99,11 @@ class SmtpEmailProvider(EmailProvider):
                 [message.to_email],
                 mime.as_string(),
             )
-        return EmailDeliveryResult(provider='smtp', provider_message_id=None, status_code=250)
+        return EmailDeliveryResult(
+            provider=self.provider_name,
+            provider_message_id=None,
+            status_code=250,
+        )
 
 
 def build_email_provider(settings: Settings) -> EmailProvider:
