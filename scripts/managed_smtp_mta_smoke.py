@@ -17,7 +17,6 @@ from email.utils import parseaddr
 from pathlib import Path
 from typing import Any, Callable
 
-
 SMTPFactory = Callable[..., smtplib.SMTP]
 
 
@@ -62,6 +61,7 @@ def smtp_probe(
             if not has_starttls:
                 result['error'] = 'Cannot perform STARTTLS handshake; capability is not advertised'
                 return result
+            smtp._host = host
             starttls_code, starttls_response = smtp.starttls(context=ssl.create_default_context())
             re_ehlo_code, re_ehlo_response = smtp.ehlo(ehlo_name)
             result.update(
@@ -125,6 +125,7 @@ def smtp_submit(
             if 'starttls' not in features:
                 result['error'] = 'SMTP server did not advertise STARTTLS for test submission'
                 return result
+            smtp._host = host
             smtp.starttls(context=ssl.create_default_context())
             smtp.ehlo(ehlo_name)
         message = build_test_message(from_email, to_email, subject, body)

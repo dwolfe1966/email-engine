@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_ENV = [
     'POSTFIX_MYHOSTNAME',
     'POSTFIX_MYDOMAIN',
@@ -113,7 +112,20 @@ def check_preflight(env: dict[str, str], *, create_dirs: bool = False) -> dict[s
     if env.get('POSTFIX_TLS_SECURITY_LEVEL') == 'none':
         warnings.append('POSTFIX_TLS_SECURITY_LEVEL is none; production STARTTLS will be disabled.')
     if env.get('POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL') == 'none':
-        warnings.append('POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL is none; outbound TLS will be disabled.')
+        warnings.append(
+            'POSTFIX_OUTBOUND_TLS_SECURITY_LEVEL is none; outbound TLS will be disabled.'
+        )
+    submission_username = env.get('POSTFIX_SUBMISSION_USERNAME')
+    submission_password = env.get('POSTFIX_SUBMISSION_PASSWORD')
+    if bool(submission_username) != bool(submission_password):
+        errors.append(
+            'POSTFIX_SUBMISSION_USERNAME and POSTFIX_SUBMISSION_PASSWORD must be set together.'
+        )
+    elif not submission_username:
+        warnings.append(
+            'POSTFIX_SUBMISSION_USERNAME/PASSWORD are not set; '
+            'submission will rely on trusted networks.'
+        )
 
     return {
         'ok': not errors,

@@ -15,6 +15,28 @@ postconf -e "smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destina
 postconf -e "maximal_queue_lifetime = 1d"
 postconf -e "bounce_queue_lifetime = 1d"
 
+mkdir -p /var/spool/postfix/dev
+
+if [ -n "${POSTFIX_SUBMISSION_USERNAME:-}" ] || [ -n "${POSTFIX_SUBMISSION_PASSWORD:-}" ]; then
+  : "${POSTFIX_SUBMISSION_USERNAME:?POSTFIX_SUBMISSION_USERNAME is required when POSTFIX_SUBMISSION_PASSWORD is set}"
+  : "${POSTFIX_SUBMISSION_PASSWORD:?POSTFIX_SUBMISSION_PASSWORD is required when POSTFIX_SUBMISSION_USERNAME is set}"
+  mkdir -p /etc/postfix/sasl
+  cat > /etc/postfix/sasl/smtpd.conf <<'EOF'
+pwcheck_method: auxprop
+auxprop_plugin: sasldb
+mech_list: PLAIN LOGIN
+EOF
+  printf '%s\n' "$POSTFIX_SUBMISSION_PASSWORD" | saslpasswd2 -p -c -u "$POSTFIX_MYDOMAIN" "$POSTFIX_SUBMISSION_USERNAME"
+  chown root:postfix /etc/sasldb2
+  chmod 0640 /etc/sasldb2
+  postconf -e "smtpd_sasl_auth_enable = yes"
+  postconf -e "smtpd_sasl_type = cyrus"
+  postconf -e "smtpd_sasl_path = smtpd"
+  postconf -e "smtpd_sasl_local_domain = \$mydomain"
+  postconf -e "smtpd_sasl_security_options = noanonymous"
+  postconf -e "broken_sasl_auth_clients = yes"
+fi
+
 if [ -n "${POSTFIX_TLS_CERT_FILE:-}" ] || [ -n "${POSTFIX_TLS_KEY_FILE:-}" ]; then
   : "${POSTFIX_TLS_CERT_FILE:?POSTFIX_TLS_CERT_FILE is required when POSTFIX_TLS_KEY_FILE is set}"
   : "${POSTFIX_TLS_KEY_FILE:?POSTFIX_TLS_KEY_FILE is required when POSTFIX_TLS_CERT_FILE is set}"

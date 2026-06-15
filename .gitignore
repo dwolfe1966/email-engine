@@ -23,5 +23,6 @@ frontend/dist/assets/* [0-9][0-9].*
 docs/OpenAI API Key.rtf
 docs/SendGrid.rtf
 docs/twilio_2FA_recovery_code.txt
+docs/mta/*.pem
 tests/Milkbar_Email_List_6_4_.xlsx - subs*.csv
 tests/random_people_100.csv

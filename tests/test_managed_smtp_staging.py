@@ -70,6 +70,8 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
         'managed-smtp-postfix',
         'managed-smtp-opendkim',
         'POSTFIX_DKIM_MILTER: inet:managed-smtp-opendkim:8891',
+        'POSTFIX_SUBMISSION_USERNAME',
+        'POSTFIX_SUBMISSION_PASSWORD',
         'POSTFIX_TLS_CERT_FILE',
         'POSTFIX_TLS_KEY_FILE',
         'POSTFIX_TLS_DIR',
@@ -105,6 +107,8 @@ def test_managed_smtp_production_compose_wires_postfix_to_opendkim() -> None:
     assert '/etc/opendkim/keys/${domain}/${SELECTOR}.private' in opendkim_entrypoint
     assert 'OPENDKIM_KEYS_DIR=/srv/email-engine/opendkim/keys' in env_example
     assert 'POSTFIX_TLS_DIR=/srv/email-engine/postfix/tls' in env_example
+    assert 'POSTFIX_SUBMISSION_USERNAME=' in env_example
+    assert 'POSTFIX_SUBMISSION_PASSWORD=' in env_example
     assert 'POSTFIX_SPOOL_DIR=/srv/email-engine/postfix/spool' in env_example
     assert 'POSTFIX_LOG_DIR=/srv/email-engine/postfix/log' in env_example
     assert 'MANAGED_SMTP_DSN_MAILDIR=/srv/email-engine/mail/returns' in env_example
@@ -116,6 +120,10 @@ def test_postfix_entrypoint_configures_tls_certificate_mounts() -> None:
     expected_tokens = [
         'POSTFIX_TLS_CERT_FILE',
         'POSTFIX_TLS_KEY_FILE',
+        'POSTFIX_SUBMISSION_USERNAME',
+        'POSTFIX_SUBMISSION_PASSWORD',
+        'saslpasswd2',
+        'smtpd_sasl_auth_enable',
         'Missing Postfix TLS certificate',
         'Missing Postfix TLS private key',
         'smtpd_tls_cert_file',
@@ -255,6 +263,7 @@ def test_managed_smtp_mta_smoke_probes_starttls_with_injected_smtp() -> None:
             return 250, b'mx.example.com'
 
         def starttls(self, context=None):
+            assert self._host == 'mx.example.com'
             self.started_tls = True
             return 220, b'2.0.0 Ready to start TLS'
 
@@ -305,6 +314,67 @@ def test_managed_smtp_mta_smoke_reports_missing_starttls() -> None:
     assert result['ok'] is False
     assert result['has_starttls'] is False
     assert result['error'] == 'SMTP server did not advertise STARTTLS'
+
+
+def test_managed_smtp_mta_preflight_warns_without_submission_auth(tmp_path) -> None:
+    module = load_script_module(MTA_PREFLIGHT_SCRIPT)
+    root = tmp_path / 'mta'
+    env = {
+        'POSTFIX_MYHOSTNAME': 'smtp.example.com',
+        'POSTFIX_MYDOMAIN': 'example.com',
+        'POSTFIX_MYNETWORKS': '127.0.0.0/8',
+        'POSTFIX_SPOOL_DIR': str(root / 'postfix' / 'spool'),
+        'POSTFIX_LOG_DIR': str(root / 'postfix' / 'log'),
+        'POSTFIX_TLS_DIR': str(root / 'postfix' / 'tls'),
+        'POSTFIX_TLS_CERT_FILE': '/etc/postfix/tls/tls.crt',
+        'POSTFIX_TLS_KEY_FILE': '/etc/postfix/tls/tls.key',
+        'OPENDKIM_DOMAINS': 'example.com',
+        'OPENDKIM_SELECTOR': 'ee1',
+        'OPENDKIM_KEYS_DIR': str(root / 'opendkim' / 'keys'),
+        'MANAGED_SMTP_DSN_MAILDIR': str(root / 'mail' / 'returns'),
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR': str(root / 'mail' / 'returns-archive'),
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR': str(root / 'mail' / 'returns-quarantine'),
+    }
+    for key in module.REQUIRED_DIRS:
+        Path(env[key]).mkdir(parents=True)
+    (Path(env['POSTFIX_TLS_DIR']) / 'tls.crt').write_text('cert')
+    (Path(env['POSTFIX_TLS_DIR']) / 'tls.key').write_text('key')
+    key_dir = Path(env['OPENDKIM_KEYS_DIR']) / 'example.com'
+    key_dir.mkdir(parents=True, exist_ok=True)
+    (key_dir / 'ee1.private').write_text('private')
+
+    result = module.check_preflight(env)
+
+    assert result['ok'] is True
+    assert any(
+        'submission will rely on trusted networks' in warning for warning in result['warnings']
+    )
+
+
+def test_managed_smtp_mta_preflight_rejects_partial_submission_auth(tmp_path) -> None:
+    module = load_script_module(MTA_PREFLIGHT_SCRIPT)
+    env = {
+        'POSTFIX_MYHOSTNAME': 'smtp.example.com',
+        'POSTFIX_MYDOMAIN': 'example.com',
+        'POSTFIX_MYNETWORKS': '127.0.0.0/8',
+        'POSTFIX_SPOOL_DIR': str(tmp_path / 'spool'),
+        'POSTFIX_LOG_DIR': str(tmp_path / 'log'),
+        'POSTFIX_TLS_DIR': str(tmp_path / 'tls'),
+        'POSTFIX_TLS_CERT_FILE': '/etc/postfix/tls/tls.crt',
+        'POSTFIX_TLS_KEY_FILE': '/etc/postfix/tls/tls.key',
+        'OPENDKIM_DOMAINS': 'example.com',
+        'OPENDKIM_SELECTOR': 'ee1',
+        'OPENDKIM_KEYS_DIR': str(tmp_path / 'keys'),
+        'MANAGED_SMTP_DSN_MAILDIR': str(tmp_path / 'returns'),
+        'MANAGED_SMTP_DSN_ARCHIVE_DIR': str(tmp_path / 'archive'),
+        'MANAGED_SMTP_DSN_QUARANTINE_DIR': str(tmp_path / 'quarantine'),
+        'POSTFIX_SUBMISSION_USERNAME': 'worker',
+    }
+
+    result = module.check_preflight(env)
+
+    assert result['ok'] is False
+    assert any('must be set together' in error for error in result['errors'])
 
 
 def test_managed_smtp_mta_smoke_builds_message_and_signed_feedback_contract() -> None:
@@ -481,7 +551,11 @@ def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:
     master = (INFRA / 'postfix' / 'master.cf').read_text()
 
     assert 'smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination' in entrypoint
-    assert 'smtpd_recipient_restrictions=permit_mynetworks,reject' in master
+    assert (
+        'smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject'
+        in master
+    )
+    assert 'smtpd_sasl_auth_enable=yes' in master
     assert 'POSTFIX_DKIM_MILTER' in entrypoint
     assert 'smtpd_milters' in entrypoint
     assert 'postfix start-fg' in entrypoint

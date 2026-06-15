@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates postfix rsyslog \
+    && apt-get install -y --no-install-recommends ca-certificates libsasl2-modules postfix rsyslog sasl2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 COPY main.cf /etc/postfix/main.cf

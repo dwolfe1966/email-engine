@@ -131,6 +131,12 @@ The production compose file also mounts `POSTFIX_TLS_DIR` at `/etc/postfix/tls`.
 Postfix entrypoint expects `tls.crt` and `tls.key`, configures `smtpd_tls_cert_file` /
 `smtpd_tls_key_file`, and exits before startup if either file is missing.
 
+Set `POSTFIX_SUBMISSION_USERNAME` and `POSTFIX_SUBMISSION_PASSWORD` in the MTA host environment to
+enable authenticated submission on port 587. The container creates a local Cyrus SASL password
+database at startup and permits relay from either `POSTFIX_MYNETWORKS` or authenticated submission
+clients. For production, prefer authenticated submission credentials; `POSTFIX_MYNETWORKS` should be
+kept narrow and treated as a smoke-test or fixed-private-network fallback.
+
 Postfix queue, logs, inbound DSNs, DSN archive, and quarantine paths are explicit host mounts:
 `POSTFIX_SPOOL_DIR`, `POSTFIX_LOG_DIR`, `MANAGED_SMTP_DSN_MAILDIR`,
 `MANAGED_SMTP_DSN_ARCHIVE_DIR`, and `MANAGED_SMTP_DSN_QUARANTINE_DIR`. Configure Email Engine

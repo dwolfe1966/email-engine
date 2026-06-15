@@ -7,12 +7,14 @@ control plane while Postfix/OpenDKIM run on a dedicated MTA host.
 ## Network Boundary
 
 - Allow inbound TCP `25` only from the public internet for remote MX delivery.
-- Allow inbound TCP `587` only from trusted Email Engine workers or private network ranges listed in
-  `POSTFIX_MYNETWORKS`.
+- Allow inbound TCP `587` only from trusted Email Engine workers or private network ranges when
+  possible. Configure `POSTFIX_SUBMISSION_USERNAME` and `POSTFIX_SUBMISSION_PASSWORD` so workers can
+  authenticate instead of relying only on source-IP trust.
 - Do not expose OpenDKIM port `8891` publicly. It should bind to localhost or the internal Docker
   network only.
 - Restrict SSH to operator VPN, bastion, or provider console access.
-- Keep `smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination` enforced.
+- Keep relay controls enforced with `permit_mynetworks`, `permit_sasl_authenticated`, and
+  `reject_unauth_destination` semantics. Do not allow unauthenticated public relay.
 
 ## TLS And Identity
 
@@ -32,6 +34,9 @@ control plane while Postfix/OpenDKIM run on a dedicated MTA host.
 - Enforce owner-only permissions on private keys, for example `0400`.
 - Keep `MANAGED_SMTP_FEEDBACK_SECRET` in the scheduler/API secret store and rotate it with a
   maintenance window because DSN and log feedback workers depend on it.
+- Keep `POSTFIX_SUBMISSION_PASSWORD` in the MTA host secret store and the matching Email Engine
+  `SMTP_PASSWORD` in the control-plane secret store. Do not write raw submission passwords to docs,
+  route metadata, or git.
 - Do not put private DKIM keys in `DomainDeliveryPolicy.metadata_json`; Email Engine stores only key
   references, public DNS material, and signer hints.
 
