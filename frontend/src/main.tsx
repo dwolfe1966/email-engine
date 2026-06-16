@@ -2617,11 +2617,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           </div>
           <button className={campaignTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={campaignTriageAction.run} disabled={campaignTriageAction.disabled}>{campaignTriageAction.actionLabel}</button>
         </div>
-        <div className="campaign-triage-grid">
+        <div className="campaign-triage-list">
           {campaignTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`campaign-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

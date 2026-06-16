@@ -1603,8 +1603,8 @@ th {
 
 .campaign-triage-head span,
 .campaign-triage-head small,
-.campaign-triage-grid span,
-.campaign-triage-grid small {
+.campaign-triage-list span,
+.campaign-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -1613,37 +1613,71 @@ th {
 }
 
 .campaign-triage-head strong,
-.campaign-triage-grid strong {
+.campaign-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.campaign-triage-grid {
+.campaign-triage-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.campaign-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.campaign-triage-grid article.warn {
-  border-color: #f8c77d;
+.campaign-triage-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.campaign-triage-row + .campaign-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.campaign-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.campaign-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.campaign-triage-row small {
+  flex: 0 1 48%;
+  text-align: right;
+}
+
+.campaign-triage-row.warn {
   background: #fff9ec;
 }
 
-.campaign-triage-grid article.good {
-  border-color: #b6e0c1;
+.campaign-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.campaign-triage-row.good {
   background: #f5fff7;
+}
+
+.campaign-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .workflow-section {
@@ -7519,7 +7553,6 @@ th {
   .launch-result-card,
   .test-send-result-card,
   .campaign-ai-summary,
-  .campaign-triage-grid,
   .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
@@ -7611,7 +7644,6 @@ th {
   .contacts-command-strip,
   .data-command-strip,
   .campaign-ai-summary,
-  .campaign-triage-grid,
   .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
@@ -7675,6 +7707,13 @@ th {
     display: grid;
   }
   .overview-triage-row small {
+    flex: none;
+    text-align: left;
+  }
+  .campaign-triage-row {
+    display: grid;
+  }
+  .campaign-triage-row small {
     flex: none;
     text-align: left;
   }
