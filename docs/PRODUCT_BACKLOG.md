@@ -106,6 +106,18 @@ model clearer and more operationally complete.
      metadata where appropriate, source surface, result, duration, and error details.
    - Support entity-level activity feeds for campaigns, templates, audiences, contacts, journeys,
      delivery records, account settings, and provider configuration.
+11. UI metaphor simplification
+   - Explore alternatives to the current repeated rows of five or six square/card blocks across admin
+     pages.
+   - Identify where status cards are useful versus where they create visual noise, scanning fatigue,
+     or duplicate hierarchy.
+   - Prototype simpler metaphors such as progressive workflows, command centers, timelines, maps,
+     split-pane inspectors, compact score strips, inline checklists, grouped accordions, and
+     object-centric dashboards.
+   - Define guidelines for when to use cards, tables, lists, charts, diagrams, drawers, and detail
+     inspectors so pages feel less repetitive and easier to operate.
+   - Prioritize delivery, campaigns, overview, analytics, and template editor because those screens
+     currently lean hardest on repeated card grids.
 
 ### Template Builder / Template Editor
 
