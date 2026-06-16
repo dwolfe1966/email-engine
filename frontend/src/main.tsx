@@ -11070,17 +11070,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         </div>
         {providerFeedbackEvents.length ? (
           <>
-            <div className="delivery-triage-grid">
-              <article className={providerFeedbackWarningCount ? 'warn' : 'good'}>
+            <div className="provider-feedback-strip" aria-label="Managed SMTP provider feedback strip">
+              <div className={`provider-feedback-strip-item ${providerFeedbackWarningCount ? 'warn' : 'good'}`}>
                 <span>Loaded events</span>
                 <strong>{formatInt(providerFeedbackEvents.length)}</strong>
                 <small>{formatInt(providerFeedbackTotal)} retained event(s) match the filters.</small>
-              </article>
-              <article className={providerFeedbackWarningCount ? 'warn' : 'good'}>
+              </div>
+              <div className={`provider-feedback-strip-item ${providerFeedbackWarningCount ? 'warn' : 'good'}`}>
                 <span>Review signals</span>
                 <strong>{formatInt(providerFeedbackWarningCount)}</strong>
                 <small>Bounce, complaint, deferral, and DSN warning events.</small>
-              </article>
+              </div>
             </div>
             <div className="provider-feedback-list">
               {providerFeedbackEvents.slice(0, 8).map((event) => {

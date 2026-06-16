@@ -5710,7 +5710,8 @@ th {
 }
 
 .delivery-score-strip,
-.domain-compliance-strip {
+.domain-compliance-strip,
+.provider-feedback-strip {
   display: grid;
   overflow: hidden;
   border: 1px solid #d8dee8;
@@ -5726,8 +5727,13 @@ th {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.provider-feedback-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .delivery-score-item,
-.domain-compliance-item {
+.domain-compliance-item,
+.provider-feedback-strip-item {
   display: grid;
   align-content: start;
   gap: 4px;
@@ -5737,24 +5743,29 @@ th {
 }
 
 .delivery-score-item:last-child,
-.domain-compliance-item:last-child {
+.domain-compliance-item:last-child,
+.provider-feedback-strip-item:last-child {
   border-right: 0;
 }
 
 .delivery-score-item.warn,
-.domain-compliance-item.warn {
+.domain-compliance-item.warn,
+.provider-feedback-strip-item.warn {
   background: #fff9ec;
 }
 
 .delivery-score-item.good,
-.domain-compliance-item.good {
+.domain-compliance-item.good,
+.provider-feedback-strip-item.good {
   background: #f5fff7;
 }
 
 .delivery-score-item span,
 .delivery-score-item small,
 .domain-compliance-item span,
-.domain-compliance-item small {
+.domain-compliance-item small,
+.provider-feedback-strip-item span,
+.provider-feedback-strip-item small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5763,7 +5774,8 @@ th {
 }
 
 .delivery-score-item strong,
-.domain-compliance-item strong {
+.domain-compliance-item strong,
+.provider-feedback-strip-item strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 15px;
@@ -7629,7 +7641,8 @@ th {
   .launch-result-card,
   .test-send-result-card { grid-template-columns: 1fr; }
   .delivery-score-strip,
-  .domain-compliance-strip { grid-template-columns: 1fr; }
+  .domain-compliance-strip,
+  .provider-feedback-strip { grid-template-columns: 1fr; }
   .delivery-score-item {
     border-right: 0;
     border-bottom: 1px solid #e5edf7;
@@ -7638,8 +7651,13 @@ th {
     border-right: 0;
     border-bottom: 1px solid #e5edf7;
   }
+  .provider-feedback-strip-item {
+    border-right: 0;
+    border-bottom: 1px solid #e5edf7;
+  }
   .delivery-score-item:last-child,
-  .domain-compliance-item:last-child { border-bottom: 0; }
+  .domain-compliance-item:last-child,
+  .provider-feedback-strip-item:last-child { border-bottom: 0; }
   .delivery-operations-check { grid-template-columns: 1fr; }
   .managed-smtp-route-inspector { grid-template-columns: 1fr; }
   .managed-smtp-route-field {
