@@ -9805,6 +9805,70 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.submission_credentials_configured ? 'good' : 'warn',
     },
   ];
+  const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
+  const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
+  const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
+  const rdnsConfigured = firstManagedSmtpProvider?.rdns_status === 'configured';
+  const latestReadinessOk = latestReadinessCheck?.status === 'ok';
+  const authenticationReady = domainDashboard?.authentication_status === 'verified'
+    || domainDashboard?.authentication_status === 'ok';
+  const firstSendComplianceHold = selectedDomainPolicy?.metadata_json?.compliance_hold;
+  const firstSendComplianceStatus = typeof firstSendComplianceHold === 'object'
+    && firstSendComplianceHold !== null
+    && 'status' in firstSendComplianceHold
+    ? String((firstSendComplianceHold as Record<string, unknown>).status)
+    : 'clear';
+  const firstSendReadinessItems = [
+    {
+      label: 'AWS port 25',
+      value: firstManagedSmtpProvider?.port25_status || 'Pending',
+      detail: port25Approved
+        ? 'Outbound direct-MX delivery is approved for the selected provider account.'
+        : 'Seed send remains blocked until the provider removes outbound TCP 25 limits.',
+      tone: port25Approved ? 'good' : 'warn',
+    },
+    {
+      label: 'PTR/rDNS',
+      value: firstManagedSmtpProvider?.rdns_status || 'Not loaded',
+      detail: rdnsConfigured
+        ? 'Reverse DNS is configured for the MTA public IP.'
+        : 'Load deployment summary and confirm reverse DNS before first send.',
+      tone: rdnsConfigured ? 'good' : 'warn',
+    },
+    {
+      label: 'Submission auth',
+      value: managedSmtpDeploymentSummary?.submission_credentials_configured ? 'Ready' : 'Missing',
+      detail: managedSmtpDeploymentSummary?.submission_tls_enabled
+        ? 'Worker-to-MTA credentials and TLS are configured.'
+        : 'Configure SMTP username, password, and TLS for worker submission.',
+      tone: managedSmtpDeploymentSummary?.submission_credentials_configured
+        && managedSmtpDeploymentSummary?.submission_tls_enabled ? 'good' : 'warn',
+    },
+    {
+      label: 'Domain auth',
+      value: domainDashboard?.authentication_status || 'Not loaded',
+      detail: authenticationReady
+        ? 'Domain authentication is verified in the reputation dashboard.'
+        : 'Load the reputation dashboard and resolve SPF, DKIM, DMARC, or bounce-MX gaps.',
+      tone: authenticationReady ? 'good' : 'warn',
+    },
+    {
+      label: 'MTA smoke',
+      value: latestReadinessCheck?.status || 'Not loaded',
+      detail: latestReadinessOk
+        ? `Latest readiness check passed at ${latestReadinessCheck?.checked_at || 'unknown time'}.`
+        : 'Publish or load MTA smoke evidence before first send.',
+      tone: latestReadinessOk ? 'good' : 'warn',
+    },
+    {
+      label: 'Compliance',
+      value: domainDashboard?.compliance_status || firstSendComplianceStatus,
+      detail: domainDashboard?.compliance_reason || 'No active hold loaded for selected domain.',
+      tone: domainDashboard?.compliance_status === 'hold' || firstSendComplianceStatus === 'active'
+        ? 'warn'
+        : 'good',
+    },
+  ];
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -10415,6 +10479,27 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <span>Load SMTP Deployment after bootstrapping the first provider account, MTA node, IP pool, route, and domain policy.</span>
           </div>
         )}
+      </section>
+      <section className="panel full-span first-send-checklist-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Managed SMTP First Send</h2>
+            <span className="muted">Go/no-go checklist for the first controlled seed email through the owned MTA path.</span>
+          </div>
+          <div className="button-row">
+            <button className="ghost" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load Deployment</button>
+            <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load Readiness</button>
+          </div>
+        </div>
+        <div className="delivery-triage-grid">
+          {firstSendReadinessItems.map((item) => (
+            <article className={item.tone} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </article>
+          ))}
+        </div>
       </section>
       <section className="panel full-span domain-compliance-panel">
         <div className="panel-head">
