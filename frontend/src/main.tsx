@@ -10531,13 +10531,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
         </div>
-        <div className="delivery-triage-grid">
+        <div className="delivery-score-strip" aria-label="Managed SMTP deployment score strip">
           {managedSmtpDeploymentItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <div className={`delivery-score-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
-            </article>
+            </div>
           ))}
         </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
