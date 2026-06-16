@@ -10513,9 +10513,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <a href="#compliance">Open Compliance</a>
         </div>
-        <div className="delivery-operations-grid">
+        <div className="delivery-operations-checklist">
           {deliveryOperationsContractItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`delivery-operations-check ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
