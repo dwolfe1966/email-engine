@@ -154,6 +154,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpBootstrapRequest,
     ManagedSmtpDeploymentSummaryRead,
     ManagedSmtpFeedbackEvent,
+    ManagedSmtpFirstSendRead,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
     ManagedSmtpReadinessAlertsRead,
@@ -3223,6 +3224,15 @@ def summarize_managed_smtp_deployment(
     limit: Limit = 10,
 ) -> ManagedSmtpDeploymentSummaryRead:
     return MtaInventoryService(db).deployment_summary(limit=limit, settings=settings)
+
+
+@router.get('/managed-smtp/first-send-readiness', response_model=ManagedSmtpFirstSendRead)
+def summarize_managed_smtp_first_send(
+    db: DbSession,
+    settings: SettingsDep,
+    limit: Limit = 10,
+) -> ManagedSmtpFirstSendRead:
+    return MtaInventoryService(db).first_send_readiness(limit=limit, settings=settings)
 
 
 @router.get(

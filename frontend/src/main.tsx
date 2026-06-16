@@ -787,6 +787,23 @@ type ManagedSmtpDeploymentSummaryRead = {
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
 };
 
+type ManagedSmtpFirstSendChecklistItem = {
+  key: string;
+  label: string;
+  status: string;
+  value: string;
+  detail: string;
+  blocking: boolean;
+};
+
+type ManagedSmtpFirstSendRead = {
+  ok: boolean;
+  status: string;
+  blockers: string[];
+  items: ManagedSmtpFirstSendChecklistItem[];
+  deployment_summary: ManagedSmtpDeploymentSummaryRead;
+};
+
 type SuppressionRead = {
   id: string;
   email: string;
@@ -9700,6 +9717,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessAlerts, setReadinessAlerts] = useState<ManagedSmtpReadinessAlertsRead | null>(null);
   const [readinessNotification, setReadinessNotification] = useState<ManagedSmtpReadinessNotificationRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
+  const [firstSendReadiness, setFirstSendReadiness] = useState<ManagedSmtpFirstSendRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
@@ -9818,7 +9836,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     && 'status' in firstSendComplianceHold
     ? String((firstSendComplianceHold as Record<string, unknown>).status)
     : 'clear';
-  const firstSendReadinessItems = [
+  const fallbackFirstSendReadinessItems = [
     {
       label: 'AWS port 25',
       value: firstManagedSmtpProvider?.port25_status || 'Pending',
@@ -9869,6 +9887,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         : 'good',
     },
   ];
+  const firstSendReadinessItems = firstSendReadiness
+    ? firstSendReadiness.items.map((item) => ({
+      label: item.label,
+      value: item.value,
+      detail: item.detail,
+      tone: item.status === 'ready' ? 'good' : 'warn',
+    }))
+    : fallbackFirstSendReadinessItems;
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -10264,8 +10290,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           readinessSummaryParams.set(key, value.trim());
         }
       });
-      const [deployment, readiness, summary, trend, alerts, notification, policies] = await Promise.all([
-        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+      const [firstSend, readiness, summary, trend, alerts, notification, policies] = await Promise.all([
+        fetchJson<ManagedSmtpFirstSendRead>('/api/v1/managed-smtp/first-send-readiness?limit=8'),
         fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${readinessParams.toString()}`),
         fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${readinessSummaryParams.toString()}`),
         fetchJson<ManagedSmtpReadinessTrendRead>(`/api/v1/managed-smtp/readiness-checks/trend?${readinessSummaryParams.toString()}`),
@@ -10273,7 +10299,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         fetchJson<ManagedSmtpReadinessNotificationRead>(`/api/v1/managed-smtp/readiness-checks/notification?${readinessSummaryParams.toString()}`),
         fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
       ]);
-      setManagedSmtpDeploymentSummary(deployment);
+      setFirstSendReadiness(firstSend);
+      setManagedSmtpDeploymentSummary(firstSend.deployment_summary);
       setReadinessChecks(readiness.items || []);
       setReadinessCheckTotal(readiness.total || 0);
       setReadinessSummary(summary);
@@ -10288,8 +10315,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${policyId}/reputation-dashboard`);
         setDomainDashboard(dashboard);
       }
-      const port25 = deployment.recent_nodes[0]?.provider_account?.port25_status || 'unknown';
-      return `Loaded first-send evidence: port 25 ${port25}, ${formatInt(summary.ok_count)} passing readiness check(s), ${formatInt(policyItems.length)} domain policy row(s).`;
+      const port25 = firstSend.items.find((item) => item.key === 'port25')?.value || 'unknown';
+      const blockerText = firstSend.blockers.length
+        ? `${formatInt(firstSend.blockers.length)} blocker(s)`
+        : 'no blockers';
+      return `Loaded first-send evidence: port 25 ${port25}, ${blockerText}, ${formatInt(summary.ok_count)} passing readiness check(s), ${formatInt(policyItems.length)} domain policy row(s).`;
     });
   }
 

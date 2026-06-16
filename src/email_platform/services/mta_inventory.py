@@ -17,6 +17,8 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     ManagedSmtpDeploymentNodeSummary,
     ManagedSmtpDeploymentSummaryRead,
+    ManagedSmtpFirstSendChecklistItem,
+    ManagedSmtpFirstSendRead,
     MtaInventoryCounts,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
@@ -296,6 +298,133 @@ class MtaInventoryService:
             recent_nodes=node_summaries,
         )
 
+    def first_send_readiness(
+        self,
+        limit: int = 10,
+        settings: Settings | None = None,
+    ) -> ManagedSmtpFirstSendRead:
+        deployment = self.deployment_summary(limit=limit, settings=settings)
+        node_summary = deployment.recent_nodes[0] if deployment.recent_nodes else None
+        provider_account = node_summary.provider_account if node_summary else None
+        node = node_summary.node if node_summary else None
+        latest_check = node_summary.readiness_summary.latest_check if node_summary else None
+        domain_policy = self._first_managed_smtp_domain_policy()
+        policy_metadata = domain_policy.metadata_json if domain_policy else {}
+        verification = (
+            policy_metadata.get('domain_authentication_verification')
+            if isinstance(policy_metadata, dict)
+            else None
+        )
+        compliance_hold = (
+            policy_metadata.get('compliance_hold') if isinstance(policy_metadata, dict) else None
+        )
+        compliance_hold_active = (
+            isinstance(compliance_hold, dict) and compliance_hold.get('status') == 'active'
+        )
+        domain_auth_verified = isinstance(verification, dict) and bool(verification.get('verified'))
+        submission_ready = bool(
+            deployment.submission_credentials_configured and deployment.submission_tls_enabled
+        )
+
+        items = [
+            self._first_send_item(
+                key='provider_account',
+                label='Provider account',
+                ready=bool(provider_account and self._status_value(provider_account.status) == 'active'),
+                value=self._status_value(provider_account.status) if provider_account else 'missing',
+                ready_detail='Provider account is active.',
+                blocked_detail='Activate a provider account before first send.',
+            ),
+            self._first_send_item(
+                key='mta_node',
+                label='MTA node',
+                ready=bool(node and self._status_value(node.status) == 'active'),
+                value=self._status_value(node.status) if node else 'missing',
+                ready_detail='MTA node is active in inventory.',
+                blocked_detail='Register and activate an MTA node before first send.',
+            ),
+            self._first_send_item(
+                key='ip_pool',
+                label='IP pool',
+                ready=deployment.ip_pools.active > 0 and deployment.pool_nodes.active > 0,
+                value=f'{deployment.ip_pools.active} pool(s), {deployment.pool_nodes.active} node(s)',
+                ready_detail='An active IP pool has an active MTA node membership.',
+                blocked_detail='Assign the MTA node to an active IP pool.',
+            ),
+            self._first_send_item(
+                key='route_policy',
+                label='Route policy',
+                ready=(
+                    deployment.managed_smtp_route_count > 0
+                    and deployment.managed_smtp_domain_policy_count > 0
+                ),
+                value=(
+                    f'{deployment.managed_smtp_route_count} route(s), '
+                    f'{deployment.managed_smtp_domain_policy_count} policy row(s)'
+                ),
+                ready_detail='Managed SMTP route and domain policy are mapped.',
+                blocked_detail='Create a managed SMTP route and assign a domain policy.',
+            ),
+            self._first_send_item(
+                key='port25',
+                label='Outbound port 25',
+                ready=bool(provider_account and provider_account.port25_status == 'approved'),
+                value=provider_account.port25_status if provider_account else 'unknown',
+                ready_detail='Provider has approved outbound direct-MX SMTP.',
+                blocked_detail='First seed send is blocked until outbound TCP port 25 is approved.',
+            ),
+            self._first_send_item(
+                key='rdns',
+                label='PTR/rDNS',
+                ready=bool(provider_account and provider_account.rdns_status == 'configured'),
+                value=provider_account.rdns_status if provider_account else 'unknown',
+                ready_detail='Reverse DNS is configured for the sending IP.',
+                blocked_detail='Configure PTR/rDNS before direct-MX sending.',
+            ),
+            self._first_send_item(
+                key='submission_auth',
+                label='Submission auth',
+                ready=submission_ready,
+                value='configured' if submission_ready else 'missing',
+                ready_detail='Worker-to-MTA SMTP credentials and TLS are configured.',
+                blocked_detail='Configure SMTP username, password, and TLS for MTA submission.',
+            ),
+            self._first_send_item(
+                key='domain_auth',
+                label='Domain auth',
+                ready=domain_auth_verified,
+                value='verified' if domain_auth_verified else 'pending',
+                ready_detail=f'{domain_policy.domain} DNS authentication is verified.'
+                if domain_policy
+                else 'Domain authentication is verified.',
+                blocked_detail='Verify SPF, DKIM, DMARC, and bounce-domain DNS before first send.',
+            ),
+            self._first_send_item(
+                key='mta_smoke',
+                label='MTA smoke',
+                ready=bool(latest_check and latest_check.status == 'ok'),
+                value=latest_check.status if latest_check else 'missing',
+                ready_detail='Latest MTA readiness smoke check is passing.',
+                blocked_detail='Publish a passing MTA smoke/readiness check before first send.',
+            ),
+            self._first_send_item(
+                key='compliance',
+                label='Compliance',
+                ready=not compliance_hold_active and not getattr(domain_policy, 'paused_until', None),
+                value='hold' if compliance_hold_active else 'clear',
+                ready_detail='No active compliance hold is loaded for the managed SMTP domain.',
+                blocked_detail='Release compliance hold or pause window before first send.',
+            ),
+        ]
+        blockers = [item.label for item in items if item.blocking and item.status != 'ready']
+        return ManagedSmtpFirstSendRead(
+            ok=not blockers,
+            status='ready' if not blockers else 'blocked',
+            blockers=blockers,
+            items=items,
+            deployment_summary=deployment,
+        )
+
     def _require_provider_account(self, account_id: UUID) -> MtaProviderAccount:
         account = self.get_provider_account(account_id)
         if not account:
@@ -318,6 +447,37 @@ class MtaInventoryService:
         self.db.commit()
         self.db.refresh(item)
         return item
+
+    def _first_managed_smtp_domain_policy(self) -> DomainDeliveryPolicy | None:
+        statement = (
+            select(DomainDeliveryPolicy)
+            .join(DeliveryRoute, DomainDeliveryPolicy.route_id == DeliveryRoute.id)
+            .where(DeliveryRoute.route_type == DeliveryRouteType.managed_smtp)
+            .order_by(DomainDeliveryPolicy.created_at.desc())
+        )
+        return self.db.scalars(statement.limit(1)).first()
+
+    def _first_send_item(
+        self,
+        *,
+        key: str,
+        label: str,
+        ready: bool,
+        value: str,
+        ready_detail: str,
+        blocked_detail: str,
+    ) -> ManagedSmtpFirstSendChecklistItem:
+        return ManagedSmtpFirstSendChecklistItem(
+            key=key,
+            label=label,
+            status='ready' if ready else 'blocked',
+            value=value,
+            detail=ready_detail if ready else blocked_detail,
+            blocking=True,
+        )
+
+    def _status_value(self, status) -> str:
+        return getattr(status, 'value', str(status))
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:

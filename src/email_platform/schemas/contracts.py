@@ -1305,6 +1305,23 @@ class ManagedSmtpDeploymentSummaryRead(BaseModel):
     recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
 
 
+class ManagedSmtpFirstSendChecklistItem(BaseModel):
+    key: str
+    label: str
+    status: str
+    value: str
+    detail: str
+    blocking: bool = True
+
+
+class ManagedSmtpFirstSendRead(BaseModel):
+    ok: bool
+    status: str
+    blockers: list[str] = Field(default_factory=list)
+    items: list[ManagedSmtpFirstSendChecklistItem] = Field(default_factory=list)
+    deployment_summary: ManagedSmtpDeploymentSummaryRead
+
+
 class DataSourceCreate(BaseModel):
     name: str
     source_type: DataSourceType

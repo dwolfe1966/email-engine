@@ -6,6 +6,7 @@ import pytest
 
 from email_platform.models.entities import MtaOperationalStatus, MtaProviderAccount
 from email_platform.schemas.contracts import (
+    ManagedSmtpReadinessCheckRead,
     ManagedSmtpReadinessSummaryRead,
     MtaIpPoolNodeCreate,
     MtaNodeCreate,
@@ -227,3 +228,211 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
+
+
+def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:
+    account_id = uuid4()
+    node_id = uuid4()
+    pool_node_id = uuid4()
+    pool_id = uuid4()
+    now = datetime.utcnow()
+    account = _provider_account(account_id, now)
+    node = _mta_node(node_id, account_id, now)
+    pool_node = _pool_node(pool_node_id, pool_id, node_id, now)
+    policy = SimpleNamespace(
+        domain='email-engine.example',
+        paused_until=None,
+        metadata_json={
+            'domain_authentication_verification': {'verified': True},
+            'compliance_hold': {'status': 'released'},
+        },
+    )
+
+    _install_fake_readiness(monkeypatch, node.hostname, status='ok', now=now)
+
+    first_send = _FakeFirstSendService(
+        FakeDb(),
+        account=account,
+        node=node,
+        pool_node=pool_node,
+        policy=policy,
+    ).first_send_readiness(
+        limit=5,
+        settings=SimpleNamespace(
+            smtp_username='submission-user',
+            smtp_password='submission-password',
+            smtp_use_tls=True,
+        ),
+    )
+
+    assert first_send.ok is True
+    assert first_send.status == 'ready'
+    assert first_send.blockers == []
+    assert first_send.deployment_summary.recent_nodes[0].node.hostname == 'smtp.example.com'
+    statuses = {item.key: item.status for item in first_send.items}
+    assert statuses['port25'] == 'ready'
+    assert statuses['domain_auth'] == 'ready'
+    assert statuses['mta_smoke'] == 'ready'
+
+
+def test_first_send_readiness_blocks_when_port25_is_pending(monkeypatch) -> None:
+    account_id = uuid4()
+    node_id = uuid4()
+    pool_node_id = uuid4()
+    pool_id = uuid4()
+    now = datetime.utcnow()
+    account = _provider_account(account_id, now, port25_status='pending')
+    node = _mta_node(node_id, account_id, now)
+    pool_node = _pool_node(pool_node_id, pool_id, node_id, now)
+    policy = SimpleNamespace(
+        domain='email-engine.example',
+        paused_until=None,
+        metadata_json={'domain_authentication_verification': {'verified': True}},
+    )
+
+    _install_fake_readiness(monkeypatch, node.hostname, status='ok', now=now)
+
+    first_send = _FakeFirstSendService(
+        FakeDb(),
+        account=account,
+        node=node,
+        pool_node=pool_node,
+        policy=policy,
+    ).first_send_readiness(
+        settings=SimpleNamespace(
+            smtp_username='submission-user',
+            smtp_password='submission-password',
+            smtp_use_tls=True,
+        ),
+    )
+
+    assert first_send.ok is False
+    assert first_send.status == 'blocked'
+    assert 'Outbound port 25' in first_send.blockers
+    port25 = next(item for item in first_send.items if item.key == 'port25')
+    assert port25.status == 'blocked'
+    assert port25.value == 'pending'
+
+
+def _provider_account(account_id, now, port25_status='approved'):
+    return SimpleNamespace(
+        id=account_id,
+        name='aws-staging',
+        provider='aws',
+        status=MtaOperationalStatus.active,
+        account_ref='123456789012',
+        region='us-west-2',
+        abuse_contact_email='abuse@example.com',
+        support_case_ref='case-123',
+        port25_status=port25_status,
+        rdns_status='configured',
+        secret_ref='secret/provider/aws-staging',
+        metadata_json={},
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _mta_node(node_id, account_id, now):
+    return SimpleNamespace(
+        id=node_id,
+        provider_account_id=account_id,
+        name='mta-001',
+        hostname='smtp.example.com',
+        public_ipv4='192.0.2.10',
+        status=MtaOperationalStatus.active,
+        submission_host='smtp.example.com',
+        submission_port=587,
+        auth_secret_ref='secret/mta-001/submission',
+        last_readiness_at=now,
+        metadata_json={},
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _pool_node(pool_node_id, pool_id, node_id, now):
+    return SimpleNamespace(
+        id=pool_node_id,
+        ip_pool_id=pool_id,
+        mta_node_id=node_id,
+        priority=100,
+        weight=100,
+        status=MtaOperationalStatus.active,
+        metadata_json={},
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _install_fake_readiness(monkeypatch, expected_host, status, now) -> None:
+    class FakeReadinessService:
+        def __init__(self, db) -> None:
+            self.db = db
+
+        def summary(self, **kwargs):
+            assert kwargs == {'host': expected_host}
+            check = ManagedSmtpReadinessCheckRead(
+                id=uuid4(),
+                source='managed_smtp_mta_smoke',
+                check_type='mta_smoke',
+                status=status,
+                domain='email-engine.example',
+                host=expected_host,
+                summary='MTA smoke check passed',
+                result_json={},
+                created_at=now,
+            )
+            return ManagedSmtpReadinessSummaryRead(
+                total_count=1,
+                ok_count=1 if status == 'ok' else 0,
+                warning_count=0,
+                failed_count=0 if status == 'ok' else 1,
+                latest_check=check,
+                latest_success=check if status == 'ok' else None,
+            )
+
+    monkeypatch.setattr(
+        mta_inventory_module,
+        'ManagedSmtpReadinessService',
+        FakeReadinessService,
+    )
+
+
+class _FakeFirstSendService(MtaInventoryService):
+    def __init__(self, db, *, account, node, pool_node, policy) -> None:
+        super().__init__(db)
+        self.account = account
+        self.node = node
+        self.pool_node = pool_node
+        self.policy = policy
+
+    def list_nodes(self, **kwargs):
+        return [self.node]
+
+    def get_provider_account(self, item_id):
+        return self.account if item_id == self.account.id else None
+
+    def list_pool_nodes(self, **kwargs):
+        return [self.pool_node]
+
+    def count_provider_accounts(self, status=None):
+        return 1 if status in {None, MtaOperationalStatus.active} else 0
+
+    def count_nodes(self, status=None, provider_account_id=None):
+        return 1 if status in {None, MtaOperationalStatus.active} else 0
+
+    def count_ip_pools(self, status=None):
+        return 1 if status in {None, MtaOperationalStatus.active} else 0
+
+    def count_pool_nodes(self, ip_pool_id=None, mta_node_id=None, status=None):
+        return 1 if status in {None, MtaOperationalStatus.active} else 0
+
+    def _managed_smtp_route_count(self):
+        return 1
+
+    def _managed_smtp_domain_policy_count(self):
+        return 1
+
+    def _first_managed_smtp_domain_policy(self):
+        return self.policy
