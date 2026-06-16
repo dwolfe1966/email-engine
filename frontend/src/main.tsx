@@ -10254,6 +10254,45 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function loadFirstSendEvidence() {
+    await runDeliveryOperation('Loading managed SMTP first-send evidence', async () => {
+      const readinessParams = new URLSearchParams({ limit: '25', offset: '0' });
+      const readinessSummaryParams = new URLSearchParams();
+      Object.entries(readinessFilters).forEach(([key, value]) => {
+        if (value.trim()) {
+          readinessParams.set(key, value.trim());
+          readinessSummaryParams.set(key, value.trim());
+        }
+      });
+      const [deployment, readiness, summary, trend, alerts, notification, policies] = await Promise.all([
+        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+        fetchJson<ListResponse<ManagedSmtpReadinessCheckRead>>(`/api/v1/managed-smtp/readiness-checks/list?${readinessParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessSummaryRead>(`/api/v1/managed-smtp/readiness-checks/summary?${readinessSummaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessTrendRead>(`/api/v1/managed-smtp/readiness-checks/trend?${readinessSummaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessAlertsRead>(`/api/v1/managed-smtp/readiness-checks/alerts?${readinessSummaryParams.toString()}`),
+        fetchJson<ManagedSmtpReadinessNotificationRead>(`/api/v1/managed-smtp/readiness-checks/notification?${readinessSummaryParams.toString()}`),
+        fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
+      ]);
+      setManagedSmtpDeploymentSummary(deployment);
+      setReadinessChecks(readiness.items || []);
+      setReadinessCheckTotal(readiness.total || 0);
+      setReadinessSummary(summary);
+      setReadinessTrend(trend);
+      setReadinessAlerts(alerts);
+      setReadinessNotification(notification);
+      const policyItems = policies.items || [];
+      setDomainPolicies(policyItems);
+      const policyId = selectedDomainPolicyId || policyItems[0]?.id || '';
+      if (policyId && policyId !== selectedDomainPolicyId) setSelectedDomainPolicyId(policyId);
+      if (policyId) {
+        const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${policyId}/reputation-dashboard`);
+        setDomainDashboard(dashboard);
+      }
+      const port25 = deployment.recent_nodes[0]?.provider_account?.port25_status || 'unknown';
+      return `Loaded first-send evidence: port 25 ${port25}, ${formatInt(summary.ok_count)} passing readiness check(s), ${formatInt(policyItems.length)} domain policy row(s).`;
+    });
+  }
+
   async function loadDeliveryAttempts() {
     await runDeliveryOperation('Loading delivery attempt audit', async () => {
       const items = await refreshDeliveryAttempts();
@@ -10487,7 +10526,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <span className="muted">Go/no-go checklist for the first controlled seed email through the owned MTA path.</span>
           </div>
           <div className="button-row">
-            <button className="ghost" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load Deployment</button>
+            <button className="ghost" onClick={loadFirstSendEvidence} disabled={busy}>Load First Send Evidence</button>
             <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load Readiness</button>
           </div>
         </div>
