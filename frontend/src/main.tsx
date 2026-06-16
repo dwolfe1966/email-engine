@@ -10933,52 +10933,52 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         </div>
         {readinessChecks.length ? (
           <>
-            <div className="delivery-triage-grid">
-              <article className={readinessWarningCount ? 'warn' : 'good'}>
+            <div className="readiness-status-strip" aria-label="Managed SMTP readiness status strip">
+              <div className={`readiness-status-item ${readinessWarningCount ? 'warn' : 'good'}`}>
                 <span>Loaded checks</span>
                 <strong>{formatInt(readinessChecks.length)}</strong>
                 <small>{formatInt(readinessSummary?.total_count ?? readinessCheckTotal)} readiness check(s) match the filters.</small>
-              </article>
-              <article className={readinessWarningCount ? 'warn' : 'good'}>
+              </div>
+              <div className={`readiness-status-item ${readinessWarningCount ? 'warn' : 'good'}`}>
                 <span>Needs review</span>
                 <strong>{formatInt(readinessWarningCount)}</strong>
                 <small>{formatInt(readinessSummary?.failed_count || 0)} failed, {formatInt(readinessSummary?.warning_count || 0)} warning.</small>
-              </article>
-              <article className={readinessSummary?.ok_count ? 'good' : 'warn'}>
+              </div>
+              <div className={`readiness-status-item ${readinessSummary?.ok_count ? 'good' : 'warn'}`}>
                 <span>Passing checks</span>
                 <strong>{formatInt(readinessSummary?.ok_count || 0)}</strong>
                 <small>Backend readiness summary across matching checks.</small>
-              </article>
-              <article className={readinessTrend?.trend === 'regressing' ? 'warn' : 'good'}>
+              </div>
+              <div className={`readiness-status-item ${readinessTrend?.trend === 'regressing' ? 'warn' : 'good'}`}>
                 <span>Recent trend</span>
                 <strong>{readinessTrend?.trend || 'Not loaded'}</strong>
                 <small>{readinessTrend ? `${formatPct(readinessTrend.failure_rate)} failure rate across ${formatInt(readinessTrend.sample_size)} recent check(s).` : 'Load readiness to calculate trend.'}</small>
-              </article>
-              <article className={readinessTrend && ['critical', 'warning'].includes(readinessTrend.alert_status) ? 'warn' : 'good'}>
+              </div>
+              <div className={`readiness-status-item ${readinessTrend && ['critical', 'warning'].includes(readinessTrend.alert_status) ? 'warn' : 'good'}`}>
                 <span>Trend alert</span>
                 <strong>{readinessTrend?.alert_status || 'Not loaded'}</strong>
                 <small>{readinessTrend?.alert_reasons?.[0] || 'Load readiness to classify managed SMTP health.'}</small>
-              </article>
-              <article className={readinessTrend && readinessTrend.latest_window_failure_rate > readinessTrend.previous_window_failure_rate ? 'warn' : 'good'}>
+              </div>
+              <div className={`readiness-status-item ${readinessTrend && readinessTrend.latest_window_failure_rate > readinessTrend.previous_window_failure_rate ? 'warn' : 'good'}`}>
                 <span>Window comparison</span>
                 <strong>{readinessTrend ? `${formatPct(readinessTrend.latest_window_failure_rate)} / ${formatPct(readinessTrend.previous_window_failure_rate)}` : '-'}</strong>
                 <small>Latest window failure rate versus previous window.</small>
-              </article>
-              <article className={readinessNotification?.should_notify ? 'warn' : 'good'}>
+              </div>
+              <div className={`readiness-status-item ${readinessNotification?.should_notify ? 'warn' : 'good'}`}>
                 <span>Notification payload</span>
                 <strong>{readinessNotification?.severity || 'Not loaded'}</strong>
                 <small>{readinessNotification ? readinessNotification.title : 'Load readiness to prepare external alert payload.'}</small>
-              </article>
-              <article className={latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}>
+              </div>
+              <div className={`readiness-status-item ${latestReadinessCheck?.status === 'ok' ? 'good' : 'warn'}`}>
                 <span>Latest check</span>
                 <strong>{latestReadinessCheck?.status || 'None'}</strong>
                 <small>{latestReadinessCheck?.summary || latestReadinessCheck?.created_at || 'No readiness result loaded.'}</small>
-              </article>
-              <article className={latestSuccessfulReadiness ? 'good' : 'warn'}>
+              </div>
+              <div className={`readiness-status-item ${latestSuccessfulReadiness ? 'good' : 'warn'}`}>
                 <span>Latest pass</span>
                 <strong>{latestSuccessfulReadiness ? latestSuccessfulReadiness.created_at : 'None'}</strong>
                 <small>{latestSuccessfulReadiness?.host || latestSuccessfulReadiness?.domain || 'No passing MTA smoke visible in loaded checks.'}</small>
-              </article>
+              </div>
             </div>
             {readinessNotification ? (
               <div className="operation-banner">
