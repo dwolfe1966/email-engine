@@ -10647,9 +10647,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <button className="link-button" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve Route</button>
         </div>
-        <div className="delivery-triage-grid">
+        <div className="managed-smtp-route-inspector">
           {managedSmtpRouteItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`managed-smtp-route-field ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

@@ -5972,6 +5972,51 @@ th {
   font-size: 14px;
 }
 
+.managed-smtp-route-inspector {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.managed-smtp-route-field {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  border-right: 1px solid #e5edf7;
+  padding: 10px 12px;
+}
+
+.managed-smtp-route-field:last-child {
+  border-right: 0;
+}
+
+.managed-smtp-route-field.warn {
+  background: #fff9ec;
+}
+
+.managed-smtp-route-field.good {
+  background: #f5fff7;
+}
+
+.managed-smtp-route-field span,
+.managed-smtp-route-field small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.managed-smtp-route-field strong {
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 14px;
+}
+
 .delivery-ai-review-panel {
   display: grid;
   gap: 10px;
@@ -7530,6 +7575,12 @@ th {
   }
   .delivery-score-item:last-child { border-bottom: 0; }
   .delivery-operations-check { grid-template-columns: 1fr; }
+  .managed-smtp-route-inspector { grid-template-columns: 1fr; }
+  .managed-smtp-route-field {
+    border-right: 0;
+    border-bottom: 1px solid #e5edf7;
+  }
+  .managed-smtp-route-field:last-child { border-bottom: 0; }
   .delivery-triage-grid .first-send-summary-card { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr; }
 }

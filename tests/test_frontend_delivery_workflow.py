@@ -176,6 +176,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Route block details',
         'managedSmtpRouteResolution',
         'managedSmtpRouteItems',
+        'managed-smtp-route-inspector',
+        'managed-smtp-route-field',
         'ManagedSmtpRouteResolutionRead',
         'function resolveManagedSmtpRoute',
         '/api/v1/managed-smtp/resolve-route',
