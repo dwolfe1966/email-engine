@@ -5709,16 +5709,25 @@ th {
   background: #f5fff7;
 }
 
-.delivery-score-strip {
+.delivery-score-strip,
+.domain-compliance-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
   background: #ffffff;
 }
 
-.delivery-score-item {
+.delivery-score-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.domain-compliance-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.delivery-score-item,
+.domain-compliance-item {
   display: grid;
   align-content: start;
   gap: 4px;
@@ -5727,20 +5736,25 @@ th {
   padding: 10px 12px;
 }
 
-.delivery-score-item:last-child {
+.delivery-score-item:last-child,
+.domain-compliance-item:last-child {
   border-right: 0;
 }
 
-.delivery-score-item.warn {
+.delivery-score-item.warn,
+.domain-compliance-item.warn {
   background: #fff9ec;
 }
 
-.delivery-score-item.good {
+.delivery-score-item.good,
+.domain-compliance-item.good {
   background: #f5fff7;
 }
 
 .delivery-score-item span,
-.delivery-score-item small {
+.delivery-score-item small,
+.domain-compliance-item span,
+.domain-compliance-item small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5748,7 +5762,8 @@ th {
   text-transform: uppercase;
 }
 
-.delivery-score-item strong {
+.delivery-score-item strong,
+.domain-compliance-item strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 15px;
@@ -7613,12 +7628,18 @@ th {
   .data-command-strip article.wide { grid-column: auto; }
   .launch-result-card,
   .test-send-result-card { grid-template-columns: 1fr; }
-  .delivery-score-strip { grid-template-columns: 1fr; }
+  .delivery-score-strip,
+  .domain-compliance-strip { grid-template-columns: 1fr; }
   .delivery-score-item {
     border-right: 0;
     border-bottom: 1px solid #e5edf7;
   }
-  .delivery-score-item:last-child { border-bottom: 0; }
+  .domain-compliance-item {
+    border-right: 0;
+    border-bottom: 1px solid #e5edf7;
+  }
+  .delivery-score-item:last-child,
+  .domain-compliance-item:last-child { border-bottom: 0; }
   .delivery-operations-check { grid-template-columns: 1fr; }
   .managed-smtp-route-inspector { grid-template-columns: 1fr; }
   .managed-smtp-route-field {

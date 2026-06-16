@@ -10631,13 +10631,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <input value={domainDashboard?.recommendations?.[0] || 'Load the reputation dashboard for domain-specific guidance.'} readOnly />
           </label>
         </div>
-        <div className="delivery-triage-grid">
+        <div className="domain-compliance-strip" aria-label="Managed SMTP domain compliance strip">
           {domainComplianceItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <div className={`domain-compliance-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
-            </article>
+            </div>
           ))}
         </div>
         <div className="panel-head compact-head">
