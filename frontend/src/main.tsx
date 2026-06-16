@@ -1977,11 +1977,13 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
           </div>
           <a className={overviewTriageAction.tone === 'warn' ? 'primary' : 'ghost'} href={overviewTriageAction.href}>{overviewTriageAction.actionLabel}</a>
         </div>
-        <div className="overview-triage-grid">
+        <div className="overview-triage-list">
           {overviewTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`overview-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

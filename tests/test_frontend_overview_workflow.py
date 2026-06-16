@@ -52,7 +52,8 @@ def assert_overview_triage_contract(source: str) -> None:
         'overview-foundation-strip',
         'overview-foundation-item',
         'overview-triage-panel',
-        'overview-triage-grid',
+        'overview-triage-list',
+        'overview-triage-row',
     ]
 
     for token in expected_tokens:
