@@ -9874,7 +9874,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       label: 'MTA smoke',
       value: latestReadinessCheck?.status || 'Not loaded',
       detail: latestReadinessOk
-        ? `Latest readiness check passed at ${latestReadinessCheck?.checked_at || 'unknown time'}.`
+        ? `Latest readiness check passed at ${latestReadinessCheck?.created_at || 'unknown time'}.`
         : 'Publish or load MTA smoke evidence before first send.',
       tone: latestReadinessOk ? 'good' : 'warn',
     },
@@ -9902,10 +9902,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const firstSendSummaryTitle = firstSendReadiness
     ? firstSendReadiness.ok ? 'Ready for first seed send' : 'First seed send blocked'
     : 'First-send evidence not loaded';
+  const firstSendControlCount = firstSendReadiness?.items.length || 0;
+  const firstSendControlProgress = firstSendReadiness
+    ? `${formatInt(firstSendReadyCount)} of ${formatInt(firstSendControlCount)} control(s) ready`
+    : '';
   const firstSendSummaryDetail = firstSendReadiness
     ? firstSendReadiness.blockers.length
-      ? `${formatInt(firstSendReadiness.blockers.length)} blocker(s): ${firstSendReadiness.blockers.join(', ')}.`
-      : `${formatInt(firstSendReadyCount)} readiness control(s) passing.`
+      ? `${firstSendControlProgress}; ${formatInt(firstSendReadiness.blockers.length)} blocker(s): ${firstSendReadiness.blockers.join(', ')}.`
+      : `${firstSendControlProgress}.`
     : 'Load First Send Evidence to check provider, MTA, auth, DNS, smoke, and compliance gates.';
   const deliveryTriageAction = failedRecords
     ? {

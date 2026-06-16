@@ -91,6 +91,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'First seed send blocked',
         'Ready for first seed send',
         'firstSendSummaryDetail',
+        'firstSendControlProgress',
+        'created_at',
         'AWS port 25',
         'Seed send remains blocked until the provider removes outbound TCP 25 limits.',
         'PTR/rDNS',
