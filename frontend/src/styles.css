@@ -5712,7 +5712,8 @@ th {
 .delivery-score-strip,
 .domain-compliance-strip,
 .provider-feedback-strip,
-.readiness-status-strip {
+.readiness-status-strip,
+.delivery-foundation-strip {
   display: grid;
   overflow: hidden;
   border: 1px solid #d8dee8;
@@ -5728,6 +5729,10 @@ th {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.delivery-foundation-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .provider-feedback-strip {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -5739,7 +5744,8 @@ th {
 .delivery-score-item,
 .domain-compliance-item,
 .provider-feedback-strip-item,
-.readiness-status-item {
+.readiness-status-item,
+.delivery-foundation-item {
   display: grid;
   align-content: start;
   gap: 4px;
@@ -5751,21 +5757,24 @@ th {
 .delivery-score-item:last-child,
 .domain-compliance-item:last-child,
 .provider-feedback-strip-item:last-child,
-.readiness-status-item:last-child {
+.readiness-status-item:last-child,
+.delivery-foundation-item:last-child {
   border-right: 0;
 }
 
 .delivery-score-item.warn,
 .domain-compliance-item.warn,
 .provider-feedback-strip-item.warn,
-.readiness-status-item.warn {
+.readiness-status-item.warn,
+.delivery-foundation-item.warn {
   background: #fff9ec;
 }
 
 .delivery-score-item.good,
 .domain-compliance-item.good,
 .provider-feedback-strip-item.good,
-.readiness-status-item.good {
+.readiness-status-item.good,
+.delivery-foundation-item.good {
   background: #f5fff7;
 }
 
@@ -5776,7 +5785,9 @@ th {
 .provider-feedback-strip-item span,
 .provider-feedback-strip-item small,
 .readiness-status-item span,
-.readiness-status-item small {
+.readiness-status-item small,
+.delivery-foundation-item span,
+.delivery-foundation-item small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5787,7 +5798,8 @@ th {
 .delivery-score-item strong,
 .domain-compliance-item strong,
 .provider-feedback-strip-item strong,
-.readiness-status-item strong {
+.readiness-status-item strong,
+.delivery-foundation-item strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 15px;
@@ -5967,48 +5979,6 @@ th {
   margin: 0;
   color: #29405f;
   font-size: 15px;
-}
-
-.delivery-foundation-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.delivery-foundation-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 10px;
-}
-
-.delivery-foundation-grid article.warn {
-  border-color: #f8c77d;
-  background: #fff9ec;
-}
-
-.delivery-foundation-grid article.good {
-  border-color: #b6e0c1;
-  background: #f5fff7;
-}
-
-.delivery-foundation-grid span,
-.delivery-foundation-grid small {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.3;
-  text-transform: uppercase;
-}
-
-.delivery-foundation-grid strong {
-  overflow-wrap: anywhere;
-  color: #29405f;
-  font-size: 14px;
 }
 
 .delivery-operations-checklist {
@@ -7508,7 +7478,6 @@ th {
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .delivery-triage-grid,
-  .delivery-foundation-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
@@ -7604,7 +7573,6 @@ th {
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .delivery-triage-grid,
-  .delivery-foundation-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
@@ -7655,7 +7623,8 @@ th {
   .delivery-score-strip,
   .domain-compliance-strip,
   .provider-feedback-strip,
-  .readiness-status-strip { grid-template-columns: 1fr; }
+  .readiness-status-strip,
+  .delivery-foundation-strip { grid-template-columns: 1fr; }
   .delivery-score-item {
     border-right: 0;
     border-bottom: 1px solid #e5edf7;
@@ -7672,10 +7641,15 @@ th {
     border-right: 0;
     border-bottom: 1px solid #e5edf7;
   }
+  .delivery-foundation-item {
+    border-right: 0;
+    border-bottom: 1px solid #e5edf7;
+  }
   .delivery-score-item:last-child,
   .domain-compliance-item:last-child,
   .provider-feedback-strip-item:last-child,
-  .readiness-status-item:last-child { border-bottom: 0; }
+  .readiness-status-item:last-child,
+  .delivery-foundation-item:last-child { border-bottom: 0; }
   .delivery-operations-check { grid-template-columns: 1fr; }
   .managed-smtp-route-inspector { grid-template-columns: 1fr; }
   .managed-smtp-route-field {

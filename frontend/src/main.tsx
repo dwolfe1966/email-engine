@@ -10495,13 +10495,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <a href="#settings">Provider settings</a>
         </div>
-        <div className="delivery-foundation-grid">
+        <div className="delivery-foundation-strip" aria-label="Send engine foundation strip">
           {deliveryFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <div className={`delivery-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
-            </article>
+            </div>
           ))}
         </div>
       </section>
