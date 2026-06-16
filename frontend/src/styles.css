@@ -1839,8 +1839,8 @@ th {
 
 .audience-triage-head span,
 .audience-triage-head small,
-.audience-triage-grid span,
-.audience-triage-grid small {
+.audience-triage-list span,
+.audience-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -1849,37 +1849,71 @@ th {
 }
 
 .audience-triage-head strong,
-.audience-triage-grid strong {
+.audience-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.audience-triage-grid {
+.audience-triage-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.audience-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.audience-triage-grid article.warn {
-  border-color: #f8c77d;
+.audience-triage-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.audience-triage-row + .audience-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.audience-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.audience-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.audience-triage-row small {
+  flex: 0 1 48%;
+  text-align: right;
+}
+
+.audience-triage-row.warn {
   background: #fff9ec;
 }
 
-.audience-triage-grid article.good {
-  border-color: #b6e0c1;
+.audience-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.audience-triage-row.good {
   background: #f5fff7;
+}
+
+.audience-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .audience-foundation-panel,
@@ -7577,7 +7611,6 @@ th {
   .test-send-result-card,
   .campaign-ai-summary,
   .audience-ai-summary,
-  .audience-triage-grid,
   .audience-foundation-grid,
   .audience-segmentation-contract-grid,
   .audience-impact-summary,
@@ -7667,7 +7700,6 @@ th {
   .data-command-strip,
   .campaign-ai-summary,
   .audience-ai-summary,
-  .audience-triage-grid,
   .audience-foundation-grid,
   .audience-segmentation-contract-grid,
   .audience-impact-summary,
@@ -7748,6 +7780,13 @@ th {
   }
   .campaign-foundation-item + .campaign-foundation-item {
     border-top: 1px solid #e4e9f1;
+  }
+  .audience-triage-row {
+    display: grid;
+  }
+  .audience-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

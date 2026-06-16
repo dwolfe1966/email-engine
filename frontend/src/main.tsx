@@ -4187,11 +4187,13 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             </div>
             <button className={audienceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={audienceTriageAction.run} disabled={audienceTriageAction.disabled}>{audienceTriageAction.actionLabel}</button>
           </div>
-          <div className="audience-triage-grid">
+          <div className="audience-triage-list">
             {audienceTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`audience-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -4337,11 +4339,13 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
           </div>
           <button className={audienceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={audienceTriageAction.run} disabled={audienceTriageAction.disabled}>{audienceTriageAction.actionLabel}</button>
         </div>
-        <div className="audience-triage-grid">
+        <div className="audience-triage-list">
           {audienceTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`audience-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}
