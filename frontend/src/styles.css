@@ -5666,8 +5666,8 @@ th {
 
 .delivery-triage-head span,
 .delivery-triage-head small,
-.delivery-triage-grid span,
-.delivery-triage-grid small {
+.delivery-triage-row span,
+.delivery-triage-row small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5676,36 +5676,39 @@ th {
 }
 
 .delivery-triage-head strong,
-.delivery-triage-grid strong {
+.delivery-triage-row strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.delivery-triage-grid {
+.delivery-triage-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.delivery-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.delivery-triage-grid article.warn {
-  border-color: #f8c77d;
+.delivery-triage-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.28fr) minmax(100px, 0.16fr) minmax(280px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border-bottom: 1px solid #e5edf7;
+  padding: 10px 12px;
+}
+
+.delivery-triage-row:last-child {
+  border-bottom: 0;
+}
+
+.delivery-triage-row.warn {
   background: #fff9ec;
 }
 
-.delivery-triage-grid article.good {
-  border-color: #b6e0c1;
+.delivery-triage-row.good {
   background: #f5fff7;
 }
 
@@ -7477,7 +7480,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .delivery-triage-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
@@ -7572,7 +7574,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .delivery-triage-grid,
   .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
@@ -7650,6 +7651,7 @@ th {
   .provider-feedback-strip-item:last-child,
   .readiness-status-item:last-child,
   .delivery-foundation-item:last-child { border-bottom: 0; }
+  .delivery-triage-row { grid-template-columns: 1fr; }
   .delivery-operations-check { grid-template-columns: 1fr; }
   .managed-smtp-route-inspector { grid-template-columns: 1fr; }
   .managed-smtp-route-field {

@@ -10477,9 +10477,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
           <button className={deliveryTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={deliveryTriageAction.run} disabled={deliveryTriageAction.disabled}>{deliveryTriageAction.actionLabel}</button>
         </div>
-        <div className="delivery-triage-grid">
+        <div className="delivery-triage-list" aria-label="Delivery triage support list">
           {deliveryTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`delivery-triage-row ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
