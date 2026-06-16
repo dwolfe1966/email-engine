@@ -1995,9 +1995,9 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
           </div>
           <a href="#integrations">Open Integrations</a>
         </div>
-        <div className="overview-foundation-grid">
+        <div className="overview-foundation-strip">
           {platformFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`overview-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

@@ -49,7 +49,8 @@ def assert_overview_triage_contract(source: str) -> None:
         'Production agents need OpenAI configuration and persistent workflow memory.',
         'Owned SMTP remains a platform foundation gap even while provider adapters are available.',
         'overview-foundation-panel',
-        'overview-foundation-grid',
+        'overview-foundation-strip',
+        'overview-foundation-item',
         'overview-triage-panel',
         'overview-triage-grid',
     ]
