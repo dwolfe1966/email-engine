@@ -1423,35 +1423,58 @@ th {
   font-size: 15px;
 }
 
-.campaign-foundation-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.campaign-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
-.campaign-foundation-grid article {
+.campaign-foundation-item {
+  position: relative;
+  flex: 1 1 0;
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 11px 12px 11px 15px;
 }
 
-.campaign-foundation-grid article.warn {
-  border-color: #f8c77d;
+.campaign-foundation-item + .campaign-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.campaign-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.campaign-foundation-item.warn {
   background: #fff9ec;
 }
 
-.campaign-foundation-grid article.good {
-  border-color: #b6e0c1;
+.campaign-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.campaign-foundation-item.good {
   background: #f5fff7;
 }
 
-.campaign-foundation-grid span,
-.campaign-foundation-grid small {
+.campaign-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.campaign-foundation-strip span,
+.campaign-foundation-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -1459,7 +1482,7 @@ th {
   text-transform: uppercase;
 }
 
-.campaign-foundation-grid strong {
+.campaign-foundation-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7553,7 +7576,6 @@ th {
   .launch-result-card,
   .test-send-result-card,
   .campaign-ai-summary,
-  .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-foundation-grid,
@@ -7644,7 +7666,6 @@ th {
   .contacts-command-strip,
   .data-command-strip,
   .campaign-ai-summary,
-  .campaign-foundation-grid,
   .audience-ai-summary,
   .audience-triage-grid,
   .audience-foundation-grid,
@@ -7716,6 +7737,17 @@ th {
   .campaign-triage-row small {
     flex: none;
     text-align: left;
+  }
+  .campaign-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .campaign-foundation-item,
+  .campaign-foundation-item + .campaign-foundation-item {
+    border-left: 0;
+  }
+  .campaign-foundation-item + .campaign-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

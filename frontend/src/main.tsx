@@ -2668,9 +2668,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               </div>
               <button className="link-button" type="button" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
             </div>
-            <div className="campaign-foundation-grid">
+            <div className="campaign-foundation-strip">
               {launchFoundationItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`campaign-foundation-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
