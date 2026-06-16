@@ -9895,6 +9895,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: item.status === 'ready' ? 'good' : 'warn',
     }))
     : fallbackFirstSendReadinessItems;
+  const firstSendReadyCount = firstSendReadiness?.items.filter((item) => item.status === 'ready').length || 0;
+  const firstSendSummaryTone = firstSendReadiness
+    ? firstSendReadiness.ok ? 'good' : 'warn'
+    : 'warn';
+  const firstSendSummaryTitle = firstSendReadiness
+    ? firstSendReadiness.ok ? 'Ready for first seed send' : 'First seed send blocked'
+    : 'First-send evidence not loaded';
+  const firstSendSummaryDetail = firstSendReadiness
+    ? firstSendReadiness.blockers.length
+      ? `${formatInt(firstSendReadiness.blockers.length)} blocker(s): ${firstSendReadiness.blockers.join(', ')}.`
+      : `${formatInt(firstSendReadyCount)} readiness control(s) passing.`
+    : 'Load First Send Evidence to check provider, MTA, auth, DNS, smoke, and compliance gates.';
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -10561,6 +10573,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </div>
         </div>
         <div className="delivery-triage-grid">
+          <article className={`first-send-summary-card ${firstSendSummaryTone}`}>
+            <span>First-send status</span>
+            <strong>{firstSendSummaryTitle}</strong>
+            <small>{firstSendSummaryDetail}</small>
+          </article>
           {firstSendReadinessItems.map((item) => (
             <article className={item.tone} key={item.label}>
               <span>{item.label}</span>

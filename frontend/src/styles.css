@@ -5709,6 +5709,17 @@ th {
   background: #f5fff7;
 }
 
+.delivery-triage-grid .first-send-summary-card {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(160px, 0.35fr) minmax(220px, 0.65fr) minmax(280px, 1fr);
+  align-items: center;
+}
+
+.first-send-summary-card small {
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
 .delivery-foundation-panel,
 .delivery-operations-panel {
   display: grid;
@@ -7435,5 +7446,6 @@ th {
   .data-command-strip article.wide { grid-column: auto; }
   .launch-result-card,
   .test-send-result-card { grid-template-columns: 1fr; }
+  .delivery-triage-grid .first-send-summary-card { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr; }
 }
