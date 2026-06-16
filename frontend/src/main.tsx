@@ -10579,14 +10579,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load Readiness</button>
           </div>
         </div>
-        <div className="delivery-triage-grid">
+        <div className="first-send-checklist">
           <article className={`first-send-summary-card ${firstSendSummaryTone}`}>
             <span>First-send status</span>
             <strong>{firstSendSummaryTitle}</strong>
             <small>{firstSendSummaryDetail}</small>
           </article>
           {firstSendReadinessItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`first-send-check ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

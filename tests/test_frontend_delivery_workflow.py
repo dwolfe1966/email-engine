@@ -106,6 +106,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Load Readiness',
         'firstSendReadiness',
         'firstSendReadinessItems',
+        'first-send-checklist',
+        'first-send-check',
         'function loadFirstSendEvidence',
         '/api/v1/managed-smtp/first-send-readiness',
         'port25_status',
