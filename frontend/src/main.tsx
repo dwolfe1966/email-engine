@@ -10551,6 +10551,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <small>{item.node.public_ipv4 || item.node.submission_host || 'No public IP loaded'}</small>
                 <dl>
                   <div><dt>provider</dt><dd>{item.provider_account?.name || '-'}</dd></div>
+                  <div><dt>support case</dt><dd>{item.provider_account?.support_case_ref || '-'}</dd></div>
+                  <div><dt>port 25</dt><dd>{item.provider_account?.port25_status || 'unknown'}</dd></div>
+                  <div><dt>rDNS</dt><dd>{item.provider_account?.rdns_status || 'unknown'}</dd></div>
                   <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
