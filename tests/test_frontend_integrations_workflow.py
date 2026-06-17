@@ -65,7 +65,8 @@ def assert_integrations_triage_contract(source: str) -> None:
         'integration-connector-panel',
         'integration-connector-grid',
         'integration-triage-panel',
-        'integration-triage-grid',
+        'integration-triage-list',
+        'integration-triage-row',
     ]
 
     for token in expected_tokens:
