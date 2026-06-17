@@ -62,7 +62,8 @@ def assert_docs_triage_contract(source: str) -> None:
         'docs-lifecycle-panel',
         'docs-lifecycle-grid',
         'docs-triage-panel',
-        'docs-triage-grid',
+        'docs-triage-list',
+        'docs-triage-row',
     ]
 
     for token in expected_tokens:

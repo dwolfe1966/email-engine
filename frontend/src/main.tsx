@@ -15655,11 +15655,13 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
           </div>
           <button className={docsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={docsTriageAction.run} disabled={docsTriageAction.disabled}>{docsTriageAction.actionLabel}</button>
         </div>
-        <div className="docs-triage-grid">
+        <div className="docs-triage-list">
           {docsTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`docs-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

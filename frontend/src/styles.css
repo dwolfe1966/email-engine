@@ -5520,8 +5520,8 @@ th {
 
 .docs-triage-head span,
 .docs-triage-head small,
-.docs-triage-grid span,
-.docs-triage-grid small {
+.docs-triage-list span,
+.docs-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5530,37 +5530,71 @@ th {
 }
 
 .docs-triage-head strong,
-.docs-triage-grid strong {
+.docs-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.docs-triage-grid {
+.docs-triage-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.docs-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.docs-triage-grid article.warn {
-  border-color: #f8c77d;
+.docs-triage-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.docs-triage-row + .docs-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.docs-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.docs-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.docs-triage-row small {
+  flex: 0 1 52%;
+  text-align: right;
+}
+
+.docs-triage-row.warn {
   background: #fff9ec;
 }
 
-.docs-triage-grid article.good {
-  border-color: #b6e0c1;
+.docs-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.docs-triage-row.good {
   background: #f5fff7;
+}
+
+.docs-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .docs-gap-panel,
@@ -8423,7 +8457,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
   .data-mapping-helper-grid,
@@ -8487,7 +8520,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
   .data-mapping-helper-grid,
@@ -8549,6 +8581,13 @@ th {
   }
   .ai-agent-contract-row {
     grid-template-columns: 1fr;
+  }
+  .docs-triage-row {
+    display: grid;
+  }
+  .docs-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .ai-studio-triage-row {
     display: grid;
