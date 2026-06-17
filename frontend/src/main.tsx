@@ -16187,11 +16187,13 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
           </div>
           <button className="link-button" type="button" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
         </div>
-        <div className="settings-governance-grid">
+        <div className="settings-governance-list">
           {settingsGovernanceItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`settings-governance-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}
