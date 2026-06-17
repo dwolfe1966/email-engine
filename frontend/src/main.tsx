@@ -15695,9 +15695,9 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
           </div>
           <a href="/docs">Open API Docs</a>
         </div>
-        <div className="docs-lifecycle-grid">
+        <div className="docs-lifecycle-strip">
           {docsLifecycleItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`docs-lifecycle-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

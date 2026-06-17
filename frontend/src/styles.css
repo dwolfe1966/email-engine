@@ -5619,31 +5619,54 @@ th {
   font-size: 15px;
 }
 
-.docs-lifecycle-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.docs-lifecycle-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
-.docs-lifecycle-grid article {
+.docs-lifecycle-item {
+  position: relative;
+  flex: 1 1 0;
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 11px 12px 11px 15px;
 }
 
-.docs-lifecycle-grid article.warn {
-  border-color: #f8c77d;
+.docs-lifecycle-item + .docs-lifecycle-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.docs-lifecycle-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.docs-lifecycle-item.warn {
   background: #fff9ec;
 }
 
-.docs-lifecycle-grid article.good {
-  border-color: #b6e0c1;
+.docs-lifecycle-item.warn::before {
+  background: #d98f18;
+}
+
+.docs-lifecycle-item.good {
   background: #f5fff7;
+}
+
+.docs-lifecycle-item.good::before {
+  background: #3f9b64;
 }
 
 .docs-gap-list {
@@ -5703,8 +5726,8 @@ th {
 
 .docs-gap-list span,
 .docs-gap-list small,
-.docs-lifecycle-grid span,
-.docs-lifecycle-grid small {
+.docs-lifecycle-strip span,
+.docs-lifecycle-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5713,7 +5736,7 @@ th {
 }
 
 .docs-gap-list strong,
-.docs-lifecycle-grid strong {
+.docs-lifecycle-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -8508,7 +8531,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-lifecycle-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -8570,7 +8592,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-lifecycle-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
@@ -8633,6 +8654,17 @@ th {
   }
   .docs-gap-row {
     grid-template-columns: 1fr;
+  }
+  .docs-lifecycle-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .docs-lifecycle-item,
+  .docs-lifecycle-item + .docs-lifecycle-item {
+    border-left: 0;
+  }
+  .docs-lifecycle-item + .docs-lifecycle-item {
+    border-top: 1px solid #e4e9f1;
   }
   .docs-triage-row {
     display: grid;
