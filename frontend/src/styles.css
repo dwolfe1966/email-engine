@@ -5462,7 +5462,6 @@ th {
   font-size: 15px;
 }
 
-.analytics-foundation-grid,
 .analytics-deliverability-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5473,7 +5472,6 @@ th {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.analytics-foundation-grid article,
 .analytics-deliverability-grid article {
   display: grid;
   align-content: start;
@@ -5485,20 +5483,68 @@ th {
   padding: 10px;
 }
 
-.analytics-foundation-grid article.warn,
 .analytics-deliverability-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.analytics-foundation-grid article.good,
 .analytics-deliverability-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.analytics-foundation-grid span,
-.analytics-foundation-grid small,
+.analytics-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.analytics-foundation-item {
+  position: relative;
+  flex: 1 1 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 11px 12px 11px 15px;
+}
+
+.analytics-foundation-item + .analytics-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.analytics-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.analytics-foundation-item.warn {
+  background: #fff9ec;
+}
+
+.analytics-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.analytics-foundation-item.good {
+  background: #f5fff7;
+}
+
+.analytics-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.analytics-foundation-strip span,
+.analytics-foundation-strip small,
 .analytics-deliverability-grid span,
 .analytics-deliverability-grid small {
   color: var(--muted);
@@ -5508,7 +5554,7 @@ th {
   text-transform: uppercase;
 }
 
-.analytics-foundation-grid strong,
+.analytics-foundation-strip strong,
 .analytics-deliverability-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -8557,7 +8603,6 @@ th {
   .audience-campaign-awareness,
   .audience-field-intel,
   .analytics-focus-summary,
-  .analytics-foundation-grid,
   .analytics-deliverability-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8617,7 +8662,6 @@ th {
   .audience-campaign-awareness,
   .audience-field-intel,
   .analytics-focus-summary,
-  .analytics-foundation-grid,
   .analytics-deliverability-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8699,6 +8743,17 @@ th {
   }
   .analytics-ai-action-row .compact-button {
     justify-self: start;
+  }
+  .analytics-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .analytics-foundation-item,
+  .analytics-foundation-item + .analytics-foundation-item {
+    border-left: 0;
+  }
+  .analytics-foundation-item + .analytics-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .docs-triage-row {
     display: grid;
