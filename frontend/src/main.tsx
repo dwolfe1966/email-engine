@@ -14731,9 +14731,9 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
           </div>
           <button className="link-button" type="button" onClick={reviewWorkflow} disabled={busy}>Review Workflow</button>
         </div>
-        <div className="ai-agent-layer-grid">
+        <div className="ai-agent-layer-strip">
           {aiAgentLayerItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`ai-agent-layer-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
