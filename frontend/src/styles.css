@@ -5851,7 +5851,6 @@ th {
   font-size: 15px;
 }
 
-.ai-agent-foundation-grid,
 .ai-agent-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5862,7 +5861,6 @@ th {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.ai-agent-foundation-grid article,
 .ai-agent-contract-grid article {
   display: grid;
   align-content: start;
@@ -5874,20 +5872,68 @@ th {
   padding: 10px;
 }
 
-.ai-agent-foundation-grid article.warn,
 .ai-agent-contract-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.ai-agent-foundation-grid article.good,
 .ai-agent-contract-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.ai-agent-foundation-grid span,
-.ai-agent-foundation-grid small,
+.ai-agent-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ai-agent-foundation-item {
+  position: relative;
+  flex: 1 1 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 11px 12px 11px 15px;
+}
+
+.ai-agent-foundation-item + .ai-agent-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.ai-agent-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.ai-agent-foundation-item.warn {
+  background: #fff9ec;
+}
+
+.ai-agent-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.ai-agent-foundation-item.good {
+  background: #f5fff7;
+}
+
+.ai-agent-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.ai-agent-foundation-strip span,
+.ai-agent-foundation-strip small,
 .ai-agent-contract-grid span,
 .ai-agent-contract-grid small {
   color: var(--muted);
@@ -5897,7 +5943,7 @@ th {
   text-transform: uppercase;
 }
 
-.ai-agent-foundation-grid strong,
+.ai-agent-foundation-strip strong,
 .ai-agent-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -8356,7 +8402,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8422,7 +8467,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8468,6 +8512,17 @@ th {
     border-left: 0;
   }
   .ai-agent-layer-item + .ai-agent-layer-item {
+    border-top: 1px solid #e4e9f1;
+  }
+  .ai-agent-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .ai-agent-foundation-item,
+  .ai-agent-foundation-item + .ai-agent-foundation-item {
+    border-left: 0;
+  }
+  .ai-agent-foundation-item + .ai-agent-foundation-item {
     border-top: 1px solid #e4e9f1;
   }
   .ai-studio-triage-row {

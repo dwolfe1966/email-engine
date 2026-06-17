@@ -14749,9 +14749,9 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
           </div>
           <a href="#settings">Open Settings</a>
         </div>
-        <div className="ai-agent-foundation-grid">
+        <div className="ai-agent-foundation-strip">
           {aiAgentFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`ai-agent-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
