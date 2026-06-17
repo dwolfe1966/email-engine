@@ -82,7 +82,8 @@ def assert_contacts_triage_contract(source: str) -> None:
         'contact-relationship-contract-grid',
         'contact-attribute-helper-panel',
         'contacts-triage-panel',
-        'contacts-triage-grid',
+        'contacts-triage-list',
+        'contacts-triage-row',
     ]
 
     for token in expected_tokens:

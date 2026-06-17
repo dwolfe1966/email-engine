@@ -13102,11 +13102,13 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <button className={contactsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={contactsTriageAction.run} disabled={contactsTriageAction.disabled}>{contactsTriageAction.actionLabel}</button>
           </div>
-          <div className="contacts-triage-grid">
+          <div className="contacts-triage-list">
             {contactsTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`contacts-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -13338,11 +13340,13 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <button className={contactsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={contactsTriageAction.run} disabled={contactsTriageAction.disabled}>{contactsTriageAction.actionLabel}</button>
           </div>
-          <div className="contacts-triage-grid">
+          <div className="contacts-triage-list">
             {contactsTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`contacts-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}

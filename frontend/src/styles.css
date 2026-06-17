@@ -7230,8 +7230,8 @@ th {
 
 .contacts-triage-head span,
 .contacts-triage-head small,
-.contacts-triage-grid span,
-.contacts-triage-grid small {
+.contacts-triage-list span,
+.contacts-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -7240,37 +7240,71 @@ th {
 }
 
 .contacts-triage-head strong,
-.contacts-triage-grid strong {
+.contacts-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.contacts-triage-grid {
+.contacts-triage-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.contacts-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.contacts-triage-grid article.warn {
-  border-color: #f8c77d;
+.contacts-triage-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.contacts-triage-row + .contacts-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.contacts-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.contacts-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.contacts-triage-row small {
+  flex: 0 1 48%;
+  text-align: right;
+}
+
+.contacts-triage-row.warn {
   background: #fff9ec;
 }
 
-.contacts-triage-grid article.good {
-  border-color: #b6e0c1;
+.contacts-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.contacts-triage-row.good {
   background: #f5fff7;
+}
+
+.contacts-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .contact-entity-model-panel {
@@ -7856,7 +7890,6 @@ th {
   .compliance-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
-  .contacts-triage-grid,
   .contact-entity-model-grid,
   .contact-foundation-grid,
   .contact-relationship-contract-grid,
@@ -7938,7 +7971,6 @@ th {
   .compliance-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
-  .contacts-triage-grid,
   .contact-entity-model-grid,
   .contact-foundation-grid,
   .contact-relationship-contract-grid,
@@ -8051,6 +8083,13 @@ th {
   }
   .data-sync-contract-row {
     grid-template-columns: 1fr;
+  }
+  .contacts-triage-row {
+    display: grid;
+  }
+  .contacts-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;
