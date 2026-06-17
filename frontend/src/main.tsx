@@ -15202,11 +15202,13 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           </div>
           <a href="#data">Open Data Sources</a>
         </div>
-        <div className="integration-connector-grid">
+        <div className="integration-connector-list">
           {integrationConnectorRoadmapItems.map((item) => (
-            <article className={item.status === 'Gap' || item.status === 'Fallback' ? 'warn' : 'good'} key={item.family}>
-              <span>{item.family}</span>
-              <strong>{item.status}</strong>
+            <article className={`integration-connector-row ${item.status === 'Gap' || item.status === 'Fallback' ? 'warn' : 'good'}`} key={item.family}>
+              <div>
+                <span>{item.family}</span>
+                <strong>{item.status}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}
