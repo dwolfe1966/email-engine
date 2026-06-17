@@ -7390,7 +7390,6 @@ th {
   font-size: 15px;
 }
 
-.contact-foundation-grid,
 .contact-relationship-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7401,32 +7400,78 @@ th {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.contact-foundation-grid article,
+.contact-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.contact-foundation-item,
 .contact-relationship-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
+  background: #ffffff;
+}
+
+.contact-foundation-item {
+  position: relative;
+  flex: 1 1 0;
+  padding: 11px 12px 11px 15px;
+}
+
+.contact-foundation-item + .contact-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.contact-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.contact-relationship-contract-grid article {
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #ffffff;
   padding: 10px;
 }
 
-.contact-foundation-grid article.warn,
+.contact-foundation-item.warn,
 .contact-relationship-contract-grid article.warn {
-  border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.contact-foundation-grid article.good,
+.contact-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.contact-relationship-contract-grid article.warn {
+  border-color: #f8c77d;
+}
+
+.contact-foundation-item.good,
 .contact-relationship-contract-grid article.good {
-  border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.contact-foundation-grid span,
-.contact-foundation-grid small,
+.contact-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.contact-relationship-contract-grid article.good {
+  border-color: #b6e0c1;
+}
+
+.contact-foundation-strip span,
+.contact-foundation-strip small,
 .contact-relationship-contract-grid span,
 .contact-relationship-contract-grid small {
   color: var(--muted);
@@ -7436,7 +7481,7 @@ th {
   text-transform: uppercase;
 }
 
-.contact-foundation-grid strong,
+.contact-foundation-strip strong,
 .contact-relationship-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -7891,7 +7936,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-entity-model-grid,
-  .contact-foundation-grid,
   .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
@@ -7972,7 +8016,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-entity-model-grid,
-  .contact-foundation-grid,
   .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
@@ -8090,6 +8133,17 @@ th {
   .contacts-triage-row small {
     flex: none;
     text-align: left;
+  }
+  .contact-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .contact-foundation-item,
+  .contact-foundation-item + .contact-foundation-item {
+    border-left: 0;
+  }
+  .contact-foundation-item + .contact-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

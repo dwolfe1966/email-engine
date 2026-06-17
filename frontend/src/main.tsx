@@ -13140,9 +13140,9 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#audience">Open Audiences</a>
           </div>
-          <div className="contact-foundation-grid">
+          <div className="contact-foundation-strip">
             {contactFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`contact-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
@@ -13378,9 +13378,9 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#audience">Open Audiences</a>
           </div>
-          <div className="contact-foundation-grid">
+          <div className="contact-foundation-strip">
             {contactFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`contact-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
