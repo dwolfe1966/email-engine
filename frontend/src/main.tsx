@@ -12324,9 +12324,9 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </div>
             <a href="#contacts">Open Contacts</a>
           </div>
-          <div className="data-foundation-grid">
+          <div className="data-foundation-strip">
             {dataFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`data-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
@@ -12602,9 +12602,9 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </div>
             <a href="#contacts">Open Contacts</a>
           </div>
-          <div className="data-foundation-grid">
+          <div className="data-foundation-strip">
             {dataFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`data-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>

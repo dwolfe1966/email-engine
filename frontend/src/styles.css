@@ -6925,7 +6925,6 @@ th {
   font-size: 15px;
 }
 
-.data-foundation-grid,
 .data-sync-contract-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6936,32 +6935,78 @@ th {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.data-foundation-grid article,
+.data-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.data-foundation-item,
 .data-sync-contract-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
+  background: #ffffff;
+}
+
+.data-foundation-item {
+  position: relative;
+  flex: 1 1 0;
+  padding: 11px 12px 11px 15px;
+}
+
+.data-foundation-item + .data-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.data-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.data-sync-contract-grid article {
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #ffffff;
   padding: 10px;
 }
 
-.data-foundation-grid article.warn,
+.data-foundation-item.warn,
 .data-sync-contract-grid article.warn {
-  border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.data-foundation-grid article.good,
+.data-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.data-sync-contract-grid article.warn {
+  border-color: #f8c77d;
+}
+
+.data-foundation-item.good,
 .data-sync-contract-grid article.good {
-  border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.data-foundation-grid span,
-.data-foundation-grid small,
+.data-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.data-sync-contract-grid article.good {
+  border-color: #b6e0c1;
+}
+
+.data-foundation-strip span,
+.data-foundation-strip small,
 .data-sync-contract-grid span,
 .data-sync-contract-grid small {
   color: var(--muted);
@@ -6971,7 +7016,7 @@ th {
   text-transform: uppercase;
 }
 
-.data-foundation-grid strong,
+.data-foundation-strip strong,
 .data-sync-contract-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -7787,7 +7832,6 @@ th {
   .compliance-feedback-grid,
   .compliance-policy-grid,
   .compliance-foundation-grid,
-  .data-foundation-grid,
   .data-sync-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -7871,7 +7915,6 @@ th {
   .compliance-feedback-grid,
   .compliance-policy-grid,
   .compliance-foundation-grid,
-  .data-foundation-grid,
   .data-sync-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -7974,6 +8017,17 @@ th {
   .data-triage-row small {
     flex: none;
     text-align: left;
+  }
+  .data-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .data-foundation-item,
+  .data-foundation-item + .data-foundation-item {
+    border-left: 0;
+  }
+  .data-foundation-item + .data-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;
