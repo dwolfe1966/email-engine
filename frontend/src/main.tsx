@@ -13122,9 +13122,9 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#data">Open Data Sources</a>
           </div>
-          <div className="contact-entity-model-grid">
+          <div className="contact-entity-model-strip">
             {contactEntityItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`contact-entity-model-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
@@ -13362,9 +13362,9 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#data">Open Data Sources</a>
           </div>
-          <div className="contact-entity-model-grid">
+          <div className="contact-entity-model-strip">
             {contactEntityItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`contact-entity-model-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
