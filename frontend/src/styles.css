@@ -7979,8 +7979,8 @@ th {
 
 .settings-triage-head span,
 .settings-triage-head small,
-.settings-triage-grid span,
-.settings-triage-grid small {
+.settings-triage-list span,
+.settings-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -7989,37 +7989,71 @@ th {
 }
 
 .settings-triage-head strong,
-.settings-triage-grid strong {
+.settings-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.settings-triage-grid {
+.settings-triage-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.settings-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.settings-triage-grid article.warn {
-  border-color: #f8c77d;
+.settings-triage-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.settings-triage-row + .settings-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.settings-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.settings-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-triage-row small {
+  flex: 0 1 48%;
+  text-align: right;
+}
+
+.settings-triage-row.warn {
   background: #fff9ec;
 }
 
-.settings-triage-grid article.good {
-  border-color: #b6e0c1;
+.settings-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.settings-triage-row.good {
   background: #f5fff7;
+}
+
+.settings-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .settings-foundation-panel,
@@ -8202,7 +8236,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
-  .settings-triage-grid,
   .settings-foundation-grid,
   .settings-governance-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
@@ -8273,7 +8306,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
-  .settings-triage-grid,
   .settings-foundation-grid,
   .settings-governance-grid,
   .template-triage-grid,
@@ -8463,6 +8495,13 @@ th {
   }
   .integration-connector-row {
     grid-template-columns: 1fr;
+  }
+  .settings-triage-row {
+    display: grid;
+  }
+  .settings-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

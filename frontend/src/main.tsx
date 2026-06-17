@@ -16149,11 +16149,13 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
           </div>
           <button className={settingsTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={settingsTriageAction.run} disabled={settingsTriageAction.disabled}>{settingsTriageAction.actionLabel}</button>
         </div>
-        <div className="settings-triage-grid">
+        <div className="settings-triage-list">
           {settingsTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`settings-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

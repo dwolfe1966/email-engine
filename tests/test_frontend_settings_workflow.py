@@ -65,7 +65,8 @@ def assert_settings_triage_contract(source: str) -> None:
         'settings-governance-panel',
         'settings-governance-grid',
         'settings-triage-panel',
-        'settings-triage-grid',
+        'settings-triage-list',
+        'settings-triage-row',
     ]
 
     for token in expected_tokens:
