@@ -13158,11 +13158,13 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#data">Open Data Sources</a>
           </div>
-          <div className="contact-relationship-contract-grid">
+          <div className="contact-relationship-contract-list">
             {contactRelationshipContractItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`contact-relationship-contract-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -13396,11 +13398,13 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
             </div>
             <a href="#data">Open Data Sources</a>
           </div>
-          <div className="contact-relationship-contract-grid">
+          <div className="contact-relationship-contract-list">
             {contactRelationshipContractItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`contact-relationship-contract-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}

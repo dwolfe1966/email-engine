@@ -7390,16 +7390,6 @@ th {
   font-size: 15px;
 }
 
-.contact-relationship-contract-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.contact-relationship-contract-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .contact-foundation-strip {
   display: flex;
   overflow: hidden;
@@ -7408,8 +7398,15 @@ th {
   background: #ffffff;
 }
 
-.contact-foundation-item,
-.contact-relationship-contract-grid article {
+.contact-relationship-contract-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.contact-foundation-item {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -7438,14 +7435,39 @@ th {
   content: '';
 }
 
-.contact-relationship-contract-grid article {
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  padding: 10px;
+.contact-relationship-contract-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, .38fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 10px 12px 10px 15px;
+}
+
+.contact-relationship-contract-row + .contact-relationship-contract-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.contact-relationship-contract-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.contact-relationship-contract-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 
 .contact-foundation-item.warn,
-.contact-relationship-contract-grid article.warn {
+.contact-relationship-contract-row.warn {
   background: #fff9ec;
 }
 
@@ -7453,12 +7475,12 @@ th {
   background: #d98f18;
 }
 
-.contact-relationship-contract-grid article.warn {
-  border-color: #f8c77d;
+.contact-relationship-contract-row.warn::before {
+  background: #d98f18;
 }
 
 .contact-foundation-item.good,
-.contact-relationship-contract-grid article.good {
+.contact-relationship-contract-row.good {
   background: #f5fff7;
 }
 
@@ -7466,14 +7488,14 @@ th {
   background: #3f9b64;
 }
 
-.contact-relationship-contract-grid article.good {
-  border-color: #b6e0c1;
+.contact-relationship-contract-row.good::before {
+  background: #3f9b64;
 }
 
 .contact-foundation-strip span,
 .contact-foundation-strip small,
-.contact-relationship-contract-grid span,
-.contact-relationship-contract-grid small {
+.contact-relationship-contract-list span,
+.contact-relationship-contract-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -7482,7 +7504,7 @@ th {
 }
 
 .contact-foundation-strip strong,
-.contact-relationship-contract-grid strong {
+.contact-relationship-contract-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7936,7 +7958,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-entity-model-grid,
-  .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
@@ -8016,7 +8037,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-entity-model-grid,
-  .contact-relationship-contract-grid,
   .contact-attribute-helper-grid,
   .integration-triage-grid,
   .integration-foundation-grid,
@@ -8144,6 +8164,9 @@ th {
   }
   .contact-foundation-item + .contact-foundation-item {
     border-top: 1px solid #e4e9f1;
+  }
+  .contact-relationship-contract-row {
+    grid-template-columns: 1fr;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;
