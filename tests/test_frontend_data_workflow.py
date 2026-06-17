@@ -96,7 +96,8 @@ def assert_data_triage_contract(source: str) -> None:
         'data-sync-contract-panel',
         'data-sync-contract-grid',
         'data-triage-panel',
-        'data-triage-grid',
+        'data-triage-list',
+        'data-triage-row',
     ]
 
     for token in expected_tokens:

@@ -12277,11 +12277,13 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </div>
             <button className={dataTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={dataTriageAction.run} disabled={dataTriageAction.disabled}>{dataTriageAction.actionLabel}</button>
           </div>
-          <div className="data-triage-grid">
+          <div className="data-triage-list">
             {dataTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`data-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -12561,11 +12563,13 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </div>
             <button className={dataTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={dataTriageAction.run} disabled={dataTriageAction.disabled}>{dataTriageAction.actionLabel}</button>
           </div>
-          <div className="data-triage-grid">
+          <div className="data-triage-list">
             {dataTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`data-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
