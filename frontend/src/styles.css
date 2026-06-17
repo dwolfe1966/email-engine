@@ -6820,35 +6820,58 @@ th {
   font-size: 15px;
 }
 
-.compliance-foundation-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.compliance-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
-.compliance-foundation-grid article {
+.compliance-foundation-item {
+  position: relative;
+  flex: 1 1 0;
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 11px 12px 11px 15px;
 }
 
-.compliance-foundation-grid article.warn {
-  border-color: #f8c77d;
+.compliance-foundation-item + .compliance-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.compliance-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.compliance-foundation-item.warn {
   background: #fff9ec;
 }
 
-.compliance-foundation-grid article.good {
-  border-color: #b6e0c1;
+.compliance-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.compliance-foundation-item.good {
   background: #f5fff7;
 }
 
-.compliance-foundation-grid span,
-.compliance-foundation-grid small {
+.compliance-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.compliance-foundation-strip span,
+.compliance-foundation-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6856,7 +6879,7 @@ th {
   text-transform: uppercase;
 }
 
-.compliance-foundation-grid strong {
+.compliance-foundation-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -8054,7 +8077,6 @@ th {
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .compliance-policy-grid,
-  .compliance-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
@@ -8130,7 +8152,6 @@ th {
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
   .compliance-policy-grid,
-  .compliance-foundation-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
@@ -8291,6 +8312,17 @@ th {
     border-left: 0;
   }
   .compliance-feedback-item + .compliance-feedback-item {
+    border-top: 1px solid #e4e9f1;
+  }
+  .compliance-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .compliance-foundation-item,
+  .compliance-foundation-item + .compliance-foundation-item {
+    border-left: 0;
+  }
+  .compliance-foundation-item + .compliance-foundation-item {
     border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {

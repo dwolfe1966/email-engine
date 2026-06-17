@@ -11491,9 +11491,9 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#contacts">Open Contacts</a>
             </div>
-            <div className="compliance-foundation-grid">
+            <div className="compliance-foundation-strip">
               {complianceFoundationItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`compliance-foundation-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
@@ -11671,9 +11671,9 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#contacts">Open Contacts</a>
             </div>
-            <div className="compliance-foundation-grid">
+            <div className="compliance-foundation-strip">
               {complianceFoundationItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`compliance-foundation-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
