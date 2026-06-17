@@ -94,7 +94,8 @@ def assert_analytics_report_focus_contract(source: str) -> None:
         'AI evidence pack',
         'AI recommendations need the exact report rows, domain signals, suppression context, and operator action history.',
         'analytics-deliverability-panel',
-        'analytics-deliverability-grid',
+        'analytics-deliverability-list',
+        'analytics-deliverability-row',
     ]
 
     for token in expected_tokens:

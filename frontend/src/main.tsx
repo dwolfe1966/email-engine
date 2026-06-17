@@ -14095,11 +14095,13 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             </div>
             <button className="link-button" type="button" onClick={openAiActionBrief} disabled={busy}>Send to AI Studio</button>
           </div>
-          <div className="analytics-deliverability-grid">
+          <div className="analytics-deliverability-list">
             {analyticsDeliverabilityContractItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`analytics-deliverability-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
