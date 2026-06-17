@@ -3257,9 +3257,9 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
             </div>
             <a href="#delivery">Open Delivery</a>
           </div>
-          <div className="journey-foundation-grid">
+          <div className="journey-foundation-strip">
             {journeyFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`journey-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
@@ -3392,9 +3392,9 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           </div>
           <a href="#delivery">Open Delivery</a>
         </div>
-        <div className="journey-foundation-grid">
+        <div className="journey-foundation-strip">
           {journeyFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`journey-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

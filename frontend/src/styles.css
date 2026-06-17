@@ -6462,35 +6462,58 @@ th {
   font-size: 15px;
 }
 
-.journey-foundation-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.journey-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
-.journey-foundation-grid article {
+.journey-foundation-item {
+  position: relative;
+  flex: 1 1 0;
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 11px 12px 11px 15px;
 }
 
-.journey-foundation-grid article.warn {
-  border-color: #f8c77d;
+.journey-foundation-item + .journey-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.journey-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.journey-foundation-item.warn {
   background: #fff9ec;
 }
 
-.journey-foundation-grid article.good {
-  border-color: #b6e0c1;
+.journey-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.journey-foundation-item.good {
   background: #f5fff7;
 }
 
-.journey-foundation-grid span,
-.journey-foundation-grid small {
+.journey-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.journey-foundation-strip span,
+.journey-foundation-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6498,7 +6521,7 @@ th {
   text-transform: uppercase;
 }
 
-.journey-foundation-grid strong {
+.journey-foundation-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7726,7 +7749,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
   .compliance-policy-grid,
@@ -7812,7 +7834,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
   .compliance-policy-grid,
@@ -7903,6 +7924,17 @@ th {
   .journey-triage-row small {
     flex: none;
     text-align: left;
+  }
+  .journey-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .journey-foundation-item,
+  .journey-foundation-item + .journey-foundation-item {
+    border-left: 0;
+  }
+  .journey-foundation-item + .journey-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

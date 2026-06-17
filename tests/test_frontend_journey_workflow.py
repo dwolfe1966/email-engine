@@ -58,7 +58,8 @@ def assert_journey_triage_contract(source: str) -> None:
         'Feedback loop',
         'Bounce, engagement, and delivery feedback should feed journey decisions.',
         'journey-foundation-panel',
-        'journey-foundation-grid',
+        'journey-foundation-strip',
+        'journey-foundation-item',
     ]
 
     for token in expected_tokens:
