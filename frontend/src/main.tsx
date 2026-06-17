@@ -11473,9 +11473,9 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#delivery">Open Delivery</a>
             </div>
-            <div className="compliance-feedback-grid">
+            <div className="compliance-feedback-strip">
               {complianceFeedbackItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`compliance-feedback-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
@@ -11653,9 +11653,9 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#delivery">Open Delivery</a>
             </div>
-            <div className="compliance-feedback-grid">
+            <div className="compliance-feedback-strip">
               {complianceFeedbackItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`compliance-feedback-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
