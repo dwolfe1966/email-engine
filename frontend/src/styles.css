@@ -6366,8 +6366,8 @@ th {
 
 .journey-triage-head span,
 .journey-triage-head small,
-.journey-triage-grid span,
-.journey-triage-grid small {
+.journey-triage-list span,
+.journey-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -6376,37 +6376,71 @@ th {
 }
 
 .journey-triage-head strong,
-.journey-triage-grid strong {
+.journey-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.journey-triage-grid {
+.journey-triage-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.journey-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.journey-triage-grid article.warn {
-  border-color: #f8c77d;
+.journey-triage-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.journey-triage-row + .journey-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.journey-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.journey-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.journey-triage-row small {
+  flex: 0 1 48%;
+  text-align: right;
+}
+
+.journey-triage-row.warn {
   background: #fff9ec;
 }
 
-.journey-triage-grid article.good {
-  border-color: #b6e0c1;
+.journey-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.journey-triage-row.good {
   background: #f5fff7;
+}
+
+.journey-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .journey-foundation-panel {
@@ -7692,7 +7726,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
@@ -7779,7 +7812,6 @@ th {
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
-  .journey-triage-grid,
   .journey-foundation-grid,
   .compliance-triage-grid,
   .compliance-feedback-grid,
@@ -7864,6 +7896,13 @@ th {
   }
   .audience-segmentation-contract-row {
     grid-template-columns: 1fr;
+  }
+  .journey-triage-row {
+    display: grid;
+  }
+  .journey-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

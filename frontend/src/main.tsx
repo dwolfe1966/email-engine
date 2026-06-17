@@ -3237,11 +3237,13 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
             </div>
             <button className={journeyTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={journeyTriageAction.run} disabled={journeyTriageAction.disabled}>{journeyTriageAction.actionLabel}</button>
           </div>
-          <div className="journey-triage-grid">
+          <div className="journey-triage-list">
             {journeyTriageItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`journey-triage-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -3370,11 +3372,13 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
           </div>
           <button className={journeyTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={journeyTriageAction.run} disabled={journeyTriageAction.disabled}>{journeyTriageAction.actionLabel}</button>
         </div>
-        <div className="journey-triage-grid">
+        <div className="journey-triage-list">
           {journeyTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`journey-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}
