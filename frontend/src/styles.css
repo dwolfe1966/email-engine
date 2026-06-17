@@ -5851,37 +5851,6 @@ th {
   font-size: 15px;
 }
 
-.ai-agent-contract-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.ai-agent-contract-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ai-agent-contract-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 10px;
-}
-
-.ai-agent-contract-grid article.warn {
-  border-color: #f8c77d;
-  background: #fff9ec;
-}
-
-.ai-agent-contract-grid article.good {
-  border-color: #b6e0c1;
-  background: #f5fff7;
-}
-
 .ai-agent-foundation-strip {
   display: flex;
   overflow: hidden;
@@ -5932,10 +5901,65 @@ th {
   background: #3f9b64;
 }
 
+.ai-agent-contract-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ai-agent-contract-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, .38fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 10px 12px 10px 15px;
+}
+
+.ai-agent-contract-row + .ai-agent-contract-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.ai-agent-contract-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.ai-agent-contract-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ai-agent-contract-row.warn {
+  background: #fff9ec;
+}
+
+.ai-agent-contract-row.warn::before {
+  background: #d98f18;
+}
+
+.ai-agent-contract-row.good {
+  background: #f5fff7;
+}
+
+.ai-agent-contract-row.good::before {
+  background: #3f9b64;
+}
+
 .ai-agent-foundation-strip span,
 .ai-agent-foundation-strip small,
-.ai-agent-contract-grid span,
-.ai-agent-contract-grid small {
+.ai-agent-contract-list span,
+.ai-agent-contract-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5944,7 +5968,7 @@ th {
 }
 
 .ai-agent-foundation-strip strong,
-.ai-agent-contract-grid strong {
+.ai-agent-contract-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -8402,7 +8426,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-agent-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -8467,7 +8490,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-agent-contract-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
@@ -8524,6 +8546,9 @@ th {
   }
   .ai-agent-foundation-item + .ai-agent-foundation-item {
     border-top: 1px solid #e4e9f1;
+  }
+  .ai-agent-contract-row {
+    grid-template-columns: 1fr;
   }
   .ai-studio-triage-row {
     display: grid;

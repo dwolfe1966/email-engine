@@ -14767,11 +14767,13 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
           </div>
           <button className="link-button" type="button" onClick={reviewWorkflow} disabled={busy}>Review Workflow</button>
         </div>
-        <div className="ai-agent-contract-grid">
+        <div className="ai-agent-contract-list">
           {aiWorkflowAgentContractItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`ai-agent-contract-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}
