@@ -4225,11 +4225,13 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             </div>
             <a href="#contacts">Open Contacts</a>
           </div>
-          <div className="audience-segmentation-contract-grid">
+          <div className="audience-segmentation-contract-list">
             {audienceSegmentationContractItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`audience-segmentation-contract-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
@@ -4377,11 +4379,13 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
           </div>
           <a href="#contacts">Open Contacts</a>
         </div>
-        <div className="audience-segmentation-contract-grid">
+        <div className="audience-segmentation-contract-list">
           {audienceSegmentationContractItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`audience-segmentation-contract-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

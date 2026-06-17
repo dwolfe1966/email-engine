@@ -1938,10 +1938,12 @@ th {
   font-size: 15px;
 }
 
-.audience-segmentation-contract-grid {
+.audience-segmentation-contract-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .audience-foundation-strip {
@@ -1952,8 +1954,7 @@ th {
   background: #ffffff;
 }
 
-.audience-foundation-item,
-.audience-segmentation-contract-grid article {
+.audience-foundation-item {
   display: grid;
   align-content: start;
   gap: 6px;
@@ -1982,14 +1983,39 @@ th {
   content: '';
 }
 
-.audience-segmentation-contract-grid article {
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  padding: 10px;
+.audience-segmentation-contract-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, .38fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 10px 12px 10px 15px;
+}
+
+.audience-segmentation-contract-row + .audience-segmentation-contract-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.audience-segmentation-contract-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.audience-segmentation-contract-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 
 .audience-foundation-item.warn,
-.audience-segmentation-contract-grid article.warn {
+.audience-segmentation-contract-row.warn {
   background: #fff9ec;
 }
 
@@ -1997,12 +2023,12 @@ th {
   background: #d98f18;
 }
 
-.audience-segmentation-contract-grid article.warn {
-  border-color: #f8c77d;
+.audience-segmentation-contract-row.warn::before {
+  background: #d98f18;
 }
 
 .audience-foundation-item.good,
-.audience-segmentation-contract-grid article.good {
+.audience-segmentation-contract-row.good {
   background: #f5fff7;
 }
 
@@ -2010,14 +2036,14 @@ th {
   background: #3f9b64;
 }
 
-.audience-segmentation-contract-grid article.good {
-  border-color: #b6e0c1;
+.audience-segmentation-contract-row.good::before {
+  background: #3f9b64;
 }
 
 .audience-foundation-strip span,
 .audience-foundation-strip small,
-.audience-segmentation-contract-grid span,
-.audience-segmentation-contract-grid small {
+.audience-segmentation-contract-list span,
+.audience-segmentation-contract-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -2026,7 +2052,7 @@ th {
 }
 
 .audience-foundation-strip strong,
-.audience-segmentation-contract-grid strong {
+.audience-segmentation-contract-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -7652,7 +7678,6 @@ th {
   .test-send-result-card,
   .campaign-ai-summary,
   .audience-ai-summary,
-  .audience-segmentation-contract-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,
   .audience-field-intel,
@@ -7740,7 +7765,6 @@ th {
   .data-command-strip,
   .campaign-ai-summary,
   .audience-ai-summary,
-  .audience-segmentation-contract-grid,
   .audience-impact-summary,
   .audience-campaign-awareness,
   .audience-field-intel,
@@ -7837,6 +7861,9 @@ th {
   }
   .audience-foundation-item + .audience-foundation-item {
     border-top: 1px solid #e4e9f1;
+  }
+  .audience-segmentation-contract-row {
+    grid-template-columns: 1fr;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;

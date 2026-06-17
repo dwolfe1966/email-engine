@@ -107,7 +107,8 @@ def assert_audience_guided_next_step_contract(source: str) -> None:
         'Handoff contract',
         'Campaign and journey handoffs need stable audience IDs, snapshot references, and downstream usage visibility.',
         'audience-segmentation-contract-panel',
-        'audience-segmentation-contract-grid',
+        'audience-segmentation-contract-list',
+        'audience-segmentation-contract-row',
     ]
 
     for token in expected_tokens:
