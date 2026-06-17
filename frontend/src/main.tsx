@@ -15675,11 +15675,13 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
           </div>
           <a href="#integrations">Open Integrations</a>
         </div>
-        <div className="docs-gap-grid">
+        <div className="docs-gap-list">
           {platformGapRows.map((item) => (
-            <article className={item.status === 'Configured' ? 'good' : 'warn'} key={item.area}>
-              <span>{item.area}</span>
-              <strong>{item.status}</strong>
+            <article className={`docs-gap-row ${item.status === 'Configured' ? 'good' : 'warn'}`} key={item.area}>
+              <div>
+                <span>{item.area}</span>
+                <strong>{item.status}</strong>
+              </div>
               <small>{item.guidance}</small>
             </article>
           ))}

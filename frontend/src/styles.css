@@ -5619,14 +5619,12 @@ th {
   font-size: 15px;
 }
 
-.docs-gap-grid,
 .docs-lifecycle-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.docs-gap-grid article,
 .docs-lifecycle-grid article {
   display: grid;
   align-content: start;
@@ -5638,20 +5636,73 @@ th {
   padding: 10px;
 }
 
-.docs-gap-grid article.warn,
 .docs-lifecycle-grid article.warn {
   border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.docs-gap-grid article.good,
 .docs-lifecycle-grid article.good {
   border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.docs-gap-grid span,
-.docs-gap-grid small,
+.docs-gap-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.docs-gap-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, .38fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  background: #ffffff;
+  padding: 10px 12px 10px 15px;
+}
+
+.docs-gap-row + .docs-gap-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.docs-gap-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.docs-gap-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.docs-gap-row.warn {
+  background: #fff9ec;
+}
+
+.docs-gap-row.warn::before {
+  background: #d98f18;
+}
+
+.docs-gap-row.good {
+  background: #f5fff7;
+}
+
+.docs-gap-row.good::before {
+  background: #3f9b64;
+}
+
+.docs-gap-list span,
+.docs-gap-list small,
 .docs-lifecycle-grid span,
 .docs-lifecycle-grid small {
   color: var(--muted);
@@ -5661,7 +5712,7 @@ th {
   text-transform: uppercase;
 }
 
-.docs-gap-grid strong,
+.docs-gap-list strong,
 .docs-lifecycle-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -8457,7 +8508,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-gap-grid,
   .docs-lifecycle-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8520,7 +8570,6 @@ th {
   .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
-  .docs-gap-grid,
   .docs-lifecycle-grid,
   .data-mapping-helper-grid,
   .data-relationship-grid,
@@ -8580,6 +8629,9 @@ th {
     border-top: 1px solid #e4e9f1;
   }
   .ai-agent-contract-row {
+    grid-template-columns: 1fr;
+  }
+  .docs-gap-row {
     grid-template-columns: 1fr;
   }
   .docs-triage-row {
