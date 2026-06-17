@@ -4207,9 +4207,9 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             </div>
             <a href="#data">Open Data</a>
           </div>
-          <div className="audience-foundation-grid">
+          <div className="audience-foundation-strip">
             {audienceFoundationItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`audience-foundation-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>
@@ -4359,9 +4359,9 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
           </div>
           <a href="#data">Open Data</a>
         </div>
-        <div className="audience-foundation-grid">
+        <div className="audience-foundation-strip">
           {audienceFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`audience-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
