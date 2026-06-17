@@ -15184,9 +15184,9 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           </div>
           <a href="#settings">Open Settings</a>
         </div>
-        <div className="integration-foundation-grid">
+        <div className="integration-foundation-strip">
           {integrationFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`integration-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>

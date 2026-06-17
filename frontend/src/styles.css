@@ -7825,7 +7825,6 @@ th {
   font-size: 15px;
 }
 
-.integration-foundation-grid,
 .integration-connector-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7836,32 +7835,78 @@ th {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.integration-foundation-grid article,
+.integration-foundation-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.integration-foundation-item,
 .integration-connector-grid article {
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
+  background: #ffffff;
+}
+
+.integration-foundation-item {
+  position: relative;
+  flex: 1 1 0;
+  padding: 11px 12px 11px 15px;
+}
+
+.integration-foundation-item + .integration-foundation-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.integration-foundation-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.integration-connector-grid article {
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #ffffff;
   padding: 10px;
 }
 
-.integration-foundation-grid article.warn,
+.integration-foundation-item.warn,
 .integration-connector-grid article.warn {
-  border-color: #f8c77d;
   background: #fff9ec;
 }
 
-.integration-foundation-grid article.good,
+.integration-foundation-item.warn::before {
+  background: #d98f18;
+}
+
+.integration-connector-grid article.warn {
+  border-color: #f8c77d;
+}
+
+.integration-foundation-item.good,
 .integration-connector-grid article.good {
-  border-color: #b6e0c1;
   background: #f5fff7;
 }
 
-.integration-foundation-grid span,
-.integration-foundation-grid small,
+.integration-foundation-item.good::before {
+  background: #3f9b64;
+}
+
+.integration-connector-grid article.good {
+  border-color: #b6e0c1;
+}
+
+.integration-foundation-strip span,
+.integration-foundation-strip small,
 .integration-connector-grid span,
 .integration-connector-grid small {
   color: var(--muted);
@@ -7871,7 +7916,7 @@ th {
   text-transform: uppercase;
 }
 
-.integration-foundation-grid strong,
+.integration-foundation-strip strong,
 .integration-connector-grid strong {
   overflow-wrap: anywhere;
   color: #29405f;
@@ -8135,7 +8180,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
-  .integration-foundation-grid,
   .integration-connector-grid,
   .settings-triage-grid,
   .settings-foundation-grid,
@@ -8208,7 +8252,6 @@ th {
   .data-mapping-helper-grid,
   .data-relationship-grid,
   .contact-attribute-helper-grid,
-  .integration-foundation-grid,
   .integration-connector-grid,
   .settings-triage-grid,
   .settings-foundation-grid,
@@ -8386,6 +8429,17 @@ th {
   .integration-triage-row small {
     flex: none;
     text-align: left;
+  }
+  .integration-foundation-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .integration-foundation-item,
+  .integration-foundation-item + .integration-foundation-item {
+    border-left: 0;
+  }
+  .integration-foundation-item + .integration-foundation-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-collapsible-row > summary {
     grid-template-columns: 1fr auto;
