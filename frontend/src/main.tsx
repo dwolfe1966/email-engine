@@ -14056,11 +14056,13 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
             </div>
             <button className={analyticsAiPrimaryAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={analyticsAiPrimaryAction.run} disabled={busy}>{analyticsAiPrimaryAction.actionLabel}</button>
           </div>
-          <div className="analytics-ai-action-grid">
+          <div className="analytics-ai-action-list">
             {analyticsAiActions.map((action) => (
-              <article className={action.tone} key={action.label}>
-                <span>{action.label}</span>
-                <strong>{action.value}</strong>
+              <article className={`analytics-ai-action-row ${action.tone}`} key={action.label}>
+                <div>
+                  <span>{action.label}</span>
+                  <strong>{action.value}</strong>
+                </div>
                 <small>{action.detail}</small>
                 <button className="ghost compact-button" type="button" onClick={action.run} disabled={busy}>{action.actionLabel}</button>
               </article>

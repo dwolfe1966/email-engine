@@ -5368,8 +5368,8 @@ th {
 
 .analytics-ai-action-head span,
 .analytics-ai-action-head small,
-.analytics-ai-action-grid span,
-.analytics-ai-action-grid small {
+.analytics-ai-action-list span,
+.analytics-ai-action-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5378,37 +5378,66 @@ th {
 }
 
 .analytics-ai-action-head strong,
-.analytics-ai-action-grid strong {
+.analytics-ai-action-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.analytics-ai-action-grid {
+.analytics-ai-action-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.analytics-ai-action-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.analytics-ai-action-grid article.warn {
-  border-color: #f8c77d;
+.analytics-ai-action-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(150px, .3fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.analytics-ai-action-row + .analytics-ai-action-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.analytics-ai-action-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.analytics-ai-action-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analytics-ai-action-row.warn {
   background: #fff9ec;
 }
 
-.analytics-ai-action-grid article.good {
-  border-color: #b6e0c1;
+.analytics-ai-action-row.warn::before {
+  background: #d98f18;
+}
+
+.analytics-ai-action-row.good {
   background: #f5fff7;
+}
+
+.analytics-ai-action-row.good::before {
+  background: #3f9b64;
 }
 
 .analytics-foundation-panel,
@@ -8528,7 +8557,6 @@ th {
   .audience-campaign-awareness,
   .audience-field-intel,
   .analytics-focus-summary,
-  .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
   .data-mapping-helper-grid,
@@ -8589,7 +8617,6 @@ th {
   .audience-campaign-awareness,
   .audience-field-intel,
   .analytics-focus-summary,
-  .analytics-ai-action-grid,
   .analytics-foundation-grid,
   .analytics-deliverability-grid,
   .data-mapping-helper-grid,
@@ -8665,6 +8692,13 @@ th {
   }
   .docs-lifecycle-item + .docs-lifecycle-item {
     border-top: 1px solid #e4e9f1;
+  }
+  .analytics-ai-action-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .analytics-ai-action-row .compact-button {
+    justify-self: start;
   }
   .docs-triage-row {
     display: grid;
