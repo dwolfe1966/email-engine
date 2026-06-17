@@ -8837,9 +8837,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               </div>
               <a href="#campaigns">Open Campaigns</a>
             </div>
-            <div className="template-foundation-grid">
+            <div className="template-foundation-strip">
               {templateFoundationItems.map((item) => (
-                <article className={item.tone} key={item.label}>
+                <article className={`template-foundation-item ${item.tone}`} key={item.label}>
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
                   <small>{item.detail}</small>
