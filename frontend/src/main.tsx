@@ -8817,11 +8817,13 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               </div>
               <button className={templateTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={templateTriageAction.run} disabled={templateTriageAction.disabled}>{templateTriageAction.actionLabel}</button>
             </div>
-            <div className="template-triage-grid">
+            <div className="template-triage-list">
               {templateTriageItems.map((item) => (
-                <article className={item.tone} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <article className={`template-triage-row ${item.tone}`} key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
                   <small>{item.detail}</small>
                 </article>
               ))}
