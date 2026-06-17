@@ -12342,11 +12342,13 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             </div>
             <a href="#integrations">Open Integrations</a>
           </div>
-          <div className="data-sync-contract-grid">
+          <div className="data-sync-contract-list">
             {dataSyncContractItems.map((item) => (
-              <article className={item.tone} key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+              <article className={`data-sync-contract-row ${item.tone}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
                 <small>{item.detail}</small>
               </article>
             ))}
