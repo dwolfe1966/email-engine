@@ -11453,11 +11453,13 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <button className={complianceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={complianceTriageAction.run} disabled={complianceTriageAction.disabled}>{complianceTriageAction.actionLabel}</button>
             </div>
-            <div className="compliance-triage-grid">
+            <div className="compliance-triage-list">
               {complianceTriageItems.map((item) => (
-                <article className={item.tone} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <article className={`compliance-triage-row ${item.tone}`} key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
                   <small>{item.detail}</small>
                 </article>
               ))}
@@ -11631,11 +11633,13 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <button className={complianceTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={complianceTriageAction.run} disabled={complianceTriageAction.disabled}>{complianceTriageAction.actionLabel}</button>
             </div>
-            <div className="compliance-triage-grid">
+            <div className="compliance-triage-list">
               {complianceTriageItems.map((item) => (
-                <article className={item.tone} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <article className={`compliance-triage-row ${item.tone}`} key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
                   <small>{item.detail}</small>
                 </article>
               ))}
