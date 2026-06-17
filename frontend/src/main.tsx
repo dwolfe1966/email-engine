@@ -16169,9 +16169,9 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
           </div>
           <button className="link-button" type="button" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
         </div>
-        <div className="settings-foundation-grid">
+        <div className="settings-foundation-strip">
           {settingsFoundationItems.map((item) => (
-            <article className={item.tone} key={item.label}>
+            <article className={`settings-foundation-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
