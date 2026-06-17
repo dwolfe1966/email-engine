@@ -11509,11 +11509,13 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#delivery">Open Delivery</a>
             </div>
-            <div className="compliance-policy-grid">
+            <div className="compliance-policy-list">
               {compliancePolicyContractItems.map((item) => (
-                <article className={item.tone} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <article className={`compliance-policy-row ${item.tone}`} key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
                   <small>{item.detail}</small>
                 </article>
               ))}
@@ -11689,11 +11691,13 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
               </div>
               <a href="#delivery">Open Delivery</a>
             </div>
-            <div className="compliance-policy-grid">
+            <div className="compliance-policy-list">
               {compliancePolicyContractItems.map((item) => (
-                <article className={item.tone} key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <article className={`compliance-policy-row ${item.tone}`} key={item.label}>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
                   <small>{item.detail}</small>
                 </article>
               ))}

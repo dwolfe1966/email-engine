@@ -83,7 +83,8 @@ def assert_compliance_triage_contract(source: str) -> None:
         'Audit evidence',
         'Compliance actions need immutable evidence for source, actor, timestamp, policy version, and downstream propagation.',
         'compliance-policy-panel',
-        'compliance-policy-grid',
+        'compliance-policy-list',
+        'compliance-policy-row',
     ]
 
     for token in expected_tokens:
