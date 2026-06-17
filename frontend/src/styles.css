@@ -5668,8 +5668,8 @@ th {
 
 .ai-studio-triage-head span,
 .ai-studio-triage-head small,
-.ai-studio-triage-grid span,
-.ai-studio-triage-grid small {
+.ai-studio-triage-list span,
+.ai-studio-triage-list small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -5678,37 +5678,71 @@ th {
 }
 
 .ai-studio-triage-head strong,
-.ai-studio-triage-grid strong {
+.ai-studio-triage-list strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
 }
 
-.ai-studio-triage-grid {
+.ai-studio-triage-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.ai-studio-triage-grid article {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
+  overflow: hidden;
   border: 1px solid #d8dee8;
   border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px;
+  background: #ffffff;
 }
 
-.ai-studio-triage-grid article.warn {
-  border-color: #f8c77d;
+.ai-studio-triage-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  background: #f8fafc;
+  padding: 10px 12px 10px 15px;
+}
+
+.ai-studio-triage-row + .ai-studio-triage-row {
+  border-top: 1px solid #e4e9f1;
+}
+
+.ai-studio-triage-row::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.ai-studio-triage-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ai-studio-triage-row small {
+  flex: 0 1 52%;
+  text-align: right;
+}
+
+.ai-studio-triage-row.warn {
   background: #fff9ec;
 }
 
-.ai-studio-triage-grid article.good {
-  border-color: #b6e0c1;
+.ai-studio-triage-row.warn::before {
+  background: #d98f18;
+}
+
+.ai-studio-triage-row.good {
   background: #f5fff7;
+}
+
+.ai-studio-triage-row.good::before {
+  background: #3f9b64;
 }
 
 .ai-agent-layer-panel {
@@ -8299,7 +8333,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
@@ -8367,7 +8400,6 @@ th {
   .docs-triage-grid,
   .docs-gap-grid,
   .docs-lifecycle-grid,
-  .ai-studio-triage-grid,
   .ai-agent-layer-grid,
   .ai-agent-foundation-grid,
   .ai-agent-contract-grid,
@@ -8405,6 +8437,13 @@ th {
   }
   .settings-governance-row {
     grid-template-columns: 1fr;
+  }
+  .ai-studio-triage-row {
+    display: grid;
+  }
+  .ai-studio-triage-row small {
+    flex: none;
+    text-align: left;
   }
   .overview-triage-row {
     display: grid;

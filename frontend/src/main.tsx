@@ -14711,11 +14711,13 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
           </div>
           <button className={aiStudioTriageAction.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={aiStudioTriageAction.run} disabled={aiStudioTriageAction.disabled}>{aiStudioTriageAction.actionLabel}</button>
         </div>
-        <div className="ai-studio-triage-grid">
+        <div className="ai-studio-triage-list">
           {aiStudioTriageItems.map((item) => (
-            <article className={item.tone} key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
+            <article className={`ai-studio-triage-row ${item.tone}`} key={item.label}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
               <small>{item.detail}</small>
             </article>
           ))}

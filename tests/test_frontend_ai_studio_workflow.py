@@ -76,7 +76,8 @@ def assert_ai_studio_triage_contract(source: str) -> None:
         'ai-agent-contract-panel',
         'ai-agent-contract-grid',
         'ai-studio-triage-panel',
-        'ai-studio-triage-grid',
+        'ai-studio-triage-list',
+        'ai-studio-triage-row',
     ]
 
     for token in expected_tokens:
