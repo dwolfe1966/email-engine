@@ -1879,8 +1879,8 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
       : !smtpReady
         ? {
           tone: 'warn',
-          title: 'Plan owned SMTP',
-          detail: 'Owned SMTP remains a platform foundation gap even while provider adapters are available.',
+          title: 'Review managed SMTP rollout',
+          detail: 'Managed SMTP is now multi-provider: Scaleway is the live path and AWS remains pending as a secondary provider.',
           actionLabel: 'Open Integrations',
           href: '#integrations',
         }
@@ -1919,7 +1919,7 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
                 : {
                   tone: 'good',
                   title: 'Workspace ready',
-                  detail: 'Schema, provider, owned SMTP, delivery, imports, journeys, and AI handoff are clear.',
+                  detail: 'Schema, provider paths, managed SMTP, delivery, imports, journeys, and AI handoff are clear.',
                   actionLabel: 'Open Reports',
                   href: '#analytics',
                 };
@@ -1927,13 +1927,13 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
     {
       label: 'Provider',
       value: providerReady ? providerLabel(provider) : 'Pending',
-      detail: smtpReady ? 'Owned SMTP configured' : sendgridReady ? 'Provider adapter ready' : 'No outbound path configured',
+      detail: smtpReady ? 'Managed SMTP adapter configured' : sendgridReady ? 'Provider adapter ready; managed SMTP control plane available' : 'Load provider profile or configure adapter',
       tone: providerReady ? 'good' : 'warn',
     },
     {
-      label: 'Owned SMTP',
-      value: smtpReady ? 'Ready' : 'Gap',
-      detail: smtpReady ? 'Managed SMTP path configured' : 'First-class SMTP foundation still missing',
+      label: 'Managed SMTP',
+      value: smtpReady ? 'Configured' : 'Control plane',
+      detail: smtpReady ? 'Managed SMTP adapter configured' : 'Multi-provider MTA inventory is managed from Delivery.',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -1964,9 +1964,9 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
     },
     {
       label: 'Send engine',
-      value: smtpReady ? 'Owned SMTP' : providerReady ? 'Adapter' : 'Gap',
-      detail: smtpReady ? 'Owned SMTP path configured' : providerReady ? 'Provider adapter available; owned SMTP still missing' : 'SMTP server, queues, and throttle controls still need foundation work.',
-      tone: smtpReady ? 'good' : 'warn',
+      value: smtpReady ? 'Managed SMTP' : providerReady ? 'Hybrid' : 'Configure',
+      detail: smtpReady ? 'Managed SMTP path configured' : providerReady ? 'Provider adapter plus managed-MTA control plane are available.' : 'Apply a provider profile or configure an adapter before sending.',
+      tone: smtpReady || providerReady ? 'good' : 'warn',
     },
     {
       label: 'Feedback loop',
@@ -9775,6 +9775,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessNotification, setReadinessNotification] = useState<ManagedSmtpReadinessNotificationRead | null>(null);
   const [managedSmtpBootstrapProfiles, setManagedSmtpBootstrapProfiles] = useState<ManagedSmtpBootstrapProfileRead[]>([]);
   const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
+  const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
   const [firstSendReadiness, setFirstSendReadiness] = useState<ManagedSmtpFirstSendRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
@@ -9897,11 +9898,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     : 'clear';
   const fallbackFirstSendReadinessItems = [
     {
-      label: 'AWS port 25',
+      label: 'Provider port 25',
       value: firstManagedSmtpProvider?.port25_status || 'Pending',
       detail: port25Approved
         ? 'Outbound direct-MX delivery is approved for the selected provider account.'
-        : 'Seed send remains blocked until the provider removes outbound TCP 25 limits.',
+        : 'Load or apply a live provider profile; AWS can remain pending while Scaleway handles seed sends.',
       tone: port25Approved ? 'good' : 'warn',
     },
     {
@@ -9926,7 +9927,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       value: domainDashboard?.authentication_status || 'Not loaded',
       detail: authenticationReady
         ? 'Domain authentication is verified in the reputation dashboard.'
-        : 'Load the reputation dashboard and resolve SPF, DKIM, DMARC, or bounce-MX gaps.',
+        : 'Load the reputation dashboard to verify SPF, DKIM, DMARC, and bounce-MX evidence.',
       tone: authenticationReady ? 'good' : 'warn',
     },
     {
@@ -9959,7 +9960,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     ? firstSendReadiness.ok ? 'good' : 'warn'
     : 'warn';
   const firstSendSummaryTitle = firstSendReadiness
-    ? firstSendReadiness.ok ? 'Ready for first seed send' : 'First seed send blocked'
+    ? firstSendReadiness.ok ? 'Ready for controlled seed send' : 'Evidence required before next seed send'
     : 'First-send evidence not loaded';
   const firstSendControlCount = firstSendReadiness?.items.length || 0;
   const firstSendControlProgress = firstSendReadiness
@@ -10043,44 +10044,44 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   ];
   const deliveryFoundationItems = [
     {
-      label: 'Owned SMTP server',
-      value: managedSmtpDeploymentSummary?.nodes.total ? 'Modeled' : 'Gap',
+      label: 'Managed MTA nodes',
+      value: managedSmtpDeploymentSummary?.nodes.total ? 'Registered' : 'Load',
       detail: managedSmtpDeploymentSummary?.nodes.total
         ? `${formatInt(managedSmtpDeploymentSummary.nodes.total)} MTA node(s) registered in deployment inventory.`
-        : 'Platform-owned SMTP service still needs MTA, auth, throttling, and domain controls.',
+        : 'Load deployment summary or apply a provider profile to populate MTA inventory.',
       tone: managedSmtpDeploymentSummary?.nodes.total ? 'good' : 'warn',
     },
     {
       label: 'Send queues',
-      value: sendJobs.length || sendRecords.length ? 'Visible' : 'Gap',
+      value: sendJobs.length || sendRecords.length ? 'Visible' : 'Not loaded',
       detail: `${formatInt(sendJobs.length)} job(s), ${formatInt(queuedRecords)} queued record(s), ${formatInt(activeJobs)} active job(s).`,
       tone: sendJobs.length || sendRecords.length ? 'good' : 'warn',
     },
     {
       label: 'Bounce queues',
-      value: failedRecords ? 'Signals' : 'Gap',
-      detail: failedRecords ? `${formatInt(failedRecords)} failed record(s) need bounce classification.` : 'Dedicated bounce and complaint queues are still needed.',
+      value: failedRecords ? 'Signals' : 'Quiet',
+      detail: failedRecords ? `${formatInt(failedRecords)} failed record(s) need bounce classification.` : 'No failed-record bounce signals in the loaded list.',
       tone: 'warn',
     },
     {
       label: 'Deliverability feedback',
-      value: providerFootprint.length ? providerFootprint.join(', ') : 'Gap',
-      detail: 'Reputation, complaint, bounce, and inbox-placement feedback need a unified loop.',
+      value: providerFootprint.length ? providerFootprint.join(', ') : 'Not loaded',
+      detail: 'Provider events and managed-MTA feedback are normalized into one delivery evidence stream.',
       tone: 'warn',
     },
   ];
   const deliveryOperationsContractItems = [
     {
       label: 'SMTP service contract',
-      value: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'Visible' : 'Gap',
+      value: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'Visible' : 'Load',
       detail: managedSmtpDeploymentSummary?.managed_smtp_route_count
         ? `${formatInt(managedSmtpDeploymentSummary.managed_smtp_route_count)} route(s), ${formatInt(managedSmtpDeploymentSummary.managed_smtp_domain_policy_count)} domain policy mapping(s).`
-        : 'Owned SMTP needs MTA configuration, authenticated submission, domain policy, TLS, and tenant-level rate controls.',
+        : 'Apply the Scaleway profile or load deployment summary to inspect managed-MTA route coverage.',
       tone: managedSmtpDeploymentSummary?.managed_smtp_route_count ? 'good' : 'warn',
     },
     {
       label: 'Queue lifecycle',
-      value: sendRecords.length ? 'Visible' : 'Gap',
+      value: sendRecords.length ? 'Visible' : 'Not loaded',
       detail: 'Send queues need claim locks, visibility timeouts, dead-letter handling, and operator-safe replay controls.',
       tone: sendRecords.length ? 'good' : 'warn',
     },
@@ -10092,20 +10093,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     },
     {
       label: 'Bounce classification',
-      value: failedRecords ? `${formatInt(failedRecords)} signals` : 'Gap',
+      value: failedRecords ? `${formatInt(failedRecords)} signals` : 'Quiet',
       detail: 'Failures must classify hard bounce, soft bounce, complaint, deferral, and policy block outcomes.',
       tone: 'warn',
     },
     {
       label: 'Feedback ingestion',
-      value: providerFootprint.length ? providerFootprint.join(', ') : 'Gap',
-      detail: 'Provider events and owned SMTP logs need one durable feedback stream into suppression and analytics records.',
+      value: providerFootprint.length ? providerFootprint.join(', ') : 'Not loaded',
+      detail: 'Provider events and managed-MTA logs feed one durable stream into suppression and analytics records.',
       tone: 'warn',
     },
     {
       label: 'Deliverability controls',
-      value: 'Gap',
-      detail: 'Domain warmup, reputation monitoring, inbox-placement signals, and throttle overrides need admin controls.',
+      value: 'Planned',
+      detail: 'Domain warmup, reputation monitoring, inbox-placement signals, and throttle overrides remain roadmap controls.',
       tone: 'warn',
     },
   ];
@@ -10377,6 +10378,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
         fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
       ]);
+      setLastManagedSmtpBootstrap(result);
       setManagedSmtpDeploymentSummary(summary);
       setDomainPolicies(policies.items || []);
       setSelectedDomainPolicyId(result.domain_policy.id);
@@ -10580,7 +10582,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         <div className="panel-head compact-head">
           <div>
             <h3>Send Engine Foundation</h3>
-            <span className="muted">Owned SMTP, queues, bounces, and deliverability feedback.</span>
+            <span className="muted">Managed MTA nodes, queues, bounces, and deliverability feedback.</span>
           </div>
           <a href="#settings">Provider settings</a>
         </div>
@@ -10598,7 +10600,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         <div className="panel-head compact-head">
           <div>
             <h3>Send Engine Operations Contract</h3>
-            <span className="muted">Operational contracts for owned SMTP, queue lifecycle, retries, bounces, feedback, and deliverability controls.</span>
+            <span className="muted">Operational contracts for managed MTA routing, queue lifecycle, retries, bounces, feedback, and deliverability controls.</span>
           </div>
           <a href="#compliance">Open Compliance</a>
         </div>
@@ -10648,6 +10650,31 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           </label>
           <button className="primary" type="button" onClick={applyManagedSmtpBootstrapProfile} disabled={busy || !selectedManagedSmtpBootstrapProfile}>Apply Profile</button>
         </div>
+        {lastManagedSmtpBootstrap ? (
+          <div className="provider-feedback-list">
+            <article className={lastManagedSmtpBootstrap.route_resolution.ok ? 'good' : 'warn'}>
+              <div>
+                <span>Profile applied / {lastManagedSmtpBootstrap.provider_account.provider}</span>
+                <strong>{lastManagedSmtpBootstrap.node.name} - {lastManagedSmtpBootstrap.node.hostname}</strong>
+              </div>
+              <small>{lastManagedSmtpBootstrap.route_resolution.ok ? 'Route resolution is ready.' : lastManagedSmtpBootstrap.route_resolution.reason?.message || 'Profile registered; route evidence still needs review.'}</small>
+              <dl>
+                <div><dt>provider</dt><dd>{lastManagedSmtpBootstrap.provider_account.name}</dd></div>
+                <div><dt>route</dt><dd>{lastManagedSmtpBootstrap.delivery_route.name}</dd></div>
+                <div><dt>domain</dt><dd>{lastManagedSmtpBootstrap.domain_policy.domain}</dd></div>
+                <div><dt>pool</dt><dd>{lastManagedSmtpBootstrap.ip_pool.name}</dd></div>
+                <div><dt>port 25</dt><dd>{lastManagedSmtpBootstrap.provider_account.port25_status}</dd></div>
+                <div><dt>rDNS</dt><dd>{lastManagedSmtpBootstrap.provider_account.rdns_status}</dd></div>
+              </dl>
+              {lastManagedSmtpBootstrap.next_steps.length ? (
+                <details>
+                  <summary>Next evidence checks</summary>
+                  <div className="json-preview">{lastManagedSmtpBootstrap.next_steps.join('\n')}</div>
+                </details>
+              ) : null}
+            </article>
+          </div>
+        ) : null}
         <div className="delivery-score-strip" aria-label="Managed SMTP deployment score strip">
           {managedSmtpDeploymentItems.map((item) => (
             <div className={`delivery-score-item ${item.tone}`} key={item.label}>
@@ -10715,7 +10742,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         <div className="panel-head">
           <div>
             <h2>Managed SMTP Domain Compliance</h2>
-            <span className="muted">Compliance hold, release, reputation dashboard, and policy audit controls for owned SMTP domains.</span>
+            <span className="muted">Compliance hold, release, reputation dashboard, and policy audit controls for managed sending domains.</span>
           </div>
           <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
         </div>
@@ -15074,7 +15101,7 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
     ? {
       tone: 'warn',
       title: 'Configure outbound provider',
-      detail: 'Owned SMTP should be first-class; use provider adapters only as delivery paths.',
+      detail: 'Managed SMTP is first-class; use provider adapters as additional delivery paths.',
       actionLabel: 'Open Settings',
       run: () => { window.location.hash = '#settings'; },
       disabled: busy,
@@ -15082,8 +15109,8 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
     : !smtpReady && sgReady
       ? {
         tone: 'warn',
-        title: 'Plan owned SMTP',
-        detail: 'SendGrid is ready, but owned SMTP is not configured as a managed platform path.',
+        title: 'Review managed SMTP path',
+        detail: 'SendGrid remains available; manage Scaleway and future MTAs from the Delivery control plane.',
         actionLabel: 'Open Settings',
         run: () => { window.location.hash = '#settings'; },
         disabled: busy,
@@ -15134,9 +15161,9 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
               };
   const integrationTriageItems = [
     {
-      label: 'Owned SMTP',
-      value: smtpReady ? 'Ready' : 'Missing',
-      detail: smtpReady ? 'Managed SMTP path is configured' : 'Owned SMTP remains a platform foundation gap',
+      label: 'Managed SMTP',
+      value: smtpReady ? 'Ready' : 'Control plane',
+      detail: smtpReady ? 'Managed SMTP adapter is configured' : 'Provider profiles and MTA inventory are managed from Delivery.',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -15166,9 +15193,9 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
       tone: dataConnectorTableReady ? 'good' : 'warn',
     },
     {
-      label: 'Owned SMTP foundation',
-      value: smtpReady ? 'Configured' : 'Gap',
-      detail: smtpReady ? 'Managed SMTP path is configured.' : 'Owned SMTP server, MTA policy, throttling, and domain controls remain platform work.',
+      label: 'Managed SMTP foundation',
+      value: smtpReady ? 'Configured' : 'Control plane',
+      detail: smtpReady ? 'Managed SMTP adapter is configured.' : 'Scaleway and future MTA providers are managed through provider profiles, inventory, and route policy.',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -15206,9 +15233,9 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
       detail: 'REST, GraphQL, and inbound webhook connectors need managed secrets, retries, and event-to-entity mapping.',
     },
     {
-      family: 'Owned SMTP',
-      status: smtpReady ? 'Configured' : 'Gap',
-      detail: 'Owned SMTP server operations need MTA policy, queue visibility, bounce routing, throttle controls, and domain health.',
+      family: 'Managed SMTP',
+      status: smtpReady ? 'Configured' : 'Control plane',
+      detail: 'MTA operations are moving into platform-managed provider profiles, inventory, route policy, readiness, and feedback controls.',
     },
     {
       family: 'AI agent tools',
@@ -15289,7 +15316,7 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
         <div className="panel-head compact-head">
           <div>
             <h3>Integration Foundation Map</h3>
-            <span className="muted">Data connectors, owned SMTP, feedback webhooks, and AI operations.</span>
+            <span className="muted">Data connectors, managed SMTP, feedback webhooks, and AI operations.</span>
           </div>
           <a href="#settings">Open Settings</a>
         </div>
@@ -15561,12 +15588,12 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
         run: () => { window.location.hash = '#integrations'; },
         disabled: checking,
       }
-      : !smtpReady
-        ? {
-          tone: 'warn',
-          title: 'Document owned SMTP gap',
-          detail: 'Owned SMTP remains a first-class platform foundation even when provider adapters are available.',
-          actionLabel: 'Open Integrations',
+    : !smtpReady
+      ? {
+        tone: 'warn',
+        title: 'Document managed SMTP rollout',
+        detail: 'Managed SMTP is active as a multi-provider control plane; document Scaleway live state and AWS pending state.',
+        actionLabel: 'Open Integrations',
           run: () => { window.location.hash = '#integrations'; },
           disabled: checking,
         }
@@ -15613,9 +15640,9 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
       tone: schemaReady ? 'good' : 'warn',
     },
     {
-      label: 'Owned SMTP',
-      value: smtpReady ? 'Ready' : 'Gap',
-      detail: smtpReady ? 'Managed SMTP path configured' : sendgridReady ? 'Adapter ready; owned SMTP not configured' : 'No managed SMTP path configured',
+      label: 'Managed SMTP',
+      value: smtpReady ? 'Ready' : 'Control plane',
+      detail: smtpReady ? 'Managed SMTP adapter configured' : sendgridReady ? 'Adapter ready; managed-MTA profiles available' : 'Apply a provider profile from Delivery',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -15644,9 +15671,9 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
       guidance: 'RDBMS, warehouse, NoSQL, API connectors, multi-entity joins, and client-owned entities need first-class contracts.',
     },
     {
-      area: 'Owned SMTP',
-      status: smtpReady ? 'Configured' : 'Gap',
-      guidance: smtpReady ? 'Managed SMTP path is configured.' : 'SMTP server, MTA policy, send queues, throttling, and domain controls remain platform foundation work.',
+      area: 'Managed SMTP',
+      status: smtpReady ? 'Configured' : 'Control plane',
+      guidance: smtpReady ? 'Managed SMTP adapter is configured.' : 'Scaleway is the live MTA path; AWS remains pending and future providers should be managed through the same inventory model.',
     },
     {
       area: 'Deliverability feedback',
@@ -15930,9 +15957,9 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
       tone: schemaCurrent ? 'good' : 'warn',
     },
     {
-      label: 'Owned SMTP control',
-      value: smtpReady ? 'Configured' : 'Gap',
-      detail: smtpReady ? 'Managed SMTP path is configured.' : 'Owned SMTP server settings, MTA policy, throttling, and domains need admin controls.',
+      label: 'Managed SMTP control',
+      value: smtpReady ? 'Configured' : 'Delivery-managed',
+      detail: smtpReady ? 'Managed SMTP adapter is configured.' : 'Provider profiles, MTA inventory, route policy, and readiness are managed in Delivery.',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -15963,8 +15990,8 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
     },
     {
       label: 'Policy governance',
-      value: smtpReady && aiReady ? 'Partial' : 'Gap',
-      detail: 'Owned SMTP, AI tools, imports, and suppression policy need workspace-level controls before automation.',
+      value: smtpReady && aiReady ? 'Partial' : 'Planned',
+      detail: 'Managed SMTP, AI tools, imports, and suppression policy need workspace-level controls before automation.',
       tone: smtpReady && aiReady ? 'warn' : 'warn',
     },
     {
@@ -16039,8 +16066,8 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
             : !smtpReady
               ? {
                 tone: 'warn',
-                title: 'Configure owned SMTP',
-                detail: 'Owned SMTP should be managed here as a platform foundation, not only through provider adapters.',
+                title: 'Review managed SMTP controls',
+                detail: 'Managed SMTP provider profiles are controlled from Delivery; Settings should focus on global governance.',
                 actionLabel: 'Refresh Diagnostics',
                 run: refreshDiagnostics,
                 disabled: busy,
@@ -16066,7 +16093,7 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
                   : {
                     tone: 'good',
                     title: 'Settings ready',
-                    detail: 'Admin access, schema, owned SMTP, public URL, and AI provider checks are ready.',
+                    detail: 'Admin access, schema, managed SMTP, public URL, and AI provider checks are ready.',
                     actionLabel: 'Refresh Diagnostics',
                     run: refreshDiagnostics,
                     disabled: busy,
@@ -16079,9 +16106,9 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
       tone: canManageUsers ? 'good' : 'warn',
     },
     {
-      label: 'Owned SMTP',
-      value: smtpReady ? 'Ready' : 'Missing',
-      detail: smtpReady ? 'Managed SMTP configured' : sendgridReady ? 'SendGrid adapter is ready, owned SMTP is not' : 'No managed SMTP path configured',
+      label: 'Managed SMTP',
+      value: smtpReady ? 'Ready' : 'Delivery-managed',
+      detail: smtpReady ? 'Managed SMTP configured' : sendgridReady ? 'SendGrid adapter is ready; managed MTA profiles live in Delivery' : 'Apply a managed-MTA provider profile from Delivery',
       tone: smtpReady ? 'good' : 'warn',
     },
     {
@@ -16278,7 +16305,7 @@ function SettingsPage({ diagnostics, onRefresh, currentUser }: {
         <div className="panel-head compact-head">
           <div>
             <h3>Foundation Control Plane</h3>
-            <span className="muted">Schema, owned SMTP, public endpoint, and AI provider governance.</span>
+            <span className="muted">Schema, managed SMTP, public endpoint, and AI provider governance.</span>
           </div>
           <button className="link-button" type="button" onClick={refreshDiagnostics} disabled={busy}>Refresh Diagnostics</button>
         </div>
