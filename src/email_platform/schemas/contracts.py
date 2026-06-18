@@ -1324,6 +1324,70 @@ class ManagedSmtpDeploymentSummaryRead(BaseModel):
     recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
 
 
+class MtaNodeRuntimeDomainConfig(BaseModel):
+    domain: str
+    route_id: UUID | None = None
+    ip_pool_id: UUID | None = None
+    bounce_domain: str | None = None
+    dkim_selector: str | None = None
+    dkim_key_ref: str | None = None
+    warmup_stage: str | None = None
+    max_per_minute: int | None = None
+    max_concurrent: int | None = None
+    verified: bool = False
+
+
+class MtaNodeRuntimePoolConfig(BaseModel):
+    ip_pool_id: UUID
+    name: str
+    pool_type: MtaIpPoolType
+    status: MtaOperationalStatus
+    membership_id: UUID
+    membership_status: MtaOperationalStatus
+    priority: int
+    weight: int
+
+
+class MtaNodeRuntimeConfigRead(BaseModel):
+    node: MtaNodeRead
+    provider_account: MtaProviderAccountRead
+    config_version: str
+    submission_host: str
+    submission_port: int
+    auth_secret_ref: str | None = None
+    pools: list[MtaNodeRuntimePoolConfig] = Field(default_factory=list)
+    domains: list[MtaNodeRuntimeDomainConfig] = Field(default_factory=list)
+    status: MtaOperationalStatus
+    generated_at: datetime
+
+
+class MtaNodeHeartbeatRequest(BaseModel):
+    status: str = Field(default='ok', max_length=40)
+    summary: str | None = Field(default=None, max_length=500)
+    queue_depth: int | None = Field(default=None, ge=0)
+    deferred_count: int | None = Field(default=None, ge=0)
+    active_count: int | None = Field(default=None, ge=0)
+    config_version: str | None = Field(default=None, max_length=128)
+    applied_config_version: str | None = Field(default=None, max_length=128)
+    payload_json: JsonObject = Field(default_factory=dict)
+
+
+class MtaNodeEventCreate(BaseModel):
+    event_type: str = Field(..., min_length=1, max_length=100)
+    severity: str = Field(default='info', max_length=40)
+    summary: str | None = Field(default=None, max_length=500)
+    payload_json: JsonObject = Field(default_factory=dict)
+    observed_at: datetime | None = None
+
+
+class MtaNodeEventRead(MtaNodeEventCreate):
+    id: UUID
+    mta_node_id: UUID
+    received_at: datetime
+
+    model_config = {'from_attributes': True}
+
+
 class ManagedSmtpFirstSendChecklistItem(BaseModel):
     key: str
     label: str

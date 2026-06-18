@@ -21,6 +21,7 @@ PUBLIC_API_EXACT_PATHS = {
 PUBLIC_API_PREFIXES = (
     '/api/auth/',
     '/api/v1/auth/',
+    '/api/v1/mta-agent/',
     '/api/v1/tracking/open/',
     '/api/v1/tracking/click/',
     '/api/v1/unsubscribe/',

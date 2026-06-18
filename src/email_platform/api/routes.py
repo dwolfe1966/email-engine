@@ -166,6 +166,9 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessTrendRead,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
+    MtaNodeEventCreate,
+    MtaNodeEventRead,
+    MtaNodeHeartbeatRequest,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
     MtaIpPoolNodeRead,
@@ -174,6 +177,7 @@ from email_platform.schemas.contracts import (
     MtaIpPoolUpdate,
     MtaNodeCreate,
     MtaNodeRead,
+    MtaNodeRuntimeConfigRead,
     MtaNodeUpdate,
     MtaProviderAccountCreate,
     MtaProviderAccountRead,
@@ -228,6 +232,7 @@ from email_platform.services.managed_smtp_bootstrap import (
     bootstrap_profile_payload,
     list_bootstrap_profiles,
 )
+from email_platform.services.managed_smtp_agent import ManagedSmtpAgentService
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
 from email_platform.services.mta_inventory import MtaInventoryError, MtaInventoryService
@@ -3240,6 +3245,75 @@ def bootstrap_managed_smtp_profile(
     if not payload:
         raise HTTPException(status_code=404, detail='Managed SMTP bootstrap profile not found')
     return ManagedSmtpBootstrapService(db).bootstrap(payload)
+
+
+async def _verified_managed_smtp_body(request: Request, settings: SettingsDep) -> bytes:
+    raw_body = await request.body()
+    try:
+        ManagedSmtpFeedbackVerifier(settings).verify(
+            raw_body,
+            request.headers.get(ManagedSmtpFeedbackVerifier.signature_header),
+            request.headers.get(ManagedSmtpFeedbackVerifier.timestamp_header),
+        )
+    except WebhookSignatureError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return raw_body
+
+
+@router.get(
+    '/mta-agent/nodes/{node_id}/runtime-config',
+    response_model=MtaNodeRuntimeConfigRead,
+)
+async def get_mta_agent_runtime_config(
+    node_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> MtaNodeRuntimeConfigRead:
+    await _verified_managed_smtp_body(request, settings)
+    config = ManagedSmtpAgentService(db).runtime_config(node_id)
+    if not config:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return config
+
+
+@router.post(
+    '/mta-agent/nodes/{node_id}/heartbeat',
+    response_model=ManagedSmtpReadinessCheckRead,
+)
+async def post_mta_agent_heartbeat(
+    node_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> ManagedSmtpReadinessCheckRead:
+    raw_body = await _verified_managed_smtp_body(request, settings)
+    try:
+        payload = MtaNodeHeartbeatRequest.model_validate_json(raw_body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    check = ManagedSmtpAgentService(db).heartbeat(node_id, payload)
+    if not check:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return check
+
+
+@router.post('/mta-agent/nodes/{node_id}/events', response_model=MtaNodeEventRead)
+async def post_mta_agent_event(
+    node_id: UUID,
+    request: Request,
+    db: DbSession,
+    settings: SettingsDep,
+) -> MtaNodeEventRead:
+    raw_body = await _verified_managed_smtp_body(request, settings)
+    try:
+        payload = MtaNodeEventCreate.model_validate_json(raw_body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    event = ManagedSmtpAgentService(db).create_event(node_id, payload)
+    if not event:
+        raise HTTPException(status_code=404, detail='MTA node not found')
+    return event
 
 
 @router.post('/managed-smtp/resolve-route', response_model=ManagedSmtpRouteResolutionRead)

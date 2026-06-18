@@ -766,6 +766,21 @@ class ManagedSmtpReadinessCheck(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class MtaNodeEvent(Base):
+    __tablename__ = 'mta_node_events'
+
+    id: Mapped[PyUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    mta_node_id: Mapped[PyUUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey('mta_nodes.id'), index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(100), index=True)
+    severity: Mapped[str] = mapped_column(String(40), default='info', index=True)
+    summary: Mapped[str | None] = mapped_column(String(500))
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class User(Base):
     """Operator user. Multi-tenant identity model will layer on top of this
     later (see PRODUCT_BACKLOG.md P0). For the single-tenant scaffold, every

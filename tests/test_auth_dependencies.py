@@ -29,6 +29,9 @@ def test_require_user_rejects_anonymous_request() -> None:
 def test_operator_auth_path_classifier_keeps_public_delivery_routes_open() -> None:
     public_paths = [
         '/api/v1/auth/login',
+        '/api/v1/mta-agent/nodes/node-id/runtime-config',
+        '/api/v1/mta-agent/nodes/node-id/heartbeat',
+        '/api/v1/mta-agent/nodes/node-id/events',
         '/api/auth/login',
         '/api/v1/tracking/open/token',
         '/api/v1/tracking/click/token',
@@ -97,6 +100,21 @@ def test_managed_smtp_readiness_public_route_requires_signature_secret(monkeypat
             'summary': 'smoke passed',
             'result_json': {},
         },
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'Managed SMTP feedback secret is not configured'}
+
+
+def test_mta_agent_public_route_requires_signature_secret(monkeypatch) -> None:
+    monkeypatch.setattr(settings, 'require_gui_auth', True)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_secret', None)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_require_signature', True)
+    client = TestClient(app, follow_redirects=False)
+
+    response = client.post(
+        '/api/v1/mta-agent/nodes/00000000-0000-0000-0000-000000000000/heartbeat',
+        json={'status': 'ok', 'summary': 'agent online'},
     )
 
     assert response.status_code == 401
