@@ -33,6 +33,7 @@ def test_operator_auth_path_classifier_keeps_public_delivery_routes_open() -> No
         '/api/v1/tracking/open/token',
         '/api/v1/tracking/click/token',
         '/api/v1/delivery/managed-smtp/feedback',
+        '/api/v1/delivery/managed-smtp/readiness-checks',
         '/api/v1/provider-webhooks/sendgrid',
         '/api/v1/unsubscribe/token',
     ]
@@ -74,6 +75,28 @@ def test_managed_smtp_feedback_public_route_requires_signature_secret(monkeypatc
     response = client.post(
         '/api/v1/delivery/managed-smtp/feedback',
         json=[{'email': 'recipient@example.com', 'event': 'dsn_bounce'}],
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {'detail': 'Managed SMTP feedback secret is not configured'}
+
+
+def test_managed_smtp_readiness_public_route_requires_signature_secret(monkeypatch) -> None:
+    monkeypatch.setattr(settings, 'require_gui_auth', True)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_secret', None)
+    monkeypatch.setattr(settings, 'managed_smtp_feedback_require_signature', True)
+    client = TestClient(app, follow_redirects=False)
+
+    response = client.post(
+        '/api/v1/delivery/managed-smtp/readiness-checks',
+        json={
+            'source': 'managed_smtp_mta_smoke',
+            'check_type': 'smtp_probe',
+            'status': 'ok',
+            'host': 'mta-002.email-engine.app',
+            'summary': 'smoke passed',
+            'result_json': {},
+        },
     )
 
     assert response.status_code == 401

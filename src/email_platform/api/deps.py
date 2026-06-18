@@ -15,6 +15,7 @@ PUBLIC_API_EXACT_PATHS = {
     '/api/auth',
     '/api/v1/auth',
     '/api/v1/delivery/managed-smtp/feedback',
+    '/api/v1/delivery/managed-smtp/readiness-checks',
     '/api/v1/provider-webhooks/sendgrid',
 }
 PUBLIC_API_PREFIXES = (
