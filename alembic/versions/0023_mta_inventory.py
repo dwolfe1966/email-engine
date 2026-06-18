@@ -21,6 +21,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     provider_type = postgresql.ENUM(
         'aws',
+        'scaleway',
         'vultr',
         'akamai_linode',
         'hetzner',

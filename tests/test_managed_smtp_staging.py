@@ -1123,6 +1123,7 @@ def test_managed_smtp_bootstrap_script_builds_payload() -> None:
     module = load_script_module(BOOTSTRAP_SCRIPT)
     payload = module.bootstrap_payload(
         SimpleNamespace(
+            profile=None,
             provider_account_name='aws-staging',
             provider='aws',
             provider_account_ref='123456789012',
@@ -1161,6 +1162,62 @@ def test_managed_smtp_bootstrap_script_builds_payload() -> None:
     assert payload['bounce_domain'] == 'returns.example.com'
     assert payload['dkim_selector'] == 'ee1'
     assert payload['activate_inventory'] is False
+
+
+def test_managed_smtp_bootstrap_script_builds_scaleway_profile_payload() -> None:
+    module = load_script_module(BOOTSTRAP_SCRIPT)
+    payload = module.bootstrap_payload(
+        SimpleNamespace(
+            profile='scaleway-poc',
+            provider_account_name=None,
+            provider=None,
+            provider_account_ref=None,
+            region=None,
+            abuse_contact_email=None,
+            support_case_ref=None,
+            port25_status=None,
+            rdns_status=None,
+            provider_secret_ref=None,
+            node_name=None,
+            hostname=None,
+            public_ipv4=None,
+            submission_host=None,
+            submission_port=None,
+            auth_secret_ref=None,
+            ip_pool_name=None,
+            ip_pool_type=None,
+            route_name=None,
+            domain=None,
+            bounce_domain=None,
+            dkim_selector=None,
+            dkim_key_ref=None,
+            warmup_stage=None,
+            max_per_minute=None,
+            max_concurrent=None,
+            activate_inventory=False,
+            mark_domain_verified=False,
+        )
+    )
+
+    assert payload['provider_account_name'] == 'scaleway-poc'
+    assert payload['provider'] == 'scaleway'
+    assert payload['provider_account_ref'] == 'email-engine-mta-poc'
+    assert payload['region'] == 'fr-par'
+    assert payload['port25_status'] == 'approved'
+    assert payload['rdns_status'] == 'configured'
+    assert payload['node_name'] == 'mta-002'
+    assert payload['hostname'] == 'mta-002.email-engine.app'
+    assert payload['public_ipv4'] == '212.47.236.69'
+    assert payload['submission_host'] == 'mta-002.email-engine.app'
+    assert payload['auth_secret_ref'] == 'secret/mta/scaleway/mta-002/submission'
+    assert payload['ip_pool_name'] == 'scaleway-internal-test'
+    assert payload['route_name'] == 'managed-smtp-scaleway-primary'
+    assert payload['domain'] == 'email-engine.app'
+    assert payload['bounce_domain'] == 'returns-scaleway.email-engine.app'
+    assert payload['dkim_selector'] == 'ee2'
+    assert payload['activate_inventory'] is True
+    assert payload['mark_domain_verified'] is True
+    assert payload['metadata_json']['first_seed_delivered'] is True
 
 
 def test_secret_and_pii_policy_covers_managed_smtp_local_artifacts() -> None:

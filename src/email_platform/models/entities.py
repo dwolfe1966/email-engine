@@ -136,6 +136,7 @@ class DeliveryRouteStatus(StrEnum):
 
 class MtaProviderType(StrEnum):
     aws = 'aws'
+    scaleway = 'scaleway'
     vultr = 'vultr'
     akamai_linode = 'akamai_linode'
     hetzner = 'hetzner'

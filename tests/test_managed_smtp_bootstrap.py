@@ -167,3 +167,51 @@ def test_managed_smtp_bootstrap_can_activate_inventory_and_verify_domain(
     assert result.pool_node.status == MtaOperationalStatus.active
     assert result.domain_policy.metadata_json['domain_authentication_verification']['verified']
     assert 'Verify provider outbound TCP port 25 approval.' not in result.next_steps
+
+
+def test_managed_smtp_bootstrap_registers_scaleway_provider_path(monkeypatch) -> None:
+    monkeypatch.setattr(bootstrap_module, 'ManagedSmtpRoutingService', FakeResolver)
+    db = FakeDb()
+    payload = ManagedSmtpBootstrapRequest(
+        provider_account_name='scaleway-poc',
+        provider='scaleway',
+        provider_account_ref='email-engine-mta-poc',
+        region='fr-par',
+        port25_status='approved',
+        rdns_status='configured',
+        node_name='mta-002',
+        hostname='mta-002.email-engine.app',
+        public_ipv4='212.47.236.69',
+        submission_host='mta-002.email-engine.app',
+        submission_port=587,
+        auth_secret_ref='secret/mta/scaleway/mta-002/submission',
+        ip_pool_name='scaleway-internal-test',
+        route_name='managed-smtp-scaleway-primary',
+        domain='email-engine.app',
+        bounce_domain='returns-scaleway.email-engine.app',
+        dkim_selector='ee2',
+        dkim_key_ref='mta://mta-002.email-engine.app/email-engine.app/ee2',
+        activate_inventory=True,
+        mark_domain_verified=True,
+    )
+
+    result = ManagedSmtpBootstrapService(db).bootstrap(payload)
+
+    assert result.provider_account.name == 'scaleway-poc'
+    assert result.provider_account.provider == 'scaleway'
+    assert result.provider_account.status == MtaOperationalStatus.active
+    assert result.provider_account.port25_status == 'approved'
+    assert result.provider_account.rdns_status == 'configured'
+    assert result.node.name == 'mta-002'
+    assert result.node.public_ipv4 == '212.47.236.69'
+    assert result.node.submission_host == 'mta-002.email-engine.app'
+    assert result.node.auth_secret_ref == 'secret/mta/scaleway/mta-002/submission'
+    assert result.ip_pool.name == 'scaleway-internal-test'
+    assert result.ip_pool.status == MtaOperationalStatus.active
+    assert result.delivery_route.name == 'managed-smtp-scaleway-primary'
+    assert result.domain_policy.domain == 'email-engine.app'
+    assert result.domain_policy.metadata_json['domain_authentication']['bounce_domain'] == (
+        'returns-scaleway.email-engine.app'
+    )
+    assert result.domain_policy.metadata_json['dkim_key']['selector'] == 'ee2'
+    assert result.domain_policy.metadata_json['domain_authentication_verification']['verified']

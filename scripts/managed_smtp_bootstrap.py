@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -10,6 +12,43 @@ from typing import Any
 
 class ApiError(RuntimeError):
     pass
+
+
+BOOTSTRAP_PROFILES: dict[str, dict[str, Any]] = {
+    'scaleway-poc': {
+        'provider_account_name': 'scaleway-poc',
+        'provider': 'scaleway',
+        'provider_account_ref': 'email-engine-mta-poc',
+        'region': 'fr-par',
+        'port25_status': 'approved',
+        'rdns_status': 'configured',
+        'node_name': 'mta-002',
+        'hostname': 'mta-002.email-engine.app',
+        'public_ipv4': '212.47.236.69',
+        'submission_host': 'mta-002.email-engine.app',
+        'submission_port': 587,
+        'auth_secret_ref': 'secret/mta/scaleway/mta-002/submission',
+        'ip_pool_name': 'scaleway-internal-test',
+        'ip_pool_type': 'internal_test',
+        'route_name': 'managed-smtp-scaleway-primary',
+        'domain': 'email-engine.app',
+        'bounce_domain': 'returns-scaleway.email-engine.app',
+        'dkim_selector': 'ee2',
+        'dkim_key_ref': 'mta://mta-002.email-engine.app/email-engine.app/ee2',
+        'warmup_stage': 'stage_1',
+        'max_per_minute': 10,
+        'max_concurrent': 2,
+        'activate_inventory': True,
+        'mark_domain_verified': True,
+        'metadata_json': {
+            'bootstrap_profile': 'scaleway-poc',
+            'provider_project': 'email-engine-mta-poc',
+            'seed_mailbox': 'davidtesterwex@gmail.com',
+            'first_seed_delivered': True,
+            'first_seed_delivered_at': '2026-06-18T15:20:00-07:00',
+        },
+    },
+}
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -62,35 +101,38 @@ def request_json(
 
 
 def bootstrap_payload(args: argparse.Namespace) -> dict[str, Any]:
+    profile = BOOTSTRAP_PROFILES.get(args.profile or '', {})
     return {
-        'provider_account_name': args.provider_account_name,
-        'provider': args.provider,
-        'provider_account_ref': args.provider_account_ref,
-        'region': args.region,
-        'abuse_contact_email': args.abuse_contact_email,
-        'support_case_ref': args.support_case_ref,
-        'port25_status': args.port25_status,
-        'rdns_status': args.rdns_status,
-        'provider_secret_ref': args.provider_secret_ref,
-        'node_name': args.node_name,
-        'hostname': args.hostname,
-        'public_ipv4': args.public_ipv4,
-        'submission_host': args.submission_host,
-        'submission_port': args.submission_port,
-        'auth_secret_ref': args.auth_secret_ref,
-        'ip_pool_name': args.ip_pool_name,
-        'ip_pool_type': args.ip_pool_type,
-        'route_name': args.route_name,
-        'domain': args.domain,
-        'bounce_domain': args.bounce_domain,
-        'dkim_selector': args.dkim_selector,
-        'dkim_key_ref': args.dkim_key_ref,
-        'warmup_stage': args.warmup_stage,
-        'max_per_minute': args.max_per_minute,
-        'max_concurrent': args.max_concurrent,
-        'activate_inventory': args.activate_inventory,
-        'mark_domain_verified': args.mark_domain_verified,
-        'metadata_json': {},
+        'provider_account_name': args.provider_account_name
+        or profile.get('provider_account_name'),
+        'provider': args.provider or profile.get('provider') or 'custom',
+        'provider_account_ref': args.provider_account_ref or profile.get('provider_account_ref'),
+        'region': args.region or profile.get('region'),
+        'abuse_contact_email': args.abuse_contact_email or profile.get('abuse_contact_email'),
+        'support_case_ref': args.support_case_ref or profile.get('support_case_ref'),
+        'port25_status': args.port25_status or profile.get('port25_status') or 'unknown',
+        'rdns_status': args.rdns_status or profile.get('rdns_status') or 'unknown',
+        'provider_secret_ref': args.provider_secret_ref or profile.get('provider_secret_ref'),
+        'node_name': args.node_name or profile.get('node_name'),
+        'hostname': args.hostname or profile.get('hostname'),
+        'public_ipv4': args.public_ipv4 or profile.get('public_ipv4'),
+        'submission_host': args.submission_host or profile.get('submission_host'),
+        'submission_port': args.submission_port or profile.get('submission_port') or 587,
+        'auth_secret_ref': args.auth_secret_ref or profile.get('auth_secret_ref'),
+        'ip_pool_name': args.ip_pool_name or profile.get('ip_pool_name') or 'internal-test',
+        'ip_pool_type': args.ip_pool_type or profile.get('ip_pool_type') or 'internal_test',
+        'route_name': args.route_name or profile.get('route_name') or 'managed-smtp-primary',
+        'domain': args.domain or profile.get('domain'),
+        'bounce_domain': args.bounce_domain or profile.get('bounce_domain'),
+        'dkim_selector': args.dkim_selector or profile.get('dkim_selector'),
+        'dkim_key_ref': args.dkim_key_ref or profile.get('dkim_key_ref'),
+        'warmup_stage': args.warmup_stage or profile.get('warmup_stage') or 'stage_1',
+        'max_per_minute': args.max_per_minute or profile.get('max_per_minute') or 25,
+        'max_concurrent': args.max_concurrent or profile.get('max_concurrent') or 2,
+        'activate_inventory': args.activate_inventory or bool(profile.get('activate_inventory')),
+        'mark_domain_verified': args.mark_domain_verified
+        or bool(profile.get('mark_domain_verified')),
+        'metadata_json': dict(profile.get('metadata_json') or {}),
     }
 
 
@@ -100,14 +142,15 @@ def main() -> int:
     )
     parser.add_argument('--base-url', default=os.getenv('BASE_URL'))
     parser.add_argument('--cookie', default=os.getenv('EMAIL_ENGINE_COOKIE'))
+    parser.add_argument('--profile', choices=sorted(BOOTSTRAP_PROFILES))
     parser.add_argument('--provider-account-name', default=os.getenv('MTA_PROVIDER_ACCOUNT_NAME'))
-    parser.add_argument('--provider', default=os.getenv('MTA_PROVIDER', 'custom'))
+    parser.add_argument('--provider', default=os.getenv('MTA_PROVIDER'))
     parser.add_argument('--provider-account-ref', default=os.getenv('MTA_PROVIDER_ACCOUNT_REF'))
     parser.add_argument('--region', default=os.getenv('MTA_PROVIDER_REGION'))
     parser.add_argument('--abuse-contact-email', default=os.getenv('MTA_ABUSE_CONTACT_EMAIL'))
     parser.add_argument('--support-case-ref', default=os.getenv('MTA_SUPPORT_CASE_REF'))
-    parser.add_argument('--port25-status', default=os.getenv('MTA_PORT25_STATUS', 'unknown'))
-    parser.add_argument('--rdns-status', default=os.getenv('MTA_RDNS_STATUS', 'unknown'))
+    parser.add_argument('--port25-status', default=os.getenv('MTA_PORT25_STATUS'))
+    parser.add_argument('--rdns-status', default=os.getenv('MTA_RDNS_STATUS'))
     parser.add_argument('--provider-secret-ref', default=os.getenv('MTA_PROVIDER_SECRET_REF'))
     parser.add_argument('--node-name', default=os.getenv('MTA_NODE_NAME'))
     parser.add_argument('--hostname', default=os.getenv('MTA_HOSTNAME'))
@@ -119,16 +162,16 @@ def main() -> int:
         default=env_int('MTA_SUBMISSION_PORT', 587),
     )
     parser.add_argument('--auth-secret-ref', default=os.getenv('MTA_AUTH_SECRET_REF'))
-    parser.add_argument('--ip-pool-name', default=os.getenv('MTA_IP_POOL_NAME', 'internal-test'))
-    parser.add_argument('--ip-pool-type', default=os.getenv('MTA_IP_POOL_TYPE', 'internal_test'))
-    parser.add_argument('--route-name', default=os.getenv('MTA_ROUTE_NAME', 'managed-smtp-primary'))
+    parser.add_argument('--ip-pool-name', default=os.getenv('MTA_IP_POOL_NAME'))
+    parser.add_argument('--ip-pool-type', default=os.getenv('MTA_IP_POOL_TYPE'))
+    parser.add_argument('--route-name', default=os.getenv('MTA_ROUTE_NAME'))
     parser.add_argument('--domain', default=os.getenv('MTA_SENDING_DOMAIN'))
     parser.add_argument('--bounce-domain', default=os.getenv('MTA_BOUNCE_DOMAIN'))
     parser.add_argument('--dkim-selector', default=os.getenv('MTA_DKIM_SELECTOR'))
     parser.add_argument('--dkim-key-ref', default=os.getenv('MTA_DKIM_KEY_REF'))
-    parser.add_argument('--warmup-stage', default=os.getenv('MTA_WARMUP_STAGE', 'stage_1'))
-    parser.add_argument('--max-per-minute', type=int, default=env_int('MTA_MAX_PER_MINUTE', 25))
-    parser.add_argument('--max-concurrent', type=int, default=env_int('MTA_MAX_CONCURRENT', 2))
+    parser.add_argument('--warmup-stage', default=os.getenv('MTA_WARMUP_STAGE'))
+    parser.add_argument('--max-per-minute', type=int, default=env_int('MTA_MAX_PER_MINUTE'))
+    parser.add_argument('--max-concurrent', type=int, default=env_int('MTA_MAX_CONCURRENT'))
     parser.add_argument(
         '--activate-inventory',
         action='store_true',
@@ -142,22 +185,23 @@ def main() -> int:
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
 
+    payload = bootstrap_payload(args)
     missing = [
         name
         for name, value in {
             'BASE_URL': args.base_url,
-            'MTA_PROVIDER_ACCOUNT_NAME': args.provider_account_name,
-            'MTA_NODE_NAME': args.node_name,
-            'MTA_HOSTNAME': args.hostname,
-            'MTA_SENDING_DOMAIN': args.domain,
+            'MTA_PROVIDER_ACCOUNT_NAME': payload['provider_account_name'],
+            'MTA_PROVIDER': payload['provider'],
+            'MTA_NODE_NAME': payload['node_name'],
+            'MTA_HOSTNAME': payload['hostname'],
+            'MTA_SENDING_DOMAIN': payload['domain'],
         }.items()
-        if not value
+        if not value and not args.dry_run
     ]
     if missing:
         print(f'Missing required values: {", ".join(missing)}', file=sys.stderr)
         return 2
 
-    payload = bootstrap_payload(args)
     if args.dry_run:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
