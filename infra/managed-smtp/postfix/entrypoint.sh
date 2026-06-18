@@ -16,6 +16,12 @@ postconf -e "maximal_queue_lifetime = 1d"
 postconf -e "bounce_queue_lifetime = 1d"
 
 mkdir -p /var/spool/postfix/dev
+mkdir -p /var/spool/postfix/etc
+for file in resolv.conf services; do
+  if [ -f "/etc/$file" ]; then
+    cp "/etc/$file" "/var/spool/postfix/etc/$file"
+  fi
+done
 
 if [ -n "${POSTFIX_SUBMISSION_USERNAME:-}" ] || [ -n "${POSTFIX_SUBMISSION_PASSWORD:-}" ]; then
   : "${POSTFIX_SUBMISSION_USERNAME:?POSTFIX_SUBMISSION_USERNAME is required when POSTFIX_SUBMISSION_PASSWORD is set}"
