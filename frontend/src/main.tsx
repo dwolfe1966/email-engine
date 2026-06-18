@@ -12596,9 +12596,9 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
             <button className="link-button" type="button" onClick={discoverSchema} disabled={busy || !selectedSourceId}>Discover Schema</button>
           </div>
           <p>{relationshipPlanStatus.detail}</p>
-          <div className="data-relationship-grid">
+          <div className="data-relationship-strip">
             {relationshipPlannerItems.map((item) => (
-              <article className={item.tone} key={item.label}>
+              <article className={`data-relationship-item ${item.tone}`} key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
                 <small>{item.detail}</small>

@@ -7669,35 +7669,58 @@ th {
   line-height: 1.45;
 }
 
-.data-relationship-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.data-relationship-strip {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
-.data-relationship-grid article {
+.data-relationship-item {
+  position: relative;
+  flex: 1 1 0;
   display: grid;
   align-content: start;
   gap: 6px;
   min-width: 0;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
   background: #ffffff;
-  padding: 10px;
+  padding: 11px 12px 11px 15px;
 }
 
-.data-relationship-grid article.warn {
-  border-color: #f8c77d;
+.data-relationship-item + .data-relationship-item {
+  border-left: 1px solid #e4e9f1;
+}
+
+.data-relationship-item::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: #7fa9d6;
+  content: '';
+}
+
+.data-relationship-item.warn {
   background: #fff9ec;
 }
 
-.data-relationship-grid article.good {
-  border-color: #b6e0c1;
+.data-relationship-item.warn::before {
+  background: #d98f18;
+}
+
+.data-relationship-item.good {
   background: #f5fff7;
 }
 
-.data-relationship-grid span,
-.data-relationship-grid small {
+.data-relationship-item.good::before {
+  background: #3f9b64;
+}
+
+.data-relationship-strip span,
+.data-relationship-strip small {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -7705,7 +7728,7 @@ th {
   text-transform: uppercase;
 }
 
-.data-relationship-grid strong {
+.data-relationship-strip strong {
   overflow-wrap: anywhere;
   color: #29405f;
   font-size: 14px;
@@ -8683,7 +8706,6 @@ th {
   .audience-field-intel,
   .analytics-focus-summary,
   .data-mapping-helper-grid,
-  .data-relationship-grid,
   .contact-attribute-helper-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wide-field { grid-column: auto; }
   .template-edit-grid .wide-field,
@@ -8741,7 +8763,6 @@ th {
   .audience-field-intel,
   .analytics-focus-summary,
   .data-mapping-helper-grid,
-  .data-relationship-grid,
   .contact-attribute-helper-grid,
   .template-workspace-map {
     grid-template-columns: 1fr;
@@ -8832,6 +8853,17 @@ th {
   }
   .analytics-deliverability-row {
     grid-template-columns: 1fr;
+  }
+  .data-relationship-strip {
+    display: grid;
+    overflow: visible;
+  }
+  .data-relationship-item,
+  .data-relationship-item + .data-relationship-item {
+    border-left: 0;
+  }
+  .data-relationship-item + .data-relationship-item {
+    border-top: 1px solid #e4e9f1;
   }
   .template-triage-row {
     display: grid;
