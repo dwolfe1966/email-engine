@@ -287,7 +287,7 @@ class MtaInventoryService:
             ),
             pool_nodes=self._inventory_counts(
                 total=self.count_pool_nodes(),
-                count_by_status=self.count_pool_nodes,
+                count_by_status=lambda status: self.count_pool_nodes(status=status),
             ),
             submission_credentials_configured=bool(
                 settings and settings.smtp_username and settings.smtp_password

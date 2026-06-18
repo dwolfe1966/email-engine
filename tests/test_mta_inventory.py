@@ -193,6 +193,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
             return 1 if status in {None, MtaOperationalStatus.paused} else 0
 
         def count_pool_nodes(self, ip_pool_id=None, mta_node_id=None, status=None):
+            assert ip_pool_id is None
+            assert mta_node_id is None
             return 1 if status in {None, MtaOperationalStatus.active} else 0
 
         def _managed_smtp_route_count(self):
