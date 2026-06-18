@@ -15,11 +15,84 @@ from email_platform.models.entities import (
     MtaProviderAccount,
 )
 from email_platform.schemas.contracts import (
+    ManagedSmtpBootstrapProfileRead,
     ManagedSmtpBootstrapRead,
     ManagedSmtpBootstrapRequest,
     ManagedSmtpRouteResolveRequest,
 )
 from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
+
+
+BOOTSTRAP_PROFILES: dict[str, dict[str, object]] = {
+    'scaleway-poc': {
+        'provider_account_name': 'scaleway-poc',
+        'provider': 'scaleway',
+        'provider_account_ref': 'email-engine-mta-poc',
+        'region': 'fr-par',
+        'port25_status': 'approved',
+        'rdns_status': 'configured',
+        'node_name': 'mta-002',
+        'hostname': 'mta-002.email-engine.app',
+        'public_ipv4': '212.47.236.69',
+        'submission_host': 'mta-002.email-engine.app',
+        'submission_port': 587,
+        'auth_secret_ref': 'secret/mta/scaleway/mta-002/submission',
+        'ip_pool_name': 'scaleway-internal-test',
+        'ip_pool_type': 'internal_test',
+        'route_name': 'managed-smtp-scaleway-primary',
+        'domain': 'email-engine.app',
+        'bounce_domain': 'returns-scaleway.email-engine.app',
+        'dkim_selector': 'ee2',
+        'dkim_key_ref': 'mta://mta-002.email-engine.app/email-engine.app/ee2',
+        'warmup_stage': 'stage_1',
+        'max_per_minute': 10,
+        'max_concurrent': 2,
+        'activate_inventory': True,
+        'mark_domain_verified': True,
+        'metadata_json': {
+            'bootstrap_profile': 'scaleway-poc',
+            'provider_project': 'email-engine-mta-poc',
+            'seed_mailbox': 'davidtesterwex@gmail.com',
+            'first_seed_delivered': True,
+            'first_seed_delivered_at': '2026-06-18T15:20:00-07:00',
+        },
+    },
+}
+
+
+def list_bootstrap_profiles() -> list[ManagedSmtpBootstrapProfileRead]:
+    return [
+        _profile_read(name, values)
+        for name, values in sorted(BOOTSTRAP_PROFILES.items(), key=lambda item: item[0])
+    ]
+
+
+def bootstrap_profile_payload(name: str) -> ManagedSmtpBootstrapRequest | None:
+    values = BOOTSTRAP_PROFILES.get(name)
+    if not values:
+        return None
+    return ManagedSmtpBootstrapRequest(**values)
+
+
+def _profile_read(name: str, values: dict[str, object]) -> ManagedSmtpBootstrapProfileRead:
+    return ManagedSmtpBootstrapProfileRead(
+        name=name,
+        provider=values['provider'],
+        provider_account_name=str(values['provider_account_name']),
+        node_name=str(values['node_name']),
+        hostname=str(values['hostname']),
+        public_ipv4=values.get('public_ipv4'),
+        route_name=str(values['route_name']),
+        ip_pool_name=str(values['ip_pool_name']),
+        domain=str(values['domain']),
+        bounce_domain=values.get('bounce_domain'),
+        dkim_selector=values.get('dkim_selector'),
+        port25_status=str(values.get('port25_status') or 'unknown'),
+        rdns_status=str(values.get('rdns_status') or 'unknown'),
+        activate_inventory=bool(values.get('activate_inventory')),
+        mark_domain_verified=bool(values.get('mark_domain_verified')),
+        metadata_json=dict(values.get('metadata_json') or {}),
+    )
 
 
 class ManagedSmtpBootstrapService:

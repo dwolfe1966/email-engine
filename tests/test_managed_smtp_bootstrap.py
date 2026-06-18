@@ -16,7 +16,11 @@ from email_platform.schemas.contracts import (
     ManagedSmtpRouteResolutionRead,
 )
 from email_platform.services import managed_smtp_bootstrap as bootstrap_module
-from email_platform.services.managed_smtp_bootstrap import ManagedSmtpBootstrapService
+from email_platform.services.managed_smtp_bootstrap import (
+    ManagedSmtpBootstrapService,
+    bootstrap_profile_payload,
+    list_bootstrap_profiles,
+)
 
 
 class FakeScalarResult:
@@ -215,3 +219,22 @@ def test_managed_smtp_bootstrap_registers_scaleway_provider_path(monkeypatch) ->
     )
     assert result.domain_policy.metadata_json['dkim_key']['selector'] == 'ee2'
     assert result.domain_policy.metadata_json['domain_authentication_verification']['verified']
+
+
+def test_managed_smtp_bootstrap_profiles_expose_scaleway_poc() -> None:
+    profiles = list_bootstrap_profiles()
+
+    scaleway = next(profile for profile in profiles if profile.name == 'scaleway-poc')
+    payload = bootstrap_profile_payload('scaleway-poc')
+
+    assert scaleway.provider == 'scaleway'
+    assert scaleway.provider_account_name == 'scaleway-poc'
+    assert scaleway.hostname == 'mta-002.email-engine.app'
+    assert scaleway.public_ipv4 == '212.47.236.69'
+    assert scaleway.domain == 'email-engine.app'
+    assert scaleway.port25_status == 'approved'
+    assert scaleway.activate_inventory is True
+    assert payload is not None
+    assert payload.provider == 'scaleway'
+    assert payload.route_name == 'managed-smtp-scaleway-primary'
+    assert bootstrap_profile_payload('missing-profile') is None

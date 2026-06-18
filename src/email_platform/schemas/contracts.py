@@ -1058,6 +1058,25 @@ class ManagedSmtpBootstrapRequest(BaseModel):
     metadata_json: JsonObject = Field(default_factory=dict)
 
 
+class ManagedSmtpBootstrapProfileRead(BaseModel):
+    name: str
+    provider: MtaProviderType
+    provider_account_name: str
+    node_name: str
+    hostname: str
+    public_ipv4: str | None = None
+    route_name: str
+    ip_pool_name: str
+    domain: str
+    bounce_domain: str | None = None
+    dkim_selector: str | None = None
+    port25_status: str
+    rdns_status: str
+    activate_inventory: bool
+    mark_domain_verified: bool
+    metadata_json: JsonObject = Field(default_factory=dict)
+
+
 class ManagedSmtpBootstrapRead(BaseModel):
     provider_account: MtaProviderAccountRead
     node: MtaNodeRead

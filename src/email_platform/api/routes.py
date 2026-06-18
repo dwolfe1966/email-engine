@@ -151,6 +151,7 @@ from email_platform.schemas.contracts import (
     JsonObject,
     ListResponse,
     ManagedSmtpBootstrapRead,
+    ManagedSmtpBootstrapProfileRead,
     ManagedSmtpBootstrapRequest,
     ManagedSmtpDeploymentSummaryRead,
     ManagedSmtpFeedbackEvent,
@@ -222,7 +223,11 @@ from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
-from email_platform.services.managed_smtp_bootstrap import ManagedSmtpBootstrapService
+from email_platform.services.managed_smtp_bootstrap import (
+    ManagedSmtpBootstrapService,
+    bootstrap_profile_payload,
+    list_bootstrap_profiles,
+)
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
 from email_platform.services.mta_inventory import MtaInventoryError, MtaInventoryService
@@ -3206,6 +3211,34 @@ def bootstrap_managed_smtp(
     payload: ManagedSmtpBootstrapRequest,
     db: DbSession,
 ) -> ManagedSmtpBootstrapRead:
+    return ManagedSmtpBootstrapService(db).bootstrap(payload)
+
+
+@router.get(
+    '/managed-smtp/bootstrap-profiles/list',
+    response_model=ListResponse[ManagedSmtpBootstrapProfileRead],
+)
+def list_managed_smtp_bootstrap_profiles() -> dict[str, object]:
+    profiles = list_bootstrap_profiles()
+    return {
+        'items': profiles,
+        'limit': len(profiles),
+        'offset': 0,
+        'total': len(profiles),
+    }
+
+
+@router.post(
+    '/managed-smtp/bootstrap-profiles/{profile_name}',
+    response_model=ManagedSmtpBootstrapRead,
+)
+def bootstrap_managed_smtp_profile(
+    profile_name: str,
+    db: DbSession,
+) -> ManagedSmtpBootstrapRead:
+    payload = bootstrap_profile_payload(profile_name)
+    if not payload:
+        raise HTTPException(status_code=404, detail='Managed SMTP bootstrap profile not found')
     return ManagedSmtpBootstrapService(db).bootstrap(payload)
 
 

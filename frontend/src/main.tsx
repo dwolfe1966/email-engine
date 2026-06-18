@@ -741,6 +741,25 @@ type MtaProviderAccountRead = {
   updated_at: string;
 };
 
+type ManagedSmtpBootstrapProfileRead = {
+  name: string;
+  provider: string;
+  provider_account_name: string;
+  node_name: string;
+  hostname: string;
+  public_ipv4: string | null;
+  route_name: string;
+  ip_pool_name: string;
+  domain: string;
+  bounce_domain: string | null;
+  dkim_selector: string | null;
+  port25_status: string;
+  rdns_status: string;
+  activate_inventory: boolean;
+  mark_domain_verified: boolean;
+  metadata_json: Record<string, unknown>;
+};
+
 type MtaNodeRead = {
   id: string;
   provider_account_id: string;
@@ -785,6 +804,26 @@ type ManagedSmtpDeploymentSummaryRead = {
   managed_smtp_route_count: number;
   managed_smtp_domain_policy_count: number;
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
+};
+
+type ManagedSmtpBootstrapRead = {
+  provider_account: MtaProviderAccountRead;
+  node: MtaNodeRead;
+  ip_pool: {
+    id: string;
+    name: string;
+    pool_type: string;
+    status: string;
+    description: string | null;
+    metadata_json: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  };
+  pool_node: MtaIpPoolNodeRead;
+  delivery_route: DeliveryRouteRead;
+  domain_policy: DomainDeliveryPolicyRead;
+  route_resolution: ManagedSmtpRouteResolutionRead;
+  next_steps: string[];
 };
 
 type ManagedSmtpFirstSendChecklistItem = {
@@ -9734,6 +9773,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [readinessTrend, setReadinessTrend] = useState<ManagedSmtpReadinessTrendRead | null>(null);
   const [readinessAlerts, setReadinessAlerts] = useState<ManagedSmtpReadinessAlertsRead | null>(null);
   const [readinessNotification, setReadinessNotification] = useState<ManagedSmtpReadinessNotificationRead | null>(null);
+  const [managedSmtpBootstrapProfiles, setManagedSmtpBootstrapProfiles] = useState<ManagedSmtpBootstrapProfileRead[]>([]);
+  const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
   const [firstSendReadiness, setFirstSendReadiness] = useState<ManagedSmtpFirstSendRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
@@ -10314,6 +10355,36 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function loadManagedSmtpBootstrapProfiles() {
+    await runDeliveryOperation('Loading managed SMTP bootstrap profiles', async () => {
+      const data = await fetchJson<ListResponse<ManagedSmtpBootstrapProfileRead>>('/api/v1/managed-smtp/bootstrap-profiles/list');
+      const items = data.items || [];
+      setManagedSmtpBootstrapProfiles(items);
+      if (!items.find((item) => item.name === selectedManagedSmtpBootstrapProfile) && items[0]) {
+        setSelectedManagedSmtpBootstrapProfile(items[0].name);
+      }
+      return `Loaded ${formatInt(items.length)} managed SMTP bootstrap profile(s).`;
+    });
+  }
+
+  async function applyManagedSmtpBootstrapProfile() {
+    await runDeliveryOperation('Applying managed SMTP bootstrap profile', async () => {
+      if (!selectedManagedSmtpBootstrapProfile) throw new Error('Select a managed SMTP bootstrap profile.');
+      const result = await fetchJson<ManagedSmtpBootstrapRead>(`/api/v1/managed-smtp/bootstrap-profiles/${encodeURIComponent(selectedManagedSmtpBootstrapProfile)}`, {
+        method: 'POST',
+      });
+      const [summary, policies] = await Promise.all([
+        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+        fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
+      ]);
+      setManagedSmtpDeploymentSummary(summary);
+      setDomainPolicies(policies.items || []);
+      setSelectedDomainPolicyId(result.domain_policy.id);
+      setManagedSmtpRouteResolution(result.route_resolution);
+      return `Registered ${result.provider_account.provider} provider ${result.provider_account.name} with node ${result.node.hostname}.`;
+    });
+  }
+
   async function loadFirstSendEvidence() {
     await runDeliveryOperation('Loading managed SMTP first-send evidence', async () => {
       const readinessParams = new URLSearchParams({ limit: '25', offset: '0' });
@@ -10547,7 +10618,35 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             <h2>Managed SMTP Deployment</h2>
             <span className="muted">Control-plane inventory for provider accounts, MTA nodes, IP pools, routes, and node readiness.</span>
           </div>
-          <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+          <div className="button-row">
+            <button className="ghost" onClick={loadManagedSmtpBootstrapProfiles} disabled={busy}>Load Profiles</button>
+            <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+          </div>
+        </div>
+        <div className="form-grid">
+          <label className="wide-field">
+            Provider bootstrap profile
+            <select value={selectedManagedSmtpBootstrapProfile} onChange={(event) => setSelectedManagedSmtpBootstrapProfile(event.target.value)}>
+              <option value="">Select provider profile</option>
+              {managedSmtpBootstrapProfiles.map((profile) => (
+                <option value={profile.name} key={profile.name}>
+                  {profile.provider} | {profile.hostname} | {profile.domain}
+                </option>
+              ))}
+              {!managedSmtpBootstrapProfiles.find((profile) => profile.name === 'scaleway-poc') ? (
+                <option value="scaleway-poc">scaleway | mta-002.email-engine.app | email-engine.app</option>
+              ) : null}
+            </select>
+          </label>
+          <label>
+            Selected profile
+            <input value={selectedManagedSmtpBootstrapProfile || '-'} readOnly />
+          </label>
+          <label>
+            Provider mode
+            <input value="multi-provider inventory" readOnly />
+          </label>
+          <button className="primary" type="button" onClick={applyManagedSmtpBootstrapProfile} disabled={busy || !selectedManagedSmtpBootstrapProfile}>Apply Profile</button>
         </div>
         <div className="delivery-score-strip" aria-label="Managed SMTP deployment score strip">
           {managedSmtpDeploymentItems.map((item) => (

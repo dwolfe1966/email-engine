@@ -89,6 +89,8 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/delivery-routes/{route_id}/pause',
         '/api/v1/delivery-routes/{route_id}/resume',
         '/api/v1/provider-feedback-events/list',
+        '/api/v1/managed-smtp/bootstrap-profiles/{profile_name}',
+        '/api/v1/managed-smtp/bootstrap-profiles/list',
         '/api/v1/managed-smtp/deployment-summary',
         '/api/v1/managed-smtp/first-send-readiness',
         '/api/v1/managed-smtp/readiness-checks/list',
