@@ -36,6 +36,8 @@ class FakeDb:
         self.scalar_results = list(scalar_results or [])
         self.added = []
         self.commit_count = 0
+        self.flush_count = 0
+        self.flush_added_counts = []
         self.refreshed = []
 
     def scalar(self, statement):
@@ -53,6 +55,8 @@ class FakeDb:
         self.added.append(item)
 
     def flush(self):
+        self.flush_count += 1
+        self.flush_added_counts.append(len(self.added))
         for item in self.added:
             self._hydrate(item)
 
@@ -214,6 +218,8 @@ def test_managed_smtp_bootstrap_registers_scaleway_provider_path(monkeypatch) ->
     assert result.ip_pool.status == MtaOperationalStatus.active
     assert result.delivery_route.name == 'managed-smtp-scaleway-primary'
     assert result.domain_policy.domain == 'email-engine.app'
+    assert db.flush_count >= 2
+    assert db.flush_added_counts[0] == 3
     assert result.domain_policy.metadata_json['domain_authentication']['bounce_domain'] == (
         'returns-scaleway.email-engine.app'
     )

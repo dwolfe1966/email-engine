@@ -103,6 +103,7 @@ class ManagedSmtpBootstrapService:
         provider_account = self._provider_account(payload)
         node = self._node(payload, provider_account)
         ip_pool = self._ip_pool(payload)
+        self.db.flush()
         pool_node = self._pool_node(ip_pool, node, payload)
         self.db.flush()
         delivery_route = self._delivery_route(payload, ip_pool)
