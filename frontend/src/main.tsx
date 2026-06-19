@@ -2464,6 +2464,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                     run: () => { window.location.hash = '#analytics'; },
                     disabled: operationBusy,
                   };
+  const proofSendRouteLabel = lastTestSendResult
+    ? [
+      lastTestSendResult.route_type || lastTestSendResult.provider,
+      lastTestSendResult.mta_provider || lastTestSendResult.route_key,
+    ].filter(Boolean).join(' / ')
+    : '';
   const campaignTriageItems = [
     {
       label: 'Draft',
@@ -2879,6 +2885,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               </div>
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
               <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
+              <div><span>Route</span><strong>{proofSendRouteLabel || '-'}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
