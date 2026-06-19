@@ -18,6 +18,7 @@ from email_platform.models.entities import (
 from email_platform.providers.email import EmailMessage, build_email_provider
 from email_platform.schemas.contracts import EventCreate
 from email_platform.services.contacts import ContactService
+from email_platform.services.delivery import DeliveryService
 from email_platform.services.events import EventService
 from email_platform.services.suppressions import SuppressionService
 from email_platform.services.templates import TemplateService
@@ -79,7 +80,7 @@ class SendingService:
         context = self._campaign_test_context(campaign, variables)
         job = CampaignSendJob(
             campaign_id=campaign.id,
-            status=SendJobStatus.processing,
+            status=SendJobStatus.queued,
             requested_count=1,
             queued_count=1,
             suppressed_count=0,
@@ -93,10 +94,10 @@ class SendingService:
             send_job_id=job.id,
             contact_id=contact.id,
             template_id=template.id,
-            status=EmailSendStatus.sending,
+            status=EmailSendStatus.queued,
             to_email=to_email,
             variables=context,
-            attempt_count=1,
+            attempt_count=0,
             max_attempts=1,
         )
         self.db.add(record)
@@ -105,56 +106,32 @@ class SendingService:
         tracked_context = self._tracked_variables(record)
         record.variables = tracked_context
         subject, html, text = self.template_service.render(template, tracked_context)
-        try:
-            result = self.provider.send(
-                EmailMessage(
-                    to_email=to_email,
-                    from_email=str(self.settings.default_from_email),
-                    subject=subject,
-                    html_body=html,
-                    text_body=text,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            record.status = EmailSendStatus.failed
-            record.error_message = str(exc)
+        job.status = SendJobStatus.processing
+        delivery = DeliveryService(self.db, self.settings).process_queued(
+            limit=1,
+            send_job_id=job.id,
+        )
+        self.db.refresh(record)
+        self.db.refresh(job)
+        if delivery.sent_count != 1 or record.status not in {
+            EmailSendStatus.submitted,
+            EmailSendStatus.sent,
+            EmailSendStatus.delivered,
+        }:
             job.status = SendJobStatus.failed
             self.db.commit()
-            raise
-
-        record.status = EmailSendStatus.sent
-        record.provider = result.provider
-        record.provider_message_id = result.provider_message_id
-        record.error_message = None
-        record.next_attempt_at = None
-        job.status = SendJobStatus.completed
-        self.event_service.record_no_commit(
-            EventCreate(
-                send_record_id=record.id,
-                send_job_id=job.id,
-                contact_id=contact.id,
-                campaign_id=campaign.id,
-                event_type=EmailEventType.sent,
-                provider_message_id=result.provider_message_id,
-                metadata_json={
-                    'provider': result.provider,
-                    'status_code': result.status_code,
-                    'template_id': str(template.id),
-                    'to_email': to_email,
-                    'subject': subject,
-                    'send_record_id': str(record.id),
-                    'send_job_id': str(job.id),
-                    'source': 'campaign_test_send',
-                },
+            raise ValueError(
+                record.error_message
+                or 'Campaign test send was not submitted by the delivery worker.'
             )
-        )
+        job.status = SendJobStatus.completed
         self.db.commit()
         self.db.refresh(record)
         self.db.refresh(job)
         return {
-            'provider': result.provider,
-            'provider_message_id': result.provider_message_id,
-            'status_code': result.status_code,
+            'provider': record.provider,
+            'provider_message_id': record.provider_message_id,
+            'status_code': 250,
             'campaign_id': campaign.id,
             'template_id': template.id,
             'send_job_id': job.id,
