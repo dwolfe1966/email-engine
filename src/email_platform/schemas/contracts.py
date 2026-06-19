@@ -1366,6 +1366,9 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     total_nodes: int
     active_nodes: int
     route_ready_nodes: int
+    operational_ok_nodes: int
+    operational_warning_nodes: int
+    operational_blocked_nodes: int
     readiness_ok_nodes: int
     stale_agent_nodes: int
     missing_agent_nodes: int

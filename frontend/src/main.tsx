@@ -850,6 +850,9 @@ type ManagedSmtpFleetHealthRead = {
   total_nodes: number;
   active_nodes: number;
   route_ready_nodes: number;
+  operational_ok_nodes: number;
+  operational_warning_nodes: number;
+  operational_blocked_nodes: number;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
   missing_agent_nodes: number;
@@ -9983,6 +9986,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.readiness_ok_nodes)} readiness OK, ${formatInt(managedSmtpDeploymentSummary.fleet_health.active_nodes)} active node(s)`
         : 'Load deployment summary for route capacity.',
       tone: managedSmtpDeploymentSummary?.fleet_health.route_ready_nodes ? 'good' : 'warn',
+    },
+    {
+      label: 'Node status',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.operational_ok_nodes || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.operational_warning_nodes)} warning, ${formatInt(managedSmtpDeploymentSummary.fleet_health.operational_blocked_nodes)} blocked`
+        : 'Load deployment summary for MTA node status.',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.operational_warning_nodes + managedSmtpDeploymentSummary.fleet_health.operational_blocked_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Agent coverage',

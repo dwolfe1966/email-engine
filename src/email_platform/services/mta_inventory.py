@@ -687,6 +687,15 @@ class MtaInventoryService:
             and item.readiness_summary.latest_check.status == 'ok'
             and item.pool_memberships
         )
+        operational_ok_nodes = sum(
+            1 for item in node_summaries if item.agent_operational_status == 'ok'
+        )
+        operational_warning_nodes = sum(
+            1 for item in node_summaries if item.agent_operational_status == 'warning'
+        )
+        operational_blocked_nodes = sum(
+            1 for item in node_summaries if item.agent_operational_status == 'blocked'
+        )
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
         )
@@ -800,6 +809,9 @@ class MtaInventoryService:
             total_nodes=len(node_summaries),
             active_nodes=len(active_nodes),
             route_ready_nodes=route_ready_nodes,
+            operational_ok_nodes=operational_ok_nodes,
+            operational_warning_nodes=operational_warning_nodes,
+            operational_blocked_nodes=operational_blocked_nodes,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,
