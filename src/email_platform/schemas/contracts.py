@@ -1326,6 +1326,8 @@ class ManagedSmtpLogSampleRead(BaseModel):
 class ManagedSmtpDeploymentNodeSummary(BaseModel):
     node: MtaNodeRead
     provider_account: MtaProviderAccountRead | None = None
+    provider_port25_status_label: str = 'Unknown'
+    provider_rdns_status_label: str = 'Unknown'
     provider_blockers: list[str] = Field(default_factory=list)
     provider_blocker_labels: list[str] = Field(default_factory=list)
     operator_next_action_code: str = 'load_deployment_summary'

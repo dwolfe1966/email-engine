@@ -801,6 +801,8 @@ type MtaIpPoolNodeRead = {
 type ManagedSmtpDeploymentNodeSummary = {
   node: MtaNodeRead;
   provider_account: MtaProviderAccountRead | null;
+  provider_port25_status_label: string;
+  provider_rdns_status_label: string;
   provider_blockers: string[];
   provider_blocker_labels: string[];
   operator_next_action_code: string;
@@ -11076,8 +11078,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <dl>
                   <div><dt>provider</dt><dd>{item.provider_account?.name || '-'}</dd></div>
                   <div><dt>support case</dt><dd>{item.provider_account?.support_case_ref || '-'}</dd></div>
-                  <div><dt>port 25</dt><dd>{item.provider_account?.port25_status || 'unknown'}</dd></div>
-                  <div><dt>rDNS</dt><dd>{item.provider_account?.rdns_status || 'unknown'}</dd></div>
+                  <div><dt>port 25</dt><dd>{item.provider_port25_status_label || item.provider_account?.port25_status || 'Unknown'}</dd></div>
+                  <div><dt>rDNS</dt><dd>{item.provider_rdns_status_label || item.provider_account?.rdns_status || 'Unknown'}</dd></div>
                   <div><dt>provider blockers</dt><dd>{item.provider_blocker_labels.length ? item.provider_blocker_labels.join(', ') : 'none'}</dd></div>
                   <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>

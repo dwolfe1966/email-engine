@@ -272,6 +272,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         '/api/v1/managed-smtp/first-send-readiness',
         'port25_status',
         'rdns_status',
+        'provider_port25_status_label',
+        'provider_rdns_status_label',
         'support_case_ref',
         'support case',
         'port 25',

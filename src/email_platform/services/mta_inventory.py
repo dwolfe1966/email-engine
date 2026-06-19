@@ -360,6 +360,12 @@ class MtaInventoryService:
         ]
         for item in node_summaries:
             item.provider_blockers = self._provider_blockers(item.provider_account)
+            item.provider_port25_status_label = self._provider_status_label(
+                item.provider_account.port25_status if item.provider_account else 'unknown'
+            )
+            item.provider_rdns_status_label = self._provider_status_label(
+                item.provider_account.rdns_status if item.provider_account else 'unknown'
+            )
             item.provider_blocker_labels = [
                 self._provider_blocker_label(blocker) for blocker in item.provider_blockers
             ]
@@ -1136,6 +1142,17 @@ class MtaInventoryService:
             'port25_blocked': 'Port 25 blocked',
             'rdns_blocked': 'rDNS blocked',
         }.get(blocker, blocker)
+
+    @staticmethod
+    def _provider_status_label(status: str) -> str:
+        return {
+            'approved': 'Approved',
+            'configured': 'Configured',
+            'pending': 'Pending',
+            'requested': 'Requested',
+            'blocked': 'Blocked',
+            'unknown': 'Unknown',
+        }.get(status, status.replace('_', ' ').title())
 
     @staticmethod
     def _operator_next_action_code_label(code: str) -> str:
