@@ -1334,6 +1334,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
     readiness_summary: ManagedSmtpReadinessSummaryRead
     agent_heartbeat_status: str = 'missing'
+    agent_heartbeat_status_label: str = 'Missing'
     agent_operational_status: str = 'blocked'
     agent_operational_status_label: str = 'Blocked'
     agent_last_heartbeat_at: datetime | None = None

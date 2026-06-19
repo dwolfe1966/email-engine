@@ -362,6 +362,9 @@ class MtaInventoryService:
             item.provider_blocker_labels = [
                 self._provider_blocker_label(blocker) for blocker in item.provider_blockers
             ]
+            item.agent_heartbeat_status_label = self._agent_heartbeat_status_label(
+                item.agent_heartbeat_status
+            )
             item.agent_operational_status = self._agent_operational_status(item)
             item.agent_operational_status_label = self._agent_operational_status_label(
                 item.agent_operational_status
@@ -958,6 +961,15 @@ class MtaInventoryService:
             'ok': 'Operational',
             'warning': 'Needs review',
             'blocked': 'Blocked',
+        }.get(status, status)
+
+    @staticmethod
+    def _agent_heartbeat_status_label(status: str) -> str:
+        return {
+            'ok': 'Current',
+            'missing': 'Missing',
+            'stale': 'Stale',
+            'invalid': 'Invalid',
         }.get(status, status)
 
     def _provider_blockers(self, provider_account) -> list[str]:

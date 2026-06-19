@@ -120,6 +120,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'rDNS blocked',
         'Provider inactive',
         'agent_heartbeat_status',
+        'agent_heartbeat_status_label',
         'agent_operational_status',
         'agent_operational_status_label',
         'agent_heartbeat_age_seconds',
