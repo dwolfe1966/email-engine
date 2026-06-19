@@ -703,6 +703,10 @@ class MtaInventoryService:
         operator_next_action_counts = dict(
             Counter(item.operator_next_action_code for item in node_summaries)
         )
+        operator_next_action_label_counts = {
+            self._operator_next_action_code_label(code): count
+            for code, count in operator_next_action_counts.items()
+        }
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
         )
@@ -845,6 +849,7 @@ class MtaInventoryService:
             operational_warning_nodes=operational_warning_nodes,
             operational_blocked_nodes=operational_blocked_nodes,
             operator_next_action_counts=operator_next_action_counts,
+            operator_next_action_label_counts=operator_next_action_label_counts,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,
@@ -1004,6 +1009,23 @@ class MtaInventoryService:
             'port25_blocked': 'Port 25 blocked',
             'rdns_blocked': 'rDNS blocked',
         }.get(blocker, blocker)
+
+    @staticmethod
+    def _operator_next_action_code_label(code: str) -> str:
+        return {
+            'resolve_provider_blockers': 'Resolve provider blockers',
+            'restart_mta_agent': 'Restart MTA agent',
+            'restart_mta_agent_service': 'Restart MTA agent service',
+            'restart_mta_agent_timer': 'Restart MTA agent timer',
+            'inspect_deferred_queue': 'Inspect deferred queue',
+            'review_postfix_logs': 'Review Postfix logs',
+            'resolve_host_worktree': 'Resolve host worktree',
+            'update_host_revision': 'Update host revision',
+            'report_host_revision': 'Report host revision',
+            'apply_runtime_config': 'Apply runtime config',
+            'publish_readiness': 'Publish readiness',
+            'none': 'No action',
+        }.get(code, code)
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

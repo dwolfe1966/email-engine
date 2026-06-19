@@ -355,6 +355,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.operational_warning_nodes == 0
     assert summary.fleet_health.operational_blocked_nodes == 0
     assert summary.fleet_health.operator_next_action_counts == {'none': 1}
+    assert summary.fleet_health.operator_next_action_label_counts == {'No action': 1}
     assert summary.fleet_health.blocked_provider_count == 0
     assert summary.fleet_health.provider_port25_blocked_count == 0
     assert summary.fleet_health.provider_rdns_blocked_count == 0
@@ -650,6 +651,11 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
         'report_host_revision': 1,
         'resolve_host_worktree': 1,
         'update_host_revision': 1,
+    }
+    assert summary.operator_next_action_label_counts == {
+        'Report host revision': 1,
+        'Resolve host worktree': 1,
+        'Update host revision': 1,
     }
 
 
