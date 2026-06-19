@@ -390,6 +390,9 @@ class MtaInventoryService:
                 item.agent_host_update_status
             )
             item.operator_next_action_code = self._operator_next_action_code(item)
+            item.operator_next_action_code_label = self._operator_next_action_code_label(
+                item.operator_next_action_code
+            )
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
         return ManagedSmtpDeploymentSummaryRead(

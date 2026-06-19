@@ -804,6 +804,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   provider_blockers: string[];
   provider_blocker_labels: string[];
   operator_next_action_code: string;
+  operator_next_action_code_label: string;
   operator_next_action: string;
   operator_next_action_tone: string;
   pool_memberships: MtaIpPoolNodeRead[];
@@ -11088,7 +11089,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>agent timer</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
                   <div><dt>queue</dt><dd>{item.agent_queue_status_label || item.agent_queue_status} / {formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                   <div><dt>recent logs</dt><dd>{item.agent_log_issue_status_label || item.agent_log_issue_status}</dd></div>
-                  <div><dt>action code</dt><dd>{item.operator_next_action_code || 'unknown'}</dd></div>
+                  <div><dt>action code</dt><dd>{item.operator_next_action_code_label || 'Unknown'} / {item.operator_next_action_code || 'unknown'}</dd></div>
                   <div><dt>next action</dt><dd>{item.operator_next_action || managedSmtpNodeNextAction(item)}</dd></div>
                 </dl>
                 <details>

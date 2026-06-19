@@ -111,6 +111,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'provider_blocker_labels',
         'provider blockers',
         'operator_next_action_code',
+        'operator_next_action_code_label',
         'operator_next_action',
         'operator_next_action_tone',
         'action code',

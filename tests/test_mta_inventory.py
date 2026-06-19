@@ -321,6 +321,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_blockers == []
     assert summary.recent_nodes[0].provider_blocker_labels == []
     assert summary.recent_nodes[0].operator_next_action_code == 'none'
+    assert summary.recent_nodes[0].operator_next_action_code_label == 'No action'
     assert summary.recent_nodes[0].operator_next_action == (
         'No operator action required for this MTA node.'
     )
