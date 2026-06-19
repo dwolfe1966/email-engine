@@ -181,7 +181,12 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         submission_port=587,
         auth_secret_ref='secret/mta-001/submission',
         last_readiness_at=now,
-        metadata_json={'agent_last_heartbeat_at': now.isoformat()},
+        metadata_json={
+            'agent_last_heartbeat_at': now.isoformat(),
+            'agent_queue_depth': 1,
+            'agent_deferred_count': 0,
+            'agent_active_count': 1,
+        },
         created_at=now,
         updated_at=now,
     )
@@ -208,6 +213,14 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
                 ok_count=2,
                 warning_count=0,
                 failed_count=0,
+                latest_check=ManagedSmtpReadinessCheckRead(
+                    id=uuid4(),
+                    source='mta_agent',
+                    check_type='heartbeat',
+                    status='ok',
+                    host='smtp.example.com',
+                    created_at=now,
+                ),
             )
 
     class FakeSummaryService(MtaInventoryService):
@@ -273,6 +286,11 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_last_heartbeat_at is not None
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
+    assert summary.recent_nodes[0].agent_queue_depth == 1
+    assert summary.fleet_health.status == 'ok'
+    assert summary.fleet_health.route_ready_nodes == 1
+    assert summary.fleet_health.queue_depth == 1
+    assert summary.fleet_health.active_queue_count == 1
 
 
 def test_agent_heartbeat_state_marks_old_heartbeat_stale() -> None:

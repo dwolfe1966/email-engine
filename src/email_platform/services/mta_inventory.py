@@ -21,6 +21,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpDeploymentSummaryRead,
     ManagedSmtpFirstSendChecklistItem,
     ManagedSmtpFirstSendRead,
+    ManagedSmtpFleetHealthRead,
     MtaInventoryCounts,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
@@ -366,6 +367,7 @@ class MtaInventoryService:
             submission_tls_enabled=bool(settings.smtp_use_tls) if settings else True,
             managed_smtp_route_count=self._managed_smtp_route_count(),
             managed_smtp_domain_policy_count=self._managed_smtp_domain_policy_count(),
+            fleet_health=self._fleet_health(node_summaries),
             recent_nodes=node_summaries,
         )
 
@@ -560,6 +562,9 @@ class MtaInventoryService:
                 'agent_last_heartbeat_at': None,
                 'agent_heartbeat_age_seconds': None,
                 'agent_heartbeat_stale_after_seconds': stale_after,
+                'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
+                'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
+                'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
             }
         try:
             heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
@@ -569,6 +574,9 @@ class MtaInventoryService:
                 'agent_last_heartbeat_at': None,
                 'agent_heartbeat_age_seconds': None,
                 'agent_heartbeat_stale_after_seconds': stale_after,
+                'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
+                'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
+                'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
             }
         age_seconds = max(
             0,
@@ -579,7 +587,90 @@ class MtaInventoryService:
             'agent_last_heartbeat_at': heartbeat_at,
             'agent_heartbeat_age_seconds': age_seconds,
             'agent_heartbeat_stale_after_seconds': stale_after,
+            'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
+            'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
+            'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
         }
+
+    def _fleet_health(
+        self,
+        node_summaries: list[ManagedSmtpDeploymentNodeSummary],
+    ) -> ManagedSmtpFleetHealthRead:
+        active_nodes = [
+            item for item in node_summaries if self._status_value(item.node.status) == 'active'
+        ]
+        readiness_ok_nodes = sum(
+            1 for item in active_nodes if item.readiness_summary.latest_check and item.readiness_summary.latest_check.status == 'ok'
+        )
+        route_ready_nodes = sum(
+            1
+            for item in active_nodes
+            if item.agent_heartbeat_status == 'ok'
+            and item.readiness_summary.latest_check
+            and item.readiness_summary.latest_check.status == 'ok'
+            and item.pool_memberships
+        )
+        stale_agent_nodes = sum(
+            1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
+        )
+        missing_agent_nodes = sum(
+            1 for item in node_summaries if item.agent_heartbeat_status == 'missing'
+        )
+        blocked_provider_count = sum(
+            1
+            for item in node_summaries
+            if item.provider_account
+            and (
+                item.provider_account.port25_status != 'approved'
+                or item.provider_account.rdns_status != 'configured'
+                or self._status_value(item.provider_account.status) != 'active'
+            )
+        )
+        queue_depth = sum(item.agent_queue_depth or 0 for item in node_summaries)
+        deferred_count = sum(item.agent_deferred_count or 0 for item in node_summaries)
+        active_queue_count = sum(item.agent_active_count or 0 for item in node_summaries)
+        if route_ready_nodes == 0:
+            status = 'blocked'
+            summary = 'No route-ready MTA nodes are available.'
+        elif stale_agent_nodes or missing_agent_nodes or blocked_provider_count or deferred_count:
+            status = 'warning'
+            summary = 'MTA fleet has route capacity with operational warnings.'
+        else:
+            status = 'ok'
+            summary = 'MTA fleet is route-ready.'
+        return ManagedSmtpFleetHealthRead(
+            status=status,
+            summary=summary,
+            provider_count=len({str(item.provider_account.id) for item in node_summaries if item.provider_account}),
+            active_provider_count=len(
+                {
+                    str(item.provider_account.id)
+                    for item in node_summaries
+                    if item.provider_account
+                    and self._status_value(item.provider_account.status) == 'active'
+                }
+            ),
+            blocked_provider_count=blocked_provider_count,
+            total_nodes=len(node_summaries),
+            active_nodes=len(active_nodes),
+            route_ready_nodes=route_ready_nodes,
+            readiness_ok_nodes=readiness_ok_nodes,
+            stale_agent_nodes=stale_agent_nodes,
+            missing_agent_nodes=missing_agent_nodes,
+            queue_depth=queue_depth,
+            deferred_count=deferred_count,
+            active_queue_count=active_queue_count,
+        )
+
+    @staticmethod
+    def _metadata_int(metadata: dict[str, object], key: str) -> int | None:
+        value = metadata.get(key)
+        if value is None:
+            return None
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:

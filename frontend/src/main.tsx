@@ -807,6 +807,26 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_last_heartbeat_at: string | null;
   agent_heartbeat_age_seconds: number | null;
   agent_heartbeat_stale_after_seconds: number;
+  agent_queue_depth: number | null;
+  agent_deferred_count: number | null;
+  agent_active_count: number | null;
+};
+
+type ManagedSmtpFleetHealthRead = {
+  status: string;
+  summary: string;
+  provider_count: number;
+  active_provider_count: number;
+  blocked_provider_count: number;
+  total_nodes: number;
+  active_nodes: number;
+  route_ready_nodes: number;
+  readiness_ok_nodes: number;
+  stale_agent_nodes: number;
+  missing_agent_nodes: number;
+  queue_depth: number;
+  deferred_count: number;
+  active_queue_count: number;
 };
 
 type ManagedSmtpDeploymentSummaryRead = {
@@ -818,6 +838,7 @@ type ManagedSmtpDeploymentSummaryRead = {
   submission_tls_enabled: boolean;
   managed_smtp_route_count: number;
   managed_smtp_domain_policy_count: number;
+  fleet_health: ManagedSmtpFleetHealthRead;
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
 };
 
@@ -9909,6 +9930,46 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.submission_credentials_configured ? 'good' : 'warn',
     },
   ];
+  const managedSmtpFleetItems = [
+    {
+      label: 'Fleet status',
+      value: managedSmtpDeploymentSummary?.fleet_health.status || 'Unknown',
+      detail: managedSmtpDeploymentSummary?.fleet_health.summary || 'Load deployment summary for fleet health.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.status === 'ok' ? 'good' : 'warn',
+    },
+    {
+      label: 'Route-ready nodes',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.route_ready_nodes || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.readiness_ok_nodes)} readiness OK, ${formatInt(managedSmtpDeploymentSummary.fleet_health.active_nodes)} active node(s)`
+        : 'Load deployment summary for route capacity.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.route_ready_nodes ? 'good' : 'warn',
+    },
+    {
+      label: 'Agent coverage',
+      value: formatInt((managedSmtpDeploymentSummary?.fleet_health.stale_agent_nodes || 0) + (managedSmtpDeploymentSummary?.fleet_health.missing_agent_nodes || 0)),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing`
+        : 'Load deployment summary for MTA agent coverage.',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes === 0 ? 'good' : 'warn',
+    },
+    {
+      label: 'Queue pressure',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.queue_depth || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.deferred_count)} deferred, ${formatInt(managedSmtpDeploymentSummary.fleet_health.active_queue_count)} active`
+        : 'Load deployment summary for agent queue pressure.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.deferred_count ? 'warn' : 'good',
+    },
+    {
+      label: 'Provider blockers',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.active_provider_count)} active provider account(s)`
+        : 'Load deployment summary for provider blockers.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count ? 'warn' : 'good',
+    },
+  ];
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
@@ -10775,6 +10836,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
             </div>
           ))}
         </div>
+        <div className="delivery-score-strip" aria-label="Managed SMTP fleet health strip">
+          {managedSmtpFleetItems.map((item) => (
+            <div className={`delivery-score-item ${item.tone}`} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
@@ -10793,6 +10863,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
+                  <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                 </dl>
                 <div className="button-row">
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>

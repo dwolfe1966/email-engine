@@ -90,6 +90,9 @@ class ManagedSmtpAgentService:
             'agent_last_status': normalized_status,
             'agent_config_version': payload.config_version,
             'agent_applied_config_version': payload.applied_config_version,
+            'agent_queue_depth': payload.queue_depth,
+            'agent_deferred_count': payload.deferred_count,
+            'agent_active_count': payload.active_count,
         }
         self.db.commit()
         self.db.refresh(check)

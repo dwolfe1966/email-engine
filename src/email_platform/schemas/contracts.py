@@ -1319,6 +1319,26 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_last_heartbeat_at: datetime | None = None
     agent_heartbeat_age_seconds: int | None = None
     agent_heartbeat_stale_after_seconds: int = 180
+    agent_queue_depth: int | None = None
+    agent_deferred_count: int | None = None
+    agent_active_count: int | None = None
+
+
+class ManagedSmtpFleetHealthRead(BaseModel):
+    status: str
+    summary: str
+    provider_count: int
+    active_provider_count: int
+    blocked_provider_count: int
+    total_nodes: int
+    active_nodes: int
+    route_ready_nodes: int
+    readiness_ok_nodes: int
+    stale_agent_nodes: int
+    missing_agent_nodes: int
+    queue_depth: int
+    deferred_count: int
+    active_queue_count: int
 
 
 class ManagedSmtpDeploymentSummaryRead(BaseModel):
@@ -1330,6 +1350,7 @@ class ManagedSmtpDeploymentSummaryRead(BaseModel):
     submission_tls_enabled: bool = True
     managed_smtp_route_count: int
     managed_smtp_domain_policy_count: int
+    fleet_health: ManagedSmtpFleetHealthRead
     recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
 
 
