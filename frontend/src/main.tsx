@@ -821,6 +821,9 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_timer_next_elapse: string | null;
   agent_code_revision: string | null;
   agent_code_dirty: boolean | null;
+  agent_host_update_required: boolean;
+  agent_host_update_status: string;
+  agent_host_update_detail: string | null;
 };
 
 type ManagedSmtpFleetHealthRead = {
@@ -10009,17 +10012,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (['missing', 'stale', 'invalid'].includes(item.agent_heartbeat_status)) {
       return 'Restart or manually run the MTA agent on the host, then reload deployment summary.';
     }
-    if (item.agent_code_dirty) {
+    if (item.agent_host_update_status === 'dirty') {
       return 'Resolve the host working-tree changes before using this MTA for production traffic.';
     }
-    if (
-      managedSmtpDeploymentSummary?.fleet_health.platform_code_revision
-      && item.agent_code_revision
-      && !managedSmtpDeploymentSummary.fleet_health.platform_code_revision.startsWith(item.agent_code_revision)
-    ) {
+    if (item.agent_host_update_status === 'outdated') {
       return 'Run the host update workflow so this MTA pulls the deployed platform revision.';
     }
-    if (!item.agent_code_revision) {
+    if (item.agent_host_update_status === 'revision_missing') {
       return 'Run the host update workflow so this MTA reports its code revision.';
     }
     if (!item.agent_config_in_sync) {
@@ -10956,6 +10955,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
                     <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision?.slice(0, 12) || '-'}</dd></div>
                     <div><dt>host revision</dt><dd>{item.agent_code_revision || '-'}{item.agent_code_dirty ? ' dirty' : ''}</dd></div>
+                    <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
+                    <div><dt>host update detail</dt><dd>{item.agent_host_update_detail || '-'}</dd></div>
                   </dl>
                 </details>
                 <details>

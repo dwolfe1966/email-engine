@@ -786,9 +786,35 @@ class MtaInventoryService:
         }
 
     def _agent_code_state(self, metadata: dict[str, object]) -> dict[str, object]:
+        agent_code_revision = self._metadata_str(metadata, 'agent_code_revision')
+        agent_code_dirty = self._metadata_bool(metadata, 'agent_code_dirty')
+        platform_code_revision = self._platform_code_revision()
+        if agent_code_dirty is True:
+            update_required = True
+            update_status = 'dirty'
+            update_detail = 'Host working tree has local changes.'
+        elif not agent_code_revision:
+            update_required = True
+            update_status = 'revision_missing'
+            update_detail = 'Host agent has not reported its code revision.'
+        elif platform_code_revision and not platform_code_revision.startswith(agent_code_revision):
+            update_required = True
+            update_status = 'outdated'
+            update_detail = 'Host code revision differs from the deployed platform revision.'
+        elif platform_code_revision:
+            update_required = False
+            update_status = 'current'
+            update_detail = 'Host code revision matches the deployed platform revision.'
+        else:
+            update_required = False
+            update_status = 'unverified'
+            update_detail = 'Platform revision is not available for comparison.'
         return {
-            'agent_code_revision': self._metadata_str(metadata, 'agent_code_revision'),
-            'agent_code_dirty': self._metadata_bool(metadata, 'agent_code_dirty'),
+            'agent_code_revision': agent_code_revision,
+            'agent_code_dirty': agent_code_dirty,
+            'agent_host_update_required': update_required,
+            'agent_host_update_status': update_status,
+            'agent_host_update_detail': update_detail,
         }
 
     @staticmethod

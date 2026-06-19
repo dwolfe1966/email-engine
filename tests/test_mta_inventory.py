@@ -320,6 +320,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_timer_next_elapse == 'Fri 2026-06-19 00:34:09 UTC'
     assert summary.recent_nodes[0].agent_code_revision == 'abc123def456'
     assert summary.recent_nodes[0].agent_code_dirty is False
+    assert summary.recent_nodes[0].agent_host_update_required is False
+    assert summary.recent_nodes[0].agent_host_update_status == 'unverified'
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
     assert summary.fleet_health.config_drift_nodes == 0
@@ -358,6 +360,24 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert state['platform_config_version'] == 'config-v2'
     assert state['agent_applied_config_version'] == 'config-v1'
     assert state['agent_config_in_sync'] is False
+
+
+def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:
+    monkeypatch.setenv('VERCEL_GIT_COMMIT_SHA', 'abc123def456')
+    service = MtaInventoryService(FakeDb())
+
+    state = service._agent_code_state(
+        {
+            'agent_code_revision': 'old123',
+            'agent_code_dirty': False,
+        }
+    )
+
+    assert state['agent_host_update_required'] is True
+    assert state['agent_host_update_status'] == 'outdated'
+    assert state['agent_host_update_detail'] == (
+        'Host code revision differs from the deployed platform revision.'
+    )
 
 
 def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdated(
