@@ -10002,6 +10002,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.fleet_health.host_update_required_nodes ? 'warn' : 'good',
     },
     {
+      label: 'Agent systemd',
+      value: formatInt(
+        (managedSmtpDeploymentSummary?.fleet_health.agent_service_failed_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.agent_timer_unhealthy_nodes || 0)
+      ),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes)} service failed, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes)} timer unhealthy`
+        : 'Load deployment summary for MTA agent systemd status.',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes + managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes === 0 ? 'good' : 'warn',
+    },
+    {
       label: 'Queue pressure',
       value: formatInt(managedSmtpDeploymentSummary?.fleet_health.queue_depth || 0),
       detail: managedSmtpDeploymentSummary
