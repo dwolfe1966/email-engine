@@ -10875,6 +10875,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
                   <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                 </dl>
+                <details>
+                  <summary>Runtime config evidence</summary>
+                  <dl>
+                    <div><dt>platform version</dt><dd>{item.platform_config_version || '-'}</dd></div>
+                    <div><dt>agent reported</dt><dd>{item.agent_config_version || '-'}</dd></div>
+                    <div><dt>agent applied</dt><dd>{item.agent_applied_config_version || '-'}</dd></div>
+                    <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_at ? new Date(item.agent_last_heartbeat_at).toLocaleString() : '-'}</dd></div>
+                  </dl>
+                </details>
                 <div className="button-row">
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'resume')} disabled={busy || item.node.status === 'active'}>Resume MTA Node</button>
