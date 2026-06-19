@@ -11632,8 +11632,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
               const isFocusedAttempt = routeAttemptId && attempt.id === routeAttemptId;
+              const attemptHasIssue = ['claim_blocked', 'dead_lettered', 'deferred', 'failed'].includes(attempt.status)
+                || Boolean(routeBlockReason || attempt.error_message)
+                || (typeof attempt.smtp_response_code === 'number' && attempt.smtp_response_code >= 400);
               return (
-                <article className={`${['claim_blocked', 'dead_lettered'].includes(attempt.status) ? 'warn' : 'good'} ${isFocusedAttempt ? 'selected-row' : ''}`} key={attempt.id}>
+                <article className={`${attemptHasIssue ? 'warn' : 'good'} ${isFocusedAttempt ? 'selected-row' : ''}`} key={attempt.id}>
                   <div>
                     <span>{attempt.status}</span>
                     <strong>{reason}</strong>
