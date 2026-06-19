@@ -539,6 +539,10 @@ type CampaignTestSendResult = {
   mta_hostname?: string | null;
   mta_ip_pool_name?: string | null;
   mta_route_resolved?: boolean | null;
+  mta_route_block_code?: string | null;
+  mta_route_block_message?: string | null;
+  smtp_response_code?: number | null;
+  smtp_response?: string | null;
 };
 
 type CampaignSendJobProgress = {
@@ -2866,6 +2870,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
+              <div><span>SMTP</span><strong>{lastTestSendResult.smtp_response_code || lastTestSendResult.mta_route_block_code || '-'}</strong></div>
               <div><span>Record</span><strong>{lastTestSendResult.send_record_id.slice(0, 8)}</strong></div>
               <a href="#delivery">Open delivery</a>
             </div>

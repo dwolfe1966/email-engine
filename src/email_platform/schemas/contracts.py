@@ -1726,6 +1726,10 @@ class CampaignTestSendResponse(SendResponse):
     mta_hostname: str | None = None
     mta_ip_pool_name: str | None = None
     mta_route_resolved: bool | None = None
+    mta_route_block_code: str | None = None
+    mta_route_block_message: str | None = None
+    smtp_response_code: int | None = None
+    smtp_response: str | None = None
 
 
 class CampaignTestPreviewRead(BaseModel):

@@ -153,6 +153,7 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                     status='submitted',
                     provider_message_id='managed-smtp-message',
                     smtp_response_code=250,
+                    smtp_response='Provider accepted message with status 250',
                     metadata_json={
                         'mta_provider': 'scaleway',
                         'mta_node_name': 'mta-002',
@@ -203,6 +204,8 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['provider'] == 'managed_smtp'
     assert result['provider_message_id'] == 'managed-smtp-message'
     assert result['status_code'] == 250
+    assert result['smtp_response_code'] == 250
+    assert result['smtp_response'] == 'Provider accepted message with status 250'
     assert result['to_email'] == 'davidtesterwex@gmail.com'
     assert result['route_type'] == 'managed_smtp'
     assert result['route_key'] == 'managed-smtp-scaleway-primary'

@@ -134,7 +134,7 @@ class SendingService:
         return {
             'provider': record.provider,
             'provider_message_id': record.provider_message_id,
-            'status_code': 250,
+            'status_code': attempt.smtp_response_code if attempt and attempt.smtp_response_code else 250,
             'campaign_id': campaign.id,
             'template_id': template.id,
             'send_job_id': job.id,
@@ -155,6 +155,10 @@ class SendingService:
             'mta_hostname': attempt_metadata.get('mta_hostname'),
             'mta_ip_pool_name': attempt_metadata.get('mta_ip_pool_name'),
             'mta_route_resolved': attempt_metadata.get('mta_route_resolved'),
+            'mta_route_block_code': attempt_metadata.get('mta_route_block_code'),
+            'mta_route_block_message': attempt_metadata.get('mta_route_block_message'),
+            'smtp_response_code': attempt.smtp_response_code if attempt else None,
+            'smtp_response': attempt.smtp_response if attempt else None,
         }
 
     def preview_campaign_test(
