@@ -114,6 +114,7 @@ class SendingService:
         )
         self.db.refresh(record)
         self.db.refresh(job)
+        attempt = self._latest_delivery_attempt(record)
         if delivery.sent_count != 1 or record.status not in {
             EmailSendStatus.submitted,
             EmailSendStatus.sent,
@@ -121,20 +122,61 @@ class SendingService:
         }:
             job.status = SendJobStatus.failed
             self.db.commit()
-            raise ValueError(
-                record.error_message
-                or 'Campaign test send was not submitted by the delivery worker.'
+            return self._campaign_test_send_response(
+                campaign=campaign,
+                template=template,
+                job=job,
+                record=record,
+                contact=contact,
+                to_email=to_email,
+                subject=subject,
+                html=html,
+                text=text,
+                variables=tracked_context,
+                attempt=attempt,
+                fallback_status_code=500,
             )
         job.status = SendJobStatus.completed
-        attempt = self._latest_delivery_attempt(record)
-        attempt_metadata = attempt.metadata_json if attempt else {}
         self.db.commit()
         self.db.refresh(record)
         self.db.refresh(job)
+        return self._campaign_test_send_response(
+            campaign=campaign,
+            template=template,
+            job=job,
+            record=record,
+            contact=contact,
+            to_email=to_email,
+            subject=subject,
+            html=html,
+            text=text,
+            variables=tracked_context,
+            attempt=attempt,
+            fallback_status_code=250,
+        )
+
+    def _campaign_test_send_response(
+        self,
+        *,
+        campaign: Campaign,
+        template,
+        job: CampaignSendJob,
+        record: EmailSendRecord,
+        contact: Contact,
+        to_email: str,
+        subject: str,
+        html: str,
+        text: str | None,
+        variables: dict[str, object],
+        attempt: DeliveryAttempt | None,
+        fallback_status_code: int,
+    ) -> dict[str, object]:
+        attempt_metadata = attempt.metadata_json if attempt else {}
+        smtp_response_code = attempt.smtp_response_code if attempt else None
         return {
             'provider': record.provider,
             'provider_message_id': record.provider_message_id,
-            'status_code': attempt.smtp_response_code if attempt and attempt.smtp_response_code else 250,
+            'status_code': smtp_response_code or fallback_status_code,
             'campaign_id': campaign.id,
             'template_id': template.id,
             'send_job_id': job.id,
@@ -143,10 +185,10 @@ class SendingService:
             'subject': subject,
             'html_body': html,
             'text_body': text,
-            'variables': tracked_context,
-            'tracking_open_url': tracked_context.get('tracking_open'),
-            'tracking_click_base': tracked_context.get('tracking_click_base'),
-            'unsubscribe_url': tracked_context.get('unsubscribe_url'),
+            'variables': variables,
+            'tracking_open_url': variables.get('tracking_open'),
+            'tracking_click_base': variables.get('tracking_click_base'),
+            'unsubscribe_url': variables.get('unsubscribe_url'),
             'to_email': to_email,
             'route_type': attempt.route_type if attempt else None,
             'route_key': attempt.route_key if attempt else None,
@@ -159,6 +201,8 @@ class SendingService:
             'mta_route_block_message': attempt_metadata.get('mta_route_block_message'),
             'smtp_response_code': attempt.smtp_response_code if attempt else None,
             'smtp_response': attempt.smtp_response if attempt else None,
+            'delivery_error_message': record.error_message
+            or (attempt.error_message if attempt else None),
         }
 
     def preview_campaign_test(

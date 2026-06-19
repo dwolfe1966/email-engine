@@ -214,3 +214,81 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_hostname'] == 'mta-002.email-engine.app'
     assert result['mta_ip_pool_name'] == 'scaleway-internal-test'
     assert result['mta_route_resolved'] is True
+
+
+def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> None:
+    campaign_id = uuid4()
+    template_id = uuid4()
+    contact_id = uuid4()
+    campaign = SimpleNamespace(id=campaign_id, template_id=template_id)
+    db = FakeDb(campaign)
+    template_service = FakeTemplateService(template_id)
+
+    class FakeDeliveryService:
+        def __init__(self, db_arg, settings_arg):
+            self.db = db_arg
+            self.settings = settings_arg
+
+        def process_queued(self, *, limit, send_job_id=None, campaign_id=None):
+            record = self.db.records[0]
+            record.status = EmailSendStatus.failed
+            record.provider = None
+            record.error_message = 'Managed SMTP route blocked (NO_HEALTHY_MTA_NODE)'
+            self.db.attempts.append(
+                DeliveryAttempt(
+                    send_record_id=record.id,
+                    send_job_id=self.db.jobs[0].id,
+                    campaign_id=campaign_id,
+                    attempt_number=1,
+                    provider=None,
+                    route_type='managed_smtp',
+                    route_key='managed-smtp-scaleway-primary',
+                    status='failed',
+                    error_message=record.error_message,
+                    metadata_json={
+                        'mta_route_resolved': False,
+                        'mta_route_block_code': 'NO_HEALTHY_MTA_NODE',
+                        'mta_route_block_message': 'No active MTA node is available.',
+                    },
+                )
+            )
+            return SimpleNamespace(sent_count=0, failed_count=1)
+
+    monkeypatch.setattr(sending_module, 'DeliveryService', FakeDeliveryService)
+    service = SendingService.__new__(SendingService)
+    service.db = db
+    service.settings = SimpleNamespace(default_from_email='mta-smoke@email-engine.app')
+    service.template_service = template_service
+    service.suppression_service = SimpleNamespace(is_suppressed=lambda _email: False)
+    service._test_contact = lambda email, variables: SimpleNamespace(
+        id=contact_id,
+        email=email,
+        is_unsubscribed=False,
+    )
+    service._campaign_test_context = lambda _campaign, variables: {
+        'first_name': 'David',
+        'order_number': 'SM-1001',
+        'order_items': [{'name': 'Starter plan', 'quantity': 1, 'total': '$49.00'}],
+    }
+    service._tracked_variables = lambda record: {
+        **record.variables,
+        'tracking_open': 'https://email-engine.app/open',
+        'tracking_click_base': 'https://email-engine.app/click',
+        'unsubscribe_url': 'https://email-engine.app/unsubscribe',
+    }
+
+    result = service.send_campaign_test(
+        campaign_id,
+        'davidtesterwex@gmail.com',
+        {'first_name': 'David'},
+    )
+
+    assert db.jobs[0].status.value == 'failed'
+    assert result['status_code'] == 500
+    assert result['route_type'] == 'managed_smtp'
+    assert result['mta_route_resolved'] is False
+    assert result['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
+    assert result['mta_route_block_message'] == 'No active MTA node is available.'
+    assert result['delivery_error_message'] == (
+        'Managed SMTP route blocked (NO_HEALTHY_MTA_NODE)'
+    )

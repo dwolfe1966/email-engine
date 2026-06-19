@@ -1730,6 +1730,7 @@ class CampaignTestSendResponse(SendResponse):
     mta_route_block_message: str | None = None
     smtp_response_code: int | None = None
     smtp_response: str | None = None
+    delivery_error_message: str | None = None
 
 
 class CampaignTestPreviewRead(BaseModel):
