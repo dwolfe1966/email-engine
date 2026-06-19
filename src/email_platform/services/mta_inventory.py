@@ -360,6 +360,14 @@ class MtaInventoryService:
         ]
         for item in node_summaries:
             item.provider_blockers = self._provider_blockers(item.provider_account)
+            item.node_status_label = self._inventory_status_label(
+                self._status_value(item.node.status)
+            )
+            item.provider_account_status_label = self._inventory_status_label(
+                self._status_value(item.provider_account.status)
+                if item.provider_account
+                else 'missing'
+            )
             item.provider_port25_status_label = self._provider_status_label(
                 item.provider_account.port25_status if item.provider_account else 'unknown'
             )
@@ -1151,6 +1159,17 @@ class MtaInventoryService:
             'pending': 'Pending',
             'requested': 'Requested',
             'blocked': 'Blocked',
+            'unknown': 'Unknown',
+        }.get(status, status.replace('_', ' ').title())
+
+    @staticmethod
+    def _inventory_status_label(status: str) -> str:
+        return {
+            'active': 'Active',
+            'paused': 'Paused',
+            'pending': 'Pending',
+            'disabled': 'Disabled',
+            'missing': 'Missing',
             'unknown': 'Unknown',
         }.get(status, status.replace('_', ' ').title())
 

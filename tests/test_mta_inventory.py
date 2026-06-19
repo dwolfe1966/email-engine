@@ -316,8 +316,10 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.submission_credentials_configured is True
     assert summary.submission_tls_enabled is True
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'
+    assert summary.recent_nodes[0].node_status_label == 'Active'
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
+    assert summary.recent_nodes[0].provider_account_status_label == 'Active'
     assert summary.recent_nodes[0].provider_port25_status_label == 'Approved'
     assert summary.recent_nodes[0].provider_rdns_status_label == 'Configured'
     assert summary.recent_nodes[0].provider_blockers == []
@@ -551,6 +553,8 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
     assert service._provider_status_label('approved') == 'Approved'
     assert service._provider_status_label('configured') == 'Configured'
     assert service._provider_status_label('pending') == 'Pending'
+    assert service._inventory_status_label('active') == 'Active'
+    assert service._inventory_status_label('paused') == 'Paused'
 
 
 def test_operator_next_action_prioritizes_provider_blockers() -> None:
