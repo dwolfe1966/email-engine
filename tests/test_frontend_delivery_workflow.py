@@ -109,6 +109,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'host update detail',
         'managedSmtpNodeAgentServiceFailed',
         'managedSmtpNodeAgentTimerUnhealthy',
+        'managedSmtpNodeHasDeferredQueue',
         'agent service',
         'agent timer',
         'code_missing_nodes',

@@ -10039,6 +10039,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (managedSmtpNodeAgentTimerUnhealthy(item)) {
       return 'Restart the MTA agent timer so recurring heartbeat and config checks continue.';
     }
+    if (managedSmtpNodeHasDeferredQueue(item)) {
+      return 'Inspect the MTA mail queue and resolve deferred delivery before increasing volume.';
+    }
     if (item.agent_host_update_status === 'dirty') {
       return 'Resolve the host working-tree changes before using this MTA for production traffic.';
     }
@@ -10054,11 +10057,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (item.readiness_summary.latest_check?.status !== 'ok') {
       return 'Run managed SMTP readiness smoke and publish the result before routing traffic.';
     }
-    if ((item.agent_deferred_count || 0) > 0) {
-      return 'Inspect the MTA mail queue and resolve deferred delivery before increasing volume.';
-    }
     return 'No operator action required for this MTA node.';
   };
+  const managedSmtpNodeHasDeferredQueue = (item: ManagedSmtpDeploymentNodeSummary) => (
+    (item.agent_deferred_count || 0) > 0
+  );
   const managedSmtpNodeAgentServiceFailed = (item: ManagedSmtpDeploymentNodeSummary) => (
     item.agent_service_active_state === 'failed' || item.agent_service_sub_state === 'failed'
   );
@@ -10962,7 +10965,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
-              <article className={item.agent_heartbeat_status === 'ok' && item.readiness_summary.latest_check?.status === 'ok' && !item.agent_host_update_required && !managedSmtpNodeAgentServiceFailed(item) && !managedSmtpNodeAgentTimerUnhealthy(item) ? 'good' : 'warn'} key={item.node.id}>
+              <article className={item.agent_heartbeat_status === 'ok' && item.readiness_summary.latest_check?.status === 'ok' && !item.agent_host_update_required && !managedSmtpNodeHasDeferredQueue(item) && !managedSmtpNodeAgentServiceFailed(item) && !managedSmtpNodeAgentTimerUnhealthy(item) ? 'good' : 'warn'} key={item.node.id}>
                 <div>
                   <span>{item.provider_account?.provider || 'provider'} / {item.node.status}</span>
                   <strong>{item.node.name} - {item.node.hostname}</strong>
