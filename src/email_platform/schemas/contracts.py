@@ -1373,6 +1373,9 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     host_update_required_nodes: int
     agent_service_failed_nodes: int
     agent_timer_unhealthy_nodes: int
+    agent_log_bounce_nodes: int
+    agent_log_deferred_nodes: int
+    agent_log_warning_nodes: int
     queue_depth: int
     deferred_count: int
     active_queue_count: int

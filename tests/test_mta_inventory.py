@@ -6,6 +6,7 @@ import pytest
 
 from email_platform.models.entities import MtaNodeEvent, MtaOperationalStatus, MtaProviderAccount
 from email_platform.schemas.contracts import (
+    ManagedSmtpLogSampleRead,
     ManagedSmtpReadinessCheckRead,
     ManagedSmtpReadinessSummaryRead,
     MtaIpPoolNodeCreate,
@@ -199,7 +200,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
                 }
             ],
             'agent_log_samples': [
-                {'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'}
+                {'severity': 'sent', 'line': 'postfix/smtp: status=sent'}
             ],
             'agent_config_version': 'config-v1',
             'agent_applied_config_version': 'config-v1',
@@ -328,8 +329,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_queue_samples[0].deferred_reason == (
         'temporary DNS failure'
     )
-    assert summary.recent_nodes[0].agent_log_samples[0].severity == 'deferred'
-    assert summary.recent_nodes[0].agent_log_samples[0].line == 'postfix/smtp: status=deferred'
+    assert summary.recent_nodes[0].agent_log_samples[0].severity == 'sent'
+    assert summary.recent_nodes[0].agent_log_samples[0].line == 'postfix/smtp: status=sent'
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
@@ -349,6 +350,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.host_update_required_nodes == 0
     assert summary.fleet_health.agent_service_failed_nodes == 0
     assert summary.fleet_health.agent_timer_unhealthy_nodes == 0
+    assert summary.fleet_health.agent_log_bounce_nodes == 0
+    assert summary.fleet_health.agent_log_deferred_nodes == 0
+    assert summary.fleet_health.agent_log_warning_nodes == 0
     assert summary.fleet_health.queue_depth == 1
     assert summary.fleet_health.active_queue_count == 1
 
@@ -547,6 +551,62 @@ def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -
     assert summary.status == 'warning'
     assert summary.agent_service_failed_nodes == 1
     assert summary.agent_timer_unhealthy_nodes == 1
+
+
+def test_fleet_health_warns_when_agent_log_samples_show_delivery_issues() -> None:
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+    node = SimpleNamespace(status=MtaOperationalStatus.active)
+
+    def node_summary(*severities: str):
+        return SimpleNamespace(
+            node=node,
+            provider_account=None,
+            pool_memberships=[SimpleNamespace()],
+            readiness_summary=ManagedSmtpReadinessSummaryRead(
+                total_count=1,
+                ok_count=1,
+                warning_count=0,
+                failed_count=0,
+                latest_check=latest_check,
+            ),
+            agent_heartbeat_status='ok',
+            agent_config_in_sync=True,
+            platform_config_version='config-v1',
+            agent_code_revision='abc123',
+            agent_code_dirty=False,
+            agent_host_update_required=False,
+            agent_queue_depth=0,
+            agent_deferred_count=0,
+            agent_active_count=0,
+            agent_log_samples=[
+                ManagedSmtpLogSampleRead(
+                    severity=severity,
+                    line=f'postfix/smtp: status={severity}',
+                )
+                for severity in severities
+            ],
+        )
+
+    summary = service._fleet_health(
+        [
+            node_summary('bounce', 'warning'),
+            node_summary('deferred'),
+            node_summary('sent'),
+        ]
+    )
+
+    assert summary.status == 'warning'
+    assert summary.agent_log_bounce_nodes == 1
+    assert summary.agent_log_deferred_nodes == 1
+    assert summary.agent_log_warning_nodes == 1
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:

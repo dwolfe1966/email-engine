@@ -857,6 +857,9 @@ type ManagedSmtpFleetHealthRead = {
   host_update_required_nodes: number;
   agent_service_failed_nodes: number;
   agent_timer_unhealthy_nodes: number;
+  agent_log_bounce_nodes: number;
+  agent_log_deferred_nodes: number;
+  agent_log_warning_nodes: number;
   queue_depth: number;
   deferred_count: number;
   active_queue_count: number;
@@ -10022,6 +10025,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes)} service failed, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes)} timer unhealthy`
         : 'Load deployment summary for MTA agent systemd status.',
       tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes + managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes === 0 ? 'good' : 'warn',
+    },
+    {
+      label: 'Postfix logs',
+      value: formatInt(
+        (managedSmtpDeploymentSummary?.fleet_health.agent_log_bounce_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.agent_log_deferred_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.agent_log_warning_nodes || 0)
+      ),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_log_bounce_nodes)} bounce, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_log_deferred_nodes)} deferred, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_log_warning_nodes)} warning`
+        : 'Load deployment summary for recent Postfix log health.',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.agent_log_bounce_nodes + managedSmtpDeploymentSummary.fleet_health.agent_log_deferred_nodes + managedSmtpDeploymentSummary.fleet_health.agent_log_warning_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Queue pressure',

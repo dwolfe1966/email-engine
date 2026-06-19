@@ -705,6 +705,15 @@ class MtaInventoryService:
                 not in {None, 'waiting', 'running', 'elapsed'}
             )
         )
+        agent_log_bounce_nodes = sum(
+            1 for item in node_summaries if self._node_has_log_severity(item, 'bounce')
+        )
+        agent_log_deferred_nodes = sum(
+            1 for item in node_summaries if self._node_has_log_severity(item, 'deferred')
+        )
+        agent_log_warning_nodes = sum(
+            1 for item in node_summaries if self._node_has_log_severity(item, 'warning')
+        )
         blocked_provider_count = sum(
             1
             for item in node_summaries
@@ -731,6 +740,9 @@ class MtaInventoryService:
             or host_update_required_nodes
             or agent_service_failed_nodes
             or agent_timer_unhealthy_nodes
+            or agent_log_bounce_nodes
+            or agent_log_deferred_nodes
+            or agent_log_warning_nodes
             or blocked_provider_count
             or deferred_count
         ):
@@ -772,9 +784,19 @@ class MtaInventoryService:
             host_update_required_nodes=host_update_required_nodes,
             agent_service_failed_nodes=agent_service_failed_nodes,
             agent_timer_unhealthy_nodes=agent_timer_unhealthy_nodes,
+            agent_log_bounce_nodes=agent_log_bounce_nodes,
+            agent_log_deferred_nodes=agent_log_deferred_nodes,
+            agent_log_warning_nodes=agent_log_warning_nodes,
             queue_depth=queue_depth,
             deferred_count=deferred_count,
             active_queue_count=active_queue_count,
+        )
+
+    @staticmethod
+    def _node_has_log_severity(item: object, severity: str) -> bool:
+        return any(
+            getattr(sample, 'severity', None) == severity
+            for sample in getattr(item, 'agent_log_samples', [])
         )
 
     @staticmethod
