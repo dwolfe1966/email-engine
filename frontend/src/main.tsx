@@ -9977,6 +9977,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.code_missing_nodes + managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes + managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes === 0 ? 'good' : 'warn',
     },
     {
+      label: 'Platform revision',
+      value: managedSmtpDeploymentSummary?.fleet_health.platform_code_revision?.slice(0, 12) || 'Unknown',
+      detail: managedSmtpDeploymentSummary?.fleet_health.platform_code_revision
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes)} host(s) behind deployed revision`
+        : 'Platform commit revision is not available in this environment.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.code_outdated_nodes ? 'warn' : 'good',
+    },
+    {
       label: 'Queue pressure',
       value: formatInt(managedSmtpDeploymentSummary?.fleet_health.queue_depth || 0),
       detail: managedSmtpDeploymentSummary
@@ -10942,6 +10950,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>service state</dt><dd>{item.agent_service_active_state || '-'} / {item.agent_service_sub_state || '-'}</dd></div>
                     <div><dt>timer state</dt><dd>{item.agent_timer_active_state || '-'} / {item.agent_timer_sub_state || '-'}</dd></div>
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
+                    <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision?.slice(0, 12) || '-'}</dd></div>
                     <div><dt>host revision</dt><dd>{item.agent_code_revision || '-'}{item.agent_code_dirty ? ' dirty' : ''}</dd></div>
                   </dl>
                 </details>
