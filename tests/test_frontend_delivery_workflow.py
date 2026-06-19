@@ -123,6 +123,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'isFocusedAttempt',
         'Focused delivery record',
         'refreshDeliveryAttempts().catch',
+        'routeBlockReason',
+        'smtpReason',
         'mtaHost',
         'smtpCode',
         'dkimSelector',

@@ -11618,7 +11618,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="delivery-audit-list">
             {deliveryAttempts.slice(0, 8).map((attempt) => {
               const metadata = attempt.metadata_json || {};
-              const reason = String(metadata.reason || attempt.error_message || attempt.route_key || attempt.status);
+              const routeBlockReason = metadata.mta_route_block_code
+                ? `${metadata.mta_route_block_code}${metadata.mta_route_block_message ? `: ${metadata.mta_route_block_message}` : ''}`
+                : '';
+              const smtpReason = attempt.smtp_response_code
+                ? `SMTP ${attempt.smtp_response_code}${attempt.smtp_response ? `: ${attempt.smtp_response}` : ''}`
+                : '';
+              const reason = String(routeBlockReason || smtpReason || metadata.reason || attempt.error_message || attempt.route_key || attempt.status);
               const domain = String(metadata.to_domain || '-');
               const policy = String(metadata.domain_delivery_policy_id || '-');
               const mtaHost = String(metadata.mta_submission_host || metadata.mta_hostname || '-');
