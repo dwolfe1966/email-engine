@@ -126,6 +126,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'routeBlockReason',
         'smtpReason',
         'attemptHasIssue',
+        'attemptCompletedOk',
         'mtaHost',
         'smtpCode',
         'dkimSelector',

@@ -11635,8 +11635,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const attemptHasIssue = ['claim_blocked', 'dead_lettered', 'deferred', 'failed'].includes(attempt.status)
                 || Boolean(routeBlockReason || attempt.error_message)
                 || (typeof attempt.smtp_response_code === 'number' && attempt.smtp_response_code >= 400);
+              const attemptCompletedOk = ['submitted', 'sent', 'delivered', 'completed'].includes(attempt.status)
+                && !attemptHasIssue;
               return (
-                <article className={`${attemptHasIssue ? 'warn' : 'good'} ${isFocusedAttempt ? 'selected-row' : ''}`} key={attempt.id}>
+                <article className={`${attemptCompletedOk ? 'good' : 'warn'} ${isFocusedAttempt ? 'selected-row' : ''}`} key={attempt.id}>
                   <div>
                     <span>{attempt.status}</span>
                     <strong>{reason}</strong>
