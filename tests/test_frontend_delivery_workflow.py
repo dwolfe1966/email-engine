@@ -85,6 +85,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'primary_next_action_label',
         'primary_next_action_count',
         'primary_next_action_summary',
+        'primary_next_action_tone',
         'action_required',
         'Agent coverage',
         'Platform revision',

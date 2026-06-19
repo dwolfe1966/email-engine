@@ -865,6 +865,7 @@ type ManagedSmtpFleetHealthRead = {
   primary_next_action_label: string;
   primary_next_action_count: number;
   primary_next_action_summary: string;
+  primary_next_action_tone: 'good' | 'warn';
   action_required: boolean;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
@@ -10016,7 +10017,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       detail: managedSmtpDeploymentSummary
         ? managedSmtpDeploymentSummary.fleet_health.primary_next_action_summary
         : 'Load deployment summary for fleet action guidance.',
-      tone: managedSmtpDeploymentSummary?.fleet_health.action_required ? 'warn' : 'good',
+      tone: managedSmtpDeploymentSummary?.fleet_health.primary_next_action_tone || 'good',
     },
     {
       label: 'Agent coverage',

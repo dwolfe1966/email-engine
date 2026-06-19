@@ -1381,6 +1381,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     primary_next_action_label: str = 'No action'
     primary_next_action_count: int = 0
     primary_next_action_summary: str = 'No action required.'
+    primary_next_action_tone: str = 'good'
     action_required: bool = False
     readiness_ok_nodes: int
     stale_agent_nodes: int

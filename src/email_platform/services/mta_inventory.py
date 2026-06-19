@@ -715,6 +715,7 @@ class MtaInventoryService:
             primary_next_action_count,
         )
         action_required = primary_next_action_code != 'none'
+        primary_next_action_tone = 'warn' if action_required else 'good'
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
         )
@@ -862,6 +863,7 @@ class MtaInventoryService:
             primary_next_action_label=primary_next_action_label,
             primary_next_action_count=primary_next_action_count,
             primary_next_action_summary=primary_next_action_summary,
+            primary_next_action_tone=primary_next_action_tone,
             action_required=action_required,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
