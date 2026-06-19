@@ -809,6 +809,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   operator_next_action_tone: string;
   pool_memberships: MtaIpPoolNodeRead[];
   readiness_summary: ManagedSmtpReadinessSummaryRead;
+  readiness_summary_label: string;
   agent_heartbeat_status: string;
   agent_heartbeat_status_label: string;
   agent_operational_status: string;
@@ -11080,7 +11081,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>provider blockers</dt><dd>{item.provider_blocker_labels.length ? item.provider_blocker_labels.join(', ') : 'none'}</dd></div>
                   <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
-                  <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
+                  <div><dt>readiness</dt><dd>{item.readiness_summary_label || 'Not checked'} / {formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status_label || item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
                   <div><dt>runtime config</dt><dd>{item.agent_config_sync_label || (item.agent_config_in_sync ? 'Synced' : 'Drift')} / {item.agent_applied_config_version || '-'}</dd></div>

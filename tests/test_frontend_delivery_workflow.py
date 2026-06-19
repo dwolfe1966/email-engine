@@ -116,6 +116,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'operator_next_action_tone',
         'action code',
         'Resolve provider blocker(s):',
+        'readiness_summary_label',
         'formatManagedSmtpProviderBlocker',
         'Port 25 blocked',
         'rDNS blocked',

@@ -328,6 +328,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].operator_next_action_tone == 'good'
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
+    assert summary.recent_nodes[0].readiness_summary_label == 'Passing'
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
     assert summary.recent_nodes[0].agent_heartbeat_status_label == 'Current'
     assert summary.recent_nodes[0].agent_operational_status == 'ok'

@@ -26,6 +26,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFleetHealthRead,
     ManagedSmtpLogSampleRead,
     ManagedSmtpQueueSampleRead,
+    ManagedSmtpReadinessSummaryRead,
     MtaInventoryCounts,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
@@ -392,6 +393,9 @@ class MtaInventoryService:
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action_code_label = self._operator_next_action_code_label(
                 item.operator_next_action_code
+            )
+            item.readiness_summary_label = self._readiness_summary_label(
+                item.readiness_summary
             )
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -1113,6 +1117,16 @@ class MtaInventoryService:
         if getattr(item, 'agent_operational_status', None) == 'warning':
             return 'warn'
         return 'warn'
+
+    @staticmethod
+    def _readiness_summary_label(summary: ManagedSmtpReadinessSummaryRead) -> str:
+        if not summary.latest_check:
+            return 'Not checked'
+        return {
+            'ok': 'Passing',
+            'warning': 'Warning',
+            'failed': 'Failed',
+        }.get(summary.latest_check.status, summary.latest_check.status.replace('_', ' ').title())
 
     @staticmethod
     def _provider_blocker_label(blocker: str) -> str:
