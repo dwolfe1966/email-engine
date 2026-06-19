@@ -57,6 +57,11 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
                         'recipients': ['seed@example.com'],
                     }
                 ],
+                'logs': {
+                    'entries': [
+                        {'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'}
+                    ]
+                },
                 'systemd': {
                     'service': {'active_state': 'inactive', 'sub_state': 'dead'},
                     'timer': {
@@ -84,4 +89,7 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
             'sender': 'mta-smoke@email-engine.app',
             'recipients': ['seed@example.com'],
         }
+    ]
+    assert node.metadata_json['agent_log_samples'] == [
+        {'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'}
     ]

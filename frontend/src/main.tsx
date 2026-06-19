@@ -817,6 +817,10 @@ type ManagedSmtpDeploymentNodeSummary = {
     recipients: string[];
     deferred_reason: string | null;
   }>;
+  agent_log_samples: Array<{
+    severity: string | null;
+    line: string;
+  }>;
   platform_config_version: string | null;
   agent_config_version: string | null;
   agent_applied_config_version: string | null;
@@ -11035,6 +11039,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     </div>
                   ) : (
                     <div className="json-preview">No queue samples reported by the MTA agent.</div>
+                  )}
+                </details>
+                <details>
+                  <summary>Postfix log samples</summary>
+                  {item.agent_log_samples.length ? (
+                    <div className="provider-feedback-list compact-list">
+                      {item.agent_log_samples.map((sample, index) => (
+                        <article className={['bounce', 'deferred', 'warning'].includes(sample.severity || '') ? 'warn' : 'good'} key={`${sample.severity || 'log'}-${index}`}>
+                          <div>
+                            <span>{sample.severity || 'info'}</span>
+                            <strong>Postfix log</strong>
+                          </div>
+                          <small>{sample.line}</small>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="json-preview">No Postfix log samples reported by the MTA agent.</div>
                   )}
                 </details>
                 <details>

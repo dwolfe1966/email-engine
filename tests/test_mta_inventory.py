@@ -198,6 +198,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
                     'deferred_reason': 'temporary DNS failure',
                 }
             ],
+            'agent_log_samples': [
+                {'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'}
+            ],
             'agent_config_version': 'config-v1',
             'agent_applied_config_version': 'config-v1',
             'agent_service_active_state': 'inactive',
@@ -325,6 +328,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_queue_samples[0].deferred_reason == (
         'temporary DNS failure'
     )
+    assert summary.recent_nodes[0].agent_log_samples[0].severity == 'deferred'
+    assert summary.recent_nodes[0].agent_log_samples[0].line == 'postfix/smtp: status=deferred'
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True

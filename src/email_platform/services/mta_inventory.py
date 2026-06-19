@@ -23,6 +23,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFirstSendChecklistItem,
     ManagedSmtpFirstSendRead,
     ManagedSmtpFleetHealthRead,
+    ManagedSmtpLogSampleRead,
     ManagedSmtpQueueSampleRead,
     MtaInventoryCounts,
     MtaIpPoolCreate,
@@ -577,6 +578,7 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
+                'agent_log_samples': self._agent_log_samples(metadata),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
@@ -592,6 +594,7 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
+                'agent_log_samples': self._agent_log_samples(metadata),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
@@ -608,6 +611,7 @@ class MtaInventoryService:
             'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
             'agent_queue_samples': self._agent_queue_samples(metadata),
+            'agent_log_samples': self._agent_log_samples(metadata),
             **self._agent_systemd_state(metadata),
             **self._agent_code_state(metadata),
         }
@@ -848,6 +852,25 @@ class MtaInventoryService:
                     if isinstance(recipients, list)
                     else [],
                     deferred_reason=self._metadata_value_str(sample.get('deferred_reason')),
+                )
+            )
+        return parsed
+
+    def _agent_log_samples(self, metadata: dict[str, object]) -> list[ManagedSmtpLogSampleRead]:
+        samples = metadata.get('agent_log_samples')
+        if not isinstance(samples, list):
+            return []
+        parsed: list[ManagedSmtpLogSampleRead] = []
+        for sample in samples[:20]:
+            if not isinstance(sample, dict):
+                continue
+            line = self._metadata_value_str(sample.get('line'))
+            if not line:
+                continue
+            parsed.append(
+                ManagedSmtpLogSampleRead(
+                    severity=self._metadata_value_str(sample.get('severity')),
+                    line=line,
                 )
             )
         return parsed

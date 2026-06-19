@@ -1318,6 +1318,11 @@ class ManagedSmtpQueueSampleRead(BaseModel):
     deferred_reason: str | None = None
 
 
+class ManagedSmtpLogSampleRead(BaseModel):
+    severity: str | None = None
+    line: str
+
+
 class ManagedSmtpDeploymentNodeSummary(BaseModel):
     node: MtaNodeRead
     provider_account: MtaProviderAccountRead | None = None
@@ -1331,6 +1336,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_deferred_count: int | None = None
     agent_active_count: int | None = None
     agent_queue_samples: list[ManagedSmtpQueueSampleRead] = Field(default_factory=list)
+    agent_log_samples: list[ManagedSmtpLogSampleRead] = Field(default_factory=list)
     platform_config_version: str | None = None
     agent_config_version: str | None = None
     agent_applied_config_version: str | None = None
