@@ -10392,6 +10392,33 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     });
   }
 
+  async function setManagedSmtpNodeOperationalStatus(node: MtaNodeRead, action: 'pause' | 'resume') {
+    const actionLabel = action === 'pause' ? 'Pausing' : 'Resuming';
+    await runDeliveryOperation(`${actionLabel} managed SMTP node`, async () => {
+      const updatedNode = await fetchJson<MtaNodeRead>(`/api/v1/managed-smtp/nodes/${node.id}/${action}`, {
+        method: 'POST',
+      });
+      const [summary, firstSend] = await Promise.all([
+        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+        fetchJson<ManagedSmtpFirstSendRead>('/api/v1/managed-smtp/first-send-readiness?limit=8'),
+      ]);
+      setManagedSmtpDeploymentSummary(summary);
+      setFirstSendReadiness(firstSend);
+      if (selectedDomainPolicy) {
+        const route = await fetchJson<ManagedSmtpRouteResolutionRead>('/api/v1/managed-smtp/resolve-route', {
+          method: 'POST',
+          body: JSON.stringify({
+            from_domain: selectedDomainPolicy.domain,
+            route_id: selectedDomainPolicy.route_id,
+            send_type: 'internal_test',
+          }),
+        });
+        setManagedSmtpRouteResolution(route);
+      }
+      return `${updatedNode.name} is now ${updatedNode.status}; deployment and route evidence refreshed.`;
+    });
+  }
+
   async function loadManagedSmtpBootstrapProfiles() {
     await runDeliveryOperation('Loading managed SMTP bootstrap profiles', async () => {
       const data = await fetchJson<ListResponse<ManagedSmtpBootstrapProfileRead>>('/api/v1/managed-smtp/bootstrap-profiles/list');
@@ -10739,6 +10766,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                 </dl>
+                <div className="button-row">
+                  <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>
+                  <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'resume')} disabled={busy || item.node.status === 'active'}>Resume MTA Node</button>
+                </div>
               </article>
             ))}
           </div>
