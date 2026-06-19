@@ -10005,6 +10005,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     'sudo systemctl list-timers email-engine-mta-agent.timer',
     'sudo journalctl -u email-engine-mta-agent.service -n 80 --no-pager',
   ];
+  const managedSmtpHostUpdateCommands = [
+    'cd /root/apps/email-engine',
+    'git pull --ff-only',
+    'python3 -m py_compile scripts/managed_smtp_mta_agent.py',
+    'sudo systemctl restart email-engine-mta-agent.timer',
+    'sudo systemctl start email-engine-mta-agent.service',
+    'sudo journalctl -u email-engine-mta-agent.service -n 80 --no-pager',
+  ];
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
@@ -10917,6 +10925,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                 <details>
                   <summary>Host agent commands</summary>
                   <div className="json-preview">{managedSmtpAgentCommands.join('\n')}</div>
+                </details>
+                <details>
+                  <summary>Host update workflow</summary>
+                  <div className="json-preview">{managedSmtpHostUpdateCommands.join('\n')}</div>
                 </details>
                 <div className="button-row">
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>
