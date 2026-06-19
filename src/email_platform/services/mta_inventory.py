@@ -1,4 +1,5 @@
 import os
+from collections import Counter
 from datetime import datetime
 from uuid import UUID
 
@@ -699,6 +700,9 @@ class MtaInventoryService:
         operational_blocked_nodes = sum(
             1 for item in node_summaries if item.agent_operational_status == 'blocked'
         )
+        operator_next_action_counts = dict(
+            Counter(item.operator_next_action_code for item in node_summaries)
+        )
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
         )
@@ -840,6 +844,7 @@ class MtaInventoryService:
             operational_ok_nodes=operational_ok_nodes,
             operational_warning_nodes=operational_warning_nodes,
             operational_blocked_nodes=operational_blocked_nodes,
+            operator_next_action_counts=operator_next_action_counts,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,

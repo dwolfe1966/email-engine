@@ -1375,6 +1375,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     operational_ok_nodes: int
     operational_warning_nodes: int
     operational_blocked_nodes: int
+    operator_next_action_counts: dict[str, int] = Field(default_factory=dict)
     readiness_ok_nodes: int
     stale_agent_nodes: int
     missing_agent_nodes: int

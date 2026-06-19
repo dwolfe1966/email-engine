@@ -859,6 +859,7 @@ type ManagedSmtpFleetHealthRead = {
   operational_ok_nodes: number;
   operational_warning_nodes: number;
   operational_blocked_nodes: number;
+  operator_next_action_counts: Record<string, number>;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
   missing_agent_nodes: number;
@@ -10000,6 +10001,23 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.operational_warning_nodes)} warning, ${formatInt(managedSmtpDeploymentSummary.fleet_health.operational_blocked_nodes)} blocked`
         : 'Load deployment summary for MTA node status.',
       tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.operational_warning_nodes + managedSmtpDeploymentSummary.fleet_health.operational_blocked_nodes === 0 ? 'good' : 'warn',
+    },
+    {
+      label: 'Next actions',
+      value: managedSmtpDeploymentSummary
+        ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts)
+          .filter(([code]) => code !== 'none')
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || 'none'
+        : 'Unknown',
+      detail: managedSmtpDeploymentSummary
+        ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts)
+          .filter(([code]) => code !== 'none')
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 2)
+          .map(([code, count]) => `${formatInt(count)} ${code}`)
+          .join(', ') || `${formatInt(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts.none || 0)} no action`
+        : 'Load deployment summary for fleet action guidance.',
+      tone: managedSmtpDeploymentSummary && Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts).some(([code, count]) => code !== 'none' && count > 0) ? 'warn' : 'good',
     },
     {
       label: 'Agent coverage',

@@ -354,6 +354,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.operational_ok_nodes == 1
     assert summary.fleet_health.operational_warning_nodes == 0
     assert summary.fleet_health.operational_blocked_nodes == 0
+    assert summary.fleet_health.operator_next_action_counts == {'none': 1}
     assert summary.fleet_health.blocked_provider_count == 0
     assert summary.fleet_health.provider_port25_blocked_count == 0
     assert summary.fleet_health.provider_rdns_blocked_count == 0
@@ -569,6 +570,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
             SimpleNamespace(
                 node=node,
                 agent_operational_status='warning',
+                operator_next_action_code='report_host_revision',
                 provider_account=None,
                 pool_memberships=[SimpleNamespace()],
                 readiness_summary=ManagedSmtpReadinessSummaryRead(
@@ -591,6 +593,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
             SimpleNamespace(
                 node=node,
                 agent_operational_status='warning',
+                operator_next_action_code='resolve_host_worktree',
                 provider_account=None,
                 pool_memberships=[SimpleNamespace()],
                 readiness_summary=ManagedSmtpReadinessSummaryRead(
@@ -613,6 +616,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
             SimpleNamespace(
                 node=node,
                 agent_operational_status='warning',
+                operator_next_action_code='update_host_revision',
                 provider_account=None,
                 pool_memberships=[SimpleNamespace()],
                 readiness_summary=ManagedSmtpReadinessSummaryRead(
@@ -642,6 +646,11 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
     assert summary.code_outdated_nodes == 2
     assert summary.host_update_required_nodes == 3
     assert summary.operational_warning_nodes == 3
+    assert summary.operator_next_action_counts == {
+        'report_host_revision': 1,
+        'resolve_host_worktree': 1,
+        'update_host_revision': 1,
+    }
 
 
 def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -> None:
@@ -663,6 +672,7 @@ def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -
         return SimpleNamespace(
             node=node,
             agent_operational_status='warning',
+            operator_next_action_code='restart_mta_agent_service',
             provider_account=None,
             pool_memberships=[SimpleNamespace()],
             readiness_summary=ManagedSmtpReadinessSummaryRead(
@@ -725,6 +735,11 @@ def test_fleet_health_warns_when_agent_log_samples_show_delivery_issues() -> Non
         return SimpleNamespace(
             node=node,
             agent_operational_status=operational_status,
+            operator_next_action_code=(
+                'review_postfix_logs'
+                if {'bounce', 'deferred', 'warning'}.intersection(severities)
+                else 'none'
+            ),
             provider_account=None,
             pool_memberships=[SimpleNamespace()],
             readiness_summary=ManagedSmtpReadinessSummaryRead(
@@ -784,6 +799,7 @@ def test_fleet_health_splits_provider_blocker_counts() -> None:
         return SimpleNamespace(
             node=node,
             agent_operational_status='ok',
+            operator_next_action_code='none',
             provider_account=provider_account,
             pool_memberships=[SimpleNamespace()],
             readiness_summary=ManagedSmtpReadinessSummaryRead(

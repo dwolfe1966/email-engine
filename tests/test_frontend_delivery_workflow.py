@@ -78,6 +78,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'operational_ok_nodes',
         'operational_warning_nodes',
         'operational_blocked_nodes',
+        'Next actions',
+        'operator_next_action_counts',
         'Agent coverage',
         'Platform revision',
         'Host updates',
