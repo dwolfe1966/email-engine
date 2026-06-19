@@ -319,6 +319,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].provider_blockers == []
+    assert summary.recent_nodes[0].operator_next_action_code == 'none'
     assert summary.recent_nodes[0].operator_next_action == (
         'No operator action required for this MTA node.'
     )
@@ -506,6 +507,7 @@ def test_operator_next_action_prioritizes_provider_blockers() -> None:
     )
     item = SimpleNamespace(
         provider_blockers=['port25_blocked'],
+        operator_next_action_code='resolve_provider_blockers',
         agent_heartbeat_status='ok',
         agent_service_active_state='inactive',
         agent_service_sub_state='dead',
@@ -524,6 +526,7 @@ def test_operator_next_action_prioritizes_provider_blockers() -> None:
         ),
     )
 
+    assert service._operator_next_action_code(item) == 'resolve_provider_blockers'
     assert service._operator_next_action(item) == (
         'Resolve provider blocker(s): Port 25 blocked.'
     )
