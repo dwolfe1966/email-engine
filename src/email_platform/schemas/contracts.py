@@ -1363,6 +1363,9 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     provider_count: int
     active_provider_count: int
     blocked_provider_count: int
+    provider_port25_blocked_count: int
+    provider_rdns_blocked_count: int
+    provider_inactive_count: int
     total_nodes: int
     active_nodes: int
     route_ready_nodes: int

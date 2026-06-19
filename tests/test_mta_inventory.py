@@ -349,6 +349,10 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.operational_ok_nodes == 1
     assert summary.fleet_health.operational_warning_nodes == 0
     assert summary.fleet_health.operational_blocked_nodes == 0
+    assert summary.fleet_health.blocked_provider_count == 0
+    assert summary.fleet_health.provider_port25_blocked_count == 0
+    assert summary.fleet_health.provider_rdns_blocked_count == 0
+    assert summary.fleet_health.provider_inactive_count == 0
     assert summary.fleet_health.config_drift_nodes == 0
     assert summary.fleet_health.code_missing_nodes == 0
     assert summary.fleet_health.code_dirty_nodes == 0
@@ -700,6 +704,79 @@ def test_fleet_health_warns_when_agent_log_samples_show_delivery_issues() -> Non
     assert summary.agent_log_warning_nodes == 1
     assert summary.operational_ok_nodes == 1
     assert summary.operational_warning_nodes == 2
+
+
+def test_fleet_health_splits_provider_blocker_counts() -> None:
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+    node = SimpleNamespace(status=MtaOperationalStatus.active)
+
+    def node_summary(provider_account):
+        return SimpleNamespace(
+            node=node,
+            agent_operational_status='ok',
+            provider_account=provider_account,
+            pool_memberships=[SimpleNamespace()],
+            readiness_summary=ManagedSmtpReadinessSummaryRead(
+                total_count=1,
+                ok_count=1,
+                warning_count=0,
+                failed_count=0,
+                latest_check=latest_check,
+            ),
+            agent_heartbeat_status='ok',
+            agent_config_in_sync=True,
+            platform_config_version='config-v1',
+            agent_code_revision='abc123',
+            agent_code_dirty=False,
+            agent_host_update_required=False,
+            agent_queue_depth=0,
+            agent_deferred_count=0,
+            agent_active_count=0,
+            agent_log_samples=[],
+        )
+
+    summary = service._fleet_health(
+        [
+            node_summary(
+                SimpleNamespace(
+                    id=uuid4(),
+                    status=MtaOperationalStatus.active,
+                    port25_status='pending',
+                    rdns_status='configured',
+                )
+            ),
+            node_summary(
+                SimpleNamespace(
+                    id=uuid4(),
+                    status=MtaOperationalStatus.active,
+                    port25_status='approved',
+                    rdns_status='pending',
+                )
+            ),
+            node_summary(
+                SimpleNamespace(
+                    id=uuid4(),
+                    status=MtaOperationalStatus.paused,
+                    port25_status='approved',
+                    rdns_status='configured',
+                )
+            ),
+        ]
+    )
+
+    assert summary.status == 'warning'
+    assert summary.blocked_provider_count == 3
+    assert summary.provider_port25_blocked_count == 1
+    assert summary.provider_rdns_blocked_count == 1
+    assert summary.provider_inactive_count == 1
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:

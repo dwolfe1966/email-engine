@@ -759,6 +759,28 @@ class MtaInventoryService:
                 or self._status_value(item.provider_account.status) != 'active'
             )
         )
+        provider_port25_blocked_count = len(
+            {
+                str(item.provider_account.id)
+                for item in node_summaries
+                if item.provider_account and item.provider_account.port25_status != 'approved'
+            }
+        )
+        provider_rdns_blocked_count = len(
+            {
+                str(item.provider_account.id)
+                for item in node_summaries
+                if item.provider_account and item.provider_account.rdns_status != 'configured'
+            }
+        )
+        provider_inactive_count = len(
+            {
+                str(item.provider_account.id)
+                for item in node_summaries
+                if item.provider_account
+                and self._status_value(item.provider_account.status) != 'active'
+            }
+        )
         queue_depth = sum(item.agent_queue_depth or 0 for item in node_summaries)
         deferred_count = sum(item.agent_deferred_count or 0 for item in node_summaries)
         active_queue_count = sum(item.agent_active_count or 0 for item in node_summaries)
@@ -806,6 +828,9 @@ class MtaInventoryService:
                 }
             ),
             blocked_provider_count=blocked_provider_count,
+            provider_port25_blocked_count=provider_port25_blocked_count,
+            provider_rdns_blocked_count=provider_rdns_blocked_count,
+            provider_inactive_count=provider_inactive_count,
             total_nodes=len(node_summaries),
             active_nodes=len(active_nodes),
             route_ready_nodes=route_ready_nodes,

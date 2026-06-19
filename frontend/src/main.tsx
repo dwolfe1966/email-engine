@@ -847,6 +847,9 @@ type ManagedSmtpFleetHealthRead = {
   provider_count: number;
   active_provider_count: number;
   blocked_provider_count: number;
+  provider_port25_blocked_count: number;
+  provider_rdns_blocked_count: number;
+  provider_inactive_count: number;
   total_nodes: number;
   active_nodes: number;
   route_ready_nodes: number;
@@ -10072,7 +10075,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       label: 'Provider blockers',
       value: formatInt(managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count || 0),
       detail: managedSmtpDeploymentSummary
-        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.active_provider_count)} active provider account(s)`
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_port25_blocked_count)} port 25, ${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_rdns_blocked_count)} rDNS, ${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_inactive_count)} inactive`
         : 'Load deployment summary for provider blockers.',
       tone: managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count ? 'warn' : 'good',
     },
