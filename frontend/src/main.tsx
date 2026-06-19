@@ -9969,6 +9969,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       : `Focused attempt ${routeAttemptId.slice(0, 8)} is not loaded; load the linked record audit.`
     : `${formatInt(deliveryAttempts.length)} attempt audit row(s) loaded.`;
   const deliveryAttemptAuditButtonLabel = routeRecordId ? 'Load linked audit' : 'Load Attempt Audit';
+  const deliveryAttemptEmptyTitle = routeRecordId
+    ? 'No linked delivery attempts visible'
+    : 'No delivery attempt audit loaded';
+  const deliveryAttemptEmptyDetail = routeRecordId
+    ? `Load the linked audit for record ${routeRecordId.slice(0, 8)} to inspect proof-send submission evidence.`
+    : 'Load Attempt Audit after processing queues or selecting a record to inspect claim-blocked and dead-letter rows.';
 
   useEffect(() => {
     if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
@@ -11668,8 +11674,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
         ) : (
           <div className="ai-empty-state">
-            <strong>No delivery attempt audit loaded</strong>
-            <span>Load Attempt Audit after processing queues or selecting a record to inspect claim-blocked and dead-letter rows.</span>
+            <strong>{deliveryAttemptEmptyTitle}</strong>
+            <span>{deliveryAttemptEmptyDetail}</span>
           </div>
         )}
       </section>
