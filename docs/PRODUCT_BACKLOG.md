@@ -67,29 +67,56 @@ model clearer and more operationally complete.
    - Reduce visual noise, improve section separation, rebalance KPI cards, workflow shortcuts,
      AI insights, recent campaign activity, and report previews.
    - Align the page with the admin-v2 visual direction while keeping it simple and comprehensible.
-3. Template editor next
+3. App-wide information architecture review
+   - Revisit the navigation, page hierarchy, and object/workflow grouping across the entire app once
+     the managed-SMTP and first-send foundations stabilize.
+   - Pay special attention to the Delivery page, which now mixes queue operations, MTA/provider
+     infrastructure, readiness, compliance, feedback, attempts, suppressions, and AI review in one
+     dense workspace.
+   - Separate operator workflows from diagnostic/debug evidence so common tasks remain
+     comprehensible while deeper MTA/provider evidence stays available on demand.
+   - Reevaluate the recurring "rows of blocks/cards" UI metaphor and introduce more diverse,
+     task-appropriate layouts where they improve comprehension.
+   - Working conceptual model:
+     - Use a persistent product shell with global navigation by product domain: Overview, Data,
+       Audiences, Content, Campaigns, Journeys, Delivery, Analytics, Settings.
+     - Inside each domain, split pages by operator job rather than data model table. Delivery should
+       become a family of task surfaces: Operations, Managed SMTP Fleet, Provider Routes, Feedback,
+       Compliance, Attempts, Suppressions, and Diagnostics.
+     - Give every major object one canonical home and many contextual doors. For example, an MTA node
+       should live in Managed SMTP Fleet, but be reachable from route resolution, readiness, provider
+       blockers, and first-send evidence.
+     - Use progressive disclosure: default views show current state, risk, next action, and primary
+       controls; raw events, JSON evidence, logs, and command snippets move into drawers, split
+       panels, detail pages, or diagnostics tabs.
+     - Standardize page anatomy: page header with scope and primary action, left/local navigation or
+       tabs for subareas, central worklist or task surface, right-side context/inspector panel for the
+       selected object, and bottom/detail drawers for raw evidence.
+     - Prefer status maps, timelines, queues, topology views, and inspector panels over repeated
+       rows of metric blocks when the user needs to understand relationships or operations.
+4. Template editor next
    - Improve the template workspace now that the list page is cleaner.
    - Better separate HTML/Jinja editing, WYSIWYG/design, sample variables, preview, CSS helpers, and
      AI assist.
    - Keep render/preview/test-send feedback visible and variable-aware.
-4. Audience builder next
+5. Audience builder next
    - Keep the audience list page clean while making the detail builder easier to reason about.
    - Improve matched-contact preview, available filter attributes, and rule impact feedback.
    - Make audience selection more campaign-aware.
-5. Analytics / Reports
+6. Analytics / Reports
    - Add real charts and trend views for opens, clicks, bounces, unsubscribes, failures,
      deliverability, throughput, and audience/campaign comparison.
    - Keep reports fast by loading lightweight defaults first and progressively fetching heavier
      panels.
-6. AI enablement
+7. AI enablement
    - Add template improvement assistant, campaign creation assistant, audience recommendation
      assistant, performance analysis assistant, and always-on workflow assistant.
-7. Integration hardening
+8. Integration hardening
    - Keep SentientMail aligned to Email Engine API objects and contracts.
    - Document the SentientMail-to-Email Engine workflow contracts.
    - Add cross-app smoke tests for import -> template -> campaign -> test send -> metrics.
    - Reduce fallback and legacy paths once the contracts stabilize.
-8. Folder organization
+9. Folder organization
    - Add user-manageable folders for campaigns, templates, and audiences.
    - Support folder CRUD, move/remove actions, folder filters in list pages, and default unfiled
      views.
@@ -270,6 +297,10 @@ model clearer and more operationally complete.
   complaint processing, warmup plans, rate limits, domain throttles, queue isolation, blocklist
   monitoring, feedback loops, provider-specific retry policy, reputation scoring, abuse controls,
   tenant isolation, and operational dashboards.
+- Delivery Manager needs an information-architecture refactor after the managed-SMTP control plane
+  stabilizes. The current page is intentionally accumulating operational evidence; later it should
+  split routine delivery operations, MTA/provider operations, compliance, feedback, and diagnostics
+  into clearer task-oriented surfaces.
 - Treat the managed SMTP/reputation system as its own platform subsystem with staged research,
   architecture, operational runbooks, security review, compliance review, and load/reputation testing
   before production use.
