@@ -356,6 +356,8 @@ class MtaInventoryService:
             )
             for node in recent_nodes
         ]
+        for item in node_summaries:
+            item.agent_operational_status = self._agent_operational_status(item)
         return ManagedSmtpDeploymentSummaryRead(
             provider_accounts=self._inventory_counts(
                 total=self.count_provider_accounts(),
@@ -846,6 +848,35 @@ class MtaInventoryService:
         if queue_depth and queue_depth > 0:
             return 'queued'
         return 'empty'
+
+    def _agent_operational_status(self, item: ManagedSmtpDeploymentNodeSummary) -> str:
+        if self._status_value(item.node.status) != 'active':
+            return 'blocked'
+        if item.agent_heartbeat_status != 'ok':
+            return 'blocked'
+        if not item.readiness_summary.latest_check:
+            return 'blocked'
+        if item.readiness_summary.latest_check.status != 'ok':
+            return 'blocked'
+        if not item.pool_memberships:
+            return 'blocked'
+        if (
+            not item.agent_config_in_sync
+            or item.agent_host_update_required
+            or item.agent_queue_status == 'deferred'
+            or item.agent_log_issue_status in {'bounce', 'deferred', 'warning'}
+            or item.agent_service_active_state == 'failed'
+            or item.agent_service_sub_state == 'failed'
+            or (
+                item.agent_timer_active_state
+                and (
+                    item.agent_timer_active_state != 'active'
+                    or item.agent_timer_sub_state not in {None, 'waiting', 'running', 'elapsed'}
+                )
+            )
+        ):
+            return 'warning'
+        return 'ok'
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

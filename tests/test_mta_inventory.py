@@ -321,6 +321,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
+    assert summary.recent_nodes[0].agent_operational_status == 'ok'
     assert summary.recent_nodes[0].agent_last_heartbeat_at is not None
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
@@ -413,6 +414,53 @@ def test_agent_queue_status_summarizes_queue_counts() -> None:
     assert service._agent_queue_status(3, 0, 0) == 'queued'
     assert service._agent_queue_status(3, 0, 2) == 'active'
     assert service._agent_queue_status(3, 1, 2) == 'deferred'
+
+
+def test_agent_operational_status_summarizes_node_health() -> None:
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+
+    def node_summary(**overrides):
+        values = {
+            'node': SimpleNamespace(status=MtaOperationalStatus.active),
+            'pool_memberships': [SimpleNamespace()],
+            'readiness_summary': ManagedSmtpReadinessSummaryRead(
+                total_count=1,
+                ok_count=1,
+                warning_count=0,
+                failed_count=0,
+                latest_check=latest_check,
+            ),
+            'agent_heartbeat_status': 'ok',
+            'agent_config_in_sync': True,
+            'agent_host_update_required': False,
+            'agent_queue_status': 'empty',
+            'agent_log_issue_status': 'ok',
+            'agent_service_active_state': 'inactive',
+            'agent_service_sub_state': 'dead',
+            'agent_timer_active_state': 'active',
+            'agent_timer_sub_state': 'waiting',
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    assert service._agent_operational_status(node_summary()) == 'ok'
+    assert service._agent_operational_status(node_summary(agent_heartbeat_status='stale')) == (
+        'blocked'
+    )
+    assert service._agent_operational_status(node_summary(agent_queue_status='deferred')) == (
+        'warning'
+    )
+    assert service._agent_operational_status(node_summary(agent_log_issue_status='warning')) == (
+        'warning'
+    )
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:
