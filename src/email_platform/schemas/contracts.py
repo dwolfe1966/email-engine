@@ -1383,6 +1383,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     status: str
     summary: str
     platform_code_revision: str | None = None
+    platform_code_revision_label: str = 'Unknown'
     provider_count: int
     active_provider_count: int
     blocked_provider_count: int

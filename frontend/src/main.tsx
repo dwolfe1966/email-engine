@@ -867,6 +867,7 @@ type ManagedSmtpFleetHealthRead = {
   status: string;
   summary: string;
   platform_code_revision: string | null;
+  platform_code_revision_label: string;
   provider_count: number;
   active_provider_count: number;
   blocked_provider_count: number;
@@ -10059,7 +10060,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     },
     {
       label: 'Platform revision',
-      value: managedSmtpDeploymentSummary?.fleet_health.platform_code_revision?.slice(0, 12) || 'Unknown',
+      value: managedSmtpDeploymentSummary?.fleet_health.platform_code_revision_label || 'Unknown',
       detail: managedSmtpDeploymentSummary?.fleet_health.platform_code_revision
         ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes)} host(s) behind deployed revision`
         : 'Platform commit revision is not available in this environment.',
@@ -11111,7 +11112,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>service state</dt><dd>{item.agent_service_state_label || `${item.agent_service_active_state || '-'} / ${item.agent_service_sub_state || '-'}`}</dd></div>
                     <div><dt>timer state</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
-                    <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision?.slice(0, 12) || '-'}</dd></div>
+                    <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision_label || '-'}</dd></div>
                     <div><dt>host revision</dt><dd>{item.agent_code_revision_label || '-'}</dd></div>
                     <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'Required' : 'Not required'} / {item.agent_host_update_status_label || item.agent_host_update_status}</dd></div>
                     <div><dt>host update detail</dt><dd>{item.agent_host_update_detail || '-'}</dd></div>

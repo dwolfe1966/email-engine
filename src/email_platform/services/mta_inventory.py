@@ -890,6 +890,7 @@ class MtaInventoryService:
             status=status,
             summary=summary,
             platform_code_revision=platform_code_revision,
+            platform_code_revision_label=self._code_revision_label(platform_code_revision),
             provider_count=len(
                 {
                     str(item.provider_account.id)
@@ -990,8 +991,12 @@ class MtaInventoryService:
     def _agent_code_revision_label(revision: str | None, dirty: bool | None) -> str:
         if not revision:
             return '-'
-        label = revision[:12]
+        label = MtaInventoryService._code_revision_label(revision)
         return f'{label} dirty' if dirty is True else label
+
+    @staticmethod
+    def _code_revision_label(revision: str | None) -> str:
+        return revision[:12] if revision else 'Unknown'
 
     @staticmethod
     def _agent_queue_status(

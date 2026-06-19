@@ -72,6 +72,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Managed SMTP fleet health strip',
         'fleet_health',
         'platform_code_revision',
+        'platform_code_revision_label',
         'Fleet status',
         'Route-ready nodes',
         'Node status',

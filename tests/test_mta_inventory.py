@@ -719,6 +719,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
 
     assert summary.status == 'warning'
     assert summary.platform_code_revision == 'currentrev999999'
+    assert summary.platform_code_revision_label == 'currentrev99'
     assert summary.code_missing_nodes == 1
     assert summary.code_dirty_nodes == 1
     assert summary.code_outdated_nodes == 2
