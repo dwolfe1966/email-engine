@@ -9966,7 +9966,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const deliveryAttemptAuditLabel = routeAttemptId
     ? focusedDeliveryAttempt
       ? `Focused attempt ${routeAttemptId.slice(0, 8)} is ${focusedDeliveryAttempt.status}.`
-      : `Focused attempt ${routeAttemptId.slice(0, 8)} is not loaded.`
+      : `Focused attempt ${routeAttemptId.slice(0, 8)} is not loaded; load the linked record audit.`
     : `${formatInt(deliveryAttempts.length)} attempt audit row(s) loaded.`;
 
   useEffect(() => {

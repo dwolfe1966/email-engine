@@ -123,6 +123,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'focusedDeliveryAttempt',
         'deliveryAttemptAuditLabel',
         'Focused attempt',
+        'load the linked record audit',
         'isFocusedAttempt',
         'Focused delivery record',
         'refreshDeliveryAttempts().catch',
