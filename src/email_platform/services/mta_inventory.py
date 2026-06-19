@@ -359,6 +359,7 @@ class MtaInventoryService:
         for item in node_summaries:
             item.provider_blockers = self._provider_blockers(item.provider_account)
             item.agent_operational_status = self._agent_operational_status(item)
+            item.operator_next_action = self._operator_next_action(item)
         return ManagedSmtpDeploymentSummaryRead(
             provider_accounts=self._inventory_counts(
                 total=self.count_provider_accounts(),
@@ -929,6 +930,46 @@ class MtaInventoryService:
         if provider_account.rdns_status != 'configured':
             blockers.append('rdns_blocked')
         return blockers
+
+    def _operator_next_action(self, item: ManagedSmtpDeploymentNodeSummary) -> str:
+        if item.provider_blockers:
+            blockers = ', '.join(
+                self._provider_blocker_label(blocker) for blocker in item.provider_blockers
+            )
+            return f'Resolve provider blocker(s): {blockers}.'
+        if item.agent_heartbeat_status in {'missing', 'stale', 'invalid'}:
+            return 'Restart or manually run the MTA agent on the host, then reload deployment summary.'
+        if item.agent_service_active_state == 'failed' or item.agent_service_sub_state == 'failed':
+            return 'Restart the MTA agent service and inspect the service journal before routing traffic.'
+        if item.agent_timer_active_state and (
+            item.agent_timer_active_state != 'active'
+            or item.agent_timer_sub_state not in {None, 'waiting', 'running', 'elapsed'}
+        ):
+            return 'Restart the MTA agent timer so recurring heartbeat and config checks continue.'
+        if item.agent_queue_status == 'deferred':
+            return 'Inspect the MTA mail queue and resolve deferred delivery before increasing volume.'
+        if item.agent_log_issue_status in {'bounce', 'deferred', 'warning'}:
+            return 'Review recent Postfix log samples and resolve delivery issues before increasing volume.'
+        if item.agent_host_update_status == 'dirty':
+            return 'Resolve the host working-tree changes before using this MTA for production traffic.'
+        if item.agent_host_update_status == 'outdated':
+            return 'Run the host update workflow so this MTA pulls the deployed platform revision.'
+        if item.agent_host_update_status == 'revision_missing':
+            return 'Run the host update workflow so this MTA reports its code revision.'
+        if not item.agent_config_in_sync:
+            return 'Run the MTA agent once so it fetches and applies the latest runtime config.'
+        if not item.readiness_summary.latest_check or item.readiness_summary.latest_check.status != 'ok':
+            return 'Run managed SMTP readiness smoke and publish the result before routing traffic.'
+        return 'No operator action required for this MTA node.'
+
+    @staticmethod
+    def _provider_blocker_label(blocker: str) -> str:
+        return {
+            'provider_missing': 'Provider missing',
+            'provider_inactive': 'Provider inactive',
+            'port25_blocked': 'Port 25 blocked',
+            'rdns_blocked': 'rDNS blocked',
+        }.get(blocker, blocker)
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

@@ -100,6 +100,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'submission_credentials_configured',
         'provider_blockers',
         'provider blockers',
+        'operator_next_action',
         'Resolve provider blocker(s):',
         'formatManagedSmtpProviderBlocker',
         'Port 25 blocked',

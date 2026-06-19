@@ -319,6 +319,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].provider_blockers == []
+    assert summary.recent_nodes[0].operator_next_action == (
+        'No operator action required for this MTA node.'
+    )
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
@@ -489,6 +492,41 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
         'rdns_blocked',
     ]
     assert service._provider_blockers(None) == ['provider_missing']
+
+
+def test_operator_next_action_prioritizes_provider_blockers() -> None:
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+    item = SimpleNamespace(
+        provider_blockers=['port25_blocked'],
+        agent_heartbeat_status='ok',
+        agent_service_active_state='inactive',
+        agent_service_sub_state='dead',
+        agent_timer_active_state='active',
+        agent_timer_sub_state='waiting',
+        agent_queue_status='empty',
+        agent_log_issue_status='ok',
+        agent_host_update_status='current',
+        agent_config_in_sync=True,
+        readiness_summary=ManagedSmtpReadinessSummaryRead(
+            total_count=1,
+            ok_count=1,
+            warning_count=0,
+            failed_count=0,
+            latest_check=latest_check,
+        ),
+    )
+
+    assert service._operator_next_action(item) == (
+        'Resolve provider blocker(s): Port 25 blocked.'
+    )
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:
