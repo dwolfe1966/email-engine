@@ -1022,6 +1022,10 @@ type SystemDiagnostics = {
     default_from_email: string;
     sendgrid_configured: boolean;
     smtp_configured: boolean;
+    managed_smtp_submission_configured: boolean;
+    managed_smtp_submission_tls_enabled: boolean;
+    managed_smtp_feedback_configured: boolean;
+    managed_smtp_feedback_previous_secret_configured: boolean;
   };
   ai: {
     provider: string;
@@ -15569,6 +15573,7 @@ function IntegrationsPage({ diagnostics, onRefresh }: {
           <tbody>
             <tr><td>Schema</td><td><span className="pill">{diagnostics?.schema.ok ? 'ready' : 'review'}</span></td><td>{diagnostics?.schema.needs_migration ? 'Migration required' : 'Current revision is deployed'}</td></tr>
             <tr><td>SMTP</td><td><span className="pill">{smtpReady ? 'ready' : 'not configured'}</span></td><td>Managed SMTP provider path for future outbound infrastructure.</td></tr>
+            <tr><td>SMTP secret rotation</td><td><span className="pill">{diagnostics?.email_provider.managed_smtp_feedback_previous_secret_configured ? 'rotation open' : 'closed'}</span></td><td>{diagnostics?.email_provider.managed_smtp_feedback_previous_secret_configured ? 'Previous managed SMTP feedback secret is still accepted temporarily.' : 'Only the current managed SMTP feedback secret is accepted.'}</td></tr>
             <tr><td>SG</td><td><span className="pill">{sgReady ? 'ready' : 'not configured'}</span></td><td>Current third-party provider readiness, abstracted behind provider interface.</td></tr>
             <tr><td>AI</td><td><span className="pill">{diagnostics?.ai.openai_configured ? 'ready' : 'fallback'}</span></td><td>{diagnostics?.ai.model || 'Deterministic fallback available'}</td></tr>
           </tbody>

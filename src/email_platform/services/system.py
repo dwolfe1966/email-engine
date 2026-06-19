@@ -75,6 +75,9 @@ def system_diagnostics(db: Session, settings: Settings) -> JsonObject:
             ),
             'managed_smtp_submission_tls_enabled': bool(settings.smtp_use_tls),
             'managed_smtp_feedback_configured': bool(settings.managed_smtp_feedback_secret),
+            'managed_smtp_feedback_previous_secret_configured': bool(
+                settings.managed_smtp_feedback_previous_secret
+            ),
         },
         'ai': {
             'provider': settings.ai_template_provider,

@@ -32,6 +32,7 @@ def test_system_diagnostics_endpoint() -> None:
     assert 'managed_smtp_submission_configured' in data['email_provider']
     assert 'managed_smtp_submission_tls_enabled' in data['email_provider']
     assert 'managed_smtp_feedback_configured' in data['email_provider']
+    assert 'managed_smtp_feedback_previous_secret_configured' in data['email_provider']
     assert 'openai_configured' in data['ai']
     assert 'entity_counts' in data
     assert 'database_tables' in data
