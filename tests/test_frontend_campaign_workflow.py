@@ -94,6 +94,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'envelope_from',
         'dkim_selector',
         'delivery_attempt_id',
+        '#delivery/${lastTestSendResult.send_record_id}',
         'lastLaunchResult.requested_count',
         'lastLaunchResult.queued_count',
         'lastLaunchResult.suppressed_count',

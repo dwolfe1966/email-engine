@@ -2892,7 +2892,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               {lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message ? (
                 <div><span>Issue</span><strong>{lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message}</strong></div>
               ) : null}
-              <a href="#delivery">Open delivery</a>
+              <a href={`#delivery/${lastTestSendResult.send_record_id}`}>Open delivery</a>
             </div>
           ) : null}
           {validationErrors.length || validationWarnings.length ? (
@@ -9905,10 +9905,11 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   );
 }
 
-function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation }: {
+function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOperation }: {
   sendJobs: CampaignSendJobRead[];
   sendRecords: EmailSendRecordRead[];
   campaigns: CampaignRead[];
+  route: string;
   onRefresh: () => Promise<void>;
   onOperation: (notice: OperationNotice) => void;
 }) {
@@ -9958,11 +9959,26 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
   const [busy, setBusy] = useState(false);
+  const routeRecordId = route.startsWith('delivery/') ? route.split('/')[1] || '' : '';
 
   useEffect(() => {
     if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
     if (!selectedRecordId && sendRecords.length) setSelectedRecordId(sendRecords[0].id);
   }, [sendJobs, selectedJobId, selectedRecordId, sendRecords]);
+
+  useEffect(() => {
+    if (!routeRecordId || selectedRecordId === routeRecordId) return;
+    setSelectedRecordId(routeRecordId);
+    setDeliveryAttempts([]);
+    setStatus(`Focused delivery record ${routeRecordId.slice(0, 8)} from navigation context.`);
+  }, [routeRecordId, selectedRecordId]);
+
+  useEffect(() => {
+    if (!routeRecordId || selectedRecordId !== routeRecordId) return;
+    refreshDeliveryAttempts().catch((error) => {
+      setStatus(error instanceof Error ? error.message : String(error));
+    });
+  }, [routeRecordId, selectedRecordId]);
 
   useEffect(() => {
     let active = true;
@@ -17427,6 +17443,7 @@ function App() {
           sendJobs={dashboard.sendJobs}
           sendRecords={dashboard.sendRecords}
           campaigns={dashboard.campaignItems}
+          route={route}
           onRefresh={async () => {
             const [sendJobData, sendRecordData] = await Promise.all([
               fetchJson<ListResponse<CampaignSendJobRead>>('/api/v1/campaign-send-jobs/list?limit=25&offset=0'),
