@@ -119,6 +119,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'operator_next_action',
         'operator_next_action_tone',
         'routeRecordId',
+        'routeAttemptId',
+        'isFocusedAttempt',
         'Focused delivery record',
         'refreshDeliveryAttempts().catch',
         'action code',

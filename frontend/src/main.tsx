@@ -2892,7 +2892,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               {lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message ? (
                 <div><span>Issue</span><strong>{lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message}</strong></div>
               ) : null}
-              <a href={`#delivery/${lastTestSendResult.send_record_id}`}>Open delivery</a>
+              <a href={`#delivery/${lastTestSendResult.send_record_id}${lastTestSendResult.delivery_attempt_id ? `/${lastTestSendResult.delivery_attempt_id}` : ''}`}>Open delivery</a>
             </div>
           ) : null}
           {validationErrors.length || validationWarnings.length ? (
@@ -9959,7 +9959,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
   const [busy, setBusy] = useState(false);
-  const routeRecordId = route.startsWith('delivery/') ? route.split('/')[1] || '' : '';
+  const routeParts = route.startsWith('delivery/') ? route.split('/') : [];
+  const routeRecordId = routeParts[1] || '';
+  const routeAttemptId = routeParts[2] || '';
 
   useEffect(() => {
     if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
@@ -9978,7 +9980,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     refreshDeliveryAttempts().catch((error) => {
       setStatus(error instanceof Error ? error.message : String(error));
     });
-  }, [routeRecordId, selectedRecordId]);
+  }, [routeRecordId, routeAttemptId, selectedRecordId]);
 
   useEffect(() => {
     let active = true;
@@ -11619,8 +11621,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const reason = String(metadata.reason || attempt.error_message || attempt.route_key || attempt.status);
               const domain = String(metadata.to_domain || '-');
               const policy = String(metadata.domain_delivery_policy_id || '-');
+              const isFocusedAttempt = routeAttemptId && attempt.id === routeAttemptId;
               return (
-                <article className={['claim_blocked', 'dead_lettered'].includes(attempt.status) ? 'warn' : 'good'} key={attempt.id}>
+                <article className={`${['claim_blocked', 'dead_lettered'].includes(attempt.status) ? 'warn' : 'good'} ${isFocusedAttempt ? 'selected-row' : ''}`} key={attempt.id}>
                   <div>
                     <span>{attempt.status}</span>
                     <strong>{reason}</strong>
@@ -11628,6 +11631,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                   <small>{attempt.started_at}</small>
                   <dl>
                     <div><dt>record</dt><dd>{attempt.send_record_id.slice(0, 8)}</dd></div>
+                    <div><dt>attempt</dt><dd>{attempt.id.slice(0, 8)}</dd></div>
                     <div><dt>route</dt><dd>{attempt.route_type || '-'} / {attempt.route_key || '-'}</dd></div>
                     <div><dt>domain</dt><dd>{domain}</dd></div>
                     <div><dt>policy</dt><dd>{policy === '-' ? '-' : policy.slice(0, 8)}</dd></div>
