@@ -107,6 +107,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'provider_rdns_blocked_count',
         'provider_inactive_count',
         'submission_credentials_configured',
+        'submission_endpoint_label',
         'provider_blockers',
         'provider_blocker_labels',
         'provider blockers',

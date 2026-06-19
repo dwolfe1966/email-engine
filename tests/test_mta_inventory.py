@@ -322,6 +322,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account_status_label == 'Active'
     assert summary.recent_nodes[0].provider_port25_status_label == 'Approved'
     assert summary.recent_nodes[0].provider_rdns_status_label == 'Configured'
+    assert summary.recent_nodes[0].submission_endpoint_label == 'smtp.example.com:587'
     assert summary.recent_nodes[0].provider_blockers == []
     assert summary.recent_nodes[0].provider_blocker_labels == []
     assert summary.recent_nodes[0].operator_next_action_code == 'none'
@@ -555,6 +556,9 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
     assert service._provider_status_label('pending') == 'Pending'
     assert service._inventory_status_label('active') == 'Active'
     assert service._inventory_status_label('paused') == 'Paused'
+    assert service._submission_endpoint_label(
+        SimpleNamespace(submission_host=None, hostname='mta.example.com', submission_port=2525)
+    ) == 'mta.example.com:2525'
 
 
 def test_operator_next_action_prioritizes_provider_blockers() -> None:

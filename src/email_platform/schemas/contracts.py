@@ -1336,6 +1336,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     operator_next_action_code_label: str = 'Load deployment summary'
     operator_next_action: str = 'Load deployment summary for MTA node guidance.'
     operator_next_action_tone: str = 'warn'
+    submission_endpoint_label: str = '-'
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
     readiness_summary: ManagedSmtpReadinessSummaryRead
     readiness_summary_label: str = 'Not checked'

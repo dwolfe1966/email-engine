@@ -377,6 +377,7 @@ class MtaInventoryService:
             item.provider_blocker_labels = [
                 self._provider_blocker_label(blocker) for blocker in item.provider_blockers
             ]
+            item.submission_endpoint_label = self._submission_endpoint_label(item.node)
             item.agent_heartbeat_status_label = self._agent_heartbeat_status_label(
                 item.agent_heartbeat_status
             )
@@ -1172,6 +1173,14 @@ class MtaInventoryService:
             'missing': 'Missing',
             'unknown': 'Unknown',
         }.get(status, status.replace('_', ' ').title())
+
+    @staticmethod
+    def _submission_endpoint_label(node) -> str:
+        host = getattr(node, 'submission_host', None) or getattr(node, 'hostname', None)
+        port = getattr(node, 'submission_port', None)
+        if not host:
+            return '-'
+        return f'{host}:{port or 587}'
 
     @staticmethod
     def _operator_next_action_code_label(code: str) -> str:

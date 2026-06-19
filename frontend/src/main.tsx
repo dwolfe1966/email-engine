@@ -811,6 +811,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   operator_next_action_code_label: string;
   operator_next_action: string;
   operator_next_action_tone: string;
+  submission_endpoint_label: string;
   pool_memberships: MtaIpPoolNodeRead[];
   readiness_summary: ManagedSmtpReadinessSummaryRead;
   readiness_summary_label: string;
@@ -11083,7 +11084,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>port 25</dt><dd>{item.provider_port25_status_label || item.provider_account?.port25_status || 'Unknown'}</dd></div>
                   <div><dt>rDNS</dt><dd>{item.provider_rdns_status_label || item.provider_account?.rdns_status || 'Unknown'}</dd></div>
                   <div><dt>provider blockers</dt><dd>{item.provider_blocker_labels.length ? item.provider_blocker_labels.join(', ') : 'none'}</dd></div>
-                  <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
+                  <div><dt>submission</dt><dd>{item.submission_endpoint_label || `${item.node.submission_host || item.node.hostname}:${item.node.submission_port}`}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{item.readiness_summary_label || 'Not checked'} / {formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
