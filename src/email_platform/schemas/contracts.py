@@ -1331,6 +1331,8 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_timer_active_state: str | None = None
     agent_timer_sub_state: str | None = None
     agent_timer_next_elapse: str | None = None
+    agent_code_revision: str | None = None
+    agent_code_dirty: bool | None = None
 
 
 class ManagedSmtpFleetHealthRead(BaseModel):

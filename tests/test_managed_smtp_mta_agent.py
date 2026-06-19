@@ -92,6 +92,7 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
             'service': {'active_state': 'inactive', 'sub_state': 'dead'},
             'timer': {'active_state': 'active', 'sub_state': 'waiting'},
         },
+        revision={'revision': 'abc123def456', 'dirty': False},
     )
 
     assert payload['status'] == 'ok'
@@ -107,6 +108,8 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     assert payload['payload_json']['domain_count'] == 1
     assert payload['payload_json']['systemd']['service']['active_state'] == 'inactive'
     assert payload['payload_json']['systemd']['timer']['sub_state'] == 'waiting'
+    assert payload['payload_json']['revision']['revision'] == 'abc123def456'
+    assert payload['payload_json']['revision']['dirty'] is False
 
 
 def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch, tmp_path) -> None:
@@ -153,6 +156,11 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
             'timer': {'active_state': 'active', 'sub_state': 'waiting'},
         },
     )
+    monkeypatch.setattr(
+        module,
+        'collect_git_revision',
+        lambda path, *, timeout: {'revision': 'newrev123456', 'dirty': False},
+    )
     monkeypatch.setattr(module, 'post_heartbeat', fake_heartbeat)
     monkeypatch.setattr(module, 'post_event', fake_event)
 
@@ -162,6 +170,7 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
         node_id='node-id',
         timeout=15,
         state_path=str(tmp_path / 'agent-state.json'),
+        repo_path='/root/apps/email-engine',
         mailq_command=['mailq'],
         compose_file=None,
         env_file=None,
@@ -181,5 +190,6 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
     assert calls[2][0] == 'heartbeat'
     assert calls[2][4]['applied_config_version'] == 'new-version'
     assert calls[2][4]['payload_json']['systemd']['timer']['active_state'] == 'active'
+    assert calls[2][4]['payload_json']['revision']['revision'] == 'newrev123456'
     assert calls[3][0] == 'event'
     assert calls[3][4]['event_type'] == 'runtime_config_applied'

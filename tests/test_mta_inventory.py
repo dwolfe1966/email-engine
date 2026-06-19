@@ -193,6 +193,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
             'agent_timer_active_state': 'active',
             'agent_timer_sub_state': 'waiting',
             'agent_timer_next_elapse': 'Fri 2026-06-19 00:34:09 UTC',
+            'agent_code_revision': 'abc123def456',
+            'agent_code_dirty': False,
         },
         created_at=now,
         updated_at=now,
@@ -313,6 +315,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_service_active_state == 'inactive'
     assert summary.recent_nodes[0].agent_timer_active_state == 'active'
     assert summary.recent_nodes[0].agent_timer_next_elapse == 'Fri 2026-06-19 00:34:09 UTC'
+    assert summary.recent_nodes[0].agent_code_revision == 'abc123def456'
+    assert summary.recent_nodes[0].agent_code_dirty is False
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
     assert summary.fleet_health.config_drift_nodes == 0

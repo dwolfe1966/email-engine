@@ -819,6 +819,8 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_timer_active_state: string | null;
   agent_timer_sub_state: string | null;
   agent_timer_next_elapse: string | null;
+  agent_code_revision: string | null;
+  agent_code_dirty: boolean | null;
 };
 
 type ManagedSmtpFleetHealthRead = {
@@ -10920,6 +10922,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>service state</dt><dd>{item.agent_service_active_state || '-'} / {item.agent_service_sub_state || '-'}</dd></div>
                     <div><dt>timer state</dt><dd>{item.agent_timer_active_state || '-'} / {item.agent_timer_sub_state || '-'}</dd></div>
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
+                    <div><dt>host revision</dt><dd>{item.agent_code_revision || '-'}{item.agent_code_dirty ? ' dirty' : ''}</dd></div>
                   </dl>
                 </details>
                 <details>

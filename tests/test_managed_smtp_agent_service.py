@@ -35,6 +35,7 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
         def create(self, payload):
             assert payload.source == 'mta_agent'
             assert payload.result_json['systemd']['timer']['active_state'] == 'active'
+            assert payload.result_json['revision']['revision'] == 'abc123def456'
             return check
 
     monkeypatch.setattr(agent_module, 'ManagedSmtpReadinessService', FakeReadinessService)
@@ -56,7 +57,8 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
                         'sub_state': 'waiting',
                         'next_elapse': 'Fri 2026-06-19 00:34:09 UTC',
                     },
-                }
+                },
+                'revision': {'revision': 'abc123def456', 'dirty': False},
             },
         ),
     )
@@ -67,3 +69,5 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
     assert node.metadata_json['agent_timer_active_state'] == 'active'
     assert node.metadata_json['agent_timer_sub_state'] == 'waiting'
     assert node.metadata_json['agent_timer_next_elapse'] == 'Fri 2026-06-19 00:34:09 UTC'
+    assert node.metadata_json['agent_code_revision'] == 'abc123def456'
+    assert node.metadata_json['agent_code_dirty'] is False

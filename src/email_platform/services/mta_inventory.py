@@ -575,6 +575,7 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 **self._agent_systemd_state(metadata),
+                **self._agent_code_state(metadata),
             }
         try:
             heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
@@ -588,6 +589,7 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 **self._agent_systemd_state(metadata),
+                **self._agent_code_state(metadata),
             }
         age_seconds = max(
             0,
@@ -602,6 +604,7 @@ class MtaInventoryService:
             'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
             **self._agent_systemd_state(metadata),
+            **self._agent_code_state(metadata),
         }
 
     def _agent_config_state(self, node: MtaNode, runtime_config) -> dict[str, object]:
@@ -740,6 +743,12 @@ class MtaInventoryService:
             'agent_timer_next_elapse': self._metadata_str(metadata, 'agent_timer_next_elapse'),
         }
 
+    def _agent_code_state(self, metadata: dict[str, object]) -> dict[str, object]:
+        return {
+            'agent_code_revision': self._metadata_str(metadata, 'agent_code_revision'),
+            'agent_code_dirty': self._metadata_bool(metadata, 'agent_code_dirty'),
+        }
+
     @staticmethod
     def _metadata_str(metadata: dict[str, object], key: str) -> str | None:
         value = metadata.get(key)
@@ -747,6 +756,11 @@ class MtaInventoryService:
             return None
         text = str(value).strip()
         return text or None
+
+    @staticmethod
+    def _metadata_bool(metadata: dict[str, object], key: str) -> bool | None:
+        value = metadata.get(key)
+        return value if isinstance(value, bool) else None
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:

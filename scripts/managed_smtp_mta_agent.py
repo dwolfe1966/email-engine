@@ -230,6 +230,39 @@ def collect_systemd_status(args) -> dict[str, Any]:
     }
 
 
+def collect_git_revision(path: str | None, *, timeout: float = 20) -> dict[str, Any]:
+    if not path:
+        return {'ok': False, 'error': 'repository path not configured'}
+    command = ['git', '-C', path, 'rev-parse', '--short=12', 'HEAD']
+    dirty_command = ['git', '-C', path, 'status', '--porcelain']
+    try:
+        revision = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        dirty = subprocess.run(
+            dirty_command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {'ok': False, 'path': path, 'error': str(exc), 'command': command}
+    return {
+        'ok': revision.returncode == 0 and dirty.returncode == 0,
+        'path': path,
+        'revision': revision.stdout.strip() or None,
+        'dirty': bool(dirty.stdout.strip()),
+        'returncode': revision.returncode,
+        'dirty_returncode': dirty.returncode,
+        'command': command,
+    }
+
+
 def read_state(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
@@ -256,6 +289,7 @@ def build_heartbeat_payload(
     *,
     previous_config_version: str | None = None,
     systemd: dict[str, Any] | None = None,
+    revision: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config_version = str(runtime_config.get('config_version') or '')
     queue_ok = bool(queue.get('ok'))
@@ -281,6 +315,7 @@ def build_heartbeat_payload(
             'pool_count': len(runtime_config.get('pools') or []),
             'domain_count': len(runtime_config.get('domains') or []),
             'systemd': systemd or {},
+            'revision': revision or {},
         },
     }
 
@@ -318,11 +353,13 @@ def run_once(args) -> dict[str, Any]:
     previous_config_version = state.get('applied_config_version')
     queue = collect_mailq(default_mailq_command(args), timeout=args.timeout)
     systemd = collect_systemd_status(args)
+    revision = collect_git_revision(args.repo_path, timeout=args.timeout)
     heartbeat_payload = build_heartbeat_payload(
         runtime_config,
         queue,
         previous_config_version=previous_config_version,
         systemd=systemd,
+        revision=revision,
     )
     heartbeat = post_heartbeat(
         args.base_url,
@@ -359,6 +396,7 @@ def run_once(args) -> dict[str, Any]:
         },
         'queue': queue,
         'systemd': systemd,
+        'revision': revision,
         'heartbeat': heartbeat,
         'event': event_response,
     }
@@ -376,6 +414,10 @@ def main() -> int:
         help='Shared secret used to sign MTA agent API requests.',
     )
     parser.add_argument('--state-path', default=os.environ.get('MANAGED_SMTP_MTA_AGENT_STATE'))
+    parser.add_argument(
+        '--repo-path',
+        default=os.environ.get('MANAGED_SMTP_REPO_PATH', str(Path(__file__).resolve().parents[1])),
+    )
     parser.add_argument(
         '--timeout',
         type=float,
