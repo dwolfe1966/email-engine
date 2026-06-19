@@ -10021,6 +10021,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.fleet_health.deferred_count ? 'warn' : 'good',
     },
     {
+      label: 'Deferred queue',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.deferred_count || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.queue_depth)} total queued message(s)`
+        : 'Load deployment summary for deferred queue status.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.deferred_count ? 'warn' : 'good',
+    },
+    {
       label: 'Provider blockers',
       value: formatInt(managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count || 0),
       detail: managedSmtpDeploymentSummary
