@@ -365,6 +365,7 @@ class MtaInventoryService:
             item.agent_operational_status = self._agent_operational_status(item)
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
+            item.operator_next_action_tone = self._operator_next_action_tone(item)
         return ManagedSmtpDeploymentSummaryRead(
             provider_accounts=self._inventory_counts(
                 total=self.count_provider_accounts(),
@@ -1018,6 +1019,14 @@ class MtaInventoryService:
         if not item.readiness_summary.latest_check or item.readiness_summary.latest_check.status != 'ok':
             return 'publish_readiness'
         return 'none'
+
+    @staticmethod
+    def _operator_next_action_tone(item: ManagedSmtpDeploymentNodeSummary) -> str:
+        if item.operator_next_action_code == 'none':
+            return 'good'
+        if getattr(item, 'agent_operational_status', None) == 'warning':
+            return 'warn'
+        return 'warn'
 
     @staticmethod
     def _provider_blocker_label(blocker: str) -> str:

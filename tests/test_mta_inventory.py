@@ -324,6 +324,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].operator_next_action == (
         'No operator action required for this MTA node.'
     )
+    assert summary.recent_nodes[0].operator_next_action_tone == 'good'
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
@@ -547,6 +548,7 @@ def test_operator_next_action_prioritizes_provider_blockers() -> None:
     assert service._operator_next_action(item) == (
         'Resolve provider blocker(s): Port 25 blocked.'
     )
+    assert service._operator_next_action_tone(item) == 'warn'
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:

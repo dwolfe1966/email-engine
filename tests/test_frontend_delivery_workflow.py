@@ -112,6 +112,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'provider blockers',
         'operator_next_action_code',
         'operator_next_action',
+        'operator_next_action_tone',
         'action code',
         'Resolve provider blocker(s):',
         'formatManagedSmtpProviderBlocker',

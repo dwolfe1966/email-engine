@@ -1330,6 +1330,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     provider_blocker_labels: list[str] = Field(default_factory=list)
     operator_next_action_code: str = 'load_deployment_summary'
     operator_next_action: str = 'Load deployment summary for MTA node guidance.'
+    operator_next_action_tone: str = 'warn'
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
     readiness_summary: ManagedSmtpReadinessSummaryRead
     agent_heartbeat_status: str = 'missing'

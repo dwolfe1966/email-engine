@@ -805,6 +805,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   provider_blocker_labels: string[];
   operator_next_action_code: string;
   operator_next_action: string;
+  operator_next_action_tone: string;
   pool_memberships: MtaIpPoolNodeRead[];
   readiness_summary: ManagedSmtpReadinessSummaryRead;
   agent_heartbeat_status: string;
@@ -11056,7 +11057,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
-              <article className={item.agent_operational_status === 'ok' ? 'good' : 'warn'} key={item.node.id}>
+              <article className={item.operator_next_action_tone || (item.agent_operational_status === 'ok' ? 'good' : 'warn')} key={item.node.id}>
                 <div>
                   <span>{item.provider_account?.provider || 'provider'} / {item.node.status}</span>
                   <strong>{item.node.name} - {item.node.hostname}</strong>
