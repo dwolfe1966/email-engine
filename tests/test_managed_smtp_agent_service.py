@@ -50,6 +50,13 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
             config_version='config-v1',
             applied_config_version='config-v1',
             payload_json={
+                'queue_samples': [
+                    {
+                        'queue_id': 'ABC123DEF',
+                        'sender': 'mta-smoke@email-engine.app',
+                        'recipients': ['seed@example.com'],
+                    }
+                ],
                 'systemd': {
                     'service': {'active_state': 'inactive', 'sub_state': 'dead'},
                     'timer': {
@@ -71,3 +78,10 @@ def test_mta_agent_heartbeat_persists_systemd_state(monkeypatch) -> None:
     assert node.metadata_json['agent_timer_next_elapse'] == 'Fri 2026-06-19 00:34:09 UTC'
     assert node.metadata_json['agent_code_revision'] == 'abc123def456'
     assert node.metadata_json['agent_code_dirty'] is False
+    assert node.metadata_json['agent_queue_samples'] == [
+        {
+            'queue_id': 'ABC123DEF',
+            'sender': 'mta-smoke@email-engine.app',
+            'recipients': ['seed@example.com'],
+        }
+    ]

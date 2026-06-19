@@ -15,6 +15,10 @@ from typing import Any
 
 QUEUE_SUMMARY_PATTERN = re.compile(r'--\s+\d+\s+Kbytes\s+in\s+(\d+)\s+Requests?\.')
 QUEUE_ID_PATTERN = re.compile(r'^[A-F0-9]{5,}\*?\s+')
+QUEUE_ENTRY_PATTERN = re.compile(
+    r'^(?P<queue_id>[A-F0-9]{5,})(?P<active>\*)?\s+\d+\s+\S+\s+\S+\s+\d+\s+\S+\s+(?P<sender>\S+)'
+)
+QUEUE_SAMPLE_LIMIT = 10
 
 
 class MtaAgentError(RuntimeError):
@@ -118,14 +122,39 @@ def post_event(
     )
 
 
-def parse_mailq(output: str) -> dict[str, int]:
+def parse_mailq(output: str) -> dict[str, Any]:
     queue_depth = 0
     deferred_count = 0
+    samples: list[dict[str, Any]] = []
+    current_sample: dict[str, Any] | None = None
     for line in output.splitlines():
+        entry = QUEUE_ENTRY_PATTERN.match(line)
+        if entry:
+            current_sample = {
+                'queue_id': entry.group('queue_id'),
+                'active': bool(entry.group('active')),
+                'sender': entry.group('sender'),
+                'recipients': [],
+            }
+            if len(samples) < QUEUE_SAMPLE_LIMIT:
+                samples.append(current_sample)
         if QUEUE_ID_PATTERN.match(line):
             queue_depth += 1
-        if line.strip().startswith('('):
+        stripped = line.strip()
+        if stripped.startswith('('):
             deferred_count += 1
+            if current_sample is not None:
+                current_sample['deferred_reason'] = stripped.strip('()')
+        elif (
+            current_sample is not None
+            and not entry
+            and stripped
+            and '@' in stripped
+            and not stripped.startswith('--')
+        ):
+            recipients = current_sample.setdefault('recipients', [])
+            if isinstance(recipients, list):
+                recipients.append(stripped)
         summary = QUEUE_SUMMARY_PATTERN.search(line)
         if summary:
             queue_depth = int(summary.group(1))
@@ -133,6 +162,7 @@ def parse_mailq(output: str) -> dict[str, int]:
         'queue_depth': queue_depth,
         'deferred_count': min(deferred_count, queue_depth),
         'active_count': max(queue_depth - deferred_count, 0),
+        'queue_samples': samples,
     }
 
 
@@ -310,6 +340,7 @@ def build_heartbeat_payload(
             'queue_ok': queue_ok,
             'queue_command': queue.get('command'),
             'queue_error': queue.get('error'),
+            'queue_samples': queue.get('queue_samples') or [],
             'provider': (runtime_config.get('provider_account') or {}).get('provider'),
             'hostname': (runtime_config.get('node') or {}).get('hostname'),
             'pool_count': len(runtime_config.get('pools') or []),

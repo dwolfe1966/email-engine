@@ -87,6 +87,7 @@ class ManagedSmtpAgentService:
         systemd_service = self._mapping(systemd.get('service'))
         systemd_timer = self._mapping(systemd.get('timer'))
         revision = self._mapping(payload.payload_json.get('revision'))
+        queue_samples = payload.payload_json.get('queue_samples')
         node.last_readiness_at = check.created_at
         node.metadata_json = {
             **(node.metadata_json or {}),
@@ -106,6 +107,7 @@ class ManagedSmtpAgentService:
             'agent_timer_next_elapse': self._str_or_none(systemd_timer.get('next_elapse')),
             'agent_code_revision': self._str_or_none(revision.get('revision')),
             'agent_code_dirty': revision.get('dirty') if isinstance(revision.get('dirty'), bool) else None,
+            'agent_queue_samples': queue_samples if isinstance(queue_samples, list) else [],
         }
         self.db.commit()
         self.db.refresh(check)

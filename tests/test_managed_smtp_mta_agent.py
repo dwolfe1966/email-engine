@@ -46,7 +46,22 @@ ABC123DEF*      441 Thu Jun 18 22:17:01  mta-smoke@email-engine.app
 """.strip()
     )
 
-    assert result == {'queue_depth': 2, 'deferred_count': 1, 'active_count': 1}
+    assert result['queue_depth'] == 2
+    assert result['deferred_count'] == 1
+    assert result['active_count'] == 1
+    assert result['queue_samples'][0] == {
+        'queue_id': 'C268544253',
+        'active': False,
+        'sender': 'mta-smoke@email-engine.app',
+        'recipients': ['davidtesterwex@gmail.com'],
+        'deferred_reason': 'Host or domain name not found. Name service error for name=gmail.com type=MX',
+    }
+    assert result['queue_samples'][1] == {
+        'queue_id': 'ABC123DEF',
+        'active': True,
+        'sender': 'mta-smoke@email-engine.app',
+        'recipients': ['seed@example.com'],
+    }
 
 
 def test_mta_agent_parses_systemctl_show_output() -> None:
@@ -86,6 +101,7 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
             'deferred_count': 2,
             'active_count': 1,
             'command': ['mailq'],
+            'queue_samples': [{'queue_id': 'ABC123DEF', 'sender': 'sender@example.com'}],
         },
         previous_config_version='old-version',
         systemd={
@@ -110,6 +126,9 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     assert payload['payload_json']['systemd']['timer']['sub_state'] == 'waiting'
     assert payload['payload_json']['revision']['revision'] == 'abc123def456'
     assert payload['payload_json']['revision']['dirty'] is False
+    assert payload['payload_json']['queue_samples'] == [
+        {'queue_id': 'ABC123DEF', 'sender': 'sender@example.com'}
+    ]
 
 
 def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch, tmp_path) -> None:
