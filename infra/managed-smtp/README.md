@@ -1,12 +1,12 @@
-# Managed SMTP Staging
+# Managed SMTP
 
-This scaffold is the first concrete owned-MTA deployment path. It chooses Postfix for staging
-because Postfix is mature, operationally familiar, and works well as a constrained outbound
-transport while Email Engine owns queue state, feedback normalization, and operator controls.
+This scaffold is the first concrete owned-MTA deployment path. It chooses Postfix because Postfix is
+mature, operationally familiar, and works well as a constrained outbound transport while Email
+Engine owns queue state, feedback normalization, and operator controls.
 
-It is not a production deliverability stack yet. Production still needs DKIM signing, SPF/DMARC
-alignment, bounce-domain routing, abuse controls, IP pool policy, warmup automation, queue
-observability, and blocklist monitoring.
+The production shape now supports Postfix, OpenDKIM, authenticated submission, DNS-aligned sending,
+signed readiness posting, route resolution, and MTA-agent telemetry. Warmup automation, provider
+portfolio controls, abuse automation, and blocklist monitoring remain iterative platform work.
 
 ## Components
 
@@ -28,6 +28,8 @@ observability, and blocklist monitoring.
   a Maildir into `ManagedSmtpFeedbackEvent` payloads.
 - `scripts/managed_smtp_mta_smoke.py`: checks a running production MTA banner, EHLO, STARTTLS,
   optional test submission, captured-message DKIM headers, and optional signed feedback ingestion.
+- `scripts/managed_smtp_mta_agent.py`: fetches signed runtime config for an MTA node, collects
+  local Postfix queue counts, posts node heartbeat telemetry, and can post config-change events.
 
 ## Staging Flow
 
@@ -178,6 +180,36 @@ state from the readiness summary endpoint, plus recent pass/fail movement and ba
 trend alert status/reasons from the trend endpoint. The alerts endpoint exposes recent non-OK
 readiness evidence for future notification routing, and the notification endpoint shapes that
 evidence into a severity/title/message plus dedupe key.
+
+## MTA Agent
+
+Run the MTA agent on each provider host to keep Email Engine's MTA inventory in sync with the
+running node. The agent signs requests with `MANAGED_SMTP_FEEDBACK_SECRET`, reads runtime config
+from `/api/v1/mta-agent/nodes/{node_id}/runtime-config`, publishes heartbeat checks, and optionally
+posts a config-change event when the platform config version changes.
+
+For the Scaleway proof-of-concept host, set:
+
+```bash
+export BASE_URL=https://email-engine.app
+export MANAGED_SMTP_MTA_NODE_ID=<mta-node-id>
+export MANAGED_SMTP_FEEDBACK_SECRET=<same-secret-as-email-engine>
+export MANAGED_SMTP_MTA_AGENT_STATE=/srv/email-engine/mta-agent/state.json
+export MANAGED_SMTP_ENV_FILE=/root/apps/email-engine/infra/managed-smtp/production.env
+export MANAGED_SMTP_COMPOSE_FILE=/root/apps/email-engine/infra/managed-smtp/docker-compose.production.yml
+```
+
+Then run one heartbeat cycle:
+
+```bash
+cd /root/apps/email-engine
+python3 scripts/managed_smtp_mta_agent.py --post-config-event --json
+```
+
+For cron, run the same command every minute. For systemd, use the same environment values and a
+timer. The agent does not mutate Postfix config yet; this first slice establishes the control plane
+contract and confirms that every MTA node can fetch the config it should be running and report
+queue/readiness state back to Email Engine.
 
 ## Bounce Routing Boundary
 
