@@ -325,6 +325,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
     assert summary.recent_nodes[0].agent_queue_depth == 1
+    assert summary.recent_nodes[0].agent_queue_status == 'active'
     assert summary.recent_nodes[0].agent_queue_samples[0].queue_id == 'ABC123DEF'
     assert summary.recent_nodes[0].agent_queue_samples[0].deferred_reason == (
         'temporary DNS failure'
@@ -402,6 +403,16 @@ def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:
     state = service._agent_heartbeat_state(node)
 
     assert state['agent_log_issue_status'] == 'deferred'
+
+
+def test_agent_queue_status_summarizes_queue_counts() -> None:
+    service = MtaInventoryService(FakeDb())
+
+    assert service._agent_queue_status(None, None, None) == 'unknown'
+    assert service._agent_queue_status(0, 0, 0) == 'empty'
+    assert service._agent_queue_status(3, 0, 0) == 'queued'
+    assert service._agent_queue_status(3, 0, 2) == 'active'
+    assert service._agent_queue_status(3, 1, 2) == 'deferred'
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:

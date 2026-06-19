@@ -569,15 +569,21 @@ class MtaInventoryService:
         raw_heartbeat = metadata.get('agent_last_heartbeat_at')
         stale_after = self.agent_heartbeat_stale_after_seconds
         if not raw_heartbeat:
+            queue_depth = self._metadata_int(metadata, 'agent_queue_depth')
+            deferred_count = self._metadata_int(metadata, 'agent_deferred_count')
+            active_count = self._metadata_int(metadata, 'agent_active_count')
             agent_log_samples = self._agent_log_samples(metadata)
             return {
                 'agent_heartbeat_status': 'missing',
                 'agent_last_heartbeat_at': None,
                 'agent_heartbeat_age_seconds': None,
                 'agent_heartbeat_stale_after_seconds': stale_after,
-                'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
-                'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
-                'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                'agent_queue_depth': queue_depth,
+                'agent_deferred_count': deferred_count,
+                'agent_active_count': active_count,
+                'agent_queue_status': self._agent_queue_status(
+                    queue_depth, deferred_count, active_count
+                ),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
                 'agent_log_samples': agent_log_samples,
                 'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
@@ -587,15 +593,21 @@ class MtaInventoryService:
         try:
             heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
         except ValueError:
+            queue_depth = self._metadata_int(metadata, 'agent_queue_depth')
+            deferred_count = self._metadata_int(metadata, 'agent_deferred_count')
+            active_count = self._metadata_int(metadata, 'agent_active_count')
             agent_log_samples = self._agent_log_samples(metadata)
             return {
                 'agent_heartbeat_status': 'invalid',
                 'agent_last_heartbeat_at': None,
                 'agent_heartbeat_age_seconds': None,
                 'agent_heartbeat_stale_after_seconds': stale_after,
-                'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
-                'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
-                'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                'agent_queue_depth': queue_depth,
+                'agent_deferred_count': deferred_count,
+                'agent_active_count': active_count,
+                'agent_queue_status': self._agent_queue_status(
+                    queue_depth, deferred_count, active_count
+                ),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
                 'agent_log_samples': agent_log_samples,
                 'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
@@ -606,15 +618,21 @@ class MtaInventoryService:
             0,
             int((datetime.utcnow() - heartbeat_at.replace(tzinfo=None)).total_seconds()),
         )
+        queue_depth = self._metadata_int(metadata, 'agent_queue_depth')
+        deferred_count = self._metadata_int(metadata, 'agent_deferred_count')
+        active_count = self._metadata_int(metadata, 'agent_active_count')
         agent_log_samples = self._agent_log_samples(metadata)
         return {
             'agent_heartbeat_status': 'stale' if age_seconds > stale_after else 'ok',
             'agent_last_heartbeat_at': heartbeat_at,
             'agent_heartbeat_age_seconds': age_seconds,
             'agent_heartbeat_stale_after_seconds': stale_after,
-            'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
-            'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
-            'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+            'agent_queue_depth': queue_depth,
+            'agent_deferred_count': deferred_count,
+            'agent_active_count': active_count,
+            'agent_queue_status': self._agent_queue_status(
+                queue_depth, deferred_count, active_count
+            ),
             'agent_queue_samples': self._agent_queue_samples(metadata),
             'agent_log_samples': agent_log_samples,
             'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
@@ -812,6 +830,22 @@ class MtaInventoryService:
             if severity in severities:
                 return severity
         return 'ok'
+
+    @staticmethod
+    def _agent_queue_status(
+        queue_depth: int | None,
+        deferred_count: int | None,
+        active_count: int | None,
+    ) -> str:
+        if queue_depth is None and deferred_count is None and active_count is None:
+            return 'unknown'
+        if deferred_count and deferred_count > 0:
+            return 'deferred'
+        if active_count and active_count > 0:
+            return 'active'
+        if queue_depth and queue_depth > 0:
+            return 'queued'
+        return 'empty'
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

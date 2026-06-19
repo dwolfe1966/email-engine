@@ -810,6 +810,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_queue_depth: number | null;
   agent_deferred_count: number | null;
   agent_active_count: number | null;
+  agent_queue_status: string;
   agent_queue_samples: Array<{
     queue_id: string | null;
     active: boolean | null;
@@ -10098,7 +10099,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     return 'No operator action required for this MTA node.';
   };
   const managedSmtpNodeHasDeferredQueue = (item: ManagedSmtpDeploymentNodeSummary) => (
-    (item.agent_deferred_count || 0) > 0
+    item.agent_queue_status === 'deferred'
   );
   const managedSmtpNodeHasLogIssue = (item: ManagedSmtpDeploymentNodeSummary) => (
     ['bounce', 'deferred', 'warning'].includes(item.agent_log_issue_status)
@@ -11025,7 +11026,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
                   <div><dt>agent service</dt><dd>{item.agent_service_active_state || '-'} / {item.agent_service_sub_state || '-'}</dd></div>
                   <div><dt>agent timer</dt><dd>{item.agent_timer_active_state || '-'} / {item.agent_timer_sub_state || '-'}</dd></div>
-                  <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
+                  <div><dt>queue</dt><dd>{item.agent_queue_status} / {formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                   <div><dt>recent logs</dt><dd>{item.agent_log_issue_status}</dd></div>
                   <div><dt>next action</dt><dd>{managedSmtpNodeNextAction(item)}</dd></div>
                 </dl>
