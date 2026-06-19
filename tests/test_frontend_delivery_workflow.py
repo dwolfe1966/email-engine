@@ -103,6 +103,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'agent_host_update_status',
         'agent_host_update_detail',
         'host update',
+        'host update status',
         'host update detail',
         'code_missing_nodes',
         'code_dirty_nodes',

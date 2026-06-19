@@ -10935,7 +10935,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
-              <article className={item.agent_heartbeat_status === 'ok' && item.readiness_summary.latest_check?.status === 'ok' ? 'good' : 'warn'} key={item.node.id}>
+              <article className={item.agent_heartbeat_status === 'ok' && item.readiness_summary.latest_check?.status === 'ok' && !item.agent_host_update_required ? 'good' : 'warn'} key={item.node.id}>
                 <div>
                   <span>{item.provider_account?.provider || 'provider'} / {item.node.status}</span>
                   <strong>{item.node.name} - {item.node.hostname}</strong>
@@ -10951,6 +10951,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
                   <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
+                  <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
                   <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                   <div><dt>next action</dt><dd>{managedSmtpNodeNextAction(item)}</dd></div>
                 </dl>
