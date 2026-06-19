@@ -129,6 +129,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'agent_heartbeat_status_label',
         'agent_operational_status',
         'agent_operational_status_label',
+        'agent_last_heartbeat_label',
         'agent_heartbeat_age_seconds',
         'agent_heartbeat_stale_after_seconds',
         'agent_queue_depth',

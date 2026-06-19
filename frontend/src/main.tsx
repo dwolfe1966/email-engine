@@ -822,6 +822,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_operational_status: string;
   agent_operational_status_label: string;
   agent_last_heartbeat_at: string | null;
+  agent_last_heartbeat_label: string;
   agent_heartbeat_age_seconds: number | null;
   agent_heartbeat_stale_after_seconds: number;
   agent_queue_depth: number | null;
@@ -11108,7 +11109,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>platform version</dt><dd>{item.platform_config_version || '-'}</dd></div>
                     <div><dt>agent reported</dt><dd>{item.agent_config_version || '-'}</dd></div>
                     <div><dt>agent applied</dt><dd>{item.agent_applied_config_version || '-'}</dd></div>
-                    <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_at ? new Date(item.agent_last_heartbeat_at).toLocaleString() : '-'}</dd></div>
+                    <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_label || '-'}</dd></div>
                     <div><dt>service state</dt><dd>{item.agent_service_state_label || `${item.agent_service_active_state || '-'} / ${item.agent_service_sub_state || '-'}`}</dd></div>
                     <div><dt>timer state</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>

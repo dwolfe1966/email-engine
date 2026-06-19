@@ -383,6 +383,7 @@ class MtaInventoryService:
             item.agent_heartbeat_status_label = self._agent_heartbeat_status_label(
                 item.agent_heartbeat_status
             )
+            item.agent_last_heartbeat_label = self._datetime_label(item.agent_last_heartbeat_at)
             item.agent_operational_status = self._agent_operational_status(item)
             item.agent_operational_status_label = self._agent_operational_status_label(
                 item.agent_operational_status
@@ -997,6 +998,12 @@ class MtaInventoryService:
     @staticmethod
     def _code_revision_label(revision: str | None) -> str:
         return revision[:12] if revision else 'Unknown'
+
+    @staticmethod
+    def _datetime_label(value: datetime | None) -> str:
+        if value is None:
+            return '-'
+        return value.replace(tzinfo=None).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     @staticmethod
     def _agent_queue_status(

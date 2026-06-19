@@ -341,6 +341,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_operational_status == 'ok'
     assert summary.recent_nodes[0].agent_operational_status_label == 'Operational'
     assert summary.recent_nodes[0].agent_last_heartbeat_at is not None
+    assert summary.recent_nodes[0].agent_last_heartbeat_label.endswith(' UTC')
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
     assert summary.recent_nodes[0].agent_queue_depth == 1
@@ -414,6 +415,7 @@ def test_agent_heartbeat_state_marks_old_heartbeat_stale() -> None:
     assert service._agent_heartbeat_status_label('missing') == 'Missing'
     assert service._agent_heartbeat_status_label('stale') == 'Stale'
     assert service._agent_heartbeat_status_label('invalid') == 'Invalid'
+    assert service._datetime_label(None) == '-'
 
 
 def test_agent_config_state_marks_runtime_config_drift() -> None:

@@ -1347,6 +1347,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_operational_status: str = 'blocked'
     agent_operational_status_label: str = 'Blocked'
     agent_last_heartbeat_at: datetime | None = None
+    agent_last_heartbeat_label: str = '-'
     agent_heartbeat_age_seconds: int | None = None
     agent_heartbeat_stale_after_seconds: int = 180
     agent_queue_depth: int | None = None
