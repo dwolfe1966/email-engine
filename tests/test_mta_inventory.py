@@ -189,6 +189,15 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
             'agent_queue_depth': 1,
             'agent_deferred_count': 0,
             'agent_active_count': 1,
+            'agent_queue_samples': [
+                {
+                    'queue_id': 'ABC123DEF',
+                    'active': False,
+                    'sender': 'mta-smoke@email-engine.app',
+                    'recipients': ['seed@example.com'],
+                    'deferred_reason': 'temporary DNS failure',
+                }
+            ],
             'agent_config_version': 'config-v1',
             'agent_applied_config_version': 'config-v1',
             'agent_service_active_state': 'inactive',
@@ -312,6 +321,10 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
     assert summary.recent_nodes[0].agent_queue_depth == 1
+    assert summary.recent_nodes[0].agent_queue_samples[0].queue_id == 'ABC123DEF'
+    assert summary.recent_nodes[0].agent_queue_samples[0].deferred_reason == (
+        'temporary DNS failure'
+    )
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True

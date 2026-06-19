@@ -23,6 +23,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFirstSendChecklistItem,
     ManagedSmtpFirstSendRead,
     ManagedSmtpFleetHealthRead,
+    ManagedSmtpQueueSampleRead,
     MtaInventoryCounts,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
@@ -575,6 +576,7 @@ class MtaInventoryService:
                 'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                'agent_queue_samples': self._agent_queue_samples(metadata),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
@@ -589,6 +591,7 @@ class MtaInventoryService:
                 'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                'agent_queue_samples': self._agent_queue_samples(metadata),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
@@ -604,6 +607,7 @@ class MtaInventoryService:
             'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
             'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+            'agent_queue_samples': self._agent_queue_samples(metadata),
             **self._agent_systemd_state(metadata),
             **self._agent_code_state(metadata),
         }
@@ -822,9 +826,39 @@ class MtaInventoryService:
             'agent_host_update_detail': update_detail,
         }
 
+    def _agent_queue_samples(self, metadata: dict[str, object]) -> list[ManagedSmtpQueueSampleRead]:
+        samples = metadata.get('agent_queue_samples')
+        if not isinstance(samples, list):
+            return []
+        parsed: list[ManagedSmtpQueueSampleRead] = []
+        for sample in samples[:10]:
+            if not isinstance(sample, dict):
+                continue
+            recipients = sample.get('recipients')
+            parsed.append(
+                ManagedSmtpQueueSampleRead(
+                    queue_id=self._metadata_value_str(sample.get('queue_id')),
+                    active=sample.get('active') if isinstance(sample.get('active'), bool) else None,
+                    sender=self._metadata_value_str(sample.get('sender')),
+                    recipients=[
+                        str(recipient)
+                        for recipient in recipients
+                        if isinstance(recipient, str) and recipient.strip()
+                    ]
+                    if isinstance(recipients, list)
+                    else [],
+                    deferred_reason=self._metadata_value_str(sample.get('deferred_reason')),
+                )
+            )
+        return parsed
+
     @staticmethod
     def _metadata_str(metadata: dict[str, object], key: str) -> str | None:
         value = metadata.get(key)
+        return MtaInventoryService._metadata_value_str(value)
+
+    @staticmethod
+    def _metadata_value_str(value: object) -> str | None:
         if value is None:
             return None
         text = str(value).strip()

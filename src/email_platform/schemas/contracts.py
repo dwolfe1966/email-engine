@@ -1310,6 +1310,14 @@ class MtaInventoryCounts(BaseModel):
     suspended: int = 0
 
 
+class ManagedSmtpQueueSampleRead(BaseModel):
+    queue_id: str | None = None
+    active: bool | None = None
+    sender: str | None = None
+    recipients: list[str] = Field(default_factory=list)
+    deferred_reason: str | None = None
+
+
 class ManagedSmtpDeploymentNodeSummary(BaseModel):
     node: MtaNodeRead
     provider_account: MtaProviderAccountRead | None = None
@@ -1322,6 +1330,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_queue_depth: int | None = None
     agent_deferred_count: int | None = None
     agent_active_count: int | None = None
+    agent_queue_samples: list[ManagedSmtpQueueSampleRead] = Field(default_factory=list)
     platform_config_version: str | None = None
     agent_config_version: str | None = None
     agent_applied_config_version: str | None = None

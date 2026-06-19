@@ -810,6 +810,13 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_queue_depth: number | null;
   agent_deferred_count: number | null;
   agent_active_count: number | null;
+  agent_queue_samples: Array<{
+    queue_id: string | null;
+    active: boolean | null;
+    sender: string | null;
+    recipients: string[];
+    deferred_reason: string | null;
+  }>;
   platform_config_version: string | null;
   agent_config_version: string | null;
   agent_applied_config_version: string | null;
@@ -11010,6 +11017,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
                     <div><dt>host update detail</dt><dd>{item.agent_host_update_detail || '-'}</dd></div>
                   </dl>
+                </details>
+                <details>
+                  <summary>Queue samples</summary>
+                  {item.agent_queue_samples.length ? (
+                    <div className="provider-feedback-list compact-list">
+                      {item.agent_queue_samples.map((sample, index) => (
+                        <article className={sample.deferred_reason ? 'warn' : 'good'} key={`${sample.queue_id || 'queue'}-${index}`}>
+                          <div>
+                            <span>{sample.active ? 'active' : 'queued'} / {sample.queue_id || '-'}</span>
+                            <strong>{sample.sender || '-'}</strong>
+                          </div>
+                          <small>{sample.recipients.length ? sample.recipients.join(', ') : 'No recipient sampled'}</small>
+                          {sample.deferred_reason ? <p className="muted">{sample.deferred_reason}</p> : null}
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="json-preview">No queue samples reported by the MTA agent.</div>
+                  )}
                 </details>
                 <details>
                   <summary>Host agent commands</summary>
