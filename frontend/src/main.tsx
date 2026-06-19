@@ -9994,6 +9994,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.fleet_health.code_outdated_nodes ? 'warn' : 'good',
     },
     {
+      label: 'Host updates',
+      value: formatInt(managedSmtpDeploymentSummary?.fleet_health.host_update_required_nodes || 0),
+      detail: managedSmtpDeploymentSummary
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes)} outdated, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_missing_nodes)} missing revision, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes)} dirty`
+        : 'Load deployment summary for host update status.',
+      tone: managedSmtpDeploymentSummary?.fleet_health.host_update_required_nodes ? 'warn' : 'good',
+    },
+    {
       label: 'Queue pressure',
       value: formatInt(managedSmtpDeploymentSummary?.fleet_health.queue_depth || 0),
       detail: managedSmtpDeploymentSummary
@@ -10047,6 +10055,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     'sudo systemctl restart email-engine-mta-agent.timer',
     'sudo systemctl start email-engine-mta-agent.service',
     'sudo journalctl -u email-engine-mta-agent.service -n 80 --no-pager',
+    '# Then click Load SMTP Deployment and confirm host update returns not required.',
   ];
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
