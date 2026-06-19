@@ -11,6 +11,7 @@ from email_platform.models.entities import (
     MtaIpPool,
     MtaIpPoolNode,
     MtaNode,
+    MtaNodeEvent,
     MtaOperationalStatus,
     MtaProviderAccount,
 )
@@ -126,6 +127,38 @@ class MtaInventoryService:
             statement = statement.where(MtaNode.status == status)
         if provider_account_id:
             statement = statement.where(MtaNode.provider_account_id == provider_account_id)
+        return int(self.db.scalar(statement) or 0)
+
+    def list_node_events(
+        self,
+        mta_node_id: UUID | None = None,
+        event_type: str | None = None,
+        severity: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[MtaNodeEvent]:
+        statement = select(MtaNodeEvent).order_by(MtaNodeEvent.received_at.desc())
+        if mta_node_id:
+            statement = statement.where(MtaNodeEvent.mta_node_id == mta_node_id)
+        if event_type:
+            statement = statement.where(MtaNodeEvent.event_type == event_type)
+        if severity:
+            statement = statement.where(MtaNodeEvent.severity == severity)
+        return list(self.db.scalars(statement.limit(limit).offset(offset)).all())
+
+    def count_node_events(
+        self,
+        mta_node_id: UUID | None = None,
+        event_type: str | None = None,
+        severity: str | None = None,
+    ) -> int:
+        statement = select(func.count()).select_from(MtaNodeEvent)
+        if mta_node_id:
+            statement = statement.where(MtaNodeEvent.mta_node_id == mta_node_id)
+        if event_type:
+            statement = statement.where(MtaNodeEvent.event_type == event_type)
+        if severity:
+            statement = statement.where(MtaNodeEvent.severity == severity)
         return int(self.db.scalar(statement) or 0)
 
     def update_node(self, node_id: UUID, payload: MtaNodeUpdate) -> MtaNode | None:

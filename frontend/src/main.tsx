@@ -775,6 +775,17 @@ type MtaNodeRead = {
   updated_at: string;
 };
 
+type MtaNodeEventRead = {
+  id: string;
+  mta_node_id: string;
+  event_type: string;
+  severity: string;
+  summary: string | null;
+  payload_json: Record<string, unknown>;
+  observed_at: string | null;
+  received_at: string;
+};
+
 type MtaIpPoolNodeRead = {
   id: string;
   ip_pool_id: string;
@@ -9777,12 +9788,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
   const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
+  const [mtaNodeEvents, setMtaNodeEvents] = useState<MtaNodeEventRead[]>([]);
+  const [mtaNodeEventTotal, setMtaNodeEventTotal] = useState(0);
   const [firstSendReadiness, setFirstSendReadiness] = useState<ManagedSmtpFirstSendRead | null>(null);
   const [readinessFilters, setReadinessFilters] = useState({
     status: '',
     domain: '',
     host: '',
     check_type: '',
+  });
+  const [mtaNodeEventFilters, setMtaNodeEventFilters] = useState({
+    mta_node_id: '',
+    event_type: '',
+    severity: '',
   });
   const [feedbackFilters, setFeedbackFilters] = useState({
     provider: '',
@@ -10293,6 +10311,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     setReadinessFilters((current) => ({ ...current, [name]: value }));
   }
 
+  function updateMtaNodeEventFilter(name: keyof typeof mtaNodeEventFilters, value: string) {
+    setMtaNodeEventFilters((current) => ({ ...current, [name]: value }));
+  }
+
   function useSelectedRecordForFeedbackFilters() {
     if (!selectedRecord) {
       setStatus('Select a send record before applying feedback filters.');
@@ -10353,6 +10375,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
       setManagedSmtpDeploymentSummary(summary);
       return `Loaded managed SMTP deployment summary: ${formatInt(summary.nodes.total)} node(s), ${formatInt(summary.managed_smtp_route_count)} route(s), ${formatInt(summary.managed_smtp_domain_policy_count)} domain policy mapping(s).`;
+    });
+  }
+
+  async function loadMtaNodeEvents() {
+    await runDeliveryOperation('Loading MTA agent events', async () => {
+      const params = new URLSearchParams({ limit: '50', offset: '0' });
+      Object.entries(mtaNodeEventFilters).forEach(([key, value]) => {
+        if (value.trim()) params.set(key, value.trim());
+      });
+      const data = await fetchJson<ListResponse<MtaNodeEventRead>>(`/api/v1/managed-smtp/node-events/list?${params.toString()}`);
+      setMtaNodeEvents(data.items || []);
+      setMtaNodeEventTotal(data.total || 0);
+      const warningCount = (data.items || []).filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
+      return `Loaded ${formatInt(data.items?.length || 0)} MTA agent event(s), ${formatInt(warningCount)} requiring review.`;
     });
   }
 
@@ -10623,6 +10659,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <div className="button-row">
             <button className="ghost" onClick={loadManagedSmtpBootstrapProfiles} disabled={busy}>Load Profiles</button>
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+            <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
           </div>
         </div>
         <div className="form-grid">
@@ -10709,6 +10746,93 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           <div className="ai-empty-state">
             <strong>No managed SMTP deployment summary loaded</strong>
             <span>Load SMTP Deployment after bootstrapping the first provider account, MTA node, IP pool, route, and domain policy.</span>
+          </div>
+        )}
+      </section>
+      <section className="panel full-span provider-feedback-panel">
+        <div className="panel-head">
+          <div>
+            <h2>MTA Agent Telemetry</h2>
+            <span className="muted">Signed node events from managed MTA hosts, including config application, queue warnings, and operational signals.</span>
+          </div>
+          <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
+        </div>
+        <div className="form-grid">
+          <label className="wide-field">
+            MTA node
+            <select value={mtaNodeEventFilters.mta_node_id} onChange={(event) => updateMtaNodeEventFilter('mta_node_id', event.target.value)}>
+              <option value="">Any node</option>
+              {managedSmtpDeploymentSummary?.recent_nodes.map((item) => (
+                <option value={item.node.id} key={item.node.id}>
+                  {item.node.name} | {item.node.hostname}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Event type
+            <input value={mtaNodeEventFilters.event_type} onChange={(event) => updateMtaNodeEventFilter('event_type', event.target.value)} placeholder="runtime_config_applied" />
+          </label>
+          <label>
+            Severity
+            <select value={mtaNodeEventFilters.severity} onChange={(event) => updateMtaNodeEventFilter('severity', event.target.value)}>
+              <option value="">Any severity</option>
+              <option value="debug">debug</option>
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="error">error</option>
+              <option value="critical">critical</option>
+            </select>
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Apply MTA Event Filters</button>
+          <button className="ghost" onClick={() => setMtaNodeEventFilters({ mta_node_id: '', event_type: '', severity: '' })} disabled={busy}>Clear MTA Event Filters</button>
+        </div>
+        {mtaNodeEvents.length ? (
+          <>
+            <div className="provider-feedback-strip" aria-label="MTA agent telemetry strip">
+              <div className={`provider-feedback-strip-item ${mtaNodeEvents.some((event) => ['warning', 'error', 'critical'].includes(event.severity)) ? 'warn' : 'good'}`}>
+                <span>Loaded events</span>
+                <strong>{formatInt(mtaNodeEvents.length)}</strong>
+                <small>{formatInt(mtaNodeEventTotal)} retained MTA agent event(s) match the filters.</small>
+              </div>
+              <div className={`provider-feedback-strip-item ${mtaNodeEvents.some((event) => ['warning', 'error', 'critical'].includes(event.severity)) ? 'warn' : 'good'}`}>
+                <span>Review signals</span>
+                <strong>{formatInt(mtaNodeEvents.filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length)}</strong>
+                <small>Warning, error, and critical node events.</small>
+              </div>
+            </div>
+            <div className="provider-feedback-list">
+              {mtaNodeEvents.slice(0, 8).map((event) => {
+                const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+                const tone = ['warning', 'error', 'critical'].includes(event.severity) ? 'warn' : 'good';
+                return (
+                  <article className={tone} key={event.id}>
+                    <div>
+                      <span>{event.severity} / {event.event_type}</span>
+                      <strong>{event.summary || 'MTA agent event'}</strong>
+                    </div>
+                    <small>{event.received_at}</small>
+                    <dl>
+                      <div><dt>node</dt><dd>{node?.hostname || event.mta_node_id.slice(0, 8)}</dd></div>
+                      <div><dt>observed</dt><dd>{event.observed_at || '-'}</dd></div>
+                      <div><dt>event</dt><dd>{event.id.slice(0, 8)}</dd></div>
+                      <div><dt>severity</dt><dd>{event.severity}</dd></div>
+                    </dl>
+                    <details>
+                      <summary>MTA event payload</summary>
+                      <pre className="json-preview">{JSON.stringify(event.payload_json, null, 2)}</pre>
+                    </details>
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="ai-empty-state">
+            <strong>No MTA agent telemetry loaded</strong>
+            <span>Load MTA Events after the managed SMTP MTA agent posts heartbeat and config-change events.</span>
           </div>
         )}
       </section>

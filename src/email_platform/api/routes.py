@@ -150,8 +150,8 @@ from email_platform.schemas.contracts import (
     JourneyUpdate,
     JsonObject,
     ListResponse,
-    ManagedSmtpBootstrapRead,
     ManagedSmtpBootstrapProfileRead,
+    ManagedSmtpBootstrapRead,
     ManagedSmtpBootstrapRequest,
     ManagedSmtpDeploymentSummaryRead,
     ManagedSmtpFeedbackEvent,
@@ -166,9 +166,6 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessTrendRead,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
-    MtaNodeEventCreate,
-    MtaNodeEventRead,
-    MtaNodeHeartbeatRequest,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
     MtaIpPoolNodeRead,
@@ -176,6 +173,9 @@ from email_platform.schemas.contracts import (
     MtaIpPoolRead,
     MtaIpPoolUpdate,
     MtaNodeCreate,
+    MtaNodeEventCreate,
+    MtaNodeEventRead,
+    MtaNodeHeartbeatRequest,
     MtaNodeRead,
     MtaNodeRuntimeConfigRead,
     MtaNodeUpdate,
@@ -227,12 +227,12 @@ from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.events import EventService
 from email_platform.services.feedback import FeedbackIngestionService
 from email_platform.services.journeys import JourneyService
+from email_platform.services.managed_smtp_agent import ManagedSmtpAgentService
 from email_platform.services.managed_smtp_bootstrap import (
     ManagedSmtpBootstrapService,
     bootstrap_profile_payload,
     list_bootstrap_profiles,
 )
-from email_platform.services.managed_smtp_agent import ManagedSmtpAgentService
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
 from email_platform.services.mta_inventory import MtaInventoryError, MtaInventoryService
@@ -3439,6 +3439,34 @@ def list_mta_nodes(
         'limit': limit,
         'offset': offset,
         'total': service.count_nodes(status=status, provider_account_id=provider_account_id),
+    }
+
+
+@router.get('/managed-smtp/node-events/list', response_model=ListResponse[MtaNodeEventRead])
+def list_mta_node_events(
+    db: DbSession,
+    mta_node_id: UUID | None = None,
+    event_type: str | None = None,
+    severity: str | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    service = MtaInventoryService(db)
+    return {
+        'items': service.list_node_events(
+            mta_node_id=mta_node_id,
+            event_type=event_type,
+            severity=severity,
+            limit=limit,
+            offset=offset,
+        ),
+        'limit': limit,
+        'offset': offset,
+        'total': service.count_node_events(
+            mta_node_id=mta_node_id,
+            event_type=event_type,
+            severity=severity,
+        ),
     }
 
 
