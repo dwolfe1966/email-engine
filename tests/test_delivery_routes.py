@@ -147,6 +147,40 @@ def test_delivery_route_selector_prefers_matching_domain_policy_route() -> None:
     assert selected.source == 'domain_policy'
 
 
+def test_delivery_route_selector_can_match_sender_domain_for_managed_smtp_route() -> None:
+    route_id = uuid4()
+    policy_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='scaleway-primary',
+        route_type=DeliveryRouteType.managed_smtp,
+        status=DeliveryRouteStatus.active,
+    )
+    policy = SimpleNamespace(
+        id=policy_id,
+        domain='email-engine.app',
+        route_id=route_id,
+        warmup_stage='stage_1',
+        max_per_minute=10,
+        max_concurrent=2,
+        paused_until=None,
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
+
+    selected = service.select_for_record(
+        SimpleNamespace(to_email='recipient@gmail.com'),
+        SimpleNamespace(email_provider='sendgrid'),
+        sender_domain='email-engine.app',
+    )
+
+    assert selected.route_type == 'managed_smtp'
+    assert selected.route_key == 'scaleway-primary'
+    assert selected.route_id == route_id
+    assert selected.domain_policy_id == policy_id
+    assert selected.domain == 'email-engine.app'
+    assert selected.source == 'domain_policy'
+
+
 def test_delivery_route_selector_ignores_paused_domain_policy() -> None:
     policy = SimpleNamespace(
         id=uuid4(),
@@ -409,6 +443,32 @@ def test_managed_smtp_identity_uses_bounce_domain_and_dkim_metadata() -> None:
     assert identity.dkim_selector == 'ee3'
     assert identity.dkim_key_ref == 'vault://dkim/example/ee3'
     assert identity.dkim_signing_ready
+
+
+def test_managed_smtp_identity_can_use_sender_domain_for_any_recipient() -> None:
+    route = SimpleNamespace(id=uuid4(), route_type=DeliveryRouteType.managed_smtp)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=route.id,
+        metadata_json={
+            'domain_authentication': {'bounce_domain': 'returns-scaleway.email-engine.app'},
+            'dkim_key': {'selector': 'ee2', 'key_ref': 'mta://mta-002/email-engine.app/ee2'},
+        },
+    )
+    record = SimpleNamespace(id=uuid4(), to_email='recipient@gmail.com')
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
+
+    identity = service.managed_smtp_identity_for_record(
+        record,
+        sender_domain='email-engine.app',
+    )
+
+    assert identity is not None
+    assert identity.domain == 'email-engine.app'
+    assert identity.bounce_domain == 'returns-scaleway.email-engine.app'
+    assert identity.envelope_from == f'bounces+{record.id}@returns-scaleway.email-engine.app'
+    assert identity.dkim_selector == 'ee2'
 
 
 def test_verify_domain_authentication_checks_required_dns_records() -> None:

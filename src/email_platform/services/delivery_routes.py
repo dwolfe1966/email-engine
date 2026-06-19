@@ -795,8 +795,9 @@ class DeliveryRouteService:
         self,
         record: EmailSendRecord,
         settings: Settings,
+        sender_domain: str | None = None,
     ) -> SelectedDeliveryRoute:
-        domain = self._domain_for_record(record)
+        domain = self._normalized_domain(sender_domain) or self._domain_for_record(record)
         if domain:
             policy = self._active_domain_policy(domain)
             if policy and policy.route_id:
@@ -1292,7 +1293,16 @@ class DeliveryRouteService:
     def _domain_for_record(self, record: EmailSendRecord) -> str | None:
         if '@' not in record.to_email:
             return None
-        return record.to_email.rsplit('@', 1)[-1].lower()
+        return self._normalized_domain(record.to_email)
+
+    @staticmethod
+    def _normalized_domain(value: str | None) -> str | None:
+        if not value:
+            return None
+        normalized = value.strip().lower()
+        if '@' in normalized:
+            normalized = normalized.rsplit('@', 1)[-1]
+        return normalized or None
 
     def _recent_domain_attempt_count(self, domain: str, seconds: int) -> int:
         cutoff = datetime.utcnow() - timedelta(seconds=seconds)
@@ -1308,8 +1318,9 @@ class DeliveryRouteService:
     def managed_smtp_identity_for_record(
         self,
         record: EmailSendRecord,
+        sender_domain: str | None = None,
     ) -> ManagedSmtpIdentity | None:
-        domain = self._domain_for_record(record)
+        domain = self._normalized_domain(sender_domain) or self._domain_for_record(record)
         if not domain:
             return None
         policy = self._domain_policy(domain)

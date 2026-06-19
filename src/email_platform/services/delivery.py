@@ -233,7 +233,11 @@ class DeliveryService:
         return attempt
 
     def _start_attempt(self, record: EmailSendRecord) -> DeliveryAttempt:
-        selected_route = self.route_service.select_for_record(record, self.settings)
+        selected_route = self.route_service.select_for_record(
+            record,
+            self.settings,
+            sender_domain=self._sender_domain(),
+        )
         metadata_json: dict[str, object] = {
             'email_provider': self.settings.email_provider,
             'route_source': selected_route.source,
@@ -254,7 +258,7 @@ class DeliveryService:
         if selected_route.max_concurrent is not None:
             metadata_json['max_concurrent'] = selected_route.max_concurrent
         if selected_route.route_type == 'managed_smtp':
-            metadata_json.update(self._managed_smtp_route_resolution_metadata(selected_route))
+            metadata_json.update(self._managed_smtp_route_resolution_metadata(record, selected_route))
         attempt = DeliveryAttempt(
             send_record_id=record.id,
             send_job_id=record.send_job_id,
@@ -283,13 +287,14 @@ class DeliveryService:
         )
         return f'Managed SMTP route blocked ({code}): {message}'
 
-    def _managed_smtp_route_resolution_metadata(self, selected_route) -> dict[str, object]:
+    def _managed_smtp_route_resolution_metadata(self, record, selected_route) -> dict[str, object]:
         resolver = getattr(self, 'managed_smtp_routing_service', None)
         if not resolver:
             return {}
         result = resolver.resolve(
             ManagedSmtpRouteResolveRequest(
-                recipient_domain=selected_route.domain,
+                from_domain=self._sender_domain(),
+                recipient_domain=self._recipient_domain(record),
                 route_id=selected_route.route_id,
                 send_type='internal_test',
             )
@@ -326,7 +331,10 @@ class DeliveryService:
     ) -> dict[str, object]:
         if attempt.route_type != 'managed_smtp':
             return {}
-        identity = self.route_service.managed_smtp_identity_for_record(record)
+        identity = self.route_service.managed_smtp_identity_for_record(
+            record,
+            sender_domain=self._sender_domain(),
+        )
         if not identity:
             return {}
         headers: dict[str, str] = {
@@ -379,6 +387,18 @@ class DeliveryService:
             'mta_submission_provider',
         }
         return {key: value for key, value in attempt.metadata_json.items() if key in keys}
+
+    def _sender_domain(self) -> str | None:
+        from_email = str(getattr(getattr(self, 'settings', None), 'default_from_email', '') or '')
+        if '@' not in from_email:
+            return None
+        return from_email.rsplit('@', 1)[-1].lower()
+
+    @staticmethod
+    def _recipient_domain(record: EmailSendRecord) -> str | None:
+        if '@' not in record.to_email:
+            return None
+        return record.to_email.rsplit('@', 1)[-1].lower()
 
     def _submission_provider_for_attempt(self, attempt: DeliveryAttempt):
         if attempt.route_type != 'managed_smtp':

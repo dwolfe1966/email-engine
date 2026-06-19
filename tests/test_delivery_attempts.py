@@ -38,7 +38,7 @@ class FakeDb:
 
 
 class FakeRouteService:
-    def select_for_record(self, record, settings):
+    def select_for_record(self, record, settings, sender_domain=None):
         return SimpleNamespace(
             route_type=settings.email_provider,
             route_key=settings.email_provider,
@@ -52,7 +52,7 @@ class FakeRouteService:
             source='settings',
         )
 
-    def managed_smtp_identity_for_record(self, record):
+    def managed_smtp_identity_for_record(self, record, sender_domain=None):
         return None
 
 
@@ -193,15 +193,18 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     node_id = uuid4()
     service = DeliveryService.__new__(DeliveryService)
     service.db = db
-    service.settings = SimpleNamespace(email_provider='console')
+    service.settings = SimpleNamespace(
+        email_provider='console',
+        default_from_email='mta-smoke@email-engine.app',
+    )
     service.route_service = SimpleNamespace(
-        select_for_record=lambda _record, _settings: SimpleNamespace(
+        select_for_record=lambda _record, _settings, sender_domain=None: SimpleNamespace(
             route_type='managed_smtp',
             route_key='managed-smtp-primary',
             route_id=route_id,
             domain_policy_id=policy_id,
             name='managed-smtp-primary',
-            domain='example.com',
+            domain=sender_domain,
             warmup_stage='stage_1',
             max_per_minute=25,
             max_concurrent=2,
@@ -237,7 +240,7 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
         contact_id=uuid4(),
         template_id=uuid4(),
         status=EmailSendStatus.sending,
-        to_email='recipient@example.com',
+        to_email='recipient@gmail.com',
         variables={},
         attempt_count=1,
     )
@@ -251,7 +254,8 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'
     assert attempt.metadata_json['mta_node_name'] == 'mta-001'
     assert attempt.metadata_json['mta_submission_port'] == 587
-    assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'example.com'
+    assert service.managed_smtp_routing_service.requests[0].from_domain == 'email-engine.app'
+    assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'gmail.com'
     assert service.managed_smtp_routing_service.requests[0].route_id == route_id
 
 
@@ -261,7 +265,7 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
     service.db = db
     service.settings = SimpleNamespace(email_provider='console')
     service.route_service = SimpleNamespace(
-        select_for_record=lambda _record, _settings: SimpleNamespace(
+        select_for_record=lambda _record, _settings, sender_domain=None: SimpleNamespace(
             route_type='managed_smtp',
             route_key='managed-smtp-primary',
             route_id=uuid4(),
@@ -328,7 +332,7 @@ def test_delivery_service_fails_closed_for_blocked_managed_smtp_route() -> None:
             domain='example.com',
             domain_policy_id=None,
         ),
-        select_for_record=lambda _record, _settings: SimpleNamespace(
+        select_for_record=lambda _record, _settings, sender_domain=None: SimpleNamespace(
             route_type='managed_smtp',
             route_key='managed-smtp-primary',
             route_id=uuid4(),
@@ -385,7 +389,7 @@ def test_delivery_service_prepares_managed_smtp_envelope_and_signing_headers() -
         metadata_json={},
     )
     service.route_service = SimpleNamespace(
-        managed_smtp_identity_for_record=lambda _record: ManagedSmtpIdentity(
+        managed_smtp_identity_for_record=lambda _record, sender_domain=None: ManagedSmtpIdentity(
             domain='example.com',
             bounce_domain='returns.example.com',
             envelope_from=f'bounces+{record.id}@returns.example.com',
