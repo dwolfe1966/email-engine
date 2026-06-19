@@ -375,6 +375,14 @@ class MtaInventoryService:
             item.agent_log_issue_status_label = self._agent_log_issue_status_label(
                 item.agent_log_issue_status
             )
+            item.agent_service_state_label = self._agent_systemd_state_label(
+                item.agent_service_active_state,
+                item.agent_service_sub_state,
+            )
+            item.agent_timer_state_label = self._agent_systemd_state_label(
+                item.agent_timer_active_state,
+                item.agent_timer_sub_state,
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -922,6 +930,12 @@ class MtaInventoryService:
             'deferred': 'Deferred',
             'bounce': 'Bounce',
         }.get(status, status)
+
+    @staticmethod
+    def _agent_systemd_state_label(active_state: str | None, sub_state: str | None) -> str:
+        active_label = active_state.replace('_', ' ').title() if active_state else '-'
+        sub_label = sub_state.replace('_', ' ').title() if sub_state else '-'
+        return f'{active_label} / {sub_label}'
 
     @staticmethod
     def _agent_queue_status(

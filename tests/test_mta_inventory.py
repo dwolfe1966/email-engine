@@ -349,7 +349,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
     assert summary.recent_nodes[0].agent_service_active_state == 'inactive'
+    assert summary.recent_nodes[0].agent_service_state_label == 'Inactive / Dead'
     assert summary.recent_nodes[0].agent_timer_active_state == 'active'
+    assert summary.recent_nodes[0].agent_timer_state_label == 'Active / Waiting'
     assert summary.recent_nodes[0].agent_timer_next_elapse == 'Fri 2026-06-19 00:34:09 UTC'
     assert summary.recent_nodes[0].agent_code_revision == 'abc123def456'
     assert summary.recent_nodes[0].agent_code_dirty is False
@@ -438,6 +440,8 @@ def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:
     assert service._agent_log_issue_status_label('warning') == 'Warning'
     assert service._agent_log_issue_status_label('deferred') == 'Deferred'
     assert service._agent_log_issue_status_label('bounce') == 'Bounce'
+    assert service._agent_systemd_state_label('active', 'waiting') == 'Active / Waiting'
+    assert service._agent_systemd_state_label(None, None) == '- / -'
 
 
 def test_agent_queue_status_summarizes_queue_counts() -> None:
