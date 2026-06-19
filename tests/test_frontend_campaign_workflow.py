@@ -87,6 +87,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'smtp_response_code',
         'mta_route_block_code',
         'delivery_error_message',
+        'send_record_status',
+        'send_job_status',
         'lastLaunchResult.requested_count',
         'lastLaunchResult.queued_count',
         'lastLaunchResult.suppressed_count',

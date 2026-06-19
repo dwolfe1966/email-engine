@@ -174,7 +174,7 @@ class SendingService:
         attempt_metadata = attempt.metadata_json if attempt else {}
         smtp_response_code = attempt.smtp_response_code if attempt else None
         return {
-            'provider': record.provider,
+            'provider': record.provider or (attempt.route_type if attempt else None) or 'delivery_worker',
             'provider_message_id': record.provider_message_id,
             'status_code': smtp_response_code or fallback_status_code,
             'campaign_id': campaign.id,
@@ -182,6 +182,8 @@ class SendingService:
             'send_job_id': job.id,
             'send_record_id': record.id,
             'contact_id': contact.id,
+            'send_job_status': job.status.value,
+            'send_record_status': record.status.value,
             'subject': subject,
             'html_body': html,
             'text_body': text,

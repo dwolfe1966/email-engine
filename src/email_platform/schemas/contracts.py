@@ -1712,6 +1712,8 @@ class CampaignTestSendResponse(SendResponse):
     send_record_id: UUID
     contact_id: UUID
     to_email: EmailStr
+    send_job_status: str | None = None
+    send_record_status: str | None = None
     subject: str
     html_body: str
     text_body: str | None = None

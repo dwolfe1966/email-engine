@@ -532,6 +532,8 @@ type CampaignTestSendResult = {
   send_record_id: string;
   contact_id: string;
   to_email?: string;
+  send_job_status?: string | null;
+  send_record_status?: string | null;
   route_type?: string | null;
   route_key?: string | null;
   mta_provider?: string | null;
@@ -2868,6 +2870,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 <small>{lastTestSendResult.to_email || 'Test recipient'} | {lastTestSendResult.provider}</small>
               </div>
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
+              <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
