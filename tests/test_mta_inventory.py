@@ -348,6 +348,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
+    assert summary.recent_nodes[0].agent_config_sync_label == 'Synced'
     assert summary.recent_nodes[0].agent_service_active_state == 'inactive'
     assert summary.recent_nodes[0].agent_service_state_label == 'Inactive / Dead'
     assert summary.recent_nodes[0].agent_timer_active_state == 'active'
@@ -357,6 +358,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_code_dirty is False
     assert summary.recent_nodes[0].agent_host_update_required is False
     assert summary.recent_nodes[0].agent_host_update_status == 'unverified'
+    assert summary.recent_nodes[0].agent_host_update_status_label == 'Unverified'
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
     assert summary.fleet_health.operational_ok_nodes == 1
@@ -418,6 +420,13 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert state['platform_config_version'] == 'config-v2'
     assert state['agent_applied_config_version'] == 'config-v1'
     assert state['agent_config_in_sync'] is False
+    assert service._agent_config_sync_label(True) == 'Synced'
+    assert service._agent_config_sync_label(False) == 'Drift'
+    assert service._agent_host_update_status_label('current') == 'Current'
+    assert service._agent_host_update_status_label('dirty') == 'Dirty worktree'
+    assert service._agent_host_update_status_label('outdated') == 'Outdated'
+    assert service._agent_host_update_status_label('revision_missing') == 'Revision missing'
+    assert service._agent_host_update_status_label('unverified') == 'Unverified'
 
 
 def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:

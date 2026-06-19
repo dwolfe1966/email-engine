@@ -383,6 +383,12 @@ class MtaInventoryService:
                 item.agent_timer_active_state,
                 item.agent_timer_sub_state,
             )
+            item.agent_config_sync_label = self._agent_config_sync_label(
+                item.agent_config_in_sync
+            )
+            item.agent_host_update_status_label = self._agent_host_update_status_label(
+                item.agent_host_update_status
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -936,6 +942,21 @@ class MtaInventoryService:
         active_label = active_state.replace('_', ' ').title() if active_state else '-'
         sub_label = sub_state.replace('_', ' ').title() if sub_state else '-'
         return f'{active_label} / {sub_label}'
+
+    @staticmethod
+    def _agent_config_sync_label(in_sync: bool) -> str:
+        return 'Synced' if in_sync else 'Drift'
+
+    @staticmethod
+    def _agent_host_update_status_label(status: str) -> str:
+        return {
+            'current': 'Current',
+            'dirty': 'Dirty worktree',
+            'outdated': 'Outdated',
+            'revision_missing': 'Revision missing',
+            'unverified': 'Unverified',
+            'unknown': 'Unknown',
+        }.get(status, status.replace('_', ' ').title())
 
     @staticmethod
     def _agent_queue_status(

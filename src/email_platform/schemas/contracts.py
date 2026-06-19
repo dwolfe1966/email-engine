@@ -1353,6 +1353,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_config_version: str | None = None
     agent_applied_config_version: str | None = None
     agent_config_in_sync: bool = False
+    agent_config_sync_label: str = 'Drift'
     agent_service_active_state: str | None = None
     agent_service_sub_state: str | None = None
     agent_service_state_label: str = '-'
@@ -1364,6 +1365,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_code_dirty: bool | None = None
     agent_host_update_required: bool = False
     agent_host_update_status: str = 'unknown'
+    agent_host_update_status_label: str = 'Unknown'
     agent_host_update_detail: str | None = None
 
 

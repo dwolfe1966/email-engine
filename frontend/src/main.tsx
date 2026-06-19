@@ -837,6 +837,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_config_version: string | null;
   agent_applied_config_version: string | null;
   agent_config_in_sync: boolean;
+  agent_config_sync_label: string;
   agent_service_active_state: string | null;
   agent_service_sub_state: string | null;
   agent_service_state_label: string;
@@ -848,6 +849,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_code_dirty: boolean | null;
   agent_host_update_required: boolean;
   agent_host_update_status: string;
+  agent_host_update_status_label: string;
   agent_host_update_detail: string | null;
 };
 
@@ -11080,8 +11082,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status_label || item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
-                  <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
-                  <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
+                  <div><dt>runtime config</dt><dd>{item.agent_config_sync_label || (item.agent_config_in_sync ? 'Synced' : 'Drift')} / {item.agent_applied_config_version || '-'}</dd></div>
+                  <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'Required' : 'Not required'} / {item.agent_host_update_status_label || item.agent_host_update_status}</dd></div>
                   <div><dt>agent service</dt><dd>{item.agent_service_state_label || `${item.agent_service_active_state || '-'} / ${item.agent_service_sub_state || '-'}`}</dd></div>
                   <div><dt>agent timer</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
                   <div><dt>queue</dt><dd>{item.agent_queue_status_label || item.agent_queue_status} / {formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
@@ -11101,7 +11103,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
                     <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision?.slice(0, 12) || '-'}</dd></div>
                     <div><dt>host revision</dt><dd>{item.agent_code_revision || '-'}{item.agent_code_dirty ? ' dirty' : ''}</dd></div>
-                    <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>
+                    <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'Required' : 'Not required'} / {item.agent_host_update_status_label || item.agent_host_update_status}</dd></div>
                     <div><dt>host update detail</dt><dd>{item.agent_host_update_detail || '-'}</dd></div>
                   </dl>
                 </details>
