@@ -10007,14 +10007,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       value: managedSmtpDeploymentSummary
         ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts)
           .filter(([code]) => code !== 'none')
-          .sort((a, b) => b[1] - a[1])[0]?.[0] || 'none'
+          .sort((a, b) => b[1] - a[1])
+          .map(([code]) => formatManagedSmtpNextActionCode(code))[0] || 'None'
         : 'Unknown',
       detail: managedSmtpDeploymentSummary
         ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts)
           .filter(([code]) => code !== 'none')
           .sort((a, b) => b[1] - a[1])
           .slice(0, 2)
-          .map(([code, count]) => `${formatInt(count)} ${code}`)
+          .map(([code, count]) => `${formatInt(count)} ${formatManagedSmtpNextActionCode(code)}`)
           .join(', ') || `${formatInt(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts.none || 0)} no action`
         : 'Load deployment summary for fleet action guidance.',
       tone: managedSmtpDeploymentSummary && Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts).some(([code, count]) => code !== 'none' && count > 0) ? 'warn' : 'good',
@@ -10161,6 +10162,23 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       rdns_blocked: 'rDNS blocked',
     };
     return labels[blocker] || blocker;
+  };
+  const formatManagedSmtpNextActionCode = (code: string) => {
+    const labels: Record<string, string> = {
+      resolve_provider_blockers: 'Resolve provider blockers',
+      restart_mta_agent: 'Restart MTA agent',
+      restart_mta_agent_service: 'Restart MTA agent service',
+      restart_mta_agent_timer: 'Restart MTA agent timer',
+      inspect_deferred_queue: 'Inspect deferred queue',
+      review_postfix_logs: 'Review Postfix logs',
+      resolve_host_worktree: 'Resolve host worktree',
+      update_host_revision: 'Update host revision',
+      report_host_revision: 'Report host revision',
+      apply_runtime_config: 'Apply runtime config',
+      publish_readiness: 'Publish readiness',
+      none: 'No action',
+    };
+    return labels[code] || code;
   };
   const managedSmtpAgentCommands = [
     'sudo systemctl start email-engine-mta-agent.service',
