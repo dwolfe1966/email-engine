@@ -861,6 +861,8 @@ type ManagedSmtpFleetHealthRead = {
   operational_blocked_nodes: number;
   operator_next_action_counts: Record<string, number>;
   operator_next_action_label_counts: Record<string, number>;
+  primary_next_action_code: string;
+  primary_next_action_label: string;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
   missing_agent_nodes: number;
@@ -10006,10 +10008,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     {
       label: 'Next actions',
       value: managedSmtpDeploymentSummary
-        ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_label_counts)
-          .filter(([label]) => label !== 'No action')
-          .sort((a, b) => b[1] - a[1])
-          .map(([label]) => label)[0] || 'None'
+        ? managedSmtpDeploymentSummary.fleet_health.primary_next_action_label
         : 'Unknown',
       detail: managedSmtpDeploymentSummary
         ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_label_counts)
