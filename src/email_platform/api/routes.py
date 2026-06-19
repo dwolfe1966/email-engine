@@ -178,6 +178,7 @@ from email_platform.schemas.contracts import (
     MtaNodeHeartbeatRequest,
     MtaNodeRead,
     MtaNodeRuntimeConfigRead,
+    MtaNodeStatusActionRequest,
     MtaNodeUpdate,
     MtaProviderAccountCreate,
     MtaProviderAccountRead,
@@ -3498,16 +3499,34 @@ def update_mta_node(node_id: UUID, payload: MtaNodeUpdate, db: DbSession) -> Mta
 
 
 @router.post('/managed-smtp/nodes/{node_id}/pause', response_model=MtaNodeRead)
-def pause_mta_node(node_id: UUID, db: DbSession) -> MtaNode:
-    node = MtaInventoryService(db).set_node_status(node_id, MtaOperationalStatus.paused)
+def pause_mta_node(
+    node_id: UUID,
+    payload: MtaNodeStatusActionRequest,
+    db: DbSession,
+) -> MtaNode:
+    node = MtaInventoryService(db).set_node_status(
+        node_id,
+        MtaOperationalStatus.paused,
+        reason=payload.reason,
+        operator=payload.operator,
+    )
     if not node:
         raise HTTPException(status_code=404, detail='MTA node not found')
     return node
 
 
 @router.post('/managed-smtp/nodes/{node_id}/resume', response_model=MtaNodeRead)
-def resume_mta_node(node_id: UUID, db: DbSession) -> MtaNode:
-    node = MtaInventoryService(db).set_node_status(node_id, MtaOperationalStatus.active)
+def resume_mta_node(
+    node_id: UUID,
+    payload: MtaNodeStatusActionRequest,
+    db: DbSession,
+) -> MtaNode:
+    node = MtaInventoryService(db).set_node_status(
+        node_id,
+        MtaOperationalStatus.active,
+        reason=payload.reason,
+        operator=payload.operator,
+    )
     if not node:
         raise HTTPException(status_code=404, detail='MTA node not found')
     return node

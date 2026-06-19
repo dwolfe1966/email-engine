@@ -10394,9 +10394,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
 
   async function setManagedSmtpNodeOperationalStatus(node: MtaNodeRead, action: 'pause' | 'resume') {
     const actionLabel = action === 'pause' ? 'Pausing' : 'Resuming';
+    const defaultReason = action === 'pause'
+      ? 'Operator pausing MTA node for delivery review'
+      : 'Operator resuming MTA node after review';
+    const reason = window.prompt(`Reason for ${action === 'pause' ? 'pausing' : 'resuming'} ${node.name}?`, defaultReason) || '';
+    if (!reason.trim()) {
+      setStatus('MTA node status change cancelled; reason is required.');
+      return;
+    }
     await runDeliveryOperation(`${actionLabel} managed SMTP node`, async () => {
       const updatedNode = await fetchJson<MtaNodeRead>(`/api/v1/managed-smtp/nodes/${node.id}/${action}`, {
         method: 'POST',
+        body: JSON.stringify({
+          reason: reason.trim(),
+          operator: 'esp_admin',
+        }),
       });
       const [summary, firstSend] = await Promise.all([
         fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),

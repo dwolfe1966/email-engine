@@ -927,6 +927,11 @@ class MtaNodeUpdate(BaseModel):
     metadata_json: JsonObject | None = None
 
 
+class MtaNodeStatusActionRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+    operator: str | None = Field(default=None, max_length=200)
+
+
 class MtaNodeRead(MtaNodeCreate):
     id: UUID
     status: MtaOperationalStatus

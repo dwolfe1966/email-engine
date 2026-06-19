@@ -172,11 +172,45 @@ class MtaInventoryService:
         self._apply(node, updates)
         return self._commit_refresh(node)
 
-    def set_node_status(self, node_id: UUID, status: MtaOperationalStatus) -> MtaNode | None:
+    def set_node_status(
+        self,
+        node_id: UUID,
+        status: MtaOperationalStatus,
+        *,
+        reason: str | None = None,
+        operator: str | None = None,
+    ) -> MtaNode | None:
         node = self.get_node(node_id)
         if not node:
             return None
+        previous_status = self._status_value(node.status)
         node.status = status
+        if reason:
+            event_type = 'operator_node_pause' if status == MtaOperationalStatus.paused else 'operator_node_resume'
+            event = MtaNodeEvent(
+                mta_node_id=node.id,
+                event_type=event_type,
+                severity='warning' if status == MtaOperationalStatus.paused else 'info',
+                summary=f'MTA node {node.name} set to {status.value}',
+                payload_json={
+                    'source': 'email_engine_operator',
+                    'operator': operator,
+                    'reason': reason.strip(),
+                    'hostname': node.hostname,
+                    'previous_status': previous_status,
+                    'new_status': status.value,
+                    'route_impact': {
+                        'managed_smtp_route_count': self._managed_smtp_route_count(),
+                        'managed_smtp_domain_policy_count': self._managed_smtp_domain_policy_count(),
+                        'pool_membership_count': self.count_pool_nodes(mta_node_id=node.id),
+                        'active_pool_membership_count': self.count_pool_nodes(
+                            mta_node_id=node.id,
+                            status=MtaOperationalStatus.active,
+                        ),
+                    },
+                },
+            )
+            self.db.add(event)
         return self._commit_refresh(node)
 
     def create_ip_pool(self, payload: MtaIpPoolCreate) -> MtaIpPool:

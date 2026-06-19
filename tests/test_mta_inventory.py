@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from email_platform.models.entities import MtaOperationalStatus, MtaProviderAccount
+from email_platform.models.entities import MtaNodeEvent, MtaOperationalStatus, MtaProviderAccount
 from email_platform.schemas.contracts import (
     ManagedSmtpReadinessCheckRead,
     ManagedSmtpReadinessSummaryRead,
@@ -35,6 +35,9 @@ class FakeDb:
 
     def get(self, model, item_id):
         return self.get_results.get((model, item_id))
+
+    def scalar(self, statement):
+        return 0
 
 
 def test_create_provider_account_defaults_to_secret_ref_not_raw_credentials() -> None:
@@ -100,6 +103,42 @@ def test_provider_account_pause_and_resume_change_operational_status() -> None:
     assert account.status == MtaOperationalStatus.active
     assert db.committed
     assert db.refreshed == [account, account]
+
+
+def test_node_pause_records_operator_audit_event() -> None:
+    node_id = uuid4()
+    node = SimpleNamespace(
+        id=node_id,
+        name='mta-002',
+        hostname='mta-002.email-engine.app',
+        status=MtaOperationalStatus.active,
+    )
+    db = FakeDb()
+    service = MtaInventoryService(db)
+    service.get_node = lambda item_id: node if item_id == node_id else None
+
+    updated = service.set_node_status(
+        node_id,
+        MtaOperationalStatus.paused,
+        reason='Provider maintenance window',
+        operator='esp_admin',
+    )
+
+    events = [item for item in db.added if isinstance(item, MtaNodeEvent)]
+    assert updated is node
+    assert node.status == MtaOperationalStatus.paused
+    assert len(events) == 1
+    event = events[0]
+    assert event.mta_node_id == node_id
+    assert event.event_type == 'operator_node_pause'
+    assert event.severity == 'warning'
+    assert event.payload_json['operator'] == 'esp_admin'
+    assert event.payload_json['reason'] == 'Provider maintenance window'
+    assert event.payload_json['previous_status'] == 'active'
+    assert event.payload_json['new_status'] == 'paused'
+    assert event.payload_json['route_impact']['managed_smtp_route_count'] == 0
+    assert db.committed
+    assert db.refreshed == [node]
 
 
 def test_create_pool_node_requires_existing_pool_before_node() -> None:
