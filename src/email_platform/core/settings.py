@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     sendgrid_event_webhook_public_key: str | None = None
     sendgrid_event_webhook_require_signature: bool = True
     managed_smtp_feedback_secret: str | None = None
+    managed_smtp_feedback_previous_secret: str | None = None
     managed_smtp_feedback_require_signature: bool = True
     managed_smtp_feedback_signature_tolerance_seconds: int = 300
     smtp_host: str | None = None

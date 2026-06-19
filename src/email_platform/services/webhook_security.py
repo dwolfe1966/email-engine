@@ -48,7 +48,9 @@ class ManagedSmtpFeedbackVerifier:
 
     def verify(self, payload: bytes, signature: str | None, timestamp: str | None) -> None:
         secret = self.settings.managed_smtp_feedback_secret
-        if not secret:
+        previous_secret = self.settings.managed_smtp_feedback_previous_secret
+        secrets = [value for value in (secret, previous_secret) if value]
+        if not secrets:
             if self.settings.managed_smtp_feedback_require_signature:
                 raise WebhookSignatureError('Managed SMTP feedback secret is not configured')
             return
@@ -64,13 +66,15 @@ class ManagedSmtpFeedbackVerifier:
             )
 
         signed_payload = timestamp.encode('utf-8') + b'.' + payload
-        expected = hmac.new(
-            secret.encode('utf-8'),
-            signed_payload,
-            hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(signature, expected):
-            raise WebhookSignatureError('Invalid managed SMTP feedback signature')
+        for candidate_secret in secrets:
+            expected = hmac.new(
+                candidate_secret.encode('utf-8'),
+                signed_payload,
+                hashlib.sha256,
+            ).hexdigest()
+            if hmac.compare_digest(signature, expected):
+                return
+        raise WebhookSignatureError('Invalid managed SMTP feedback signature')
 
     def _timestamp_value(self, timestamp: str) -> int:
         try:

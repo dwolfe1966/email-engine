@@ -30,6 +30,34 @@ def test_managed_smtp_feedback_verifier_accepts_valid_signature() -> None:
     verifier.verify(payload, signature, timestamp)
 
 
+def test_managed_smtp_feedback_verifier_accepts_previous_secret_during_rotation() -> None:
+    payload = b'[{"email":"recipient@example.com","event":"delivered"}]'
+    timestamp = str(int(datetime.now(UTC).timestamp()))
+    signature = managed_smtp_signature('old-secret-value', timestamp, payload)
+    verifier = ManagedSmtpFeedbackVerifier(
+        Settings(
+            managed_smtp_feedback_secret='new-secret-value',
+            managed_smtp_feedback_previous_secret='old-secret-value',
+        )
+    )
+
+    verifier.verify(payload, signature, timestamp)
+
+
+def test_managed_smtp_feedback_verifier_prefers_current_secret_during_rotation() -> None:
+    payload = b'[]'
+    timestamp = str(int(datetime.now(UTC).timestamp()))
+    signature = managed_smtp_signature('new-secret-value', timestamp, payload)
+    verifier = ManagedSmtpFeedbackVerifier(
+        Settings(
+            managed_smtp_feedback_secret='new-secret-value',
+            managed_smtp_feedback_previous_secret='old-secret-value',
+        )
+    )
+
+    verifier.verify(payload, signature, timestamp)
+
+
 def test_managed_smtp_feedback_verifier_rejects_missing_secret_by_default() -> None:
     verifier = ManagedSmtpFeedbackVerifier(Settings())
 
@@ -46,6 +74,21 @@ def test_managed_smtp_feedback_verifier_rejects_invalid_signature() -> None:
 
     with pytest.raises(WebhookSignatureError, match='Invalid managed SMTP feedback signature'):
         verifier.verify(payload, 'bad-signature', timestamp)
+
+
+def test_managed_smtp_feedback_verifier_rejects_unknown_secret_during_rotation() -> None:
+    payload = b'[]'
+    timestamp = str(int(datetime.now(UTC).timestamp()))
+    signature = managed_smtp_signature('unknown-secret', timestamp, payload)
+    verifier = ManagedSmtpFeedbackVerifier(
+        Settings(
+            managed_smtp_feedback_secret='new-secret-value',
+            managed_smtp_feedback_previous_secret='old-secret-value',
+        )
+    )
+
+    with pytest.raises(WebhookSignatureError, match='Invalid managed SMTP feedback signature'):
+        verifier.verify(payload, signature, timestamp)
 
 
 def test_managed_smtp_feedback_verifier_rejects_stale_timestamp() -> None:
