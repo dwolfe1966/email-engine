@@ -9968,6 +9968,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? `Focused attempt ${routeAttemptId.slice(0, 8)} is ${focusedDeliveryAttempt.status}.`
       : `Focused attempt ${routeAttemptId.slice(0, 8)} is not loaded; load the linked record audit.`
     : `${formatInt(deliveryAttempts.length)} attempt audit row(s) loaded.`;
+  const deliveryAttemptAuditButtonLabel = routeRecordId ? 'Load linked audit' : 'Load Attempt Audit';
 
   useEffect(() => {
     if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
@@ -11618,7 +11619,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h2>Delivery Attempt Audit</h2>
             <span className="muted">{deliveryAttemptAuditLabel}</span>
           </div>
-          <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
+          <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>{deliveryAttemptAuditButtonLabel}</button>
         </div>
         {deliveryAttempts.length ? (
           <div className="delivery-audit-list">
