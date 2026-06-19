@@ -710,6 +710,7 @@ class MtaInventoryService:
         primary_next_action_code = self._primary_next_action_code(operator_next_action_counts)
         primary_next_action_label = self._operator_next_action_code_label(primary_next_action_code)
         primary_next_action_count = operator_next_action_counts.get(primary_next_action_code, 0)
+        action_required = primary_next_action_code != 'none'
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
         )
@@ -856,6 +857,7 @@ class MtaInventoryService:
             primary_next_action_code=primary_next_action_code,
             primary_next_action_label=primary_next_action_label,
             primary_next_action_count=primary_next_action_count,
+            action_required=action_required,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,

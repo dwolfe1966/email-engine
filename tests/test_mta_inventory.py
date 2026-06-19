@@ -359,6 +359,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.primary_next_action_code == 'none'
     assert summary.fleet_health.primary_next_action_label == 'No action'
     assert summary.fleet_health.primary_next_action_count == 1
+    assert summary.fleet_health.action_required is False
     assert summary.fleet_health.blocked_provider_count == 0
     assert summary.fleet_health.provider_port25_blocked_count == 0
     assert summary.fleet_health.provider_rdns_blocked_count == 0
@@ -663,6 +664,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
     assert summary.primary_next_action_code == 'report_host_revision'
     assert summary.primary_next_action_label == 'Report host revision'
     assert summary.primary_next_action_count == 1
+    assert summary.action_required is True
 
 
 def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -> None:
