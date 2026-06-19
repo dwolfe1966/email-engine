@@ -158,8 +158,15 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                         'mta_provider': 'scaleway',
                         'mta_node_name': 'mta-002',
                         'mta_hostname': 'mta-002.email-engine.app',
+                        'mta_public_ipv4': '212.47.236.69',
+                        'mta_submission_host': 'mta-002.email-engine.app',
+                        'mta_submission_port': 587,
                         'mta_ip_pool_name': 'scaleway-internal-test',
                         'mta_route_resolved': True,
+                        'envelope_from': f'bounces+{record.id}@returns-scaleway.email-engine.app',
+                        'bounce_domain': 'returns-scaleway.email-engine.app',
+                        'dkim_selector': 'ee2',
+                        'dkim_signing_ready': True,
                     },
                 )
             )
@@ -214,8 +221,16 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_provider'] == 'scaleway'
     assert result['mta_node_name'] == 'mta-002'
     assert result['mta_hostname'] == 'mta-002.email-engine.app'
+    assert result['mta_submission_host'] == 'mta-002.email-engine.app'
+    assert result['mta_submission_port'] == 587
     assert result['mta_ip_pool_name'] == 'scaleway-internal-test'
     assert result['mta_route_resolved'] is True
+    assert result['envelope_from'] == (
+        f'bounces+{db.records[0].id}@returns-scaleway.email-engine.app'
+    )
+    assert result['bounce_domain'] == 'returns-scaleway.email-engine.app'
+    assert result['dkim_selector'] == 'ee2'
+    assert result['dkim_signing_ready'] is True
 
 
 def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> None:

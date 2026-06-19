@@ -1726,10 +1726,17 @@ class CampaignTestSendResponse(SendResponse):
     mta_provider: str | None = None
     mta_node_name: str | None = None
     mta_hostname: str | None = None
+    mta_public_ipv4: str | None = None
+    mta_submission_host: str | None = None
+    mta_submission_port: int | None = None
     mta_ip_pool_name: str | None = None
     mta_route_resolved: bool | None = None
     mta_route_block_code: str | None = None
     mta_route_block_message: str | None = None
+    envelope_from: str | None = None
+    bounce_domain: str | None = None
+    dkim_selector: str | None = None
+    dkim_signing_ready: bool | None = None
     smtp_response_code: int | None = None
     smtp_response: str | None = None
     delivery_error_message: str | None = None

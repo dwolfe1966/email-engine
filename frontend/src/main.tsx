@@ -539,10 +539,17 @@ type CampaignTestSendResult = {
   mta_provider?: string | null;
   mta_node_name?: string | null;
   mta_hostname?: string | null;
+  mta_public_ipv4?: string | null;
+  mta_submission_host?: string | null;
+  mta_submission_port?: number | null;
   mta_ip_pool_name?: string | null;
   mta_route_resolved?: boolean | null;
   mta_route_block_code?: string | null;
   mta_route_block_message?: string | null;
+  envelope_from?: string | null;
+  bounce_domain?: string | null;
+  dkim_selector?: string | null;
+  dkim_signing_ready?: boolean | null;
   smtp_response_code?: number | null;
   smtp_response?: string | null;
   delivery_error_message?: string | null;
@@ -2872,8 +2879,10 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
               <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
-              <div><span>MTA</span><strong>{lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
+              <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
+              <div><span>DKIM</span><strong>{lastTestSendResult.dkim_selector || (lastTestSendResult.dkim_signing_ready ? 'ready' : '-')}</strong></div>
+              <div><span>Envelope</span><strong>{lastTestSendResult.envelope_from || lastTestSendResult.bounce_domain || '-'}</strong></div>
               <div><span>SMTP</span><strong>{lastTestSendResult.smtp_response_code || lastTestSendResult.mta_route_block_code || '-'}</strong></div>
               <div><span>Record</span><strong>{lastTestSendResult.send_record_id.slice(0, 8)}</strong></div>
               {lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message ? (
