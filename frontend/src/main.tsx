@@ -9994,6 +9994,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     }
     return 'No operator action required for this MTA node.';
   };
+  const managedSmtpAgentCommands = [
+    'sudo systemctl start email-engine-mta-agent.service',
+    'sudo systemctl status email-engine-mta-agent.service --no-pager',
+    'sudo systemctl list-timers email-engine-mta-agent.timer',
+    'sudo journalctl -u email-engine-mta-agent.service -n 80 --no-pager',
+  ];
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
@@ -10899,6 +10905,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>agent applied</dt><dd>{item.agent_applied_config_version || '-'}</dd></div>
                     <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_at ? new Date(item.agent_last_heartbeat_at).toLocaleString() : '-'}</dd></div>
                   </dl>
+                </details>
+                <details>
+                  <summary>Host agent commands</summary>
+                  <div className="json-preview">{managedSmtpAgentCommands.join('\n')}</div>
                 </details>
                 <div className="button-row">
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>
