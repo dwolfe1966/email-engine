@@ -836,6 +836,8 @@ type ManagedSmtpFleetHealthRead = {
   stale_agent_nodes: number;
   missing_agent_nodes: number;
   config_drift_nodes: number;
+  code_missing_nodes: number;
+  code_dirty_nodes: number;
   queue_depth: number;
   deferred_count: number;
   active_queue_count: number;
@@ -9962,12 +9964,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       value: formatInt(
         (managedSmtpDeploymentSummary?.fleet_health.stale_agent_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.missing_agent_nodes || 0)
-        + (managedSmtpDeploymentSummary?.fleet_health.config_drift_nodes || 0),
+        + (managedSmtpDeploymentSummary?.fleet_health.config_drift_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.code_missing_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.code_dirty_nodes || 0)
       ),
       detail: managedSmtpDeploymentSummary
-        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift`
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_missing_nodes)} revision missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes)} dirty`
         : 'Load deployment summary for MTA agent coverage.',
-      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes === 0 ? 'good' : 'warn',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.code_missing_nodes + managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Queue pressure',

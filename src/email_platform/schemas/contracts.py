@@ -1348,6 +1348,8 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     stale_agent_nodes: int
     missing_agent_nodes: int
     config_drift_nodes: int
+    code_missing_nodes: int
+    code_dirty_nodes: int
     queue_depth: int
     deferred_count: int
     active_queue_count: int

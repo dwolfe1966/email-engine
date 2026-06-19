@@ -663,6 +663,12 @@ class MtaInventoryService:
             for item in node_summaries
             if item.platform_config_version and not item.agent_config_in_sync
         )
+        code_missing_nodes = sum(
+            1
+            for item in node_summaries
+            if item.agent_heartbeat_status == 'ok' and not item.agent_code_revision
+        )
+        code_dirty_nodes = sum(1 for item in node_summaries if item.agent_code_dirty is True)
         blocked_provider_count = sum(
             1
             for item in node_summaries
@@ -683,6 +689,8 @@ class MtaInventoryService:
             stale_agent_nodes
             or missing_agent_nodes
             or config_drift_nodes
+            or code_missing_nodes
+            or code_dirty_nodes
             or blocked_provider_count
             or deferred_count
         ):
@@ -717,6 +725,8 @@ class MtaInventoryService:
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,
             config_drift_nodes=config_drift_nodes,
+            code_missing_nodes=code_missing_nodes,
+            code_dirty_nodes=code_dirty_nodes,
             queue_depth=queue_depth,
             deferred_count=deferred_count,
             active_queue_count=active_queue_count,

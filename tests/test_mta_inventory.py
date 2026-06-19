@@ -320,6 +320,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
     assert summary.fleet_health.config_drift_nodes == 0
+    assert summary.fleet_health.code_missing_nodes == 0
+    assert summary.fleet_health.code_dirty_nodes == 0
     assert summary.fleet_health.queue_depth == 1
     assert summary.fleet_health.active_queue_count == 1
 
@@ -350,6 +352,67 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert state['platform_config_version'] == 'config-v2'
     assert state['agent_applied_config_version'] == 'config-v1'
     assert state['agent_config_in_sync'] is False
+
+
+def test_fleet_health_warns_when_agent_code_revision_is_missing_or_dirty() -> None:
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+    node = SimpleNamespace(status=MtaOperationalStatus.active)
+    summary = service._fleet_health(
+        [
+            SimpleNamespace(
+                node=node,
+                provider_account=None,
+                pool_memberships=[SimpleNamespace()],
+                readiness_summary=ManagedSmtpReadinessSummaryRead(
+                    total_count=1,
+                    ok_count=1,
+                    warning_count=0,
+                    failed_count=0,
+                    latest_check=latest_check,
+                ),
+                agent_heartbeat_status='ok',
+                agent_config_in_sync=True,
+                platform_config_version='config-v1',
+                agent_code_revision=None,
+                agent_code_dirty=None,
+                agent_queue_depth=0,
+                agent_deferred_count=0,
+                agent_active_count=0,
+            ),
+            SimpleNamespace(
+                node=node,
+                provider_account=None,
+                pool_memberships=[SimpleNamespace()],
+                readiness_summary=ManagedSmtpReadinessSummaryRead(
+                    total_count=1,
+                    ok_count=1,
+                    warning_count=0,
+                    failed_count=0,
+                    latest_check=latest_check,
+                ),
+                agent_heartbeat_status='ok',
+                agent_config_in_sync=True,
+                platform_config_version='config-v1',
+                agent_code_revision='dirtyrev123',
+                agent_code_dirty=True,
+                agent_queue_depth=0,
+                agent_deferred_count=0,
+                agent_active_count=0,
+            ),
+        ]
+    )
+
+    assert summary.status == 'warning'
+    assert summary.code_missing_nodes == 1
+    assert summary.code_dirty_nodes == 1
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:
