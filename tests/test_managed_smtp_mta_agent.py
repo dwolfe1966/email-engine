@@ -49,6 +49,26 @@ ABC123DEF*      441 Thu Jun 18 22:17:01  mta-smoke@email-engine.app
     assert result == {'queue_depth': 2, 'deferred_count': 1, 'active_count': 1}
 
 
+def test_mta_agent_parses_systemctl_show_output() -> None:
+    module = load_agent_module()
+
+    values = module.parse_systemctl_show(
+        """
+LoadState=loaded
+ActiveState=active
+SubState=waiting
+UnitFileState=enabled
+NextElapseUSecRealtime=Fri 2026-06-19 00:34:09 UTC
+""".strip()
+    )
+
+    assert values['LoadState'] == 'loaded'
+    assert values['ActiveState'] == 'active'
+    assert values['SubState'] == 'waiting'
+    assert values['UnitFileState'] == 'enabled'
+    assert values['NextElapseUSecRealtime'] == 'Fri 2026-06-19 00:34:09 UTC'
+
+
 def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     module = load_agent_module()
 
@@ -68,6 +88,10 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
             'command': ['mailq'],
         },
         previous_config_version='old-version',
+        systemd={
+            'service': {'active_state': 'inactive', 'sub_state': 'dead'},
+            'timer': {'active_state': 'active', 'sub_state': 'waiting'},
+        },
     )
 
     assert payload['status'] == 'ok'
@@ -81,6 +105,8 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     assert payload['payload_json']['hostname'] == 'mta-002.email-engine.app'
     assert payload['payload_json']['pool_count'] == 1
     assert payload['payload_json']['domain_count'] == 1
+    assert payload['payload_json']['systemd']['service']['active_state'] == 'inactive'
+    assert payload['payload_json']['systemd']['timer']['sub_state'] == 'waiting'
 
 
 def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch, tmp_path) -> None:
@@ -119,6 +145,14 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
 
     monkeypatch.setattr(module, 'fetch_runtime_config', fake_fetch)
     monkeypatch.setattr(module, 'collect_mailq', fake_collect)
+    monkeypatch.setattr(
+        module,
+        'collect_systemd_status',
+        lambda args: {
+            'service': {'active_state': 'inactive', 'sub_state': 'dead'},
+            'timer': {'active_state': 'active', 'sub_state': 'waiting'},
+        },
+    )
     monkeypatch.setattr(module, 'post_heartbeat', fake_heartbeat)
     monkeypatch.setattr(module, 'post_event', fake_event)
 
@@ -132,6 +166,8 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
         compose_file=None,
         env_file=None,
         compose_service='managed-smtp-postfix',
+        systemd_service='email-engine-mta-agent.service',
+        systemd_timer='email-engine-mta-agent.timer',
         post_config_event=True,
     )
 
@@ -144,5 +180,6 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
     assert calls[1] == ('mailq', ['mailq'], 15)
     assert calls[2][0] == 'heartbeat'
     assert calls[2][4]['applied_config_version'] == 'new-version'
+    assert calls[2][4]['payload_json']['systemd']['timer']['active_state'] == 'active'
     assert calls[3][0] == 'event'
     assert calls[3][4]['event_type'] == 'runtime_config_applied'

@@ -574,6 +574,7 @@ class MtaInventoryService:
                 'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                **self._agent_systemd_state(metadata),
             }
         try:
             heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
@@ -586,6 +587,7 @@ class MtaInventoryService:
                 'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+                **self._agent_systemd_state(metadata),
             }
         age_seconds = max(
             0,
@@ -599,6 +601,7 @@ class MtaInventoryService:
             'agent_queue_depth': self._metadata_int(metadata, 'agent_queue_depth'),
             'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
+            **self._agent_systemd_state(metadata),
         }
 
     def _agent_config_state(self, node: MtaNode, runtime_config) -> dict[str, object]:
@@ -725,6 +728,17 @@ class MtaInventoryService:
             return max(0, int(value))
         except (TypeError, ValueError):
             return None
+
+    def _agent_systemd_state(self, metadata: dict[str, object]) -> dict[str, object]:
+        return {
+            'agent_service_active_state': self._metadata_str(
+                metadata, 'agent_service_active_state'
+            ),
+            'agent_service_sub_state': self._metadata_str(metadata, 'agent_service_sub_state'),
+            'agent_timer_active_state': self._metadata_str(metadata, 'agent_timer_active_state'),
+            'agent_timer_sub_state': self._metadata_str(metadata, 'agent_timer_sub_state'),
+            'agent_timer_next_elapse': self._metadata_str(metadata, 'agent_timer_next_elapse'),
+        }
 
     @staticmethod
     def _metadata_str(metadata: dict[str, object], key: str) -> str | None:

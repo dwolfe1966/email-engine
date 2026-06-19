@@ -177,6 +177,59 @@ def collect_mailq(command: list[str], *, timeout: float = 20) -> dict[str, Any]:
     }
 
 
+def parse_systemctl_show(output: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in output.splitlines():
+        if '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        values[key] = value
+    return values
+
+
+def collect_systemd_unit(unit: str, *, timeout: float = 20) -> dict[str, Any]:
+    command = [
+        'systemctl',
+        'show',
+        unit,
+        '--property=LoadState',
+        '--property=ActiveState',
+        '--property=SubState',
+        '--property=UnitFileState',
+        '--property=NextElapseUSecRealtime',
+        '--no-pager',
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {'ok': False, 'unit': unit, 'error': str(exc), 'command': command}
+    values = parse_systemctl_show(completed.stdout + completed.stderr)
+    return {
+        'ok': completed.returncode == 0,
+        'unit': unit,
+        'load_state': values.get('LoadState'),
+        'active_state': values.get('ActiveState'),
+        'sub_state': values.get('SubState'),
+        'unit_file_state': values.get('UnitFileState'),
+        'next_elapse': values.get('NextElapseUSecRealtime'),
+        'returncode': completed.returncode,
+        'command': command,
+    }
+
+
+def collect_systemd_status(args) -> dict[str, Any]:
+    return {
+        'service': collect_systemd_unit(args.systemd_service, timeout=args.timeout),
+        'timer': collect_systemd_unit(args.systemd_timer, timeout=args.timeout),
+    }
+
+
 def read_state(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
@@ -202,6 +255,7 @@ def build_heartbeat_payload(
     queue: dict[str, Any],
     *,
     previous_config_version: str | None = None,
+    systemd: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config_version = str(runtime_config.get('config_version') or '')
     queue_ok = bool(queue.get('ok'))
@@ -226,6 +280,7 @@ def build_heartbeat_payload(
             'hostname': (runtime_config.get('node') or {}).get('hostname'),
             'pool_count': len(runtime_config.get('pools') or []),
             'domain_count': len(runtime_config.get('domains') or []),
+            'systemd': systemd or {},
         },
     }
 
@@ -262,10 +317,12 @@ def run_once(args) -> dict[str, Any]:
     )
     previous_config_version = state.get('applied_config_version')
     queue = collect_mailq(default_mailq_command(args), timeout=args.timeout)
+    systemd = collect_systemd_status(args)
     heartbeat_payload = build_heartbeat_payload(
         runtime_config,
         queue,
         previous_config_version=previous_config_version,
+        systemd=systemd,
     )
     heartbeat = post_heartbeat(
         args.base_url,
@@ -301,6 +358,7 @@ def run_once(args) -> dict[str, Any]:
             'domain_count': len(runtime_config.get('domains') or []),
         },
         'queue': queue,
+        'systemd': systemd,
         'heartbeat': heartbeat,
         'event': event_response,
     }
@@ -330,6 +388,14 @@ def main() -> int:
         default=os.environ.get('MANAGED_SMTP_COMPOSE_SERVICE', 'managed-smtp-postfix'),
     )
     parser.add_argument('--mailq-command', nargs='+')
+    parser.add_argument(
+        '--systemd-service',
+        default=os.environ.get('MANAGED_SMTP_MTA_AGENT_SERVICE', 'email-engine-mta-agent.service'),
+    )
+    parser.add_argument(
+        '--systemd-timer',
+        default=os.environ.get('MANAGED_SMTP_MTA_AGENT_TIMER', 'email-engine-mta-agent.timer'),
+    )
     parser.add_argument('--post-config-event', action='store_true')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()

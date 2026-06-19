@@ -83,6 +83,9 @@ class ManagedSmtpAgentService:
                 result_json={key: value for key, value in result_json.items() if value is not None},
             )
         )
+        systemd = self._mapping(payload.payload_json.get('systemd'))
+        systemd_service = self._mapping(systemd.get('service'))
+        systemd_timer = self._mapping(systemd.get('timer'))
         node.last_readiness_at = check.created_at
         node.metadata_json = {
             **(node.metadata_json or {}),
@@ -93,6 +96,13 @@ class ManagedSmtpAgentService:
             'agent_queue_depth': payload.queue_depth,
             'agent_deferred_count': payload.deferred_count,
             'agent_active_count': payload.active_count,
+            'agent_service_active_state': self._str_or_none(
+                systemd_service.get('active_state')
+            ),
+            'agent_service_sub_state': self._str_or_none(systemd_service.get('sub_state')),
+            'agent_timer_active_state': self._str_or_none(systemd_timer.get('active_state')),
+            'agent_timer_sub_state': self._str_or_none(systemd_timer.get('sub_state')),
+            'agent_timer_next_elapse': self._str_or_none(systemd_timer.get('next_elapse')),
         }
         self.db.commit()
         self.db.refresh(check)

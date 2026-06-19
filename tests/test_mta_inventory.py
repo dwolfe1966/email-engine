@@ -188,6 +188,11 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
             'agent_active_count': 1,
             'agent_config_version': 'config-v1',
             'agent_applied_config_version': 'config-v1',
+            'agent_service_active_state': 'inactive',
+            'agent_service_sub_state': 'dead',
+            'agent_timer_active_state': 'active',
+            'agent_timer_sub_state': 'waiting',
+            'agent_timer_next_elapse': 'Fri 2026-06-19 00:34:09 UTC',
         },
         created_at=now,
         updated_at=now,
@@ -305,6 +310,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
+    assert summary.recent_nodes[0].agent_service_active_state == 'inactive'
+    assert summary.recent_nodes[0].agent_timer_active_state == 'active'
+    assert summary.recent_nodes[0].agent_timer_next_elapse == 'Fri 2026-06-19 00:34:09 UTC'
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
     assert summary.fleet_health.config_drift_nodes == 0

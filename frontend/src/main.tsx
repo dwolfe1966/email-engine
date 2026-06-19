@@ -814,6 +814,11 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_config_version: string | null;
   agent_applied_config_version: string | null;
   agent_config_in_sync: boolean;
+  agent_service_active_state: string | null;
+  agent_service_sub_state: string | null;
+  agent_timer_active_state: string | null;
+  agent_timer_sub_state: string | null;
+  agent_timer_next_elapse: string | null;
 };
 
 type ManagedSmtpFleetHealthRead = {
@@ -10904,6 +10909,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>agent reported</dt><dd>{item.agent_config_version || '-'}</dd></div>
                     <div><dt>agent applied</dt><dd>{item.agent_applied_config_version || '-'}</dd></div>
                     <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_at ? new Date(item.agent_last_heartbeat_at).toLocaleString() : '-'}</dd></div>
+                    <div><dt>service state</dt><dd>{item.agent_service_active_state || '-'} / {item.agent_service_sub_state || '-'}</dd></div>
+                    <div><dt>timer state</dt><dd>{item.agent_timer_active_state || '-'} / {item.agent_timer_sub_state || '-'}</dd></div>
+                    <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
                   </dl>
                 </details>
                 <details>

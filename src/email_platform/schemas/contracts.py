@@ -1326,6 +1326,11 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_config_version: str | None = None
     agent_applied_config_version: str | None = None
     agent_config_in_sync: bool = False
+    agent_service_active_state: str | None = None
+    agent_service_sub_state: str | None = None
+    agent_timer_active_state: str | None = None
+    agent_timer_sub_state: str | None = None
+    agent_timer_next_elapse: str | None = None
 
 
 class ManagedSmtpFleetHealthRead(BaseModel):
