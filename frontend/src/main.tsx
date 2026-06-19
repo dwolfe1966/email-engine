@@ -826,6 +826,7 @@ type ManagedSmtpDeploymentNodeSummary = {
 type ManagedSmtpFleetHealthRead = {
   status: string;
   summary: string;
+  platform_code_revision: string | null;
   provider_count: number;
   active_provider_count: number;
   blocked_provider_count: number;
@@ -838,6 +839,7 @@ type ManagedSmtpFleetHealthRead = {
   config_drift_nodes: number;
   code_missing_nodes: number;
   code_dirty_nodes: number;
+  code_outdated_nodes: number;
   queue_depth: number;
   deferred_count: number;
   active_queue_count: number;
@@ -9967,11 +9969,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         + (managedSmtpDeploymentSummary?.fleet_health.config_drift_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.code_missing_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.code_dirty_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.code_outdated_nodes || 0)
       ),
       detail: managedSmtpDeploymentSummary
-        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_missing_nodes)} revision missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes)} dirty`
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_missing_nodes)} revision missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes)} dirty, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes)} outdated`
         : 'Load deployment summary for MTA agent coverage.',
-      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.code_missing_nodes + managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes === 0 ? 'good' : 'warn',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.code_missing_nodes + managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes + managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Queue pressure',

@@ -1338,6 +1338,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
 class ManagedSmtpFleetHealthRead(BaseModel):
     status: str
     summary: str
+    platform_code_revision: str | None = None
     provider_count: int
     active_provider_count: int
     blocked_provider_count: int
@@ -1350,6 +1351,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     config_drift_nodes: int
     code_missing_nodes: int
     code_dirty_nodes: int
+    code_outdated_nodes: int
     queue_depth: int
     deferred_count: int
     active_queue_count: int

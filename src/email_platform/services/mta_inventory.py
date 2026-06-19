@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from uuid import UUID
 
@@ -669,6 +670,14 @@ class MtaInventoryService:
             if item.agent_heartbeat_status == 'ok' and not item.agent_code_revision
         )
         code_dirty_nodes = sum(1 for item in node_summaries if item.agent_code_dirty is True)
+        platform_code_revision = self._platform_code_revision()
+        code_outdated_nodes = sum(
+            1
+            for item in node_summaries
+            if platform_code_revision
+            and item.agent_code_revision
+            and not platform_code_revision.startswith(item.agent_code_revision)
+        )
         blocked_provider_count = sum(
             1
             for item in node_summaries
@@ -691,6 +700,7 @@ class MtaInventoryService:
             or config_drift_nodes
             or code_missing_nodes
             or code_dirty_nodes
+            or code_outdated_nodes
             or blocked_provider_count
             or deferred_count
         ):
@@ -702,6 +712,7 @@ class MtaInventoryService:
         return ManagedSmtpFleetHealthRead(
             status=status,
             summary=summary,
+            platform_code_revision=platform_code_revision,
             provider_count=len(
                 {
                     str(item.provider_account.id)
@@ -727,6 +738,7 @@ class MtaInventoryService:
             config_drift_nodes=config_drift_nodes,
             code_missing_nodes=code_missing_nodes,
             code_dirty_nodes=code_dirty_nodes,
+            code_outdated_nodes=code_outdated_nodes,
             queue_depth=queue_depth,
             deferred_count=deferred_count,
             active_queue_count=active_queue_count,
@@ -771,6 +783,14 @@ class MtaInventoryService:
     def _metadata_bool(metadata: dict[str, object], key: str) -> bool | None:
         value = metadata.get(key)
         return value if isinstance(value, bool) else None
+
+    @staticmethod
+    def _platform_code_revision() -> str | None:
+        for key in ('VERCEL_GIT_COMMIT_SHA', 'GIT_COMMIT_SHA', 'SOURCE_VERSION'):
+            value = os.environ.get(key)
+            if value:
+                return value.strip() or None
+        return None
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:

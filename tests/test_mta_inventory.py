@@ -149,6 +149,9 @@ def test_create_pool_node_requires_existing_pool_before_node() -> None:
 
 
 def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeypatch) -> None:
+    monkeypatch.delenv('VERCEL_GIT_COMMIT_SHA', raising=False)
+    monkeypatch.delenv('GIT_COMMIT_SHA', raising=False)
+    monkeypatch.delenv('SOURCE_VERSION', raising=False)
     account_id = uuid4()
     node_id = uuid4()
     pool_node_id = uuid4()
@@ -354,7 +357,10 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert state['agent_config_in_sync'] is False
 
 
-def test_fleet_health_warns_when_agent_code_revision_is_missing_or_dirty() -> None:
+def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdated(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv('VERCEL_GIT_COMMIT_SHA', 'currentrev999999')
     service = MtaInventoryService(FakeDb())
     latest_check = ManagedSmtpReadinessCheckRead(
         id=uuid4(),
@@ -407,12 +413,34 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_or_dirty() -> No
                 agent_deferred_count=0,
                 agent_active_count=0,
             ),
+            SimpleNamespace(
+                node=node,
+                provider_account=None,
+                pool_memberships=[SimpleNamespace()],
+                readiness_summary=ManagedSmtpReadinessSummaryRead(
+                    total_count=1,
+                    ok_count=1,
+                    warning_count=0,
+                    failed_count=0,
+                    latest_check=latest_check,
+                ),
+                agent_heartbeat_status='ok',
+                agent_config_in_sync=True,
+                platform_config_version='config-v1',
+                agent_code_revision='oldrev123456',
+                agent_code_dirty=False,
+                agent_queue_depth=0,
+                agent_deferred_count=0,
+                agent_active_count=0,
+            ),
         ]
     )
 
     assert summary.status == 'warning'
+    assert summary.platform_code_revision == 'currentrev999999'
     assert summary.code_missing_nodes == 1
     assert summary.code_dirty_nodes == 1
+    assert summary.code_outdated_nodes == 2
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:
