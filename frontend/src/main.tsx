@@ -9962,6 +9962,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const routeParts = route.startsWith('delivery/') ? route.split('/') : [];
   const routeRecordId = routeParts[1] || '';
   const routeAttemptId = routeParts[2] || '';
+  const focusedDeliveryAttempt = routeAttemptId ? deliveryAttempts.find((attempt) => attempt.id === routeAttemptId) : null;
+  const deliveryAttemptAuditLabel = routeAttemptId
+    ? focusedDeliveryAttempt
+      ? `Focused attempt ${routeAttemptId.slice(0, 8)} is ${focusedDeliveryAttempt.status}.`
+      : `Focused attempt ${routeAttemptId.slice(0, 8)} is not loaded.`
+    : `${formatInt(deliveryAttempts.length)} attempt audit row(s) loaded.`;
 
   useEffect(() => {
     if (!selectedJobId && sendJobs.length) setSelectedJobId(sendJobs[0].id);
@@ -11610,7 +11616,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="panel-head">
           <div>
             <h2>Delivery Attempt Audit</h2>
-            <span className="muted">Claim-blocked and dead-letter audit rows explain queue-control decisions.</span>
+            <span className="muted">{deliveryAttemptAuditLabel}</span>
           </div>
           <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>Load Attempt Audit</button>
         </div>
