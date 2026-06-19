@@ -160,6 +160,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'agent_timer_next_elapse',
         'agent_code_revision',
         'agent_code_dirty',
+        'agent_code_revision_label',
         'agent_host_update_required',
         'agent_host_update_status',
         'agent_host_update_status_label',

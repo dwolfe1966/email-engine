@@ -407,6 +407,10 @@ class MtaInventoryService:
             item.agent_host_update_status_label = self._agent_host_update_status_label(
                 item.agent_host_update_status
             )
+            item.agent_code_revision_label = self._agent_code_revision_label(
+                item.agent_code_revision,
+                item.agent_code_dirty,
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action_code_label = self._operator_next_action_code_label(
                 item.operator_next_action_code
@@ -981,6 +985,13 @@ class MtaInventoryService:
             'unverified': 'Unverified',
             'unknown': 'Unknown',
         }.get(status, status.replace('_', ' ').title())
+
+    @staticmethod
+    def _agent_code_revision_label(revision: str | None, dirty: bool | None) -> str:
+        if not revision:
+            return '-'
+        label = revision[:12]
+        return f'{label} dirty' if dirty is True else label
 
     @staticmethod
     def _agent_queue_status(

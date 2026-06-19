@@ -1372,6 +1372,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_timer_next_elapse: str | None = None
     agent_code_revision: str | None = None
     agent_code_dirty: bool | None = None
+    agent_code_revision_label: str = '-'
     agent_host_update_required: bool = False
     agent_host_update_status: str = 'unknown'
     agent_host_update_status_label: str = 'Unknown'

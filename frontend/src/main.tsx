@@ -856,6 +856,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_timer_next_elapse: string | null;
   agent_code_revision: string | null;
   agent_code_dirty: boolean | null;
+  agent_code_revision_label: string;
   agent_host_update_required: boolean;
   agent_host_update_status: string;
   agent_host_update_status_label: string;
@@ -11111,7 +11112,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                     <div><dt>timer state</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
                     <div><dt>timer next run</dt><dd>{item.agent_timer_next_elapse || '-'}</dd></div>
                     <div><dt>expected host revision</dt><dd>{managedSmtpDeploymentSummary.fleet_health.platform_code_revision?.slice(0, 12) || '-'}</dd></div>
-                    <div><dt>host revision</dt><dd>{item.agent_code_revision || '-'}{item.agent_code_dirty ? ' dirty' : ''}</dd></div>
+                    <div><dt>host revision</dt><dd>{item.agent_code_revision_label || '-'}</dd></div>
                     <div><dt>host update</dt><dd>{item.agent_host_update_required ? 'Required' : 'Not required'} / {item.agent_host_update_status_label || item.agent_host_update_status}</dd></div>
                     <div><dt>host update detail</dt><dd>{item.agent_host_update_detail || '-'}</dd></div>
                   </dl>

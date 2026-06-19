@@ -365,6 +365,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_timer_next_elapse == 'Fri 2026-06-19 00:34:09 UTC'
     assert summary.recent_nodes[0].agent_code_revision == 'abc123def456'
     assert summary.recent_nodes[0].agent_code_dirty is False
+    assert summary.recent_nodes[0].agent_code_revision_label == 'abc123def456'
     assert summary.recent_nodes[0].agent_host_update_required is False
     assert summary.recent_nodes[0].agent_host_update_status == 'unverified'
     assert summary.recent_nodes[0].agent_host_update_status_label == 'Unverified'
@@ -436,6 +437,9 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert service._agent_host_update_status_label('outdated') == 'Outdated'
     assert service._agent_host_update_status_label('revision_missing') == 'Revision missing'
     assert service._agent_host_update_status_label('unverified') == 'Unverified'
+    assert service._agent_code_revision_label('abc123def456789', False) == 'abc123def456'
+    assert service._agent_code_revision_label('abc123def456789', True) == 'abc123def456 dirty'
+    assert service._agent_code_revision_label(None, None) == '-'
 
 
 def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:
