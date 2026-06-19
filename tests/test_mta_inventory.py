@@ -317,6 +317,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.submission_tls_enabled is True
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'
     assert summary.recent_nodes[0].node_status_label == 'Active'
+    assert summary.recent_nodes[0].node_endpoint_label == '192.0.2.10'
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].provider_account_status_label == 'Active'
@@ -560,6 +561,9 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
     assert service._submission_endpoint_label(
         SimpleNamespace(submission_host=None, hostname='mta.example.com', submission_port=2525)
     ) == 'mta.example.com:2525'
+    assert service._node_endpoint_label(
+        SimpleNamespace(public_ipv4=None, submission_host='mta.example.com')
+    ) == 'mta.example.com'
     assert service._pool_membership_label([]) == 'No pools'
     assert service._pool_membership_label([SimpleNamespace()]) == '1 pool'
     assert service._pool_membership_label([SimpleNamespace(), SimpleNamespace()]) == '2 pools'

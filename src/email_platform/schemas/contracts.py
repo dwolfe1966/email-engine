@@ -1326,6 +1326,7 @@ class ManagedSmtpLogSampleRead(BaseModel):
 class ManagedSmtpDeploymentNodeSummary(BaseModel):
     node: MtaNodeRead
     node_status_label: str = 'Unknown'
+    node_endpoint_label: str = 'No endpoint loaded'
     provider_account: MtaProviderAccountRead | None = None
     provider_account_status_label: str = 'Unknown'
     provider_port25_status_label: str = 'Unknown'

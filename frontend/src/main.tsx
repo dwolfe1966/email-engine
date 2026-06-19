@@ -801,6 +801,7 @@ type MtaIpPoolNodeRead = {
 type ManagedSmtpDeploymentNodeSummary = {
   node: MtaNodeRead;
   node_status_label: string;
+  node_endpoint_label: string;
   provider_account: MtaProviderAccountRead | null;
   provider_account_status_label: string;
   provider_port25_status_label: string;
@@ -11078,7 +11079,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <span>{item.provider_account?.provider || 'provider'} / {item.provider_account_status_label || 'Unknown'} / {item.node_status_label || item.node.status}</span>
                   <strong>{item.node.name} - {item.node.hostname}</strong>
                 </div>
-                <small>{item.node.public_ipv4 || item.node.submission_host || 'No public IP loaded'}</small>
+                <small>{item.node_endpoint_label || item.node.public_ipv4 || item.node.submission_host || 'No endpoint loaded'}</small>
                 <dl>
                   <div><dt>provider</dt><dd>{item.provider_account?.name || '-'}</dd></div>
                   <div><dt>support case</dt><dd>{item.provider_account?.support_case_ref || '-'}</dd></div>

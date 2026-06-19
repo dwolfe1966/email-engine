@@ -363,6 +363,7 @@ class MtaInventoryService:
             item.node_status_label = self._inventory_status_label(
                 self._status_value(item.node.status)
             )
+            item.node_endpoint_label = self._node_endpoint_label(item.node)
             item.provider_account_status_label = self._inventory_status_label(
                 self._status_value(item.provider_account.status)
                 if item.provider_account
@@ -1182,6 +1183,16 @@ class MtaInventoryService:
         if not host:
             return '-'
         return f'{host}:{port or 587}'
+
+    @staticmethod
+    def _node_endpoint_label(node) -> str:
+        public_ipv4 = getattr(node, 'public_ipv4', None)
+        if public_ipv4:
+            return str(public_ipv4)
+        submission_host = getattr(node, 'submission_host', None)
+        if submission_host:
+            return str(submission_host)
+        return 'No endpoint loaded'
 
     @staticmethod
     def _pool_membership_label(pool_memberships: list[object]) -> str:
