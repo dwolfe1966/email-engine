@@ -186,6 +186,8 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
             'agent_queue_depth': 1,
             'agent_deferred_count': 0,
             'agent_active_count': 1,
+            'agent_config_version': 'config-v1',
+            'agent_applied_config_version': 'config-v1',
         },
         created_at=now,
         updated_at=now,
@@ -222,6 +224,14 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
                     created_at=now,
                 ),
             )
+
+    class FakeAgentService:
+        def __init__(self, db) -> None:
+            self.db = db
+
+        def runtime_config(self, item_id):
+            assert item_id == node_id
+            return SimpleNamespace(config_version='config-v1')
 
     class FakeSummaryService(MtaInventoryService):
         def list_nodes(self, **kwargs):
@@ -260,6 +270,11 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         'ManagedSmtpReadinessService',
         FakeReadinessService,
     )
+    monkeypatch.setattr(
+        mta_inventory_module,
+        'ManagedSmtpAgentService',
+        FakeAgentService,
+    )
 
     summary = FakeSummaryService(FakeDb()).deployment_summary(
         limit=5,
@@ -287,8 +302,12 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
     assert summary.recent_nodes[0].agent_queue_depth == 1
+    assert summary.recent_nodes[0].platform_config_version == 'config-v1'
+    assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
+    assert summary.recent_nodes[0].agent_config_in_sync is True
     assert summary.fleet_health.status == 'ok'
     assert summary.fleet_health.route_ready_nodes == 1
+    assert summary.fleet_health.config_drift_nodes == 0
     assert summary.fleet_health.queue_depth == 1
     assert summary.fleet_health.active_queue_count == 1
 
@@ -303,6 +322,22 @@ def test_agent_heartbeat_state_marks_old_heartbeat_stale() -> None:
     assert state['agent_heartbeat_status'] == 'stale'
     assert state['agent_heartbeat_age_seconds'] >= 180
     assert state['agent_heartbeat_stale_after_seconds'] == 180
+
+
+def test_agent_config_state_marks_runtime_config_drift() -> None:
+    service = MtaInventoryService(FakeDb())
+    node = SimpleNamespace(
+        metadata_json={
+            'agent_config_version': 'config-v1',
+            'agent_applied_config_version': 'config-v1',
+        }
+    )
+
+    state = service._agent_config_state(node, SimpleNamespace(config_version='config-v2'))
+
+    assert state['platform_config_version'] == 'config-v2'
+    assert state['agent_applied_config_version'] == 'config-v1'
+    assert state['agent_config_in_sync'] is False
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:

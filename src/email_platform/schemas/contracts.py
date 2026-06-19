@@ -1322,6 +1322,10 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_queue_depth: int | None = None
     agent_deferred_count: int | None = None
     agent_active_count: int | None = None
+    platform_config_version: str | None = None
+    agent_config_version: str | None = None
+    agent_applied_config_version: str | None = None
+    agent_config_in_sync: bool = False
 
 
 class ManagedSmtpFleetHealthRead(BaseModel):
@@ -1336,6 +1340,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     readiness_ok_nodes: int
     stale_agent_nodes: int
     missing_agent_nodes: int
+    config_drift_nodes: int
     queue_depth: int
     deferred_count: int
     active_queue_count: int

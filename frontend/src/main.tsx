@@ -810,6 +810,10 @@ type ManagedSmtpDeploymentNodeSummary = {
   agent_queue_depth: number | null;
   agent_deferred_count: number | null;
   agent_active_count: number | null;
+  platform_config_version: string | null;
+  agent_config_version: string | null;
+  agent_applied_config_version: string | null;
+  agent_config_in_sync: boolean;
 };
 
 type ManagedSmtpFleetHealthRead = {
@@ -824,6 +828,7 @@ type ManagedSmtpFleetHealthRead = {
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
   missing_agent_nodes: number;
+  config_drift_nodes: number;
   queue_depth: number;
   deferred_count: number;
   active_queue_count: number;
@@ -9947,11 +9952,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     },
     {
       label: 'Agent coverage',
-      value: formatInt((managedSmtpDeploymentSummary?.fleet_health.stale_agent_nodes || 0) + (managedSmtpDeploymentSummary?.fleet_health.missing_agent_nodes || 0)),
+      value: formatInt(
+        (managedSmtpDeploymentSummary?.fleet_health.stale_agent_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.missing_agent_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.config_drift_nodes || 0),
+      ),
       detail: managedSmtpDeploymentSummary
-        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing`
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift`
         : 'Load deployment summary for MTA agent coverage.',
-      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes === 0 ? 'good' : 'warn',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Queue pressure',
@@ -10863,6 +10872,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
+                  <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
                   <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
                 </dl>
                 <div className="button-row">

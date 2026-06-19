@@ -32,6 +32,10 @@ from email_platform.schemas.contracts import (
     MtaProviderAccountCreate,
     MtaProviderAccountUpdate,
 )
+from email_platform.services.managed_smtp_agent import (
+    ManagedSmtpAgentError,
+    ManagedSmtpAgentService,
+)
 from email_platform.services.managed_smtp_readiness import ManagedSmtpReadinessService
 
 
@@ -333,6 +337,7 @@ class MtaInventoryService:
         settings: Settings | None = None,
     ) -> ManagedSmtpDeploymentSummaryRead:
         readiness_service = ManagedSmtpReadinessService(self.db)
+        agent_service = ManagedSmtpAgentService(self.db)
         recent_nodes = self.list_nodes(limit=limit, offset=0)
         node_summaries = [
             ManagedSmtpDeploymentNodeSummary(
@@ -341,6 +346,10 @@ class MtaInventoryService:
                 pool_memberships=self.list_pool_nodes(mta_node_id=node.id, limit=100, offset=0),
                 readiness_summary=readiness_service.summary(host=node.hostname),
                 **self._agent_heartbeat_state(node),
+                **self._agent_config_state(
+                    node,
+                    self._runtime_config_or_none(agent_service, node.id),
+                ),
             )
             for node in recent_nodes
         ]
@@ -592,6 +601,30 @@ class MtaInventoryService:
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
         }
 
+    def _agent_config_state(self, node: MtaNode, runtime_config) -> dict[str, object]:
+        metadata = node.metadata_json or {}
+        platform_config_version = getattr(runtime_config, 'config_version', None)
+        agent_config_version = self._metadata_str(metadata, 'agent_config_version')
+        agent_applied_config_version = self._metadata_str(metadata, 'agent_applied_config_version')
+        in_sync = bool(
+            platform_config_version
+            and agent_applied_config_version
+            and platform_config_version == agent_applied_config_version
+        )
+        return {
+            'platform_config_version': platform_config_version,
+            'agent_config_version': agent_config_version,
+            'agent_applied_config_version': agent_applied_config_version,
+            'agent_config_in_sync': in_sync,
+        }
+
+    @staticmethod
+    def _runtime_config_or_none(agent_service: ManagedSmtpAgentService, node_id: UUID):
+        try:
+            return agent_service.runtime_config(node_id)
+        except ManagedSmtpAgentError:
+            return None
+
     def _fleet_health(
         self,
         node_summaries: list[ManagedSmtpDeploymentNodeSummary],
@@ -600,7 +633,10 @@ class MtaInventoryService:
             item for item in node_summaries if self._status_value(item.node.status) == 'active'
         ]
         readiness_ok_nodes = sum(
-            1 for item in active_nodes if item.readiness_summary.latest_check and item.readiness_summary.latest_check.status == 'ok'
+            1
+            for item in active_nodes
+            if item.readiness_summary.latest_check
+            and item.readiness_summary.latest_check.status == 'ok'
         )
         route_ready_nodes = sum(
             1
@@ -615,6 +651,11 @@ class MtaInventoryService:
         )
         missing_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status == 'missing'
+        )
+        config_drift_nodes = sum(
+            1
+            for item in node_summaries
+            if item.platform_config_version and not item.agent_config_in_sync
         )
         blocked_provider_count = sum(
             1
@@ -632,7 +673,13 @@ class MtaInventoryService:
         if route_ready_nodes == 0:
             status = 'blocked'
             summary = 'No route-ready MTA nodes are available.'
-        elif stale_agent_nodes or missing_agent_nodes or blocked_provider_count or deferred_count:
+        elif (
+            stale_agent_nodes
+            or missing_agent_nodes
+            or config_drift_nodes
+            or blocked_provider_count
+            or deferred_count
+        ):
             status = 'warning'
             summary = 'MTA fleet has route capacity with operational warnings.'
         else:
@@ -641,7 +688,13 @@ class MtaInventoryService:
         return ManagedSmtpFleetHealthRead(
             status=status,
             summary=summary,
-            provider_count=len({str(item.provider_account.id) for item in node_summaries if item.provider_account}),
+            provider_count=len(
+                {
+                    str(item.provider_account.id)
+                    for item in node_summaries
+                    if item.provider_account
+                }
+            ),
             active_provider_count=len(
                 {
                     str(item.provider_account.id)
@@ -657,6 +710,7 @@ class MtaInventoryService:
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
             missing_agent_nodes=missing_agent_nodes,
+            config_drift_nodes=config_drift_nodes,
             queue_depth=queue_depth,
             deferred_count=deferred_count,
             active_queue_count=active_queue_count,
@@ -671,6 +725,14 @@ class MtaInventoryService:
             return max(0, int(value))
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _metadata_str(metadata: dict[str, object], key: str) -> str | None:
+        value = metadata.get(key)
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:
