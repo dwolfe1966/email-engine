@@ -318,6 +318,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
+    assert summary.recent_nodes[0].provider_blockers == []
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
@@ -437,6 +438,7 @@ def test_agent_operational_status_summarizes_node_health() -> None:
     def node_summary(**overrides):
         values = {
             'node': SimpleNamespace(status=MtaOperationalStatus.active),
+            'provider_blockers': [],
             'pool_memberships': [SimpleNamespace()],
             'readiness_summary': ManagedSmtpReadinessSummaryRead(
                 total_count=1,
@@ -468,6 +470,25 @@ def test_agent_operational_status_summarizes_node_health() -> None:
     assert service._agent_operational_status(node_summary(agent_log_issue_status='warning')) == (
         'warning'
     )
+    assert service._agent_operational_status(node_summary(provider_blockers=['port25_blocked'])) == (
+        'blocked'
+    )
+
+
+def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
+    service = MtaInventoryService(FakeDb())
+    provider = SimpleNamespace(
+        status=MtaOperationalStatus.paused,
+        port25_status='pending',
+        rdns_status='pending',
+    )
+
+    assert service._provider_blockers(provider) == [
+        'provider_inactive',
+        'port25_blocked',
+        'rdns_blocked',
+    ]
+    assert service._provider_blockers(None) == ['provider_missing']
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:

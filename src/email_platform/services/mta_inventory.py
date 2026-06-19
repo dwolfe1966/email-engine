@@ -357,6 +357,7 @@ class MtaInventoryService:
             for node in recent_nodes
         ]
         for item in node_summaries:
+            item.provider_blockers = self._provider_blockers(item.provider_account)
             item.agent_operational_status = self._agent_operational_status(item)
         return ManagedSmtpDeploymentSummaryRead(
             provider_accounts=self._inventory_counts(
@@ -889,6 +890,8 @@ class MtaInventoryService:
     def _agent_operational_status(self, item: ManagedSmtpDeploymentNodeSummary) -> str:
         if self._status_value(item.node.status) != 'active':
             return 'blocked'
+        if item.provider_blockers:
+            return 'blocked'
         if item.agent_heartbeat_status != 'ok':
             return 'blocked'
         if not item.readiness_summary.latest_check:
@@ -914,6 +917,18 @@ class MtaInventoryService:
         ):
             return 'warning'
         return 'ok'
+
+    def _provider_blockers(self, provider_account) -> list[str]:
+        if not provider_account:
+            return ['provider_missing']
+        blockers: list[str] = []
+        if self._status_value(provider_account.status) != 'active':
+            blockers.append('provider_inactive')
+        if provider_account.port25_status != 'approved':
+            blockers.append('port25_blocked')
+        if provider_account.rdns_status != 'configured':
+            blockers.append('rdns_blocked')
+        return blockers
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

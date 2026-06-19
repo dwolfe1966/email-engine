@@ -1326,6 +1326,7 @@ class ManagedSmtpLogSampleRead(BaseModel):
 class ManagedSmtpDeploymentNodeSummary(BaseModel):
     node: MtaNodeRead
     provider_account: MtaProviderAccountRead | None = None
+    provider_blockers: list[str] = Field(default_factory=list)
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
     readiness_summary: ManagedSmtpReadinessSummaryRead
     agent_heartbeat_status: str = 'missing'
