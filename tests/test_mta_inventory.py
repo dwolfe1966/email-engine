@@ -336,6 +336,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
     assert summary.recent_nodes[0].agent_queue_depth == 1
     assert summary.recent_nodes[0].agent_queue_status == 'active'
+    assert summary.recent_nodes[0].agent_queue_status_label == 'Active'
     assert summary.recent_nodes[0].agent_queue_samples[0].queue_id == 'ABC123DEF'
     assert summary.recent_nodes[0].agent_queue_samples[0].deferred_reason == (
         'temporary DNS failure'
@@ -442,6 +443,11 @@ def test_agent_queue_status_summarizes_queue_counts() -> None:
     assert service._agent_queue_status(3, 0, 0) == 'queued'
     assert service._agent_queue_status(3, 0, 2) == 'active'
     assert service._agent_queue_status(3, 1, 2) == 'deferred'
+    assert service._agent_queue_status_label('unknown') == 'Unknown'
+    assert service._agent_queue_status_label('empty') == 'Empty'
+    assert service._agent_queue_status_label('queued') == 'Queued'
+    assert service._agent_queue_status_label('active') == 'Active'
+    assert service._agent_queue_status_label('deferred') == 'Deferred'
 
 
 def test_agent_operational_status_summarizes_node_health() -> None:

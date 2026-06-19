@@ -1344,6 +1344,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_deferred_count: int | None = None
     agent_active_count: int | None = None
     agent_queue_status: str = 'unknown'
+    agent_queue_status_label: str = 'Unknown'
     agent_queue_samples: list[ManagedSmtpQueueSampleRead] = Field(default_factory=list)
     agent_log_samples: list[ManagedSmtpLogSampleRead] = Field(default_factory=list)
     agent_log_issue_status: str = 'ok'

@@ -369,6 +369,9 @@ class MtaInventoryService:
             item.agent_operational_status_label = self._agent_operational_status_label(
                 item.agent_operational_status
             )
+            item.agent_queue_status_label = self._agent_queue_status_label(
+                item.agent_queue_status
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -923,6 +926,16 @@ class MtaInventoryService:
         if queue_depth and queue_depth > 0:
             return 'queued'
         return 'empty'
+
+    @staticmethod
+    def _agent_queue_status_label(status: str) -> str:
+        return {
+            'unknown': 'Unknown',
+            'empty': 'Empty',
+            'queued': 'Queued',
+            'active': 'Active',
+            'deferred': 'Deferred',
+        }.get(status, status)
 
     def _agent_operational_status(self, item: ManagedSmtpDeploymentNodeSummary) -> str:
         if self._status_value(item.node.status) != 'active':

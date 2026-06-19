@@ -129,6 +129,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'agent_deferred_count',
         'agent_active_count',
         'agent_queue_status',
+        'agent_queue_status_label',
         'agent_queue_samples',
         'Queue samples',
         'No queue samples reported by the MTA agent.',
