@@ -9979,6 +9979,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count ? 'warn' : 'good',
     },
   ];
+  const managedSmtpNodeNextAction = (item: ManagedSmtpDeploymentNodeSummary) => {
+    if (['missing', 'stale', 'invalid'].includes(item.agent_heartbeat_status)) {
+      return 'Restart or manually run the MTA agent on the host, then reload deployment summary.';
+    }
+    if (!item.agent_config_in_sync) {
+      return 'Run the MTA agent once so it fetches and applies the latest runtime config.';
+    }
+    if (item.readiness_summary.latest_check?.status !== 'ok') {
+      return 'Run managed SMTP readiness smoke and publish the result before routing traffic.';
+    }
+    if ((item.agent_deferred_count || 0) > 0) {
+      return 'Inspect the MTA mail queue and resolve deferred delivery before increasing volume.';
+    }
+    return 'No operator action required for this MTA node.';
+  };
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
@@ -10874,6 +10889,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
                   <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
                   <div><dt>queue</dt><dd>{formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
+                  <div><dt>next action</dt><dd>{managedSmtpNodeNextAction(item)}</dd></div>
                 </dl>
                 <details>
                   <summary>Runtime config evidence</summary>
