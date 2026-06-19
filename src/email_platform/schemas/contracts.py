@@ -1338,6 +1338,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     operator_next_action_tone: str = 'warn'
     submission_endpoint_label: str = '-'
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
+    pool_membership_label: str = 'No pools'
     readiness_summary: ManagedSmtpReadinessSummaryRead
     readiness_summary_label: str = 'Not checked'
     agent_heartbeat_status: str = 'missing'

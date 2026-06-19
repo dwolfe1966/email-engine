@@ -332,6 +332,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     )
     assert summary.recent_nodes[0].operator_next_action_tone == 'good'
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
+    assert summary.recent_nodes[0].pool_membership_label == '1 pool'
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].readiness_summary_label == 'Passing'
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
@@ -559,6 +560,9 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
     assert service._submission_endpoint_label(
         SimpleNamespace(submission_host=None, hostname='mta.example.com', submission_port=2525)
     ) == 'mta.example.com:2525'
+    assert service._pool_membership_label([]) == 'No pools'
+    assert service._pool_membership_label([SimpleNamespace()]) == '1 pool'
+    assert service._pool_membership_label([SimpleNamespace(), SimpleNamespace()]) == '2 pools'
 
 
 def test_operator_next_action_prioritizes_provider_blockers() -> None:

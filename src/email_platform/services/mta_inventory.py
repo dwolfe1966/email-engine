@@ -378,6 +378,7 @@ class MtaInventoryService:
                 self._provider_blocker_label(blocker) for blocker in item.provider_blockers
             ]
             item.submission_endpoint_label = self._submission_endpoint_label(item.node)
+            item.pool_membership_label = self._pool_membership_label(item.pool_memberships)
             item.agent_heartbeat_status_label = self._agent_heartbeat_status_label(
                 item.agent_heartbeat_status
             )
@@ -1181,6 +1182,15 @@ class MtaInventoryService:
         if not host:
             return '-'
         return f'{host}:{port or 587}'
+
+    @staticmethod
+    def _pool_membership_label(pool_memberships: list[object]) -> str:
+        count = len(pool_memberships)
+        if count == 0:
+            return 'No pools'
+        if count == 1:
+            return '1 pool'
+        return f'{count} pools'
 
     @staticmethod
     def _operator_next_action_code_label(code: str) -> str:
