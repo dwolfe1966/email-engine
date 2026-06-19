@@ -372,6 +372,9 @@ class MtaInventoryService:
             item.agent_queue_status_label = self._agent_queue_status_label(
                 item.agent_queue_status
             )
+            item.agent_log_issue_status_label = self._agent_log_issue_status_label(
+                item.agent_log_issue_status
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -910,6 +913,15 @@ class MtaInventoryService:
             if severity in severities:
                 return severity
         return 'ok'
+
+    @staticmethod
+    def _agent_log_issue_status_label(status: str) -> str:
+        return {
+            'ok': 'Clear',
+            'warning': 'Warning',
+            'deferred': 'Deferred',
+            'bounce': 'Bounce',
+        }.get(status, status)
 
     @staticmethod
     def _agent_queue_status(

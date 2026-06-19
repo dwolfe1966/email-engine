@@ -344,6 +344,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].agent_log_samples[0].severity == 'sent'
     assert summary.recent_nodes[0].agent_log_samples[0].line == 'postfix/smtp: status=sent'
     assert summary.recent_nodes[0].agent_log_issue_status == 'ok'
+    assert summary.recent_nodes[0].agent_log_issue_status_label == 'Clear'
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
@@ -433,6 +434,10 @@ def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:
     state = service._agent_heartbeat_state(node)
 
     assert state['agent_log_issue_status'] == 'deferred'
+    assert service._agent_log_issue_status_label('ok') == 'Clear'
+    assert service._agent_log_issue_status_label('warning') == 'Warning'
+    assert service._agent_log_issue_status_label('deferred') == 'Deferred'
+    assert service._agent_log_issue_status_label('bounce') == 'Bounce'
 
 
 def test_agent_queue_status_summarizes_queue_counts() -> None:

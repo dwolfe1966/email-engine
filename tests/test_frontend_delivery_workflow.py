@@ -135,6 +135,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'No queue samples reported by the MTA agent.',
         'agent_log_samples',
         'agent_log_issue_status',
+        'agent_log_issue_status_label',
         'managedSmtpNodeHasLogIssue',
         'recent logs',
         'Review recent Postfix log samples and resolve delivery issues before increasing volume.',

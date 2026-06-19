@@ -1348,6 +1348,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     agent_queue_samples: list[ManagedSmtpQueueSampleRead] = Field(default_factory=list)
     agent_log_samples: list[ManagedSmtpLogSampleRead] = Field(default_factory=list)
     agent_log_issue_status: str = 'ok'
+    agent_log_issue_status_label: str = 'Clear'
     platform_config_version: str | None = None
     agent_config_version: str | None = None
     agent_applied_config_version: str | None = None

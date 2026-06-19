@@ -832,6 +832,7 @@ type ManagedSmtpDeploymentNodeSummary = {
     line: string;
   }>;
   agent_log_issue_status: string;
+  agent_log_issue_status_label: string;
   platform_config_version: string | null;
   agent_config_version: string | null;
   agent_applied_config_version: string | null;
@@ -11082,7 +11083,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>agent service</dt><dd>{item.agent_service_active_state || '-'} / {item.agent_service_sub_state || '-'}</dd></div>
                   <div><dt>agent timer</dt><dd>{item.agent_timer_active_state || '-'} / {item.agent_timer_sub_state || '-'}</dd></div>
                   <div><dt>queue</dt><dd>{item.agent_queue_status_label || item.agent_queue_status} / {formatInt(item.agent_queue_depth || 0)} total / {formatInt(item.agent_deferred_count || 0)} deferred</dd></div>
-                  <div><dt>recent logs</dt><dd>{item.agent_log_issue_status}</dd></div>
+                  <div><dt>recent logs</dt><dd>{item.agent_log_issue_status_label || item.agent_log_issue_status}</dd></div>
                   <div><dt>action code</dt><dd>{item.operator_next_action_code || 'unknown'}</dd></div>
                   <div><dt>next action</dt><dd>{item.operator_next_action || managedSmtpNodeNextAction(item)}</dd></div>
                 </dl>
