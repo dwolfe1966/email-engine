@@ -678,6 +678,9 @@ class MtaInventoryService:
             and item.agent_code_revision
             and not platform_code_revision.startswith(item.agent_code_revision)
         )
+        host_update_required_nodes = sum(
+            1 for item in node_summaries if getattr(item, 'agent_host_update_required', False)
+        )
         agent_service_failed_nodes = sum(
             1
             for item in node_summaries
@@ -717,6 +720,7 @@ class MtaInventoryService:
             or code_missing_nodes
             or code_dirty_nodes
             or code_outdated_nodes
+            or host_update_required_nodes
             or agent_service_failed_nodes
             or agent_timer_unhealthy_nodes
             or blocked_provider_count
@@ -757,6 +761,7 @@ class MtaInventoryService:
             code_missing_nodes=code_missing_nodes,
             code_dirty_nodes=code_dirty_nodes,
             code_outdated_nodes=code_outdated_nodes,
+            host_update_required_nodes=host_update_required_nodes,
             agent_service_failed_nodes=agent_service_failed_nodes,
             agent_timer_unhealthy_nodes=agent_timer_unhealthy_nodes,
             queue_depth=queue_depth,

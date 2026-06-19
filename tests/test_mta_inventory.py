@@ -328,6 +328,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.code_missing_nodes == 0
     assert summary.fleet_health.code_dirty_nodes == 0
     assert summary.fleet_health.code_outdated_nodes == 0
+    assert summary.fleet_health.host_update_required_nodes == 0
     assert summary.fleet_health.agent_service_failed_nodes == 0
     assert summary.fleet_health.agent_timer_unhealthy_nodes == 0
     assert summary.fleet_health.queue_depth == 1
@@ -412,6 +413,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
                 platform_config_version='config-v1',
                 agent_code_revision=None,
                 agent_code_dirty=None,
+                agent_host_update_required=True,
                 agent_queue_depth=0,
                 agent_deferred_count=0,
                 agent_active_count=0,
@@ -432,6 +434,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
                 platform_config_version='config-v1',
                 agent_code_revision='dirtyrev123',
                 agent_code_dirty=True,
+                agent_host_update_required=True,
                 agent_queue_depth=0,
                 agent_deferred_count=0,
                 agent_active_count=0,
@@ -452,6 +455,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
                 platform_config_version='config-v1',
                 agent_code_revision='oldrev123456',
                 agent_code_dirty=False,
+                agent_host_update_required=True,
                 agent_queue_depth=0,
                 agent_deferred_count=0,
                 agent_active_count=0,
@@ -464,6 +468,7 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
     assert summary.code_missing_nodes == 1
     assert summary.code_dirty_nodes == 1
     assert summary.code_outdated_nodes == 2
+    assert summary.host_update_required_nodes == 3
 
 
 def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -> None:

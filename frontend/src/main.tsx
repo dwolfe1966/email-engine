@@ -843,6 +843,7 @@ type ManagedSmtpFleetHealthRead = {
   code_missing_nodes: number;
   code_dirty_nodes: number;
   code_outdated_nodes: number;
+  host_update_required_nodes: number;
   agent_service_failed_nodes: number;
   agent_timer_unhealthy_nodes: number;
   queue_depth: number;
@@ -9975,13 +9976,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         + (managedSmtpDeploymentSummary?.fleet_health.code_missing_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.code_dirty_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.code_outdated_nodes || 0)
+        + (managedSmtpDeploymentSummary?.fleet_health.host_update_required_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.agent_service_failed_nodes || 0)
         + (managedSmtpDeploymentSummary?.fleet_health.agent_timer_unhealthy_nodes || 0)
       ),
       detail: managedSmtpDeploymentSummary
-        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_missing_nodes)} revision missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes)} dirty, ${formatInt(managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes)} outdated, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes)} service failed, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes)} timer unhealthy`
+        ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes)} stale, ${formatInt(managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes)} missing, ${formatInt(managedSmtpDeploymentSummary.fleet_health.config_drift_nodes)} config drift, ${formatInt(managedSmtpDeploymentSummary.fleet_health.host_update_required_nodes)} host update, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes)} service failed, ${formatInt(managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes)} timer unhealthy`
         : 'Load deployment summary for MTA agent coverage.',
-      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.code_missing_nodes + managedSmtpDeploymentSummary.fleet_health.code_dirty_nodes + managedSmtpDeploymentSummary.fleet_health.code_outdated_nodes + managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes + managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes === 0 ? 'good' : 'warn',
+      tone: managedSmtpDeploymentSummary && managedSmtpDeploymentSummary.fleet_health.stale_agent_nodes + managedSmtpDeploymentSummary.fleet_health.missing_agent_nodes + managedSmtpDeploymentSummary.fleet_health.config_drift_nodes + managedSmtpDeploymentSummary.fleet_health.host_update_required_nodes + managedSmtpDeploymentSummary.fleet_health.agent_service_failed_nodes + managedSmtpDeploymentSummary.fleet_health.agent_timer_unhealthy_nodes === 0 ? 'good' : 'warn',
     },
     {
       label: 'Platform revision',

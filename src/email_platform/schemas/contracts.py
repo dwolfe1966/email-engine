@@ -1355,6 +1355,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     code_missing_nodes: int
     code_dirty_nodes: int
     code_outdated_nodes: int
+    host_update_required_nodes: int
     agent_service_failed_nodes: int
     agent_timer_unhealthy_nodes: int
     queue_depth: int
