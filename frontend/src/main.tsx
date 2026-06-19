@@ -10083,7 +10083,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
   ];
   const managedSmtpNodeNextAction = (item: ManagedSmtpDeploymentNodeSummary) => {
     if (item.provider_blockers.length) {
-      return `Resolve provider blocker(s): ${item.provider_blockers.join(', ')}.`;
+      return `Resolve provider blocker(s): ${item.provider_blockers.map(formatManagedSmtpProviderBlocker).join(', ')}.`;
     }
     if (['missing', 'stale', 'invalid'].includes(item.agent_heartbeat_status)) {
       return 'Restart or manually run the MTA agent on the host, then reload deployment summary.';
@@ -10133,6 +10133,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       || !['waiting', 'running', 'elapsed'].includes(item.agent_timer_sub_state || '')
     )
   );
+  const formatManagedSmtpProviderBlocker = (blocker: string) => {
+    const labels: Record<string, string> = {
+      provider_missing: 'Provider missing',
+      provider_inactive: 'Provider inactive',
+      port25_blocked: 'Port 25 blocked',
+      rdns_blocked: 'rDNS blocked',
+    };
+    return labels[blocker] || blocker;
+  };
   const managedSmtpAgentCommands = [
     'sudo systemctl start email-engine-mta-agent.service',
     'sudo systemctl status email-engine-mta-agent.service --no-pager',
@@ -11037,7 +11046,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>support case</dt><dd>{item.provider_account?.support_case_ref || '-'}</dd></div>
                   <div><dt>port 25</dt><dd>{item.provider_account?.port25_status || 'unknown'}</dd></div>
                   <div><dt>rDNS</dt><dd>{item.provider_account?.rdns_status || 'unknown'}</dd></div>
-                  <div><dt>provider blockers</dt><dd>{item.provider_blockers.length ? item.provider_blockers.join(', ') : 'none'}</dd></div>
+                  <div><dt>provider blockers</dt><dd>{item.provider_blockers.length ? item.provider_blockers.map(formatManagedSmtpProviderBlocker).join(', ') : 'none'}</dd></div>
                   <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
