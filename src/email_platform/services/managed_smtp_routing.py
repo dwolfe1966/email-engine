@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -22,6 +23,15 @@ from email_platform.schemas.contracts import (
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
 )
+
+
+@dataclass
+class MtaNodeSelection:
+    node: MtaNode | None
+    provider: MtaProviderAccount | None
+    membership: MtaIpPoolNode | None
+    candidate_count: int
+    skipped: list[dict[str, object]]
 
 
 class ManagedSmtpRoutingService:
@@ -99,13 +109,17 @@ class ManagedSmtpRoutingService:
                 ip_pool_status=pool.status.value,
             )
 
-        node, provider = self._healthy_node_for_pool(pool.id)
+        selection = self._healthy_node_for_pool(pool.id)
+        node = selection.node
+        provider = selection.provider
         if not node or not provider:
             return self._blocked(
                 'NO_HEALTHY_MTA_NODE',
                 'No active MTA node with passing readiness is available for this pool.',
                 domain=domain,
                 ip_pool_id=str(pool.id),
+                candidate_count=selection.candidate_count,
+                skipped_nodes=selection.skipped,
             )
 
         metadata = policy.metadata_json or {}
@@ -136,6 +150,13 @@ class ManagedSmtpRoutingService:
                 'ip_pool': pool.name,
                 'mta_node': node.name,
                 'provider': provider.provider.value,
+                'selection': {
+                    'candidate_count': selection.candidate_count,
+                    'membership_id': str(selection.membership.id) if selection.membership else None,
+                    'priority': selection.membership.priority if selection.membership else None,
+                    'weight': selection.membership.weight if selection.membership else None,
+                    'skipped_nodes': selection.skipped,
+                },
             },
         )
         return ManagedSmtpRouteResolutionRead(ok=True, route=route_read)
@@ -176,7 +197,7 @@ class ManagedSmtpRoutingService:
     def _healthy_node_for_pool(
         self,
         pool_id: UUID,
-    ) -> tuple[MtaNode | None, MtaProviderAccount | None]:
+    ) -> MtaNodeSelection:
         memberships = list(
             self.db.scalars(
                 select(MtaIpPoolNode)
@@ -185,17 +206,43 @@ class ManagedSmtpRoutingService:
                 .order_by(MtaIpPoolNode.priority.asc(), MtaIpPoolNode.created_at.desc())
             ).all()
         )
+        skipped: list[dict[str, object]] = []
         for membership in memberships:
             node = self.db.get(MtaNode, membership.mta_node_id)
-            if not node or node.status != MtaOperationalStatus.active:
+            candidate = {
+                'membership_id': str(membership.id),
+                'mta_node_id': str(membership.mta_node_id),
+                'priority': membership.priority,
+                'weight': membership.weight,
+            }
+            if not node:
+                skipped.append({**candidate, 'reason': 'node_missing'})
+                continue
+            candidate.update({'node_name': node.name, 'hostname': node.hostname})
+            if node.status != MtaOperationalStatus.active:
+                skipped.append(
+                    {**candidate, 'reason': 'node_not_active', 'node_status': node.status.value}
+                )
                 continue
             provider = self.db.get(MtaProviderAccount, node.provider_account_id)
-            if not provider or provider.status != MtaOperationalStatus.active:
+            if not provider:
+                skipped.append({**candidate, 'reason': 'provider_missing'})
+                continue
+            candidate.update({'provider': provider.provider.value, 'provider_account_id': str(provider.id)})
+            if provider.status != MtaOperationalStatus.active:
+                skipped.append(
+                    {
+                        **candidate,
+                        'reason': 'provider_not_active',
+                        'provider_status': provider.status.value,
+                    }
+                )
                 continue
             if not self._latest_readiness_ok(node):
+                skipped.append({**candidate, 'reason': 'readiness_not_ok'})
                 continue
-            return node, provider
-        return None, None
+            return MtaNodeSelection(node, provider, membership, len(memberships), skipped)
+        return MtaNodeSelection(None, None, None, len(memberships), skipped)
 
     def _latest_readiness_ok(self, node: MtaNode) -> bool:
         check = self.db.scalar(

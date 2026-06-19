@@ -10161,6 +10161,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
       tone: complianceAuditLog.length ? 'warn' : 'good',
     },
   ];
+  const managedSmtpRouteSelection = managedSmtpRouteResolution?.route?.telemetry_tags.selection as Record<string, unknown> | undefined;
   const managedSmtpRouteItems = managedSmtpRouteResolution?.ok && managedSmtpRouteResolution.route
     ? [
       {
@@ -10186,6 +10187,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         value: `${managedSmtpRouteResolution.route.submission_host}:${managedSmtpRouteResolution.route.submission_port}`,
         detail: managedSmtpRouteResolution.route.auth_secret_ref ? 'auth secret referenced' : 'auth secret missing',
         tone: managedSmtpRouteResolution.route.auth_secret_ref ? 'good' : 'warn',
+      },
+      {
+        label: 'Failover selection',
+        value: `${formatInt(Number(managedSmtpRouteSelection?.candidate_count || 0))} candidate(s)`,
+        detail: `priority ${managedSmtpRouteSelection?.priority ?? '-'} / weight ${managedSmtpRouteSelection?.weight ?? '-'}`,
+        tone: 'good',
       },
     ]
     : [

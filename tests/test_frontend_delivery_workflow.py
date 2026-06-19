@@ -207,6 +207,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Managed SMTP Route Resolution',
         'Resolve Route',
         'Resolve SMTP Route',
+        'Failover selection',
+        'managedSmtpRouteSelection',
         'Route block details',
         'managedSmtpRouteResolution',
         'managedSmtpRouteItems',

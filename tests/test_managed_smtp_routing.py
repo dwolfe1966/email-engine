@@ -10,7 +10,7 @@ from email_platform.models.entities import (
     MtaProviderType,
 )
 from email_platform.schemas.contracts import ManagedSmtpRouteResolveRequest
-from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService
+from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService, MtaNodeSelection
 
 
 class ResolverHarness(ManagedSmtpRoutingService):
@@ -32,7 +32,13 @@ class ResolverHarness(ManagedSmtpRoutingService):
         return self.pool
 
     def _healthy_node_for_pool(self, pool_id):
-        return self.node, self.provider
+        return MtaNodeSelection(
+            node=self.node,
+            provider=self.provider,
+            membership=SimpleNamespace(id=uuid4(), priority=100, weight=100) if self.node else None,
+            candidate_count=1 if self.node else 0,
+            skipped=[],
+        )
 
 
 def _policy(**overrides):
@@ -77,12 +83,14 @@ def _pool(**overrides):
 def _node(**overrides):
     values = {
         'id': uuid4(),
+        'provider_account_id': uuid4(),
         'name': 'mta-001',
         'hostname': 'mta-001.email-engine.example',
         'public_ipv4': '192.0.2.10',
         'submission_host': None,
         'submission_port': 587,
         'auth_secret_ref': 'secret/mta-001/submission',
+        'status': MtaOperationalStatus.active,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -92,6 +100,20 @@ def _provider(**overrides):
     values = {
         'id': uuid4(),
         'provider': MtaProviderType.aws,
+        'status': MtaOperationalStatus.active,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def _membership(**overrides):
+    values = {
+        'id': uuid4(),
+        'ip_pool_id': uuid4(),
+        'mta_node_id': uuid4(),
+        'priority': 100,
+        'weight': 100,
+        'created_at': datetime.utcnow(),
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -171,6 +193,7 @@ def test_resolve_blocks_when_pool_has_no_healthy_node() -> None:
     assert not result.ok
     assert result.reason is not None
     assert result.reason.code == 'NO_HEALTHY_MTA_NODE'
+    assert result.reason.details['candidate_count'] == 0
 
 
 def test_resolve_returns_selected_submission_route() -> None:
@@ -193,3 +216,67 @@ def test_resolve_returns_selected_submission_route() -> None:
     assert result.route.submission_host == 'mta-001.email-engine.example'
     assert result.route.envelope_sender_domain == 'bounces.example.com'
     assert result.route.dkim_selector == 'ee1'
+    assert result.route.telemetry_tags['selection']['candidate_count'] == 1
+    assert result.route.telemetry_tags['selection']['priority'] == 100
+
+
+def test_healthy_node_selection_skips_paused_node_and_uses_next_candidate() -> None:
+    pool_id = uuid4()
+    first_node_id = uuid4()
+    second_node_id = uuid4()
+    first_provider_id = uuid4()
+    second_provider_id = uuid4()
+    first_membership = _membership(
+        ip_pool_id=pool_id,
+        mta_node_id=first_node_id,
+        priority=10,
+        weight=100,
+    )
+    second_membership = _membership(
+        ip_pool_id=pool_id,
+        mta_node_id=second_node_id,
+        priority=20,
+        weight=50,
+    )
+    first_node = _node(
+        id=first_node_id,
+        provider_account_id=first_provider_id,
+        status=MtaOperationalStatus.paused,
+    )
+    second_node = _node(
+        id=second_node_id,
+        provider_account_id=second_provider_id,
+        name='mta-002',
+        hostname='mta-002.email-engine.example',
+    )
+    first_provider = _provider(id=first_provider_id)
+    second_provider = _provider(id=second_provider_id, provider=MtaProviderType.scaleway)
+
+    class ScalarResult:
+        def all(self):
+            return [first_membership, second_membership]
+
+    class FakeDb:
+        def scalars(self, statement):
+            return ScalarResult()
+
+        def get(self, model, item_id):
+            values = {
+                first_node_id: first_node,
+                second_node_id: second_node,
+                first_provider_id: first_provider,
+                second_provider_id: second_provider,
+            }
+            return values.get(item_id)
+
+    service = ManagedSmtpRoutingService(FakeDb())
+    service._latest_readiness_ok = lambda node: node.id == second_node_id
+
+    selection = service._healthy_node_for_pool(pool_id)
+
+    assert selection.node is second_node
+    assert selection.provider is second_provider
+    assert selection.membership is second_membership
+    assert selection.candidate_count == 2
+    assert selection.skipped[0]['reason'] == 'node_not_active'
+    assert selection.skipped[0]['node_status'] == 'paused'
