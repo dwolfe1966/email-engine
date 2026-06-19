@@ -181,6 +181,7 @@ class SendingService:
             'template_id': template.id,
             'send_job_id': job.id,
             'send_record_id': record.id,
+            'delivery_attempt_id': attempt.id if attempt else None,
             'contact_id': contact.id,
             'send_job_status': job.status.value,
             'send_record_status': record.status.value,

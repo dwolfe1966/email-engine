@@ -1710,6 +1710,7 @@ class CampaignTestSendResponse(SendResponse):
     template_id: UUID
     send_job_id: UUID
     send_record_id: UUID
+    delivery_attempt_id: UUID | None = None
     contact_id: UUID
     to_email: EmailStr
     send_job_status: str | None = None

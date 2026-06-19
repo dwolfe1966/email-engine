@@ -93,6 +93,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'mta_submission_port',
         'envelope_from',
         'dkim_selector',
+        'delivery_attempt_id',
         'lastLaunchResult.requested_count',
         'lastLaunchResult.queued_count',
         'lastLaunchResult.suppressed_count',

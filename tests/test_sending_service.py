@@ -211,6 +211,7 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['provider'] == 'managed_smtp'
     assert result['provider_message_id'] == 'managed-smtp-message'
     assert result['status_code'] == 250
+    assert result['delivery_attempt_id'] == db.attempts[0].id
     assert result['send_job_status'] == 'completed'
     assert result['send_record_status'] == 'submitted'
     assert result['smtp_response_code'] == 250
@@ -303,6 +304,7 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
     assert db.jobs[0].status.value == 'failed'
     assert result['provider'] == 'managed_smtp'
     assert result['status_code'] == 500
+    assert result['delivery_attempt_id'] == db.attempts[0].id
     assert result['send_job_status'] == 'failed'
     assert result['send_record_status'] == 'failed'
     assert result['route_type'] == 'managed_smtp'

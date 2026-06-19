@@ -530,6 +530,7 @@ type CampaignTestSendResult = {
   template_id: string;
   send_job_id: string;
   send_record_id: string;
+  delivery_attempt_id?: string | null;
   contact_id: string;
   to_email?: string;
   send_job_status?: string | null;
@@ -2885,6 +2886,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Envelope</span><strong>{lastTestSendResult.envelope_from || lastTestSendResult.bounce_domain || '-'}</strong></div>
               <div><span>SMTP</span><strong>{lastTestSendResult.smtp_response_code || lastTestSendResult.mta_route_block_code || '-'}</strong></div>
               <div><span>Record</span><strong>{lastTestSendResult.send_record_id.slice(0, 8)}</strong></div>
+              {lastTestSendResult.delivery_attempt_id ? (
+                <div><span>Attempt</span><strong>{lastTestSendResult.delivery_attempt_id.slice(0, 8)}</strong></div>
+              ) : null}
               {lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message ? (
                 <div><span>Issue</span><strong>{lastTestSendResult.delivery_error_message || lastTestSendResult.mta_route_block_message}</strong></div>
               ) : null}
