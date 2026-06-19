@@ -108,6 +108,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'provider_inactive_count',
         'submission_credentials_configured',
         'provider_blockers',
+        'provider_blocker_labels',
         'provider blockers',
         'operator_next_action_code',
         'operator_next_action',

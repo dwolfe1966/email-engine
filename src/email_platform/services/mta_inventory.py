@@ -359,6 +359,9 @@ class MtaInventoryService:
         ]
         for item in node_summaries:
             item.provider_blockers = self._provider_blockers(item.provider_account)
+            item.provider_blocker_labels = [
+                self._provider_blocker_label(blocker) for blocker in item.provider_blockers
+            ]
             item.agent_operational_status = self._agent_operational_status(item)
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)

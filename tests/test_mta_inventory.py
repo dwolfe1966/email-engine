@@ -319,6 +319,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account is not None
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].provider_blockers == []
+    assert summary.recent_nodes[0].provider_blocker_labels == []
     assert summary.recent_nodes[0].operator_next_action_code == 'none'
     assert summary.recent_nodes[0].operator_next_action == (
         'No operator action required for this MTA node.'
@@ -499,6 +500,14 @@ def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:
         'provider_inactive',
         'port25_blocked',
         'rdns_blocked',
+    ]
+    assert [
+        service._provider_blocker_label(blocker)
+        for blocker in service._provider_blockers(provider)
+    ] == [
+        'Provider inactive',
+        'Port 25 blocked',
+        'rDNS blocked',
     ]
     assert service._provider_blockers(None) == ['provider_missing']
 
