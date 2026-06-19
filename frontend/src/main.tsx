@@ -9997,6 +9997,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
     if (['missing', 'stale', 'invalid'].includes(item.agent_heartbeat_status)) {
       return 'Restart or manually run the MTA agent on the host, then reload deployment summary.';
     }
+    if (item.agent_code_dirty) {
+      return 'Resolve the host working-tree changes before using this MTA for production traffic.';
+    }
+    if (
+      managedSmtpDeploymentSummary?.fleet_health.platform_code_revision
+      && item.agent_code_revision
+      && !managedSmtpDeploymentSummary.fleet_health.platform_code_revision.startsWith(item.agent_code_revision)
+    ) {
+      return 'Run the host update workflow so this MTA pulls the deployed platform revision.';
+    }
+    if (!item.agent_code_revision) {
+      return 'Run the host update workflow so this MTA reports its code revision.';
+    }
     if (!item.agent_config_in_sync) {
       return 'Run the MTA agent once so it fetches and applies the latest runtime config.';
     }
