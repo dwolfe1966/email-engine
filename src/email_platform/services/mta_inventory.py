@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -38,6 +39,8 @@ class MtaInventoryError(ValueError):
 
 
 class MtaInventoryService:
+    agent_heartbeat_stale_after_seconds = 180
+
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -336,6 +339,7 @@ class MtaInventoryService:
                 provider_account=self.get_provider_account(node.provider_account_id),
                 pool_memberships=self.list_pool_nodes(mta_node_id=node.id, limit=100, offset=0),
                 readiness_summary=readiness_service.summary(host=node.hostname),
+                **self._agent_heartbeat_state(node),
             )
             for node in recent_nodes
         ]
@@ -545,6 +549,37 @@ class MtaInventoryService:
 
     def _status_value(self, status) -> str:
         return getattr(status, 'value', str(status))
+
+    def _agent_heartbeat_state(self, node: MtaNode) -> dict[str, object]:
+        metadata = node.metadata_json or {}
+        raw_heartbeat = metadata.get('agent_last_heartbeat_at')
+        stale_after = self.agent_heartbeat_stale_after_seconds
+        if not raw_heartbeat:
+            return {
+                'agent_heartbeat_status': 'missing',
+                'agent_last_heartbeat_at': None,
+                'agent_heartbeat_age_seconds': None,
+                'agent_heartbeat_stale_after_seconds': stale_after,
+            }
+        try:
+            heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
+        except ValueError:
+            return {
+                'agent_heartbeat_status': 'invalid',
+                'agent_last_heartbeat_at': None,
+                'agent_heartbeat_age_seconds': None,
+                'agent_heartbeat_stale_after_seconds': stale_after,
+            }
+        age_seconds = max(
+            0,
+            int((datetime.utcnow() - heartbeat_at.replace(tzinfo=None)).total_seconds()),
+        )
+        return {
+            'agent_heartbeat_status': 'stale' if age_seconds > stale_after else 'ok',
+            'agent_last_heartbeat_at': heartbeat_at,
+            'agent_heartbeat_age_seconds': age_seconds,
+            'agent_heartbeat_stale_after_seconds': stale_after,
+        }
 
     @staticmethod
     def _apply(item, updates: dict[str, object]) -> None:

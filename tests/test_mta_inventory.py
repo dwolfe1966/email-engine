@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -181,7 +181,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         submission_port=587,
         auth_secret_ref='secret/mta-001/submission',
         last_readiness_at=now,
-        metadata_json={},
+        metadata_json={'agent_last_heartbeat_at': now.isoformat()},
         created_at=now,
         updated_at=now,
     )
@@ -269,6 +269,22 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].provider_account.name == 'aws-staging'
     assert summary.recent_nodes[0].pool_memberships[0].id == pool_node_id
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
+    assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
+    assert summary.recent_nodes[0].agent_last_heartbeat_at is not None
+    assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
+    assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
+
+
+def test_agent_heartbeat_state_marks_old_heartbeat_stale() -> None:
+    service = MtaInventoryService(FakeDb())
+    old_heartbeat = datetime.utcnow() - timedelta(seconds=240)
+    node = SimpleNamespace(metadata_json={'agent_last_heartbeat_at': old_heartbeat.isoformat()})
+
+    state = service._agent_heartbeat_state(node)
+
+    assert state['agent_heartbeat_status'] == 'stale'
+    assert state['agent_heartbeat_age_seconds'] >= 180
+    assert state['agent_heartbeat_stale_after_seconds'] == 180
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:

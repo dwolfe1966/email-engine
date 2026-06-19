@@ -1315,6 +1315,10 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     provider_account: MtaProviderAccountRead | None = None
     pool_memberships: list[MtaIpPoolNodeRead] = Field(default_factory=list)
     readiness_summary: ManagedSmtpReadinessSummaryRead
+    agent_heartbeat_status: str = 'missing'
+    agent_last_heartbeat_at: datetime | None = None
+    agent_heartbeat_age_seconds: int | None = None
+    agent_heartbeat_stale_after_seconds: int = 180
 
 
 class ManagedSmtpDeploymentSummaryRead(BaseModel):
