@@ -173,6 +173,15 @@ class SendingService:
     ) -> dict[str, object]:
         attempt_metadata = attempt.metadata_json if attempt else {}
         smtp_response_code = attempt.smtp_response_code if attempt else None
+        route_resolved = attempt_metadata.get('mta_route_resolved')
+        if route_resolved is True:
+            mta_route_status = 'resolved'
+        elif route_resolved is False:
+            mta_route_status = 'blocked'
+        elif attempt:
+            mta_route_status = 'attempted'
+        else:
+            mta_route_status = 'not_attempted'
         return {
             'provider': record.provider or (attempt.route_type if attempt else None) or 'delivery_worker',
             'provider_message_id': record.provider_message_id,
@@ -203,6 +212,7 @@ class SendingService:
             'mta_submission_port': attempt_metadata.get('mta_submission_port'),
             'mta_ip_pool_name': attempt_metadata.get('mta_ip_pool_name'),
             'mta_route_resolved': attempt_metadata.get('mta_route_resolved'),
+            'mta_route_status': mta_route_status,
             'mta_route_block_code': attempt_metadata.get('mta_route_block_code'),
             'mta_route_block_message': attempt_metadata.get('mta_route_block_message'),
             'envelope_from': attempt_metadata.get('envelope_from'),

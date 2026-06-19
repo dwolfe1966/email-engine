@@ -545,6 +545,7 @@ type CampaignTestSendResult = {
   mta_submission_port?: number | null;
   mta_ip_pool_name?: string | null;
   mta_route_resolved?: boolean | null;
+  mta_route_status?: string | null;
   mta_route_block_code?: string | null;
   mta_route_block_message?: string | null;
   envelope_from?: string | null;
@@ -2886,6 +2887,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
               <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
               <div><span>Route</span><strong>{proofSendRouteLabel || '-'}</strong></div>
+              <div><span>Route status</span><strong>{lastTestSendResult.mta_route_status || (lastTestSendResult.mta_route_resolved ? 'resolved' : '-')}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>

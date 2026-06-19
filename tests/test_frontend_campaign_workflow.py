@@ -89,6 +89,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'delivery_error_message',
         'proofSendRouteLabel',
         '<span>Route</span>',
+        'mta_route_status',
+        '<span>Route status</span>',
         'send_record_status',
         'send_job_status',
         'mta_submission_host',

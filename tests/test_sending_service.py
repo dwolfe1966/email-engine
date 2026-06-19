@@ -226,6 +226,7 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_submission_port'] == 587
     assert result['mta_ip_pool_name'] == 'scaleway-internal-test'
     assert result['mta_route_resolved'] is True
+    assert result['mta_route_status'] == 'resolved'
     assert result['envelope_from'] == (
         f'bounces+{db.records[0].id}@returns-scaleway.email-engine.app'
     )
@@ -309,6 +310,7 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
     assert result['send_record_status'] == 'failed'
     assert result['route_type'] == 'managed_smtp'
     assert result['mta_route_resolved'] is False
+    assert result['mta_route_status'] == 'blocked'
     assert result['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert result['mta_route_block_message'] == 'No active MTA node is available.'
     assert result['delivery_error_message'] == (
