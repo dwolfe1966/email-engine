@@ -810,6 +810,7 @@ type ManagedSmtpDeploymentNodeSummary = {
   readiness_summary: ManagedSmtpReadinessSummaryRead;
   agent_heartbeat_status: string;
   agent_operational_status: string;
+  agent_operational_status_label: string;
   agent_last_heartbeat_at: string | null;
   agent_heartbeat_age_seconds: number | null;
   agent_heartbeat_stale_after_seconds: number;
@@ -11072,7 +11073,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
                   <div><dt>submission</dt><dd>{item.node.submission_host || item.node.hostname}:{item.node.submission_port}</dd></div>
                   <div><dt>pools</dt><dd>{formatInt(item.pool_memberships.length)}</dd></div>
                   <div><dt>readiness</dt><dd>{formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
-                  <div><dt>node status</dt><dd>{item.agent_operational_status}</dd></div>
+                  <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
                   <div><dt>runtime config</dt><dd>{item.agent_config_in_sync ? 'synced' : 'drift'} / {item.agent_applied_config_version || '-'}</dd></div>
                   <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'required' : 'not required'} / {item.agent_host_update_status}</dd></div>

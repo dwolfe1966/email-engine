@@ -329,6 +329,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.recent_nodes[0].readiness_summary.ok_count == 2
     assert summary.recent_nodes[0].agent_heartbeat_status == 'ok'
     assert summary.recent_nodes[0].agent_operational_status == 'ok'
+    assert summary.recent_nodes[0].agent_operational_status_label == 'Operational'
     assert summary.recent_nodes[0].agent_last_heartbeat_at is not None
     assert summary.recent_nodes[0].agent_heartbeat_age_seconds is not None
     assert summary.recent_nodes[0].agent_heartbeat_stale_after_seconds == 180
@@ -487,6 +488,9 @@ def test_agent_operational_status_summarizes_node_health() -> None:
     assert service._agent_operational_status(node_summary(provider_blockers=['port25_blocked'])) == (
         'blocked'
     )
+    assert service._agent_operational_status_label('ok') == 'Operational'
+    assert service._agent_operational_status_label('warning') == 'Needs review'
+    assert service._agent_operational_status_label('blocked') == 'Blocked'
 
 
 def test_provider_blockers_identify_port25_rdns_and_inactive_provider() -> None:

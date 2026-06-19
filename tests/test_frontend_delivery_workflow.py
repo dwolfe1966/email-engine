@@ -121,6 +121,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Provider inactive',
         'agent_heartbeat_status',
         'agent_operational_status',
+        'agent_operational_status_label',
         'agent_heartbeat_age_seconds',
         'agent_heartbeat_stale_after_seconds',
         'agent_queue_depth',

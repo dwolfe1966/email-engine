@@ -1335,6 +1335,7 @@ class ManagedSmtpDeploymentNodeSummary(BaseModel):
     readiness_summary: ManagedSmtpReadinessSummaryRead
     agent_heartbeat_status: str = 'missing'
     agent_operational_status: str = 'blocked'
+    agent_operational_status_label: str = 'Blocked'
     agent_last_heartbeat_at: datetime | None = None
     agent_heartbeat_age_seconds: int | None = None
     agent_heartbeat_stale_after_seconds: int = 180

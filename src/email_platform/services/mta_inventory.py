@@ -363,6 +363,9 @@ class MtaInventoryService:
                 self._provider_blocker_label(blocker) for blocker in item.provider_blockers
             ]
             item.agent_operational_status = self._agent_operational_status(item)
+            item.agent_operational_status_label = self._agent_operational_status_label(
+                item.agent_operational_status
+            )
             item.operator_next_action_code = self._operator_next_action_code(item)
             item.operator_next_action = self._operator_next_action(item)
             item.operator_next_action_tone = self._operator_next_action_tone(item)
@@ -948,6 +951,14 @@ class MtaInventoryService:
         ):
             return 'warning'
         return 'ok'
+
+    @staticmethod
+    def _agent_operational_status_label(status: str) -> str:
+        return {
+            'ok': 'Operational',
+            'warning': 'Needs review',
+            'blocked': 'Blocked',
+        }.get(status, status)
 
     def _provider_blockers(self, provider_account) -> list[str]:
         if not provider_account:
