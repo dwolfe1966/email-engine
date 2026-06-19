@@ -710,6 +710,10 @@ class MtaInventoryService:
         primary_next_action_code = self._primary_next_action_code(operator_next_action_counts)
         primary_next_action_label = self._operator_next_action_code_label(primary_next_action_code)
         primary_next_action_count = operator_next_action_counts.get(primary_next_action_code, 0)
+        primary_next_action_summary = self._primary_next_action_summary(
+            operator_next_action_label_counts,
+            primary_next_action_count,
+        )
         action_required = primary_next_action_code != 'none'
         stale_agent_nodes = sum(
             1 for item in node_summaries if item.agent_heartbeat_status in {'stale', 'invalid'}
@@ -857,6 +861,7 @@ class MtaInventoryService:
             primary_next_action_code=primary_next_action_code,
             primary_next_action_label=primary_next_action_label,
             primary_next_action_count=primary_next_action_count,
+            primary_next_action_summary=primary_next_action_summary,
             action_required=action_required,
             readiness_ok_nodes=readiness_ok_nodes,
             stale_agent_nodes=stale_agent_nodes,
@@ -1045,6 +1050,20 @@ class MtaInventoryService:
         if not candidates:
             return 'none'
         return sorted(candidates, key=lambda item: (-item[1], item[0]))[0][0]
+
+    @staticmethod
+    def _primary_next_action_summary(label_counts: dict[str, int], no_action_count: int) -> str:
+        action_items = [
+            (label, count)
+            for label, count in label_counts.items()
+            if label != 'No action' and count > 0
+        ]
+        if not action_items:
+            return f'{no_action_count} no action'
+        return ', '.join(
+            f'{count} {label}'
+            for label, count in sorted(action_items, key=lambda item: (-item[1], item[0]))[:2]
+        )
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:

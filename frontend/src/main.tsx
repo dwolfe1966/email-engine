@@ -864,6 +864,7 @@ type ManagedSmtpFleetHealthRead = {
   primary_next_action_code: string;
   primary_next_action_label: string;
   primary_next_action_count: number;
+  primary_next_action_summary: string;
   action_required: boolean;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
@@ -10013,12 +10014,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
         ? managedSmtpDeploymentSummary.fleet_health.primary_next_action_label
         : 'Unknown',
       detail: managedSmtpDeploymentSummary
-        ? Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_label_counts)
-          .filter(([label]) => label !== 'No action')
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 2)
-          .map(([label, count]) => `${formatInt(count)} ${label}`)
-          .join(', ') || `${formatInt(managedSmtpDeploymentSummary.fleet_health.primary_next_action_count)} no action`
+        ? managedSmtpDeploymentSummary.fleet_health.primary_next_action_summary
         : 'Load deployment summary for fleet action guidance.',
       tone: managedSmtpDeploymentSummary?.fleet_health.action_required ? 'warn' : 'good',
     },
