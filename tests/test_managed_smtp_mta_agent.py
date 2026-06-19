@@ -84,6 +84,27 @@ NextElapseUSecRealtime=Fri 2026-06-19 00:34:09 UTC
     assert values['NextElapseUSecRealtime'] == 'Fri 2026-06-19 00:34:09 UTC'
 
 
+def test_mta_agent_collects_postfix_log_samples(tmp_path) -> None:
+    module = load_agent_module()
+    log_path = tmp_path / 'mail.log'
+    log_path.write_text(
+        '\n'.join(
+            [
+                'postfix/smtp[1]: ABC: status=sent (250 2.0.0 Ok)',
+                'postfix/smtp[2]: DEF: status=deferred (connect timed out)',
+                'postfix/smtp[3]: GHI: status=bounced (550 user unknown)',
+            ]
+        )
+    )
+
+    result = module.collect_postfix_logs(str(log_path), max_lines=2)
+
+    assert result['ok'] is True
+    assert result['line_count'] == 2
+    assert result['entries'][0]['severity'] == 'deferred'
+    assert result['entries'][1]['severity'] == 'bounce'
+
+
 def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     module = load_agent_module()
 
@@ -109,6 +130,10 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
             'timer': {'active_state': 'active', 'sub_state': 'waiting'},
         },
         revision={'revision': 'abc123def456', 'dirty': False},
+        logs={
+            'ok': True,
+            'entries': [{'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'}],
+        },
     )
 
     assert payload['status'] == 'ok'
@@ -129,6 +154,7 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     assert payload['payload_json']['queue_samples'] == [
         {'queue_id': 'ABC123DEF', 'sender': 'sender@example.com'}
     ]
+    assert payload['payload_json']['logs']['entries'][0]['severity'] == 'deferred'
 
 
 def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch, tmp_path) -> None:
@@ -180,6 +206,15 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
         'collect_git_revision',
         lambda path, *, timeout: {'revision': 'newrev123456', 'dirty': False},
     )
+    monkeypatch.setattr(
+        module,
+        'collect_postfix_logs',
+        lambda path, *, max_lines: {
+            'ok': True,
+            'path': path,
+            'entries': [{'severity': 'sent', 'line': 'status=sent'}],
+        },
+    )
     monkeypatch.setattr(module, 'post_heartbeat', fake_heartbeat)
     monkeypatch.setattr(module, 'post_event', fake_event)
 
@@ -196,6 +231,8 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
         compose_service='managed-smtp-postfix',
         systemd_service='email-engine-mta-agent.service',
         systemd_timer='email-engine-mta-agent.timer',
+        postfix_log_path='/srv/email-engine/postfix/log/mail.log',
+        log_sample_lines=20,
         post_config_event=True,
     )
 
@@ -207,6 +244,7 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
     assert calls[0] == ('fetch', 'https://email-engine.app', 'shared-secret', 'node-id', 15)
     assert calls[1] == ('mailq', ['mailq'], 15)
     assert calls[2][0] == 'heartbeat'
+    assert calls[2][4]['payload_json']['logs']['entries'][0]['severity'] == 'sent'
     assert calls[2][4]['applied_config_version'] == 'new-version'
     assert calls[2][4]['payload_json']['systemd']['timer']['active_state'] == 'active'
     assert calls[2][4]['payload_json']['revision']['revision'] == 'newrev123456'

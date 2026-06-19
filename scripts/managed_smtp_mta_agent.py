@@ -19,6 +19,8 @@ QUEUE_ENTRY_PATTERN = re.compile(
     r'^(?P<queue_id>[A-F0-9]{5,})(?P<active>\*)?\s+\d+\s+\S+\s+\S+\s+\d+\s+\S+\s+(?P<sender>\S+)'
 )
 QUEUE_SAMPLE_LIMIT = 10
+LOG_SAMPLE_LIMIT = 20
+DEFAULT_POSTFIX_LOG_PATH = '/srv/email-engine/postfix/log/mail.log'
 
 
 class MtaAgentError(RuntimeError):
@@ -293,6 +295,45 @@ def collect_git_revision(path: str | None, *, timeout: float = 20) -> dict[str, 
     }
 
 
+def classify_log_line(line: str) -> str:
+    lowered = line.lower()
+    if 'status=bounced' in lowered or 'dsn=5.' in lowered:
+        return 'bounce'
+    if 'status=deferred' in lowered or 'dsn=4.' in lowered:
+        return 'deferred'
+    if 'warning:' in lowered or 'error' in lowered:
+        return 'warning'
+    if 'status=sent' in lowered:
+        return 'sent'
+    return 'info'
+
+
+def collect_postfix_logs(path: str | None, *, max_lines: int = LOG_SAMPLE_LIMIT) -> dict[str, Any]:
+    if not path:
+        return {'ok': False, 'path': None, 'entries': [], 'error': 'log path disabled'}
+    log_path = Path(path)
+    if not log_path.exists():
+        return {'ok': False, 'path': str(log_path), 'entries': [], 'error': 'log path not found'}
+    try:
+        lines = log_path.read_text(errors='replace').splitlines()[-max_lines:]
+    except OSError as exc:
+        return {'ok': False, 'path': str(log_path), 'entries': [], 'error': str(exc)}
+    entries = [
+        {
+            'severity': classify_log_line(line),
+            'line': line[-1000:],
+        }
+        for line in lines
+        if line.strip()
+    ]
+    return {
+        'ok': True,
+        'path': str(log_path),
+        'entries': entries,
+        'line_count': len(entries),
+    }
+
+
 def read_state(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
@@ -320,6 +361,7 @@ def build_heartbeat_payload(
     previous_config_version: str | None = None,
     systemd: dict[str, Any] | None = None,
     revision: dict[str, Any] | None = None,
+    logs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config_version = str(runtime_config.get('config_version') or '')
     queue_ok = bool(queue.get('ok'))
@@ -347,6 +389,7 @@ def build_heartbeat_payload(
             'domain_count': len(runtime_config.get('domains') or []),
             'systemd': systemd or {},
             'revision': revision or {},
+            'logs': logs or {},
         },
     }
 
@@ -385,12 +428,14 @@ def run_once(args) -> dict[str, Any]:
     queue = collect_mailq(default_mailq_command(args), timeout=args.timeout)
     systemd = collect_systemd_status(args)
     revision = collect_git_revision(args.repo_path, timeout=args.timeout)
+    logs = collect_postfix_logs(args.postfix_log_path, max_lines=args.log_sample_lines)
     heartbeat_payload = build_heartbeat_payload(
         runtime_config,
         queue,
         previous_config_version=previous_config_version,
         systemd=systemd,
         revision=revision,
+        logs=logs,
     )
     heartbeat = post_heartbeat(
         args.base_url,
@@ -428,6 +473,7 @@ def run_once(args) -> dict[str, Any]:
         'queue': queue,
         'systemd': systemd,
         'revision': revision,
+        'logs': logs,
         'heartbeat': heartbeat,
         'event': event_response,
     }
@@ -468,6 +514,15 @@ def main() -> int:
     parser.add_argument(
         '--systemd-timer',
         default=os.environ.get('MANAGED_SMTP_MTA_AGENT_TIMER', 'email-engine-mta-agent.timer'),
+    )
+    parser.add_argument(
+        '--postfix-log-path',
+        default=os.environ.get('MANAGED_SMTP_POSTFIX_LOG_PATH', DEFAULT_POSTFIX_LOG_PATH),
+    )
+    parser.add_argument(
+        '--log-sample-lines',
+        type=int,
+        default=int(os.environ.get('MANAGED_SMTP_LOG_SAMPLE_LINES', str(LOG_SAMPLE_LIMIT))),
     )
     parser.add_argument('--post-config-event', action='store_true')
     parser.add_argument('--json', action='store_true')
