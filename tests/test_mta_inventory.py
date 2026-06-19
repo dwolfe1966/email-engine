@@ -331,6 +331,7 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     )
     assert summary.recent_nodes[0].agent_log_samples[0].severity == 'sent'
     assert summary.recent_nodes[0].agent_log_samples[0].line == 'postfix/smtp: status=sent'
+    assert summary.recent_nodes[0].agent_log_issue_status == 'ok'
     assert summary.recent_nodes[0].platform_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_applied_config_version == 'config-v1'
     assert summary.recent_nodes[0].agent_config_in_sync is True
@@ -383,6 +384,24 @@ def test_agent_config_state_marks_runtime_config_drift() -> None:
     assert state['platform_config_version'] == 'config-v2'
     assert state['agent_applied_config_version'] == 'config-v1'
     assert state['agent_config_in_sync'] is False
+
+
+def test_agent_heartbeat_state_marks_worst_log_issue_status() -> None:
+    service = MtaInventoryService(FakeDb())
+    node = SimpleNamespace(
+        metadata_json={
+            'agent_last_heartbeat_at': datetime.utcnow().isoformat(),
+            'agent_log_samples': [
+                {'severity': 'sent', 'line': 'postfix/smtp: status=sent'},
+                {'severity': 'warning', 'line': 'postfix/smtpd: warning'},
+                {'severity': 'deferred', 'line': 'postfix/smtp: status=deferred'},
+            ],
+        }
+    )
+
+    state = service._agent_heartbeat_state(node)
+
+    assert state['agent_log_issue_status'] == 'deferred'
 
 
 def test_agent_code_state_marks_host_update_required_for_outdated_revision(monkeypatch) -> None:

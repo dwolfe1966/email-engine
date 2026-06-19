@@ -569,6 +569,7 @@ class MtaInventoryService:
         raw_heartbeat = metadata.get('agent_last_heartbeat_at')
         stale_after = self.agent_heartbeat_stale_after_seconds
         if not raw_heartbeat:
+            agent_log_samples = self._agent_log_samples(metadata)
             return {
                 'agent_heartbeat_status': 'missing',
                 'agent_last_heartbeat_at': None,
@@ -578,13 +579,15 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
-                'agent_log_samples': self._agent_log_samples(metadata),
+                'agent_log_samples': agent_log_samples,
+                'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
         try:
             heartbeat_at = datetime.fromisoformat(str(raw_heartbeat))
         except ValueError:
+            agent_log_samples = self._agent_log_samples(metadata)
             return {
                 'agent_heartbeat_status': 'invalid',
                 'agent_last_heartbeat_at': None,
@@ -594,7 +597,8 @@ class MtaInventoryService:
                 'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
                 'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
                 'agent_queue_samples': self._agent_queue_samples(metadata),
-                'agent_log_samples': self._agent_log_samples(metadata),
+                'agent_log_samples': agent_log_samples,
+                'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
                 **self._agent_systemd_state(metadata),
                 **self._agent_code_state(metadata),
             }
@@ -602,6 +606,7 @@ class MtaInventoryService:
             0,
             int((datetime.utcnow() - heartbeat_at.replace(tzinfo=None)).total_seconds()),
         )
+        agent_log_samples = self._agent_log_samples(metadata)
         return {
             'agent_heartbeat_status': 'stale' if age_seconds > stale_after else 'ok',
             'agent_last_heartbeat_at': heartbeat_at,
@@ -611,7 +616,8 @@ class MtaInventoryService:
             'agent_deferred_count': self._metadata_int(metadata, 'agent_deferred_count'),
             'agent_active_count': self._metadata_int(metadata, 'agent_active_count'),
             'agent_queue_samples': self._agent_queue_samples(metadata),
-            'agent_log_samples': self._agent_log_samples(metadata),
+            'agent_log_samples': agent_log_samples,
+            'agent_log_issue_status': self._agent_log_issue_status(agent_log_samples),
             **self._agent_systemd_state(metadata),
             **self._agent_code_state(metadata),
         }
@@ -798,6 +804,14 @@ class MtaInventoryService:
             getattr(sample, 'severity', None) == severity
             for sample in getattr(item, 'agent_log_samples', [])
         )
+
+    @staticmethod
+    def _agent_log_issue_status(samples: list[ManagedSmtpLogSampleRead]) -> str:
+        severities = {sample.severity for sample in samples}
+        for severity in ('bounce', 'deferred', 'warning'):
+            if severity in severities:
+                return severity
+        return 'ok'
 
     @staticmethod
     def _metadata_int(metadata: dict[str, object], key: str) -> int | None:
