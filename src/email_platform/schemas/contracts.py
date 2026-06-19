@@ -1379,6 +1379,7 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     operator_next_action_label_counts: dict[str, int] = Field(default_factory=dict)
     primary_next_action_code: str = 'none'
     primary_next_action_label: str = 'No action'
+    primary_next_action_count: int = 0
     readiness_ok_nodes: int
     stale_agent_nodes: int
     missing_agent_nodes: int

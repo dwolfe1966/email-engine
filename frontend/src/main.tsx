@@ -863,6 +863,7 @@ type ManagedSmtpFleetHealthRead = {
   operator_next_action_label_counts: Record<string, number>;
   primary_next_action_code: string;
   primary_next_action_label: string;
+  primary_next_action_count: number;
   readiness_ok_nodes: number;
   stale_agent_nodes: number;
   missing_agent_nodes: number;
@@ -10016,7 +10017,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, onRefresh, onOperation
           .sort((a, b) => b[1] - a[1])
           .slice(0, 2)
           .map(([label, count]) => `${formatInt(count)} ${label}`)
-          .join(', ') || `${formatInt(managedSmtpDeploymentSummary.fleet_health.operator_next_action_label_counts['No action'] || 0)} no action`
+          .join(', ') || `${formatInt(managedSmtpDeploymentSummary.fleet_health.primary_next_action_count)} no action`
         : 'Load deployment summary for fleet action guidance.',
       tone: managedSmtpDeploymentSummary && Object.entries(managedSmtpDeploymentSummary.fleet_health.operator_next_action_counts).some(([code, count]) => code !== 'none' && count > 0) ? 'warn' : 'good',
     },
