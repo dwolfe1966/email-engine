@@ -532,6 +532,13 @@ type CampaignTestSendResult = {
   send_record_id: string;
   contact_id: string;
   to_email?: string;
+  route_type?: string | null;
+  route_key?: string | null;
+  mta_provider?: string | null;
+  mta_node_name?: string | null;
+  mta_hostname?: string | null;
+  mta_ip_pool_name?: string | null;
+  mta_route_resolved?: boolean | null;
 };
 
 type CampaignSendJobProgress = {
@@ -2857,6 +2864,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               </div>
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
+              <div><span>MTA</span><strong>{lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
+              <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
               <div><span>Record</span><strong>{lastTestSendResult.send_record_id.slice(0, 8)}</strong></div>
               <a href="#delivery">Open delivery</a>
             </div>

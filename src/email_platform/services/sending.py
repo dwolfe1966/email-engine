@@ -10,6 +10,7 @@ from email_platform.models.entities import (
     Campaign,
     CampaignSendJob,
     Contact,
+    DeliveryAttempt,
     EmailEventType,
     EmailSendRecord,
     EmailSendStatus,
@@ -125,6 +126,8 @@ class SendingService:
                 or 'Campaign test send was not submitted by the delivery worker.'
             )
         job.status = SendJobStatus.completed
+        attempt = self._latest_delivery_attempt(record)
+        attempt_metadata = attempt.metadata_json if attempt else {}
         self.db.commit()
         self.db.refresh(record)
         self.db.refresh(job)
@@ -145,6 +148,13 @@ class SendingService:
             'tracking_click_base': tracked_context.get('tracking_click_base'),
             'unsubscribe_url': tracked_context.get('unsubscribe_url'),
             'to_email': to_email,
+            'route_type': attempt.route_type if attempt else None,
+            'route_key': attempt.route_key if attempt else None,
+            'mta_provider': attempt_metadata.get('mta_provider'),
+            'mta_node_name': attempt_metadata.get('mta_node_name'),
+            'mta_hostname': attempt_metadata.get('mta_hostname'),
+            'mta_ip_pool_name': attempt_metadata.get('mta_ip_pool_name'),
+            'mta_route_resolved': attempt_metadata.get('mta_route_resolved'),
         }
 
     def preview_campaign_test(
@@ -228,6 +238,14 @@ class SendingService:
         )
         variables['unsubscribe_url'] = f'{base_url}/api/v1/unsubscribe/{unsubscribe_token}'
         return variables
+
+    def _latest_delivery_attempt(self, record: EmailSendRecord) -> DeliveryAttempt | None:
+        return self.db.scalar(
+            select(DeliveryAttempt)
+            .where(DeliveryAttempt.send_record_id == record.id)
+            .order_by(DeliveryAttempt.started_at.desc())
+            .limit(1)
+        )
 
     def send_email_to_contact(
         self,

@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
-from email_platform.models.entities import EmailSendRecord, EmailSendStatus
+from email_platform.models.entities import DeliveryAttempt, EmailSendRecord, EmailSendStatus
 from email_platform.providers.email import EmailDeliveryResult
 from email_platform.services import sending as sending_module
 from email_platform.services.sending import SendingService
@@ -62,10 +62,14 @@ class FakeDb:
         self.added = []
         self.records = []
         self.jobs = []
+        self.attempts = []
         self.commit_count = 0
 
     def get(self, model, item_id):
         return self.campaign if item_id == self.campaign.id else None
+
+    def scalar(self, statement):
+        return self.attempts[-1] if self.attempts else None
 
     def add(self, item):
         self.added.append(item)
@@ -137,6 +141,27 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
             record.provider = 'managed_smtp'
             record.provider_message_id = 'managed-smtp-message'
             record.error_message = None
+            self.db.attempts.append(
+                DeliveryAttempt(
+                    send_record_id=record.id,
+                    send_job_id=self.db.jobs[0].id,
+                    campaign_id=campaign_id,
+                    attempt_number=1,
+                    provider='managed_smtp',
+                    route_type='managed_smtp',
+                    route_key='managed-smtp-scaleway-primary',
+                    status='submitted',
+                    provider_message_id='managed-smtp-message',
+                    smtp_response_code=250,
+                    metadata_json={
+                        'mta_provider': 'scaleway',
+                        'mta_node_name': 'mta-002',
+                        'mta_hostname': 'mta-002.email-engine.app',
+                        'mta_ip_pool_name': 'scaleway-internal-test',
+                        'mta_route_resolved': True,
+                    },
+                )
+            )
             return SimpleNamespace(sent_count=1, failed_count=0)
 
     monkeypatch.setattr(sending_module, 'DeliveryService', FakeDeliveryService)
@@ -179,3 +204,10 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['provider_message_id'] == 'managed-smtp-message'
     assert result['status_code'] == 250
     assert result['to_email'] == 'davidtesterwex@gmail.com'
+    assert result['route_type'] == 'managed_smtp'
+    assert result['route_key'] == 'managed-smtp-scaleway-primary'
+    assert result['mta_provider'] == 'scaleway'
+    assert result['mta_node_name'] == 'mta-002'
+    assert result['mta_hostname'] == 'mta-002.email-engine.app'
+    assert result['mta_ip_pool_name'] == 'scaleway-internal-test'
+    assert result['mta_route_resolved'] is True

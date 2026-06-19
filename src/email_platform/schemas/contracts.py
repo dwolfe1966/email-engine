@@ -1719,6 +1719,13 @@ class CampaignTestSendResponse(SendResponse):
     tracking_open_url: str | None = None
     tracking_click_base: str | None = None
     unsubscribe_url: str | None = None
+    route_type: str | None = None
+    route_key: str | None = None
+    mta_provider: str | None = None
+    mta_node_name: str | None = None
+    mta_hostname: str | None = None
+    mta_ip_pool_name: str | None = None
+    mta_route_resolved: bool | None = None
 
 
 class CampaignTestPreviewRead(BaseModel):

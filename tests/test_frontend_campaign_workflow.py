@@ -82,6 +82,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'Launch result',
         'Test send result',
         'test-send-result-card',
+        'mta_hostname',
+        'mta_ip_pool_name',
         'lastLaunchResult.requested_count',
         'lastLaunchResult.queued_count',
         'lastLaunchResult.suppressed_count',
