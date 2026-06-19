@@ -325,6 +325,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.fleet_health.config_drift_nodes == 0
     assert summary.fleet_health.code_missing_nodes == 0
     assert summary.fleet_health.code_dirty_nodes == 0
+    assert summary.fleet_health.code_outdated_nodes == 0
+    assert summary.fleet_health.agent_service_failed_nodes == 0
+    assert summary.fleet_health.agent_timer_unhealthy_nodes == 0
     assert summary.fleet_health.queue_depth == 1
     assert summary.fleet_health.active_queue_count == 1
 
@@ -441,6 +444,66 @@ def test_fleet_health_warns_when_agent_code_revision_is_missing_dirty_or_outdate
     assert summary.code_missing_nodes == 1
     assert summary.code_dirty_nodes == 1
     assert summary.code_outdated_nodes == 2
+
+
+def test_fleet_health_warns_when_agent_systemd_state_is_unhealthy(monkeypatch) -> None:
+    monkeypatch.delenv('VERCEL_GIT_COMMIT_SHA', raising=False)
+    monkeypatch.delenv('GIT_COMMIT_SHA', raising=False)
+    monkeypatch.delenv('SOURCE_VERSION', raising=False)
+    service = MtaInventoryService(FakeDb())
+    latest_check = ManagedSmtpReadinessCheckRead(
+        id=uuid4(),
+        source='mta_agent',
+        check_type='heartbeat',
+        status='ok',
+        host='smtp.example.com',
+        created_at=datetime.utcnow(),
+    )
+    node = SimpleNamespace(status=MtaOperationalStatus.active)
+
+    def node_summary(**systemd_state):
+        return SimpleNamespace(
+            node=node,
+            provider_account=None,
+            pool_memberships=[SimpleNamespace()],
+            readiness_summary=ManagedSmtpReadinessSummaryRead(
+                total_count=1,
+                ok_count=1,
+                warning_count=0,
+                failed_count=0,
+                latest_check=latest_check,
+            ),
+            agent_heartbeat_status='ok',
+            agent_config_in_sync=True,
+            platform_config_version='config-v1',
+            agent_code_revision='abc123',
+            agent_code_dirty=False,
+            agent_queue_depth=0,
+            agent_deferred_count=0,
+            agent_active_count=0,
+            **systemd_state,
+        )
+
+    summary = service._fleet_health(
+        [
+            node_summary(
+                agent_service_active_state='failed',
+                agent_service_sub_state='failed',
+                agent_timer_active_state='active',
+                agent_timer_sub_state='waiting',
+            ),
+            node_summary(
+                agent_service_active_state='inactive',
+                agent_service_sub_state='dead',
+                agent_timer_active_state='inactive',
+                agent_timer_sub_state='dead',
+            ),
+        ]
+    )
+
+    assert summary.status == 'warning'
+    assert summary.agent_service_failed_nodes == 1
+    assert summary.agent_timer_unhealthy_nodes == 1
 
 
 def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) -> None:

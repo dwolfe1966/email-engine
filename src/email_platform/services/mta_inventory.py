@@ -678,6 +678,22 @@ class MtaInventoryService:
             and item.agent_code_revision
             and not platform_code_revision.startswith(item.agent_code_revision)
         )
+        agent_service_failed_nodes = sum(
+            1
+            for item in node_summaries
+            if getattr(item, 'agent_service_active_state', None) == 'failed'
+            or getattr(item, 'agent_service_sub_state', None) == 'failed'
+        )
+        agent_timer_unhealthy_nodes = sum(
+            1
+            for item in node_summaries
+            if getattr(item, 'agent_timer_active_state', None)
+            and (
+                getattr(item, 'agent_timer_active_state', None) != 'active'
+                or getattr(item, 'agent_timer_sub_state', None)
+                not in {None, 'waiting', 'running', 'elapsed'}
+            )
+        )
         blocked_provider_count = sum(
             1
             for item in node_summaries
@@ -701,6 +717,8 @@ class MtaInventoryService:
             or code_missing_nodes
             or code_dirty_nodes
             or code_outdated_nodes
+            or agent_service_failed_nodes
+            or agent_timer_unhealthy_nodes
             or blocked_provider_count
             or deferred_count
         ):
@@ -739,6 +757,8 @@ class MtaInventoryService:
             code_missing_nodes=code_missing_nodes,
             code_dirty_nodes=code_dirty_nodes,
             code_outdated_nodes=code_outdated_nodes,
+            agent_service_failed_nodes=agent_service_failed_nodes,
+            agent_timer_unhealthy_nodes=agent_timer_unhealthy_nodes,
             queue_depth=queue_depth,
             deferred_count=deferred_count,
             active_queue_count=active_queue_count,
