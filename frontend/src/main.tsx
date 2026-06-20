@@ -2433,6 +2433,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         deliveryAttemptId: workflowStatus.latest_proof_route.delivery_attempt_id,
       }
       : null;
+  const latestProofRoute = workflowStatus?.latest_proof_route || null;
+  const latestProofRouteDetail = latestProofRoute
+    ? [
+      latestProofRoute.route_type || 'proof route',
+      latestProofRoute.mta_submission_host || latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
+      latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
+    ].filter(Boolean).join(' | ')
+    : 'Refresh readiness after proof send to load persisted route evidence.';
   const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
   const campaignTriageAction = !selectedCampaignId
     ? {
@@ -2577,6 +2585,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       value: latestJob ? latestJob.status : lastLaunchResult ? 'Dry-run' : 'Pending',
       detail: latestJob ? `${formatInt(latestJob.queued_count)} queued in latest job.` : lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in dry-run result.` : 'Run dry-run launch before production queueing.',
       tone: latestJob || lastLaunchResult ? 'good' : 'warn',
+    },
+    {
+      label: 'Latest proof route',
+      value: latestProofRoute ? latestProofRoute.mta_route_status : 'Not loaded',
+      detail: latestProofRouteDetail,
+      tone: proofSendOk ? 'good' : 'warn',
     },
     {
       label: 'Suppression impact',
