@@ -1800,6 +1800,10 @@ class CampaignTestSendResponse(SendResponse):
     mta_provider_preference_fallback_available: bool | None = None
     mta_provider_preference_fallback_provider: str | None = None
     mta_provider_preference_fallback_node_name: str | None = None
+    mta_rate_limit_scope: str | None = None
+    mta_rate_limit_window_seconds: int | None = None
+    mta_rate_limit_max_per_minute: int | None = None
+    mta_rate_limit_recent_count: int | None = None
     mta_hostname: str | None = None
     mta_public_ipv4: str | None = None
     mta_submission_host: str | None = None

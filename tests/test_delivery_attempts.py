@@ -416,6 +416,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
                     'provider_preference_fallback_mta_node_name': 'mta-aws-001',
                     'available_node_count': 1,
                     'required_available_node_count': 2,
+                    'rate_limit_scope': 'ip_pool',
+                    'rate_limit_window_seconds': 60,
+                    'rate_limit_max_per_minute': 1,
+                    'rate_limit_recent_count': 1,
                 },
             ),
         )
@@ -449,6 +453,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
     assert attempt.metadata_json['mta_provider_preference_fallback_available'] is True
     assert attempt.metadata_json['mta_provider_preference_fallback_provider'] == 'aws'
     assert attempt.metadata_json['mta_provider_preference_fallback_node_name'] == 'mta-aws-001'
+    assert attempt.metadata_json['mta_rate_limit_scope'] == 'ip_pool'
+    assert attempt.metadata_json['mta_rate_limit_window_seconds'] == 60
+    assert attempt.metadata_json['mta_rate_limit_max_per_minute'] == 1
+    assert attempt.metadata_json['mta_rate_limit_recent_count'] == 1
     assert service.managed_smtp_routing_service.requests[0].send_type == 'internal_test'
 
 

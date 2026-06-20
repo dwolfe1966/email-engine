@@ -337,6 +337,8 @@ class DeliveryService:
                 'mta_route_block_message': reason.message if reason else 'No reason returned.',
                 'mta_route_block_details': details,
                 'mta_ip_pool_id': str(details.get('ip_pool_id')) if details.get('ip_pool_id') else None,
+                'mta_node_id': str(details.get('mta_node_id')) if details.get('mta_node_id') else None,
+                'mta_node_name': details.get('mta_node_name'),
                 'mta_node_candidate_count': details.get('candidate_count'),
                 'mta_pool_available_node_count': details.get('available_node_count'),
                 'mta_pool_required_available_node_count': details.get(
@@ -359,6 +361,10 @@ class DeliveryService:
                 'mta_provider_preference_fallback_node_name': details.get(
                     'provider_preference_fallback_mta_node_name'
                 ),
+                'mta_rate_limit_scope': details.get('rate_limit_scope'),
+                'mta_rate_limit_window_seconds': details.get('rate_limit_window_seconds'),
+                'mta_rate_limit_max_per_minute': details.get('rate_limit_max_per_minute'),
+                'mta_rate_limit_recent_count': details.get('rate_limit_recent_count'),
             }
         route = result.route
         return {
@@ -511,6 +517,10 @@ class DeliveryService:
             'mta_provider_preference_fallback_available',
             'mta_provider_preference_fallback_provider',
             'mta_provider_preference_fallback_node_name',
+            'mta_rate_limit_scope',
+            'mta_rate_limit_window_seconds',
+            'mta_rate_limit_max_per_minute',
+            'mta_rate_limit_recent_count',
             'mta_hostname',
             'mta_public_ipv4',
             'mta_submission_host',

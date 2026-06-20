@@ -284,6 +284,53 @@ def test_resolve_blocks_when_pool_available_capacity_is_below_required_minimum()
     assert result.reason.details['required_available_node_count'] == 2
 
 
+def test_resolve_blocks_when_pool_rate_limit_is_exhausted() -> None:
+    service = ResolverHarness()
+    pool_id = uuid4()
+    service.policy = _policy()
+    service.route = _route()
+    service.pool = _pool(id=pool_id, metadata_json={'max_per_minute': 1})
+    service.node = _node()
+    service.provider = _provider()
+    service._recent_managed_smtp_attempt_count = lambda key, value: 1
+
+    result = service.resolve(ManagedSmtpRouteResolveRequest(from_domain='sender@example.com'))
+
+    assert not result.ok
+    assert result.reason is not None
+    assert result.reason.code == 'POOL_RATE_LIMITED'
+    assert result.reason.details['rate_limit_scope'] == 'ip_pool'
+    assert result.reason.details['rate_limit_max_per_minute'] == 1
+    assert result.reason.details['rate_limit_recent_count'] == 1
+
+
+def test_resolve_blocks_when_pool_node_rate_limit_is_exhausted() -> None:
+    service = ResolverHarness()
+    service.policy = _policy()
+    service.route = _route()
+    service.pool = _pool()
+    service.node = _node()
+    service.provider = _provider()
+    service._healthy_node_for_pool = lambda pool_id, preferred_providers=None: MtaNodeSelection(
+        node=service.node,
+        provider=service.provider,
+        membership=SimpleNamespace(id=uuid4(), priority=100, weight=100, metadata_json={'max_per_minute': 1}),
+        candidate_count=1,
+        skipped=[],
+        available_count=1,
+    )
+    service._recent_managed_smtp_attempt_count = lambda key, value: 1
+
+    result = service.resolve(ManagedSmtpRouteResolveRequest(from_domain='sender@example.com'))
+
+    assert not result.ok
+    assert result.reason is not None
+    assert result.reason.code == 'POOL_RATE_LIMITED'
+    assert result.reason.details['rate_limit_scope'] == 'pool_node'
+    assert result.reason.details['rate_limit_max_per_minute'] == 1
+    assert result.reason.details['rate_limit_recent_count'] == 1
+
+
 def test_route_config_rule_selects_pool_and_provider_preference() -> None:
     selected_pool_id = uuid4()
     route = _route(

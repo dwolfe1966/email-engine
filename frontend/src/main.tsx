@@ -609,6 +609,10 @@ type CampaignTestSendResult = {
   mta_provider_preference_fallback_available?: boolean | null;
   mta_provider_preference_fallback_provider?: string | null;
   mta_provider_preference_fallback_node_name?: string | null;
+  mta_rate_limit_scope?: string | null;
+  mta_rate_limit_window_seconds?: number | null;
+  mta_rate_limit_max_per_minute?: number | null;
+  mta_rate_limit_recent_count?: number | null;
   mta_hostname?: string | null;
   mta_public_ipv4?: string | null;
   mta_submission_host?: string | null;

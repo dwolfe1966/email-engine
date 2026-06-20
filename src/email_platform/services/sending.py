@@ -254,6 +254,14 @@ class SendingService:
             'mta_provider_preference_fallback_node_name': attempt_metadata.get(
                 'mta_provider_preference_fallback_node_name'
             ),
+            'mta_rate_limit_scope': attempt_metadata.get('mta_rate_limit_scope'),
+            'mta_rate_limit_window_seconds': attempt_metadata.get(
+                'mta_rate_limit_window_seconds'
+            ),
+            'mta_rate_limit_max_per_minute': attempt_metadata.get(
+                'mta_rate_limit_max_per_minute'
+            ),
+            'mta_rate_limit_recent_count': attempt_metadata.get('mta_rate_limit_recent_count'),
             'mta_hostname': attempt_metadata.get('mta_hostname'),
             'mta_public_ipv4': attempt_metadata.get('mta_public_ipv4'),
             'mta_submission_host': attempt_metadata.get('mta_submission_host'),

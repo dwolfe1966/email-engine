@@ -1,14 +1,15 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from email_platform.models.entities import (
     DeliveryRoute,
     DeliveryRouteStatus,
     DeliveryRouteType,
+    DeliveryAttempt,
     DomainDeliveryPolicy,
     ManagedSmtpReadinessCheck,
     MtaIpPool,
@@ -178,6 +179,17 @@ class ManagedSmtpRoutingService:
                 candidate_count=selection.candidate_count,
                 skipped_nodes=selection.skipped,
                 **preference_block_details,
+            )
+        rate_limit = self._pool_rate_limit_block(pool, selection)
+        if rate_limit:
+            return self._blocked(
+                'POOL_RATE_LIMITED',
+                'The selected MTA IP pool or pool node is rate limited.',
+                domain=domain,
+                ip_pool_id=str(pool.id),
+                mta_node_id=str(node.id),
+                mta_node_name=node.name,
+                **rate_limit,
             )
 
         metadata = policy.metadata_json or {}
@@ -413,6 +425,57 @@ class ManagedSmtpRoutingService:
             'ok': selection.available_count >= required_available,
             'required_available_node_count': required_available,
         }
+
+    def _pool_rate_limit_block(
+        self,
+        pool: MtaIpPool,
+        selection: MtaNodeSelection,
+    ) -> dict[str, object] | None:
+        pool_limit = self._metadata_int(pool.metadata_json, 'max_per_minute')
+        pool_recent = (
+            self._recent_managed_smtp_attempt_count('mta_ip_pool_id', str(pool.id))
+            if pool_limit
+            else None
+        )
+        if pool_limit and pool_recent is not None and pool_recent >= pool_limit:
+            return {
+                'rate_limit_scope': 'ip_pool',
+                'rate_limit_window_seconds': 60,
+                'rate_limit_max_per_minute': pool_limit,
+                'rate_limit_recent_count': pool_recent,
+            }
+        node_limit = (
+            self._metadata_int(getattr(selection.membership, 'metadata_json', {}), 'max_per_minute')
+            if selection.membership
+            else None
+        )
+        node_recent = (
+            self._recent_managed_smtp_attempt_count('mta_node_id', str(selection.node.id))
+            if node_limit and selection.node
+            else None
+        )
+        if node_limit and node_recent is not None and node_recent >= node_limit:
+            return {
+                'rate_limit_scope': 'pool_node',
+                'rate_limit_window_seconds': 60,
+                'rate_limit_max_per_minute': node_limit,
+                'rate_limit_recent_count': node_recent,
+            }
+        return None
+
+    def _recent_managed_smtp_attempt_count(self, metadata_key: str, metadata_value: str) -> int:
+        cutoff = datetime.utcnow() - timedelta(seconds=60)
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(DeliveryAttempt)
+                .where(DeliveryAttempt.route_type == 'managed_smtp')
+                .where(DeliveryAttempt.started_at >= cutoff)
+                .where(DeliveryAttempt.status.in_(['submitting', 'submitted']))
+                .where(DeliveryAttempt.metadata_json[metadata_key].astext == metadata_value)
+            )
+            or 0
+        )
 
     def _provider_preference_block_details(
         self,

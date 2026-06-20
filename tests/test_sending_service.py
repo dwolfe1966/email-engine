@@ -335,6 +335,10 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
                         'mta_provider_preference_fallback_available': True,
                         'mta_provider_preference_fallback_provider': 'aws',
                         'mta_provider_preference_fallback_node_name': 'mta-aws-001',
+                        'mta_rate_limit_scope': 'ip_pool',
+                        'mta_rate_limit_window_seconds': 60,
+                        'mta_rate_limit_max_per_minute': 1,
+                        'mta_rate_limit_recent_count': 1,
                     },
                 )
             )
@@ -393,6 +397,10 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
     assert result['mta_provider_preference_fallback_available'] is True
     assert result['mta_provider_preference_fallback_provider'] == 'aws'
     assert result['mta_provider_preference_fallback_node_name'] == 'mta-aws-001'
+    assert result['mta_rate_limit_scope'] == 'ip_pool'
+    assert result['mta_rate_limit_window_seconds'] == 60
+    assert result['mta_rate_limit_max_per_minute'] == 1
+    assert result['mta_rate_limit_recent_count'] == 1
     assert result['delivery_error_message'] == (
         'Managed SMTP route blocked (NO_HEALTHY_MTA_NODE)'
     )
