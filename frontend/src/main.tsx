@@ -10127,6 +10127,23 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
   const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
+  const [mtaIpPools, setMtaIpPools] = useState<MtaIpPoolRead[]>([]);
+  const [mtaIpPoolTotal, setMtaIpPoolTotal] = useState(0);
+  const [selectedMtaIpPoolId, setSelectedMtaIpPoolId] = useState('');
+  const [mtaIpPoolForm, setMtaIpPoolForm] = useState({
+    max_per_minute: '',
+    min_available_nodes: '',
+    status: '',
+  });
+  const [mtaIpPoolNodes, setMtaIpPoolNodes] = useState<MtaIpPoolNodeRead[]>([]);
+  const [mtaIpPoolNodeTotal, setMtaIpPoolNodeTotal] = useState(0);
+  const [selectedMtaIpPoolNodeId, setSelectedMtaIpPoolNodeId] = useState('');
+  const [mtaIpPoolNodeForm, setMtaIpPoolNodeForm] = useState({
+    max_per_minute: '',
+    priority: '',
+    weight: '',
+    status: '',
+  });
   const [mtaNodeEvents, setMtaNodeEvents] = useState<MtaNodeEventRead[]>([]);
   const [mtaNodeEventTotal, setMtaNodeEventTotal] = useState(0);
   const [firstSendReadiness, setFirstSendReadiness] = useState<ManagedSmtpFirstSendRead | null>(null);
@@ -10229,6 +10246,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
+  const selectedMtaIpPool = mtaIpPools.find((pool) => pool.id === selectedMtaIpPoolId) || null;
+  const selectedMtaIpPoolNode = mtaIpPoolNodes.find((membership) => membership.id === selectedMtaIpPoolNodeId) || null;
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => queuedDeliveryStatuses.includes(record.status) && Number(record.attempt_count || 0) > 0).length;
   const blockedRecords = countRecordsByStatus(sendRecords, blockedDeliveryStatuses);
@@ -10917,6 +10936,54 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setMtaNodeEventFilters((current) => ({ ...current, [name]: value }));
   }
 
+  function mtaIpPoolFormFromPool(pool: MtaIpPoolRead | null) {
+    return {
+      max_per_minute: pool?.max_per_minute ? String(pool.max_per_minute) : '',
+      min_available_nodes: pool?.min_available_nodes ? String(pool.min_available_nodes) : '',
+      status: pool?.status || '',
+    };
+  }
+
+  function mtaIpPoolNodeFormFromMembership(membership: MtaIpPoolNodeRead | null) {
+    return {
+      max_per_minute: membership?.max_per_minute ? String(membership.max_per_minute) : '',
+      priority: membership ? String(membership.priority) : '',
+      weight: membership ? String(membership.weight) : '',
+      status: membership?.status || '',
+    };
+  }
+
+  function updateMtaIpPoolForm(name: keyof typeof mtaIpPoolForm, value: string) {
+    setMtaIpPoolForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateMtaIpPoolNodeForm(name: keyof typeof mtaIpPoolNodeForm, value: string) {
+    setMtaIpPoolNodeForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function optionalPositiveInt(value: string, label: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`${label} must be a positive whole number.`);
+    }
+    return parsed;
+  }
+
+  function requiredNonnegativeInt(value: string, label: string): number {
+    const parsed = Number(value.trim());
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new Error(`${label} must be zero or a positive whole number.`);
+    }
+    return parsed;
+  }
+
+  function mtaNodeNameForPoolMembership(membership: MtaIpPoolNodeRead): string {
+    const deploymentNode = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === membership.mta_node_id);
+    return deploymentNode?.node.name || membership.mta_node_id.slice(0, 8);
+  }
+
   function updateManagedSmtpRoutingRuleForm(name: keyof typeof managedSmtpRoutingRuleForm, value: string | boolean) {
     setManagedSmtpRoutingRuleForm((current) => ({ ...current, [name]: value }));
   }
@@ -11010,6 +11077,72 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
       setManagedSmtpDeploymentSummary(summary);
       return `Loaded managed SMTP deployment summary: ${formatInt(summary.nodes.total)} node(s), ${formatInt(summary.managed_smtp_route_count)} route(s), ${formatInt(summary.managed_smtp_domain_policy_count)} domain policy mapping(s).`;
+    });
+  }
+
+  async function loadManagedSmtpPoolControls() {
+    await runDeliveryOperation('Loading managed SMTP pool controls', async () => {
+      const [poolData, membershipData, summary] = await Promise.all([
+        fetchJson<ListResponse<MtaIpPoolRead>>('/api/v1/managed-smtp/ip-pools/list?limit=100&offset=0'),
+        fetchJson<ListResponse<MtaIpPoolNodeRead>>('/api/v1/managed-smtp/ip-pool-nodes/list?limit=100&offset=0'),
+        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+      ]);
+      const pools = poolData.items || [];
+      const memberships = membershipData.items || [];
+      const nextPool = pools.find((pool) => pool.id === selectedMtaIpPoolId) || pools[0] || null;
+      const nextMembership = memberships.find((membership) => membership.id === selectedMtaIpPoolNodeId)
+        || memberships.find((membership) => membership.ip_pool_id === nextPool?.id)
+        || memberships[0]
+        || null;
+      setMtaIpPools(pools);
+      setMtaIpPoolTotal(poolData.total || 0);
+      setSelectedMtaIpPoolId(nextPool?.id || '');
+      setMtaIpPoolForm(mtaIpPoolFormFromPool(nextPool));
+      setMtaIpPoolNodes(memberships);
+      setMtaIpPoolNodeTotal(membershipData.total || 0);
+      setSelectedMtaIpPoolNodeId(nextMembership?.id || '');
+      setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(nextMembership));
+      setManagedSmtpDeploymentSummary(summary);
+      return `Loaded ${formatInt(pools.length)} managed SMTP pool(s) and ${formatInt(memberships.length)} pool membership(s).`;
+    });
+  }
+
+  async function saveManagedSmtpPoolControls() {
+    await runDeliveryOperation('Saving managed SMTP pool controls', async () => {
+      if (!selectedMtaIpPool) throw new Error('Select an IP pool.');
+      const updated = await fetchJson<MtaIpPoolRead>(`/api/v1/managed-smtp/ip-pools/${selectedMtaIpPool.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          max_per_minute: optionalPositiveInt(mtaIpPoolForm.max_per_minute, 'Pool max per minute'),
+          min_available_nodes: optionalPositiveInt(mtaIpPoolForm.min_available_nodes, 'Required available nodes'),
+          status: mtaIpPoolForm.status || selectedMtaIpPool.status,
+        }),
+      });
+      const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
+      setMtaIpPools((items) => items.map((item) => item.id === updated.id ? updated : item));
+      setMtaIpPoolForm(mtaIpPoolFormFromPool(updated));
+      setManagedSmtpDeploymentSummary(summary);
+      return `Saved pool controls for ${updated.name}: ${updated.max_per_minute ? `${formatInt(updated.max_per_minute)}/min` : 'no rate gate'}, ${updated.min_available_nodes ? `${formatInt(updated.min_available_nodes)} required node(s)` : 'default capacity'}.`;
+    });
+  }
+
+  async function saveManagedSmtpPoolNodeControls() {
+    await runDeliveryOperation('Saving managed SMTP pool membership controls', async () => {
+      if (!selectedMtaIpPoolNode) throw new Error('Select a pool membership.');
+      const updated = await fetchJson<MtaIpPoolNodeRead>(`/api/v1/managed-smtp/ip-pool-nodes/${selectedMtaIpPoolNode.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          max_per_minute: optionalPositiveInt(mtaIpPoolNodeForm.max_per_minute, 'Pool node max per minute'),
+          priority: requiredNonnegativeInt(mtaIpPoolNodeForm.priority, 'Priority'),
+          weight: requiredNonnegativeInt(mtaIpPoolNodeForm.weight, 'Weight'),
+          status: mtaIpPoolNodeForm.status || selectedMtaIpPoolNode.status,
+        }),
+      });
+      const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
+      setMtaIpPoolNodes((items) => items.map((item) => item.id === updated.id ? updated : item));
+      setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(updated));
+      setManagedSmtpDeploymentSummary(summary);
+      return `Saved pool membership controls for ${mtaNodeNameForPoolMembership(updated)}: ${updated.max_per_minute ? `${formatInt(updated.max_per_minute)}/min` : 'no node rate gate'}.`;
     });
   }
 
@@ -11419,6 +11552,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="ghost" onClick={loadManagedSmtpBootstrapProfiles} disabled={busy}>Load Profiles</button>
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+            <button className="ghost" onClick={loadManagedSmtpPoolControls} disabled={busy}>Load Pool Controls</button>
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
           </div>
         </div>
@@ -11492,6 +11626,118 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{item.detail}</small>
             </div>
           ))}
+        </div>
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Managed SMTP Pool Controls</h3>
+            <span className="muted">Set resolver-facing pool capacity and per-minute rate gates without editing metadata.</span>
+          </div>
+          <button className="link-button" onClick={loadManagedSmtpPoolControls} disabled={busy}>Refresh Pools</button>
+        </div>
+        <div className="form-grid compact-form">
+          <label className="wide-field">
+            IP pool
+            <select value={selectedMtaIpPoolId} onChange={(event) => {
+              const pool = mtaIpPools.find((item) => item.id === event.target.value) || null;
+              const membership = mtaIpPoolNodes.find((item) => item.ip_pool_id === pool?.id) || null;
+              setSelectedMtaIpPoolId(pool?.id || '');
+              setMtaIpPoolForm(mtaIpPoolFormFromPool(pool));
+              if (membership) {
+                setSelectedMtaIpPoolNodeId(membership.id);
+                setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(membership));
+              } else {
+                setSelectedMtaIpPoolNodeId('');
+                setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(null));
+              }
+            }}>
+              <option value="">Select pool</option>
+              {mtaIpPools.map((pool) => (
+                <option value={pool.id} key={pool.id}>
+                  {pool.name} | {pool.pool_type} | {pool.status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Pool status
+            <select value={mtaIpPoolForm.status} onChange={(event) => updateMtaIpPoolForm('status', event.target.value)}>
+              <option value="">current</option>
+              <option value="active">active</option>
+              <option value="paused">paused</option>
+              <option value="draining">draining</option>
+              <option value="failed">failed</option>
+              <option value="retired">retired</option>
+              <option value="suspended">suspended</option>
+            </select>
+          </label>
+          <label>
+            Pool max / min
+            <input value={mtaIpPoolForm.max_per_minute} onChange={(event) => updateMtaIpPoolForm('max_per_minute', event.target.value)} placeholder="empty disables" inputMode="numeric" />
+          </label>
+          <label>
+            Required nodes
+            <input value={mtaIpPoolForm.min_available_nodes} onChange={(event) => updateMtaIpPoolForm('min_available_nodes', event.target.value)} placeholder="default 1" inputMode="numeric" />
+          </label>
+          <button className="ghost" type="button" onClick={saveManagedSmtpPoolControls} disabled={busy || !selectedMtaIpPoolId}>Save Pool</button>
+          <label className="wide-field">
+            Pool membership
+            <select value={selectedMtaIpPoolNodeId} onChange={(event) => {
+              const membership = mtaIpPoolNodes.find((item) => item.id === event.target.value) || null;
+              const pool = membership ? mtaIpPools.find((item) => item.id === membership.ip_pool_id) || null : null;
+              setSelectedMtaIpPoolNodeId(membership?.id || '');
+              setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(membership));
+              if (membership) {
+                setSelectedMtaIpPoolId(membership.ip_pool_id);
+                setMtaIpPoolForm(mtaIpPoolFormFromPool(pool));
+              }
+            }}>
+              <option value="">Select membership</option>
+              {mtaIpPoolNodes
+                .filter((membership) => !selectedMtaIpPoolId || membership.ip_pool_id === selectedMtaIpPoolId)
+                .map((membership) => (
+                  <option value={membership.id} key={membership.id}>
+                    {mtaNodeNameForPoolMembership(membership)} | priority {membership.priority} | {membership.status}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Membership status
+            <select value={mtaIpPoolNodeForm.status} onChange={(event) => updateMtaIpPoolNodeForm('status', event.target.value)}>
+              <option value="">current</option>
+              <option value="active">active</option>
+              <option value="paused">paused</option>
+              <option value="draining">draining</option>
+              <option value="failed">failed</option>
+              <option value="retired">retired</option>
+              <option value="suspended">suspended</option>
+            </select>
+          </label>
+          <label>
+            Node max / min
+            <input value={mtaIpPoolNodeForm.max_per_minute} onChange={(event) => updateMtaIpPoolNodeForm('max_per_minute', event.target.value)} placeholder="empty disables" inputMode="numeric" />
+          </label>
+          <label>
+            Priority
+            <input value={mtaIpPoolNodeForm.priority} onChange={(event) => updateMtaIpPoolNodeForm('priority', event.target.value)} placeholder="100" inputMode="numeric" />
+          </label>
+          <label>
+            Weight
+            <input value={mtaIpPoolNodeForm.weight} onChange={(event) => updateMtaIpPoolNodeForm('weight', event.target.value)} placeholder="100" inputMode="numeric" />
+          </label>
+          <button className="ghost" type="button" onClick={saveManagedSmtpPoolNodeControls} disabled={busy || !selectedMtaIpPoolNodeId}>Save Membership</button>
+        </div>
+        <div className="managed-smtp-route-inspector">
+          <article className={mtaIpPoolTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
+            <span>Pools loaded</span>
+            <strong>{formatInt(mtaIpPools.length)} / {formatInt(mtaIpPoolTotal)}</strong>
+            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}` : 'Load pool controls to inspect resolver gates.'}</small>
+          </article>
+          <article className={mtaIpPoolNodeTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
+            <span>Memberships loaded</span>
+            <strong>{formatInt(mtaIpPoolNodes.length)} / {formatInt(mtaIpPoolNodeTotal)}</strong>
+            <small>{selectedMtaIpPoolNode ? `${mtaNodeNameForPoolMembership(selectedMtaIpPoolNode)}: priority ${formatInt(selectedMtaIpPoolNode.priority)}, weight ${formatInt(selectedMtaIpPoolNode.weight)}, ${selectedMtaIpPoolNode.max_per_minute ? `${formatInt(selectedMtaIpPoolNode.max_per_minute)}/min` : 'no node rate gate'}` : 'Select a pool membership to edit node-level controls.'}</small>
+          </article>
         </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
