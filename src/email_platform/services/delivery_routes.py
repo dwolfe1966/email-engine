@@ -240,6 +240,39 @@ class DeliveryRouteService:
             rules=next_rules,
         )
 
+    def set_managed_smtp_routing_rule_enabled(
+        self,
+        route_id: UUID,
+        rule_name: str,
+        enabled: bool,
+    ) -> ManagedSmtpRoutingRulesRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        rules = self._routing_rules_from_route(route)
+        matched = False
+        for rule in rules:
+            if str(rule.get('name') or '') == rule_name:
+                rule['enabled'] = enabled
+                matched = True
+        if not matched:
+            return None
+        return self._write_routing_rules(route, rules)
+
+    def delete_managed_smtp_routing_rule(
+        self,
+        route_id: UUID,
+        rule_name: str,
+    ) -> ManagedSmtpRoutingRulesRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        rules = self._routing_rules_from_route(route)
+        next_rules = [rule for rule in rules if str(rule.get('name') or '') != rule_name]
+        if len(next_rules) == len(rules):
+            return None
+        return self._write_routing_rules(route, next_rules)
+
     def delete(self, route_id: UUID) -> bool:
         route = self.get(route_id)
         if not route:
@@ -255,6 +288,23 @@ class DeliveryRouteService:
             return []
         normalized_rules = [dict(rule) for rule in rules if isinstance(rule, dict)]
         return sorted(normalized_rules, key=lambda rule: int(rule.get('priority') or 100))
+
+    def _write_routing_rules(
+        self,
+        route: DeliveryRoute,
+        rules: list[dict[str, object]],
+    ) -> ManagedSmtpRoutingRulesRead:
+        next_rules = sorted(rules, key=lambda rule: int(rule.get('priority') or 100))
+        config = dict(route.config or {})
+        config['routing_rules'] = next_rules
+        route.config = config
+        self.db.commit()
+        self.db.refresh(route)
+        return ManagedSmtpRoutingRulesRead(
+            delivery_route_id=route.id,
+            delivery_route_name=route.name,
+            rules=next_rules,
+        )
 
     def _normalized_routing_rule(
         self,

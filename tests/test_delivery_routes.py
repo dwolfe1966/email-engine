@@ -164,6 +164,57 @@ def test_upsert_managed_smtp_routing_rule_replaces_rule_by_name() -> None:
     assert route.config['routing_rules'][0]['ip_pool_name'] == 'new-pool'
 
 
+def test_set_managed_smtp_routing_rule_enabled_updates_named_rule() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [
+                {'name': 'gmail-scaleway', 'priority': 10, 'enabled': True},
+                {'name': 'backup', 'priority': 20, 'enabled': True},
+            ],
+        },
+    )
+    db = FakeDb(get_result=route)
+    service = DeliveryRouteService(db)
+
+    result = service.set_managed_smtp_routing_rule_enabled(
+        route_id,
+        'gmail-scaleway',
+        enabled=False,
+    )
+
+    assert result is not None
+    assert db.committed
+    assert route.config['routing_rules'][0]['enabled'] is False
+    assert route.config['routing_rules'][1]['enabled'] is True
+
+
+def test_delete_managed_smtp_routing_rule_removes_named_rule() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'mta_ip_pool_id': str(uuid4()),
+            'routing_rules': [
+                {'name': 'gmail-scaleway', 'priority': 10},
+                {'name': 'backup', 'priority': 20},
+            ],
+        },
+    )
+    db = FakeDb(get_result=route)
+    service = DeliveryRouteService(db)
+
+    result = service.delete_managed_smtp_routing_rule(route_id, 'gmail-scaleway')
+
+    assert result is not None
+    assert db.committed
+    assert route.config['mta_ip_pool_id']
+    assert [rule['name'] for rule in route.config['routing_rules']] == ['backup']
+
+
 def test_delivery_route_selector_prefers_active_matching_route() -> None:
     route_id = uuid4()
     service = DeliveryRouteService(

@@ -3047,6 +3047,59 @@ def upsert_managed_smtp_routing_rule(
     return result
 
 
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/{rule_name}/disable',
+    response_model=ManagedSmtpRoutingRulesRead,
+)
+def disable_managed_smtp_routing_rule(
+    route_id: UUID,
+    rule_name: str,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulesRead:
+    result = DeliveryRouteService(db).set_managed_smtp_routing_rule_enabled(
+        route_id,
+        rule_name,
+        enabled=False,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route or routing rule not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/{rule_name}/enable',
+    response_model=ManagedSmtpRoutingRulesRead,
+)
+def enable_managed_smtp_routing_rule(
+    route_id: UUID,
+    rule_name: str,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulesRead:
+    result = DeliveryRouteService(db).set_managed_smtp_routing_rule_enabled(
+        route_id,
+        rule_name,
+        enabled=True,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route or routing rule not found')
+    return result
+
+
+@router.delete(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/{rule_name}',
+    response_model=ManagedSmtpRoutingRulesRead,
+)
+def delete_managed_smtp_routing_rule(
+    route_id: UUID,
+    rule_name: str,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulesRead:
+    result = DeliveryRouteService(db).delete_managed_smtp_routing_rule(route_id, rule_name)
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route or routing rule not found')
+    return result
+
+
 @router.get(
     '/domain-delivery-policies/list',
     response_model=ListResponse[DomainDeliveryPolicyRead],
