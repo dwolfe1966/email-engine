@@ -217,14 +217,22 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
             ok=True,
             route=ManagedSmtpResolvedRoute(
                 domain='example.com',
+                sender_domain='email-engine.app',
+                recipient_domain='gmail.com',
+                decision_basis='sender_domain_policy',
                 delivery_route_id=route_id,
                 delivery_route_name='managed-smtp-primary',
                 domain_policy_id=policy_id,
                 ip_pool_id=pool_id,
                 ip_pool_name='warmup-a',
                 ip_pool_type=MtaIpPoolType.warmup,
+                ip_pool_selection_source='domain_policy',
                 mta_node_id=node_id,
                 mta_node_name='mta-001',
+                mta_node_selection_priority=100,
+                mta_node_selection_weight=75,
+                mta_node_candidate_count=2,
+                mta_node_skipped_count=1,
                 provider_account_id=provider_account_id,
                 provider=MtaProviderType.aws,
                 hostname='mta-001.email-engine.example',
@@ -250,10 +258,19 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
 
     assert attempt.route_type == 'managed_smtp'
     assert attempt.metadata_json['mta_route_resolved'] is True
+    assert attempt.metadata_json['mta_route_domain'] == 'example.com'
+    assert attempt.metadata_json['mta_route_sender_domain'] == 'email-engine.app'
+    assert attempt.metadata_json['mta_route_recipient_domain'] == 'gmail.com'
+    assert attempt.metadata_json['mta_route_decision_basis'] == 'sender_domain_policy'
     assert attempt.metadata_json['mta_provider'] == 'aws'
     assert attempt.metadata_json['mta_provider_account_id'] == str(provider_account_id)
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'
+    assert attempt.metadata_json['mta_ip_pool_selection_source'] == 'domain_policy'
     assert attempt.metadata_json['mta_node_name'] == 'mta-001'
+    assert attempt.metadata_json['mta_node_selection_priority'] == 100
+    assert attempt.metadata_json['mta_node_selection_weight'] == 75
+    assert attempt.metadata_json['mta_node_candidate_count'] == 2
+    assert attempt.metadata_json['mta_node_skipped_count'] == 1
     assert attempt.metadata_json['mta_submission_port'] == 587
     assert service.managed_smtp_routing_service.requests[0].from_domain == 'email-engine.app'
     assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'gmail.com'

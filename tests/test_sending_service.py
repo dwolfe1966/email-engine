@@ -156,12 +156,21 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                     smtp_response='Provider accepted message with status 250',
                     metadata_json={
                         'mta_provider': 'scaleway',
+                        'mta_route_domain': 'email-engine.app',
+                        'mta_route_sender_domain': 'email-engine.app',
+                        'mta_route_recipient_domain': 'gmail.com',
+                        'mta_route_decision_basis': 'sender_domain_policy',
                         'mta_node_name': 'mta-002',
+                        'mta_node_selection_priority': 100,
+                        'mta_node_selection_weight': 100,
+                        'mta_node_candidate_count': 1,
+                        'mta_node_skipped_count': 0,
                         'mta_hostname': 'mta-002.email-engine.app',
                         'mta_public_ipv4': '212.47.236.69',
                         'mta_submission_host': 'mta-002.email-engine.app',
                         'mta_submission_port': 587,
                         'mta_ip_pool_name': 'scaleway-internal-test',
+                        'mta_ip_pool_selection_source': 'domain_policy',
                         'mta_route_resolved': True,
                         'envelope_from': f'bounces+{record.id}@returns-scaleway.email-engine.app',
                         'bounce_domain': 'returns-scaleway.email-engine.app',
@@ -220,11 +229,20 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['route_type'] == 'managed_smtp'
     assert result['route_key'] == 'managed-smtp-scaleway-primary'
     assert result['mta_provider'] == 'scaleway'
+    assert result['mta_route_domain'] == 'email-engine.app'
+    assert result['mta_route_sender_domain'] == 'email-engine.app'
+    assert result['mta_route_recipient_domain'] == 'gmail.com'
+    assert result['mta_route_decision_basis'] == 'sender_domain_policy'
     assert result['mta_node_name'] == 'mta-002'
+    assert result['mta_node_selection_priority'] == 100
+    assert result['mta_node_selection_weight'] == 100
+    assert result['mta_node_candidate_count'] == 1
+    assert result['mta_node_skipped_count'] == 0
     assert result['mta_hostname'] == 'mta-002.email-engine.app'
     assert result['mta_submission_host'] == 'mta-002.email-engine.app'
     assert result['mta_submission_port'] == 587
     assert result['mta_ip_pool_name'] == 'scaleway-internal-test'
+    assert result['mta_ip_pool_selection_source'] == 'domain_policy'
     assert result['mta_route_resolved'] is True
     assert result['mta_route_status'] == 'resolved'
     assert result['envelope_from'] == (

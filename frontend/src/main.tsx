@@ -552,12 +552,21 @@ type CampaignTestSendResult = {
   route_type?: string | null;
   route_key?: string | null;
   mta_provider?: string | null;
+  mta_route_domain?: string | null;
+  mta_route_sender_domain?: string | null;
+  mta_route_recipient_domain?: string | null;
+  mta_route_decision_basis?: string | null;
   mta_node_name?: string | null;
+  mta_node_selection_priority?: number | null;
+  mta_node_selection_weight?: number | null;
+  mta_node_candidate_count?: number | null;
+  mta_node_skipped_count?: number | null;
   mta_hostname?: string | null;
   mta_public_ipv4?: string | null;
   mta_submission_host?: string | null;
   mta_submission_port?: number | null;
   mta_ip_pool_name?: string | null;
+  mta_ip_pool_selection_source?: string | null;
   mta_route_resolved?: boolean | null;
   mta_route_status?: 'resolved' | 'blocked' | 'attempted' | 'not_attempted' | null;
   mta_route_block_code?: string | null;
@@ -2969,9 +2978,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
               <div><span>Route</span><strong>{proofSendRouteLabel || '-'}</strong></div>
               <div><span>Route status</span><strong>{lastTestSendResult.mta_route_status || (lastTestSendResult.mta_route_resolved ? 'resolved' : '-')}</strong></div>
+              <div><span>Decision</span><strong>{lastTestSendResult.mta_route_decision_basis ? lastTestSendResult.mta_route_decision_basis.replace(/_/g, ' ') : '-'}</strong></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
-              <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong></div>
+              <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong><small>{lastTestSendResult.mta_ip_pool_selection_source ? `from ${lastTestSendResult.mta_ip_pool_selection_source.replace(/_/g, ' ')}` : ''}</small></div>
+              <div><span>Candidates</span><strong>{lastTestSendResult.mta_node_candidate_count ?? '-'}</strong><small>priority {lastTestSendResult.mta_node_selection_priority ?? '-'} / weight {lastTestSendResult.mta_node_selection_weight ?? '-'} / skipped {lastTestSendResult.mta_node_skipped_count ?? '-'}</small></div>
               <div><span>DKIM</span><strong>{lastTestSendResult.dkim_selector || (lastTestSendResult.dkim_signing_ready ? 'ready' : '-')}</strong></div>
               <div><span>Envelope</span><strong>{lastTestSendResult.envelope_from || lastTestSendResult.bounce_domain || '-'}</strong></div>
               <div><span>SMTP</span><strong>{lastTestSendResult.smtp_response_code || lastTestSendResult.mta_route_block_code || '-'}</strong></div>
