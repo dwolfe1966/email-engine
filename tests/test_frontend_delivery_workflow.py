@@ -135,6 +135,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'refreshDeliveryAttempts().catch',
         'routeBlockReason',
         'smtpReason',
+        'smtpResponse',
+        'metadata.smtp_response',
         'attemptHasIssue',
         'attemptCompletedOk',
         'mtaHost',

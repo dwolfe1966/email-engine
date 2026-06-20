@@ -11727,14 +11727,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const routeBlockReason = metadata.mta_route_block_code
                 ? `${metadata.mta_route_block_code}${metadata.mta_route_block_message ? `: ${metadata.mta_route_block_message}` : ''}`
                 : '';
-              const smtpReason = attempt.smtp_response_code
-                ? `SMTP ${attempt.smtp_response_code}${attempt.smtp_response ? `: ${attempt.smtp_response}` : ''}`
+              const smtpCode = attempt.smtp_response_code || metadata.smtp_response_code || '-';
+              const smtpResponse = attempt.smtp_response || metadata.smtp_response || '';
+              const smtpReason = smtpCode !== '-'
+                ? `SMTP ${smtpCode}${smtpResponse ? `: ${smtpResponse}` : ''}`
                 : '';
               const reason = String(routeBlockReason || smtpReason || metadata.reason || attempt.error_message || attempt.route_key || attempt.status);
               const domain = String(metadata.to_domain || '-');
               const policy = String(metadata.domain_delivery_policy_id || '-');
               const mtaHost = String(metadata.mta_submission_host || metadata.mta_hostname || '-');
-              const smtpCode = attempt.smtp_response_code || metadata.smtp_response_code || '-';
               const submissionProvider = String(metadata.mta_submission_provider || '-');
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
