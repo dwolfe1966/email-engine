@@ -1044,10 +1044,12 @@ class ManagedSmtpResolvedRoute(BaseModel):
     ip_pool_selection_source: str = 'unknown'
     mta_node_id: UUID
     mta_node_name: str
+    mta_node_selection_membership_id: UUID | None = None
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
     mta_node_candidate_count: int = 0
     mta_node_skipped_count: int = 0
+    mta_node_skipped_nodes: list[JsonObject] = Field(default_factory=list)
     provider_account_id: UUID
     provider: MtaProviderType
     hostname: str
@@ -1775,10 +1777,12 @@ class CampaignTestSendResponse(SendResponse):
     mta_rule_hit_pool_source: str | None = None
     mta_rule_hit_provider_preference: list[str] | None = None
     mta_node_name: str | None = None
+    mta_node_selection_membership_id: str | None = None
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
     mta_node_candidate_count: int | None = None
     mta_node_skipped_count: int | None = None
+    mta_node_skipped_nodes: list[JsonObject] | None = None
     mta_hostname: str | None = None
     mta_public_ipv4: str | None = None
     mta_submission_host: str | None = None

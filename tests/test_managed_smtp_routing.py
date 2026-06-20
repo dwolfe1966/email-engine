@@ -229,9 +229,11 @@ def test_resolve_returns_selected_submission_route() -> None:
     assert result.route.ip_pool_name == 'warmup-a'
     assert result.route.ip_pool_selection_source == 'domain_policy'
     assert result.route.mta_node_name == 'mta-001'
+    assert result.route.mta_node_selection_membership_id is not None
     assert result.route.mta_node_candidate_count == 1
     assert result.route.mta_node_selection_priority == 100
     assert result.route.mta_node_selection_weight == 100
+    assert result.route.mta_node_skipped_nodes == []
     assert result.route.provider == MtaProviderType.aws
     assert result.route.submission_host == 'mta-001.email-engine.example'
     assert result.route.envelope_sender_domain == 'bounces.example.com'
@@ -278,6 +280,15 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
     pool = _pool(id=selected_pool_id, name='scaleway-transactional')
     node = _node(name='mta-002', hostname='mta-002.email-engine.example')
     provider = _provider(provider=MtaProviderType.scaleway)
+    membership_id = uuid4()
+    skipped = [
+        {
+            'membership_id': str(uuid4()),
+            'mta_node_id': str(uuid4()),
+            'provider': 'aws',
+            'reason': 'provider_not_preferred',
+        }
+    ]
 
     class FakeDb:
         def get(self, model, item_id):
@@ -310,9 +321,9 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
             return MtaNodeSelection(
                 node=node,
                 provider=provider,
-                membership=SimpleNamespace(id=uuid4(), priority=100, weight=100),
-                candidate_count=1,
-                skipped=[],
+                membership=SimpleNamespace(id=membership_id, priority=100, weight=100),
+                candidate_count=2,
+                skipped=skipped,
             )
 
     resolved = RuleHarness(FakeDb()).resolve(
@@ -333,6 +344,10 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
     assert resolved.route.send_type == 'transactional'
     assert resolved.route.sender_domain == 'example.com'
     assert resolved.route.recipient_domain == 'gmail.com'
+    assert resolved.route.mta_node_selection_membership_id == membership_id
+    assert resolved.route.mta_node_candidate_count == 2
+    assert resolved.route.mta_node_skipped_count == 1
+    assert resolved.route.mta_node_skipped_nodes == skipped
 
 
 def test_healthy_node_selection_skips_non_preferred_provider() -> None:

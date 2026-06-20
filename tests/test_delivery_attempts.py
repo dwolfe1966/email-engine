@@ -198,6 +198,15 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     provider_account_id = uuid4()
     pool_id = uuid4()
     node_id = uuid4()
+    membership_id = uuid4()
+    skipped_nodes = [
+        {
+            'membership_id': str(uuid4()),
+            'mta_node_id': str(uuid4()),
+            'provider': 'aws',
+            'reason': 'provider_not_preferred',
+        }
+    ]
     service = DeliveryService.__new__(DeliveryService)
     service.db = db
     service.settings = SimpleNamespace(
@@ -237,10 +246,12 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
                 ip_pool_selection_source='domain_policy',
                 mta_node_id=node_id,
                 mta_node_name='mta-001',
+                mta_node_selection_membership_id=membership_id,
                 mta_node_selection_priority=100,
                 mta_node_selection_weight=75,
                 mta_node_candidate_count=2,
                 mta_node_skipped_count=1,
+                mta_node_skipped_nodes=skipped_nodes,
                 provider_account_id=provider_account_id,
                 provider=MtaProviderType.aws,
                 hostname='mta-001.email-engine.example',
@@ -286,10 +297,12 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'
     assert attempt.metadata_json['mta_ip_pool_selection_source'] == 'domain_policy'
     assert attempt.metadata_json['mta_node_name'] == 'mta-001'
+    assert attempt.metadata_json['mta_node_selection_membership_id'] == str(membership_id)
     assert attempt.metadata_json['mta_node_selection_priority'] == 100
     assert attempt.metadata_json['mta_node_selection_weight'] == 75
     assert attempt.metadata_json['mta_node_candidate_count'] == 2
     assert attempt.metadata_json['mta_node_skipped_count'] == 1
+    assert attempt.metadata_json['mta_node_skipped_nodes'] == skipped_nodes
     assert attempt.metadata_json['mta_submission_port'] == 587
     assert service.managed_smtp_routing_service.requests[0].from_domain == 'email-engine.app'
     assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'gmail.com'

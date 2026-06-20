@@ -167,10 +167,14 @@ class ManagedSmtpRoutingService:
             ip_pool_selection_source=pool_selection.source,
             mta_node_id=node.id,
             mta_node_name=node.name,
+            mta_node_selection_membership_id=selection.membership.id
+            if selection.membership
+            else None,
             mta_node_selection_priority=selection.membership.priority if selection.membership else None,
             mta_node_selection_weight=selection.membership.weight if selection.membership else None,
             mta_node_candidate_count=selection.candidate_count,
             mta_node_skipped_count=len(selection.skipped),
+            mta_node_skipped_nodes=selection.skipped,
             provider_account_id=provider.id,
             provider=provider.provider,
             hostname=node.hostname,

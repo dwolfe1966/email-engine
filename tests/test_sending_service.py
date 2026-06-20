@@ -172,10 +172,12 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                         'mta_rule_hit_pool_source': 'delivery_route_rule',
                         'mta_rule_hit_provider_preference': ['scaleway'],
                         'mta_node_name': 'mta-002',
+                        'mta_node_selection_membership_id': 'pool-membership-002',
                         'mta_node_selection_priority': 100,
                         'mta_node_selection_weight': 100,
                         'mta_node_candidate_count': 1,
                         'mta_node_skipped_count': 0,
+                        'mta_node_skipped_nodes': [],
                         'mta_hostname': 'mta-002.email-engine.app',
                         'mta_public_ipv4': '212.47.236.69',
                         'mta_submission_host': 'mta-002.email-engine.app',
@@ -256,10 +258,12 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_rule_hit_pool_source'] == 'delivery_route_rule'
     assert result['mta_rule_hit_provider_preference'] == ['scaleway']
     assert result['mta_node_name'] == 'mta-002'
+    assert result['mta_node_selection_membership_id'] == 'pool-membership-002'
     assert result['mta_node_selection_priority'] == 100
     assert result['mta_node_selection_weight'] == 100
     assert result['mta_node_candidate_count'] == 1
     assert result['mta_node_skipped_count'] == 0
+    assert result['mta_node_skipped_nodes'] == []
     assert result['mta_hostname'] == 'mta-002.email-engine.app'
     assert result['mta_submission_host'] == 'mta-002.email-engine.app'
     assert result['mta_submission_port'] == 587

@@ -223,10 +223,14 @@ class SendingService:
                 'mta_rule_hit_provider_preference'
             ),
             'mta_node_name': attempt_metadata.get('mta_node_name'),
+            'mta_node_selection_membership_id': attempt_metadata.get(
+                'mta_node_selection_membership_id'
+            ),
             'mta_node_selection_priority': attempt_metadata.get('mta_node_selection_priority'),
             'mta_node_selection_weight': attempt_metadata.get('mta_node_selection_weight'),
             'mta_node_candidate_count': attempt_metadata.get('mta_node_candidate_count'),
             'mta_node_skipped_count': attempt_metadata.get('mta_node_skipped_count'),
+            'mta_node_skipped_nodes': attempt_metadata.get('mta_node_skipped_nodes'),
             'mta_hostname': attempt_metadata.get('mta_hostname'),
             'mta_public_ipv4': attempt_metadata.get('mta_public_ipv4'),
             'mta_submission_host': attempt_metadata.get('mta_submission_host'),

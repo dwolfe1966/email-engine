@@ -594,10 +594,12 @@ type CampaignTestSendResult = {
   mta_rule_hit_pool_source?: string | null;
   mta_rule_hit_provider_preference?: string[] | null;
   mta_node_name?: string | null;
+  mta_node_selection_membership_id?: string | null;
   mta_node_selection_priority?: number | null;
   mta_node_selection_weight?: number | null;
   mta_node_candidate_count?: number | null;
   mta_node_skipped_count?: number | null;
+  mta_node_skipped_nodes?: Record<string, unknown>[] | null;
   mta_hostname?: string | null;
   mta_public_ipv4?: string | null;
   mta_submission_host?: string | null;
@@ -785,10 +787,12 @@ type ManagedSmtpResolvedRoute = {
   ip_pool_selection_source: string;
   mta_node_id: string;
   mta_node_name: string;
+  mta_node_selection_membership_id: string | null;
   mta_node_selection_priority: number | null;
   mta_node_selection_weight: number | null;
   mta_node_candidate_count: number;
   mta_node_skipped_count: number;
+  mta_node_skipped_nodes: Record<string, unknown>[];
   provider_account_id: string;
   provider: string;
   hostname: string;

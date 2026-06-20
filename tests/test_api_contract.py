@@ -230,6 +230,8 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
         'mta_rule_hit_source',
         'mta_rule_hit_pool_source',
         'mta_rule_hit_provider_preference',
+        'mta_node_selection_membership_id',
+        'mta_node_skipped_nodes',
         'mta_route_block_code',
         'mta_route_block_message',
         'mta_submission_host',
