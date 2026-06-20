@@ -364,6 +364,10 @@ class ManagedSmtpRoutingService:
                     }
                 )
                 continue
+            readiness_block = self._provider_readiness_block(provider)
+            if readiness_block:
+                skipped.append({**candidate, **readiness_block})
+                continue
             if not self._latest_readiness_ok(node):
                 skipped.append({**candidate, 'reason': 'readiness_not_ok'})
                 continue
@@ -380,6 +384,23 @@ class ManagedSmtpRoutingService:
             skipped,
             available_count,
         )
+
+    def _provider_readiness_block(self, provider: MtaProviderAccount) -> dict[str, object] | None:
+        port25_status = str(getattr(provider, 'port25_status', '') or 'unknown').lower()
+        rdns_status = str(getattr(provider, 'rdns_status', '') or 'unknown').lower()
+        if port25_status in {'blocked', 'denied', 'pending', 'requested'}:
+            return {
+                'reason': 'provider_port25_not_ready',
+                'provider_port25_status': port25_status,
+                'provider_rdns_status': rdns_status,
+            }
+        if rdns_status in {'missing', 'pending', 'failed', 'not_configured'}:
+            return {
+                'reason': 'provider_rdns_not_ready',
+                'provider_port25_status': port25_status,
+                'provider_rdns_status': rdns_status,
+            }
+        return None
 
     def _pool_capacity(self, pool: MtaIpPool, selection: MtaNodeSelection) -> dict[str, object]:
         required_available = self._metadata_int(

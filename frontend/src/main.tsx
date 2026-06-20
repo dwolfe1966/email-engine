@@ -1561,6 +1561,17 @@ function providerLabel(value: string | null | undefined) {
   return value.toLowerCase() === 'sendgrid' ? 'SG' : value;
 }
 
+function managedSmtpSkippedReasonLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    provider_port25_not_ready: 'provider port 25 not ready',
+    provider_rdns_not_ready: 'provider rDNS not ready',
+    provider_not_preferred: 'provider not preferred',
+    provider_not_active: 'provider not active',
+    readiness_not_ok: 'readiness not passing',
+  };
+  return labels[String(value || '')] || String(value || 'none');
+}
+
 function countByName(rows: CountRow[] | undefined, name: string) {
   return Number((rows || []).find((row) => row.name === name)?.count || 0);
 }
@@ -10716,6 +10727,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     },
   ];
   const managedSmtpRouteSelection = managedSmtpRouteResolution?.route?.telemetry_tags.selection as Record<string, unknown> | undefined;
+  const managedSmtpFirstSkippedNode = managedSmtpRouteResolution?.route?.mta_node_skipped_nodes?.[0];
   const managedSmtpRouteItems = managedSmtpRouteResolution?.ok && managedSmtpRouteResolution.route
     ? [
       {
@@ -10765,7 +10777,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       {
         label: 'Failover selection',
         value: `${formatInt(managedSmtpRouteResolution.route.mta_node_candidate_count || Number(managedSmtpRouteSelection?.candidate_count || 0))} candidate(s)`,
-        detail: `priority ${managedSmtpRouteResolution.route.mta_node_selection_priority ?? managedSmtpRouteSelection?.priority ?? '-'} / weight ${managedSmtpRouteResolution.route.mta_node_selection_weight ?? managedSmtpRouteSelection?.weight ?? '-'} / skipped ${formatInt(managedSmtpRouteResolution.route.mta_node_skipped_count || 0)}`,
+        detail: `priority ${managedSmtpRouteResolution.route.mta_node_selection_priority ?? managedSmtpRouteSelection?.priority ?? '-'} / weight ${managedSmtpRouteResolution.route.mta_node_selection_weight ?? managedSmtpRouteSelection?.weight ?? '-'} / skipped ${formatInt(managedSmtpRouteResolution.route.mta_node_skipped_count || 0)}${managedSmtpFirstSkippedNode ? ` / ${managedSmtpSkippedReasonLabel(managedSmtpFirstSkippedNode.reason)}` : ''}`,
         tone: 'good',
       },
     ]

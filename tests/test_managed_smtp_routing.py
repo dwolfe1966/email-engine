@@ -115,6 +115,8 @@ def _provider(**overrides):
         'id': uuid4(),
         'provider': MtaProviderType.aws,
         'status': MtaOperationalStatus.active,
+        'port25_status': 'approved',
+        'rdns_status': 'configured',
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -424,6 +426,66 @@ def test_healthy_node_selection_skips_non_preferred_provider() -> None:
     assert selection.node is second_node
     assert selection.provider is second_provider
     assert selection.skipped[0]['reason'] == 'provider_not_preferred'
+
+
+def test_healthy_node_selection_skips_provider_without_port25_approval() -> None:
+    pool_id = uuid4()
+    node_id = uuid4()
+    provider_id = uuid4()
+    membership = _membership(ip_pool_id=pool_id, mta_node_id=node_id)
+    node = _node(id=node_id, provider_account_id=provider_id)
+    provider = _provider(id=provider_id, port25_status='pending')
+
+    class ScalarResult:
+        def all(self):
+            return [membership]
+
+    class FakeDb:
+        def scalars(self, statement):
+            return ScalarResult()
+
+        def get(self, model, item_id):
+            return {node_id: node, provider_id: provider}.get(item_id)
+
+    service = ManagedSmtpRoutingService(FakeDb())
+    service._latest_readiness_ok = lambda node: True
+
+    selection = service._healthy_node_for_pool(pool_id)
+
+    assert selection.node is None
+    assert selection.available_count == 0
+    assert selection.skipped[0]['reason'] == 'provider_port25_not_ready'
+    assert selection.skipped[0]['provider_port25_status'] == 'pending'
+
+
+def test_healthy_node_selection_skips_provider_without_rdns() -> None:
+    pool_id = uuid4()
+    node_id = uuid4()
+    provider_id = uuid4()
+    membership = _membership(ip_pool_id=pool_id, mta_node_id=node_id)
+    node = _node(id=node_id, provider_account_id=provider_id)
+    provider = _provider(id=provider_id, rdns_status='pending')
+
+    class ScalarResult:
+        def all(self):
+            return [membership]
+
+    class FakeDb:
+        def scalars(self, statement):
+            return ScalarResult()
+
+        def get(self, model, item_id):
+            return {node_id: node, provider_id: provider}.get(item_id)
+
+    service = ManagedSmtpRoutingService(FakeDb())
+    service._latest_readiness_ok = lambda node: True
+
+    selection = service._healthy_node_for_pool(pool_id)
+
+    assert selection.node is None
+    assert selection.available_count == 0
+    assert selection.skipped[0]['reason'] == 'provider_rdns_not_ready'
+    assert selection.skipped[0]['provider_rdns_status'] == 'pending'
 
 
 def test_resolve_blocks_with_provider_preference_fallback_evidence() -> None:

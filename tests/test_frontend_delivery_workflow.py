@@ -408,6 +408,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'ip_pool_selection_source',
         'mta_node_candidate_count',
         'mta_node_skipped_count',
+        'provider_port25_not_ready',
+        'provider_rdns_not_ready',
         'Failover selection',
         'managedSmtpRouteSelection',
         'Route block details',
