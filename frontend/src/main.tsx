@@ -593,6 +593,8 @@ type CampaignTestSendResult = {
   mta_rule_hit_source?: string | null;
   mta_rule_hit_pool_source?: string | null;
   mta_rule_hit_provider_preference?: string[] | null;
+  mta_rule_hit_provider_preference_mode?: string | null;
+  mta_provider_preference_fallback_used?: boolean | null;
   mta_node_name?: string | null;
   mta_node_selection_membership_id?: string | null;
   mta_node_selection_priority?: number | null;
@@ -784,7 +786,11 @@ type ManagedSmtpResolvedRoute = {
   routing_rule_source: string | null;
   routing_rule_pool_source: string | null;
   routing_rule_provider_preference: string[];
+  routing_rule_provider_preference_mode: string;
   preferred_providers: string[];
+  provider_preference_fallback_used: boolean;
+  provider_preference_fallback_provider: string | null;
+  provider_preference_fallback_node_name: string | null;
   delivery_route_id: string;
   delivery_route_name: string;
   domain_policy_id: string;
@@ -10138,6 +10144,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     recipient_domains: 'gmail.com',
     ip_pool_name: 'scaleway-internal-test',
     preferred_providers: 'scaleway',
+    provider_preference_mode: 'strict',
   });
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
@@ -10917,6 +10924,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       recipient_domains: listValue(rule.recipient_domains),
       ip_pool_name: String(rule.ip_pool_name || rule.ip_pool || ''),
       preferred_providers: listValue(rule.preferred_providers),
+      provider_preference_mode: String(rule.provider_preference_mode || 'strict'),
     });
     setManagedSmtpRulePreview(null);
   }
@@ -11160,6 +11168,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         recipient_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.recipient_domains),
         ip_pool_name: managedSmtpRoutingRuleForm.ip_pool_name.trim() || null,
         preferred_providers: splitRoutingRuleList(managedSmtpRoutingRuleForm.preferred_providers),
+        provider_preference_mode: managedSmtpRoutingRuleForm.provider_preference_mode,
       };
       if (!payload.name) throw new Error('Rule name is required.');
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`, {
@@ -11783,6 +11792,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <label>
             Providers
             <input value={managedSmtpRoutingRuleForm.preferred_providers} onChange={(event) => updateManagedSmtpRoutingRuleForm('preferred_providers', event.target.value)} placeholder="scaleway" />
+          </label>
+          <label>
+            Provider mode
+            <select value={managedSmtpRoutingRuleForm.provider_preference_mode} onChange={(event) => updateManagedSmtpRoutingRuleForm('provider_preference_mode', event.target.value)}>
+              <option value="strict">strict</option>
+              <option value="fallback_allowed">fallback allowed</option>
+            </select>
           </label>
           <label>
             Enabled

@@ -171,6 +171,8 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                         'mta_rule_hit_source': 'delivery_route_rule',
                         'mta_rule_hit_pool_source': 'delivery_route_rule',
                         'mta_rule_hit_provider_preference': ['scaleway'],
+                        'mta_rule_hit_provider_preference_mode': 'fallback_allowed',
+                        'mta_provider_preference_fallback_used': True,
                         'mta_node_name': 'mta-002',
                         'mta_node_selection_membership_id': 'pool-membership-002',
                         'mta_node_selection_priority': 100,
@@ -260,6 +262,8 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_rule_hit_source'] == 'delivery_route_rule'
     assert result['mta_rule_hit_pool_source'] == 'delivery_route_rule'
     assert result['mta_rule_hit_provider_preference'] == ['scaleway']
+    assert result['mta_rule_hit_provider_preference_mode'] == 'fallback_allowed'
+    assert result['mta_provider_preference_fallback_used'] is True
     assert result['mta_node_name'] == 'mta-002'
     assert result['mta_node_selection_membership_id'] == 'pool-membership-002'
     assert result['mta_node_selection_priority'] == 100

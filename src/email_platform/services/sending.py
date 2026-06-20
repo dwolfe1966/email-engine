@@ -222,6 +222,12 @@ class SendingService:
             'mta_rule_hit_provider_preference': attempt_metadata.get(
                 'mta_rule_hit_provider_preference'
             ),
+            'mta_rule_hit_provider_preference_mode': attempt_metadata.get(
+                'mta_rule_hit_provider_preference_mode'
+            ),
+            'mta_provider_preference_fallback_used': attempt_metadata.get(
+                'mta_provider_preference_fallback_used'
+            ),
             'mta_node_name': attempt_metadata.get('mta_node_name'),
             'mta_node_selection_membership_id': attempt_metadata.get(
                 'mta_node_selection_membership_id'

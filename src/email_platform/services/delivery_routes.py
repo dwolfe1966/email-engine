@@ -323,12 +323,21 @@ class DeliveryRouteService:
             'sender_domains': self._normalized_domain_list(data.get('sender_domains')),
             'recipient_domains': self._normalized_domain_list(data.get('recipient_domains')),
             'preferred_providers': self._normalized_string_list(data.get('preferred_providers')),
+            'provider_preference_mode': self._provider_preference_mode(
+                data.get('provider_preference_mode')
+            ),
         }
         if payload.mta_ip_pool_id:
             rule['mta_ip_pool_id'] = str(payload.mta_ip_pool_id)
         if payload.ip_pool_name:
             rule['ip_pool_name'] = payload.ip_pool_name.strip()
         return rule
+
+    def _provider_preference_mode(self, value: object) -> str:
+        mode = str(value or 'strict').strip().lower()
+        if mode in {'fallback_allowed', 'allow_fallback', 'fallback'}:
+            return 'fallback_allowed'
+        return 'strict'
 
     def _routing_rule_conflicts(self, rules: list[dict[str, object]]) -> list[dict[str, object]]:
         enabled_rules = [rule for rule in rules if rule.get('enabled') is not False]

@@ -295,6 +295,8 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_rule_hit_source'] is None
     assert attempt.metadata_json['mta_rule_hit_pool_source'] == 'domain_policy'
     assert attempt.metadata_json['mta_rule_hit_provider_preference'] == []
+    assert attempt.metadata_json['mta_rule_hit_provider_preference_mode'] == 'strict'
+    assert attempt.metadata_json['mta_provider_preference_fallback_used'] is False
     assert attempt.metadata_json['mta_provider'] == 'aws'
     assert attempt.metadata_json['mta_provider_account_id'] == str(provider_account_id)
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'

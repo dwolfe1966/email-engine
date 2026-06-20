@@ -96,6 +96,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'mta_rule_hit_name',
         'mta_rule_hit_pool_source',
         'mta_rule_hit_provider_preference',
+        'mta_rule_hit_provider_preference_mode',
+        'mta_provider_preference_fallback_used',
         'Rule hit',
         'Rule inputs',
         'mta_node_selection_membership_id',

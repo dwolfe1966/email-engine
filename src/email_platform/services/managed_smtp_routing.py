@@ -42,6 +42,7 @@ class MtaPoolSelection:
     rule_name: str | None = None
     rule_source: str | None = None
     preferred_providers: list[str] | None = None
+    provider_preference_mode: str = 'strict'
 
 
 class ManagedSmtpRoutingService:
@@ -133,6 +134,20 @@ class ManagedSmtpRoutingService:
             pool.id,
             preferred_providers=pool_selection.preferred_providers,
         )
+        fallback_used = False
+        fallback_provider = None
+        fallback_node = None
+        if (
+            not selection.node
+            and pool_selection.preferred_providers
+            and pool_selection.provider_preference_mode == 'fallback_allowed'
+        ):
+            fallback_selection = self._healthy_node_for_pool(pool.id, preferred_providers=None)
+            if fallback_selection.node and fallback_selection.provider:
+                selection = fallback_selection
+                fallback_used = True
+                fallback_provider = fallback_selection.provider.provider.value
+                fallback_node = fallback_selection.node.name
         capacity = self._pool_capacity(pool, selection)
         if not capacity['ok']:
             return self._blocked(
@@ -178,7 +193,11 @@ class ManagedSmtpRoutingService:
             routing_rule_source=pool_selection.rule_source,
             routing_rule_pool_source=pool_selection.source,
             routing_rule_provider_preference=pool_selection.preferred_providers or [],
+            routing_rule_provider_preference_mode=pool_selection.provider_preference_mode,
             preferred_providers=pool_selection.preferred_providers or [],
+            provider_preference_fallback_used=fallback_used,
+            provider_preference_fallback_provider=fallback_provider,
+            provider_preference_fallback_node_name=fallback_node,
             delivery_route_id=route.id,
             delivery_route_name=route.name,
             domain_policy_id=policy.id,
@@ -221,7 +240,11 @@ class ManagedSmtpRoutingService:
                 'routing_rule_source': pool_selection.rule_source,
                 'routing_rule_pool_source': pool_selection.source,
                 'routing_rule_provider_preference': pool_selection.preferred_providers or [],
+                'routing_rule_provider_preference_mode': pool_selection.provider_preference_mode,
                 'preferred_providers': pool_selection.preferred_providers or [],
+                'provider_preference_fallback_used': fallback_used,
+                'provider_preference_fallback_provider': fallback_provider,
+                'provider_preference_fallback_node_name': fallback_node,
                 'selection': {
                     'candidate_count': selection.candidate_count,
                     'available_node_count': selection.available_count,
@@ -439,6 +462,9 @@ class ManagedSmtpRoutingService:
                     rule_name=rule_name,
                     rule_source=source,
                     preferred_providers=preferred_providers,
+                    provider_preference_mode=self._provider_preference_mode(
+                        rule.get('provider_preference_mode')
+                    ),
                 )
         return None
 
@@ -499,6 +525,12 @@ class ManagedSmtpRoutingService:
         if isinstance(value, list):
             return [str(item) for item in value if item]
         return []
+
+    def _provider_preference_mode(self, value: object) -> str:
+        mode = str(value or 'strict').strip().lower()
+        if mode in {'fallback_allowed', 'allow_fallback', 'fallback'}:
+            return 'fallback_allowed'
+        return 'strict'
 
     def _rule_value_matches(self, configured: object, actual: str | None) -> bool:
         values = [value.lower() for value in self._string_list(configured)]

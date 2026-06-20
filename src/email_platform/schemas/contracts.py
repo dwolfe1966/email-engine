@@ -686,6 +686,7 @@ class ManagedSmtpRoutingRuleUpsert(BaseModel):
     mta_ip_pool_id: UUID | None = None
     ip_pool_name: str | None = Field(default=None, max_length=200)
     preferred_providers: list[str] = Field(default_factory=list)
+    provider_preference_mode: str = Field(default='strict', max_length=40)
 
 
 class ManagedSmtpRoutingRulesRead(BaseModel):
@@ -1034,7 +1035,11 @@ class ManagedSmtpResolvedRoute(BaseModel):
     routing_rule_source: str | None = None
     routing_rule_pool_source: str | None = None
     routing_rule_provider_preference: list[str] = Field(default_factory=list)
+    routing_rule_provider_preference_mode: str = 'strict'
     preferred_providers: list[str] = Field(default_factory=list)
+    provider_preference_fallback_used: bool = False
+    provider_preference_fallback_provider: str | None = None
+    provider_preference_fallback_node_name: str | None = None
     delivery_route_id: UUID
     delivery_route_name: str
     domain_policy_id: UUID
@@ -1779,6 +1784,8 @@ class CampaignTestSendResponse(SendResponse):
     mta_rule_hit_source: str | None = None
     mta_rule_hit_pool_source: str | None = None
     mta_rule_hit_provider_preference: list[str] | None = None
+    mta_rule_hit_provider_preference_mode: str | None = None
+    mta_provider_preference_fallback_used: bool | None = None
     mta_node_name: str | None = None
     mta_node_selection_membership_id: str | None = None
     mta_node_selection_priority: int | None = None

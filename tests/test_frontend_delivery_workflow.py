@@ -403,6 +403,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'routing_rule_name',
         'routing_rule_source',
         'preferred_providers',
+        'provider_preference_mode',
+        'fallback_allowed',
         'ip_pool_selection_source',
         'mta_node_candidate_count',
         'mta_node_skipped_count',

@@ -115,6 +115,7 @@ def test_upsert_managed_smtp_routing_rule_preserves_route_config() -> None:
             recipient_domains=['GMAIL.COM'],
             ip_pool_name='scaleway-transactional',
             preferred_providers=['Scaleway'],
+            provider_preference_mode='fallback_allowed',
         ),
     )
 
@@ -130,6 +131,7 @@ def test_upsert_managed_smtp_routing_rule_preserves_route_config() -> None:
     assert rule['sender_domains'] == ['email-engine.app']
     assert rule['recipient_domains'] == ['gmail.com']
     assert rule['preferred_providers'] == ['scaleway']
+    assert rule['provider_preference_mode'] == 'fallback_allowed'
 
 
 def test_upsert_managed_smtp_routing_rule_replaces_rule_by_name() -> None:

@@ -482,6 +482,71 @@ def test_resolve_blocks_with_provider_preference_fallback_evidence() -> None:
     assert result.reason.details['provider_preference_fallback_mta_node_name'] == 'mta-aws-001'
 
 
+def test_resolve_uses_provider_preference_fallback_when_rule_allows_it() -> None:
+    pool = _pool()
+    fallback_node = _node(name='mta-aws-001')
+    fallback_provider = _provider(provider=MtaProviderType.aws)
+
+    class PreferenceHarness(ResolverHarness):
+        def _selected_pool(
+            self,
+            requested_pool_id,
+            policy,
+            route,
+            sender_domain=None,
+            recipient_domain=None,
+            send_type=None,
+        ):
+            return MtaPoolSelection(
+                pool,
+                'delivery_route_rule',
+                'scaleway-or-fallback',
+                'delivery_route_rule',
+                ['scaleway'],
+                'fallback_allowed',
+            )
+
+        def _healthy_node_for_pool(self, pool_id, preferred_providers=None):
+            if preferred_providers:
+                return MtaNodeSelection(
+                    node=None,
+                    provider=None,
+                    membership=None,
+                    candidate_count=1,
+                    skipped=[
+                        {
+                            'mta_node_id': str(fallback_node.id),
+                            'provider': 'aws',
+                            'reason': 'provider_not_preferred',
+                        }
+                    ],
+                )
+            return MtaNodeSelection(
+                node=fallback_node,
+                provider=fallback_provider,
+                membership=SimpleNamespace(id=uuid4(), priority=100, weight=100),
+                candidate_count=1,
+                skipped=[],
+                available_count=1,
+            )
+
+    service = PreferenceHarness()
+    service.policy = _policy()
+    service.route = _route()
+
+    result = service.resolve(ManagedSmtpRouteResolveRequest(from_domain='example.com'))
+
+    assert result.ok
+    assert result.route is not None
+    assert result.route.provider == MtaProviderType.aws
+    assert result.route.mta_node_name == 'mta-aws-001'
+    assert result.route.routing_rule_provider_preference == ['scaleway']
+    assert result.route.routing_rule_provider_preference_mode == 'fallback_allowed'
+    assert result.route.provider_preference_fallback_used is True
+    assert result.route.provider_preference_fallback_provider == 'aws'
+    assert result.route.provider_preference_fallback_node_name == 'mta-aws-001'
+
+
 def test_healthy_node_selection_skips_paused_node_and_uses_next_candidate() -> None:
     pool_id = uuid4()
     first_node_id = uuid4()
