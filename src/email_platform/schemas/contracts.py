@@ -1007,14 +1007,22 @@ class ManagedSmtpRouteBlockReason(BaseModel):
 
 class ManagedSmtpResolvedRoute(BaseModel):
     domain: str
+    sender_domain: str | None = None
+    recipient_domain: str | None = None
+    decision_basis: str = 'sender_domain_policy'
     delivery_route_id: UUID
     delivery_route_name: str
     domain_policy_id: UUID
     ip_pool_id: UUID
     ip_pool_name: str
     ip_pool_type: MtaIpPoolType
+    ip_pool_selection_source: str = 'unknown'
     mta_node_id: UUID
     mta_node_name: str
+    mta_node_selection_priority: int | None = None
+    mta_node_selection_weight: int | None = None
+    mta_node_candidate_count: int = 0
+    mta_node_skipped_count: int = 0
     provider_account_id: UUID
     provider: MtaProviderType
     hostname: str

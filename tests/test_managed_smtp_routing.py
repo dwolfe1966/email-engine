@@ -10,7 +10,11 @@ from email_platform.models.entities import (
     MtaProviderType,
 )
 from email_platform.schemas.contracts import ManagedSmtpRouteResolveRequest
-from email_platform.services.managed_smtp_routing import ManagedSmtpRoutingService, MtaNodeSelection
+from email_platform.services.managed_smtp_routing import (
+    ManagedSmtpRoutingService,
+    MtaNodeSelection,
+    MtaPoolSelection,
+)
 
 
 class ResolverHarness(ManagedSmtpRoutingService):
@@ -29,7 +33,7 @@ class ResolverHarness(ManagedSmtpRoutingService):
         return self.route
 
     def _selected_pool(self, requested_pool_id, policy, route):
-        return self.pool
+        return MtaPoolSelection(self.pool, 'domain_policy')
 
     def _healthy_node_for_pool(self, pool_id):
         return MtaNodeSelection(
@@ -209,15 +213,40 @@ def test_resolve_returns_selected_submission_route() -> None:
     assert result.ok
     assert result.route is not None
     assert result.route.domain == 'example.com'
+    assert result.route.sender_domain == 'example.com'
+    assert result.route.recipient_domain is None
+    assert result.route.decision_basis == 'sender_domain_policy'
     assert result.route.delivery_route_name == 'managed-smtp-primary'
     assert result.route.ip_pool_name == 'warmup-a'
+    assert result.route.ip_pool_selection_source == 'domain_policy'
     assert result.route.mta_node_name == 'mta-001'
+    assert result.route.mta_node_candidate_count == 1
+    assert result.route.mta_node_selection_priority == 100
+    assert result.route.mta_node_selection_weight == 100
     assert result.route.provider == MtaProviderType.aws
     assert result.route.submission_host == 'mta-001.email-engine.example'
     assert result.route.envelope_sender_domain == 'bounces.example.com'
     assert result.route.dkim_selector == 'ee1'
     assert result.route.telemetry_tags['selection']['candidate_count'] == 1
     assert result.route.telemetry_tags['selection']['priority'] == 100
+
+
+def test_resolve_can_fall_back_to_recipient_domain_policy() -> None:
+    service = ResolverHarness()
+    service.policy = _policy()
+    service.route = _route()
+    service.pool = _pool()
+    service.node = _node()
+    service.provider = _provider()
+
+    result = service.resolve(ManagedSmtpRouteResolveRequest(recipient_domain='recipient@example.com'))
+
+    assert result.ok
+    assert result.route is not None
+    assert result.route.domain == 'example.com'
+    assert result.route.sender_domain is None
+    assert result.route.recipient_domain == 'example.com'
+    assert result.route.decision_basis == 'recipient_domain_policy'
 
 
 def test_healthy_node_selection_skips_paused_node_and_uses_next_candidate() -> None:

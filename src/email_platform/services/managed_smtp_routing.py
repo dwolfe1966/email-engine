@@ -34,12 +34,20 @@ class MtaNodeSelection:
     skipped: list[dict[str, object]]
 
 
+@dataclass
+class MtaPoolSelection:
+    pool: MtaIpPool | None
+    source: str
+
+
 class ManagedSmtpRoutingService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
     def resolve(self, payload: ManagedSmtpRouteResolveRequest) -> ManagedSmtpRouteResolutionRead:
-        domain = self._normalized_domain(payload.from_domain or payload.recipient_domain)
+        sender_domain = self._normalized_domain(payload.from_domain)
+        recipient_domain = self._normalized_domain(payload.recipient_domain)
+        domain = sender_domain or recipient_domain
         if not domain:
             return self._blocked(
                 'DOMAIN_NOT_READY',
@@ -92,7 +100,8 @@ class ManagedSmtpRoutingService:
                 route_id=str(route.id),
             )
 
-        pool = self._selected_pool(payload.ip_pool_id, policy, route)
+        pool_selection = self._selected_pool(payload.ip_pool_id, policy, route)
+        pool = pool_selection.pool
         if not pool:
             return self._blocked(
                 'POOL_PAUSED',
@@ -127,14 +136,22 @@ class ManagedSmtpRoutingService:
         dkim_key = metadata.get('dkim_key')
         route_read = ManagedSmtpResolvedRoute(
             domain=domain,
+            sender_domain=sender_domain,
+            recipient_domain=recipient_domain,
+            decision_basis='sender_domain_policy' if sender_domain else 'recipient_domain_policy',
             delivery_route_id=route.id,
             delivery_route_name=route.name,
             domain_policy_id=policy.id,
             ip_pool_id=pool.id,
             ip_pool_name=pool.name,
             ip_pool_type=pool.pool_type,
+            ip_pool_selection_source=pool_selection.source,
             mta_node_id=node.id,
             mta_node_name=node.name,
+            mta_node_selection_priority=selection.membership.priority if selection.membership else None,
+            mta_node_selection_weight=selection.membership.weight if selection.membership else None,
+            mta_node_candidate_count=selection.candidate_count,
+            mta_node_skipped_count=len(selection.skipped),
             provider_account_id=provider.id,
             provider=provider.provider,
             hostname=node.hostname,
@@ -150,6 +167,8 @@ class ManagedSmtpRoutingService:
                 'ip_pool': pool.name,
                 'mta_node': node.name,
                 'provider': provider.provider.value,
+                'decision_basis': 'sender_domain_policy' if sender_domain else 'recipient_domain_policy',
+                'ip_pool_selection_source': pool_selection.source,
                 'selection': {
                     'candidate_count': selection.candidate_count,
                     'membership_id': str(selection.membership.id) if selection.membership else None,
@@ -178,21 +197,28 @@ class ManagedSmtpRoutingService:
         requested_pool_id: UUID | None,
         policy: DomainDeliveryPolicy,
         route: DeliveryRoute,
-    ) -> MtaIpPool | None:
+    ) -> MtaPoolSelection:
         if requested_pool_id:
-            return self.db.get(MtaIpPool, requested_pool_id)
+            return MtaPoolSelection(self.db.get(MtaIpPool, requested_pool_id), 'request')
         policy_pool_id = self._metadata_uuid(policy.metadata_json, 'mta_ip_pool_id')
         route_pool_id = self._metadata_uuid(route.config, 'mta_ip_pool_id')
         pool_id = policy_pool_id or route_pool_id
         if pool_id:
-            return self.db.get(MtaIpPool, pool_id)
+            return MtaPoolSelection(
+                self.db.get(MtaIpPool, pool_id),
+                'domain_policy' if policy_pool_id else 'delivery_route',
+            )
         pool_name = self._metadata_value(policy.metadata_json, 'ip_pool') or self._metadata_value(
             route.config,
             'ip_pool',
         )
         if not pool_name:
-            return None
-        return self.db.scalar(select(MtaIpPool).where(MtaIpPool.name == pool_name).limit(1))
+            return MtaPoolSelection(None, 'missing')
+        pool = self.db.scalar(select(MtaIpPool).where(MtaIpPool.name == pool_name).limit(1))
+        return MtaPoolSelection(
+            pool,
+            'domain_policy' if self._metadata_value(policy.metadata_json, 'ip_pool') else 'delivery_route',
+        )
 
     def _healthy_node_for_pool(
         self,

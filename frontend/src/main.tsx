@@ -721,14 +721,22 @@ type ManagedSmtpReadinessNotificationRead = {
 
 type ManagedSmtpResolvedRoute = {
   domain: string;
+  sender_domain: string | null;
+  recipient_domain: string | null;
+  decision_basis: string;
   delivery_route_id: string;
   delivery_route_name: string;
   domain_policy_id: string;
   ip_pool_id: string;
   ip_pool_name: string;
   ip_pool_type: string;
+  ip_pool_selection_source: string;
   mta_node_id: string;
   mta_node_name: string;
+  mta_node_selection_priority: number | null;
+  mta_node_selection_weight: number | null;
+  mta_node_candidate_count: number;
+  mta_node_skipped_count: number;
   provider_account_id: string;
   provider: string;
   hostname: string;
@@ -10621,6 +10629,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const managedSmtpRouteItems = managedSmtpRouteResolution?.ok && managedSmtpRouteResolution.route
     ? [
       {
+        label: 'Decision',
+        value: `${managedSmtpRouteResolution.route.sender_domain || managedSmtpRouteResolution.route.domain} -> ${managedSmtpRouteResolution.route.recipient_domain || 'any recipient'}`,
+        detail: `${managedSmtpRouteResolution.route.decision_basis.replace(/_/g, ' ')} / pool from ${managedSmtpRouteResolution.route.ip_pool_selection_source.replace(/_/g, ' ')}`,
+        tone: 'good',
+      },
+      {
         label: 'Route',
         value: managedSmtpRouteResolution.route.delivery_route_name,
         detail: `${managedSmtpRouteResolution.route.provider} via ${managedSmtpRouteResolution.route.hostname}`,
@@ -10646,8 +10660,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       },
       {
         label: 'Failover selection',
-        value: `${formatInt(Number(managedSmtpRouteSelection?.candidate_count || 0))} candidate(s)`,
-        detail: `priority ${managedSmtpRouteSelection?.priority ?? '-'} / weight ${managedSmtpRouteSelection?.weight ?? '-'}`,
+        value: `${formatInt(managedSmtpRouteResolution.route.mta_node_candidate_count || Number(managedSmtpRouteSelection?.candidate_count || 0))} candidate(s)`,
+        detail: `priority ${managedSmtpRouteResolution.route.mta_node_selection_priority ?? managedSmtpRouteSelection?.priority ?? '-'} / weight ${managedSmtpRouteResolution.route.mta_node_selection_weight ?? managedSmtpRouteSelection?.weight ?? '-'} / skipped ${formatInt(managedSmtpRouteResolution.route.mta_node_skipped_count || 0)}`,
         tone: 'good',
       },
     ]
