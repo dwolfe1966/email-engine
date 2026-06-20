@@ -227,6 +227,12 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
         'mta_submission_host',
         'smtp_response_code',
     }.issubset(properties.keys())
+    assert set(properties['mta_route_status']['anyOf'][0]['enum']) == {
+        'resolved',
+        'blocked',
+        'attempted',
+        'not_attempted',
+    }
 
 
 def test_api_tester_page() -> None:

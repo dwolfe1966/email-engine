@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -27,6 +27,7 @@ from email_platform.models.entities import (
 
 JsonObject = dict[str, str | int | float | bool | None | list[object] | dict[str, object]]
 T = TypeVar('T')
+MtaRouteStatus = Literal['resolved', 'blocked', 'attempted', 'not_attempted']
 
 
 class ListResponse(BaseModel, Generic[T]):
@@ -1732,7 +1733,7 @@ class CampaignTestSendResponse(SendResponse):
     mta_submission_port: int | None = None
     mta_ip_pool_name: str | None = None
     mta_route_resolved: bool | None = None
-    mta_route_status: str | None = None
+    mta_route_status: MtaRouteStatus | None = None
     mta_route_block_code: str | None = None
     mta_route_block_message: str | None = None
     envelope_from: str | None = None

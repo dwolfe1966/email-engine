@@ -545,7 +545,7 @@ type CampaignTestSendResult = {
   mta_submission_port?: number | null;
   mta_ip_pool_name?: string | null;
   mta_route_resolved?: boolean | null;
-  mta_route_status?: string | null;
+  mta_route_status?: 'resolved' | 'blocked' | 'attempted' | 'not_attempted' | null;
   mta_route_block_code?: string | null;
   mta_route_block_message?: string | null;
   envelope_from?: string | null;
