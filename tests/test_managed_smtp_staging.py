@@ -546,11 +546,18 @@ def test_managed_smtp_mta_smoke_script_contract_is_documented() -> None:
     assert 'managed_smtp_mta_smoke.py' in hardening
 
 
-def test_postfix_staging_config_keeps_relay_restricted_to_mynetworks() -> None:
+def test_postfix_staging_config_restricts_relay_to_trusted_or_authenticated_clients() -> None:
     entrypoint = (INFRA / 'postfix' / 'entrypoint.sh').read_text()
     master = (INFRA / 'postfix' / 'master.cf').read_text()
 
-    assert 'smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination' in entrypoint
+    assert (
+        'smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, '
+        'reject_unauth_destination'
+    ) in entrypoint
+    assert (
+        'smtpd_relay_restrictions=permit_mynetworks,permit_sasl_authenticated,'
+        'reject_unauth_destination'
+    ) in master
     assert (
         'smtpd_recipient_restrictions=permit_mynetworks,permit_sasl_authenticated,reject'
         in master
