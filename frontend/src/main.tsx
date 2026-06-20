@@ -10226,7 +10226,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_ip_pool_id: '',
     mta_node_id: '',
     mta_provider: '',
+    mta_route_resolved: '',
+    mta_route_send_type: '',
+    mta_route_sender_domain: '',
+    mta_route_recipient_domain: '',
     mta_routing_rule_name: '',
+    mta_routing_rule_source: '',
+    mta_rule_hit_pool_source: '',
+    mta_rule_hit_provider_preference: '',
     mta_route_block_code: '',
   });
   const [feedbackFilters, setFeedbackFilters] = useState({
@@ -10325,6 +10332,34 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const mtaProviderOptions = Array.from(new Set((managedSmtpDeploymentSummary?.provider_readiness || [])
     .map((item) => item.provider_account.provider)
     .filter(Boolean)));
+  const emptyDeliveryAttemptFilters = {
+    mta_ip_pool_id: '',
+    mta_node_id: '',
+    mta_provider: '',
+    mta_route_resolved: '',
+    mta_route_send_type: '',
+    mta_route_sender_domain: '',
+    mta_route_recipient_domain: '',
+    mta_routing_rule_name: '',
+    mta_routing_rule_source: '',
+    mta_rule_hit_pool_source: '',
+    mta_rule_hit_provider_preference: '',
+    mta_route_block_code: '',
+  };
+  const deliveryAttemptPresetViews = [
+    {
+      label: 'Route Blocks',
+      filters: { mta_route_resolved: 'false' },
+    },
+    {
+      label: 'Resolved Rule Hits',
+      filters: { mta_route_resolved: 'true', mta_routing_rule_source: 'delivery_route_rule' },
+    },
+    {
+      label: 'Strict Provider Preference',
+      filters: { mta_route_resolved: 'true', mta_rule_hit_provider_preference: mtaProviderOptions[0] || '' },
+    },
+  ];
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => queuedDeliveryStatuses.includes(record.status) && Number(record.attempt_count || 0) > 0).length;
   const blockedRecords = countRecordsByStatus(sendRecords, blockedDeliveryStatuses);
@@ -11014,6 +11049,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function updateDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters, value: string) {
     setDeliveryAttemptFilters((current) => ({ ...current, [name]: value }));
+  }
+
+  function applyDeliveryAttemptPreset(filters: Partial<typeof deliveryAttemptFilters>) {
+    setDeliveryAttemptFilters({ ...emptyDeliveryAttemptFilters, ...filters });
   }
 
   function updateMtaNodeEventFilter(name: keyof typeof mtaNodeEventFilters, value: string) {
@@ -12538,6 +12577,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
           <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>{deliveryAttemptAuditButtonLabel}</button>
         </div>
+        <div className="button-row">
+          {deliveryAttemptPresetViews.map((preset) => (
+            <button className="ghost" type="button" onClick={() => applyDeliveryAttemptPreset(preset.filters)} disabled={busy} key={preset.label}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <div className="form-grid">
           <label>
             MTA pool
@@ -12567,8 +12613,40 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             </select>
           </label>
           <label>
+            Route status
+            <select value={deliveryAttemptFilters.mta_route_resolved} onChange={(event) => updateDeliveryAttemptFilter('mta_route_resolved', event.target.value)}>
+              <option value="">Any route status</option>
+              <option value="true">Resolved</option>
+              <option value="false">Blocked</option>
+            </select>
+          </label>
+          <label>
+            Send type
+            <input value={deliveryAttemptFilters.mta_route_send_type} onChange={(event) => updateDeliveryAttemptFilter('mta_route_send_type', event.target.value)} placeholder="internal_test" />
+          </label>
+          <label>
+            Sender domain
+            <input value={deliveryAttemptFilters.mta_route_sender_domain} onChange={(event) => updateDeliveryAttemptFilter('mta_route_sender_domain', event.target.value)} placeholder="email-engine.app" />
+          </label>
+          <label>
+            Recipient domain
+            <input value={deliveryAttemptFilters.mta_route_recipient_domain} onChange={(event) => updateDeliveryAttemptFilter('mta_route_recipient_domain', event.target.value)} placeholder="gmail.com" />
+          </label>
+          <label>
             Routing rule
             <input value={deliveryAttemptFilters.mta_routing_rule_name} onChange={(event) => updateDeliveryAttemptFilter('mta_routing_rule_name', event.target.value)} placeholder="gmail-scaleway" />
+          </label>
+          <label>
+            Rule source
+            <input value={deliveryAttemptFilters.mta_routing_rule_source} onChange={(event) => updateDeliveryAttemptFilter('mta_routing_rule_source', event.target.value)} placeholder="delivery_route_rule" />
+          </label>
+          <label>
+            Pool source
+            <input value={deliveryAttemptFilters.mta_rule_hit_pool_source} onChange={(event) => updateDeliveryAttemptFilter('mta_rule_hit_pool_source', event.target.value)} placeholder="routing_rule" />
+          </label>
+          <label>
+            Provider preference
+            <input value={deliveryAttemptFilters.mta_rule_hit_provider_preference} onChange={(event) => updateDeliveryAttemptFilter('mta_rule_hit_provider_preference', event.target.value)} placeholder="scaleway" />
           </label>
           <label>
             Block code
@@ -12577,13 +12655,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
-          <button className="ghost" onClick={() => setDeliveryAttemptFilters({
-            mta_ip_pool_id: '',
-            mta_node_id: '',
-            mta_provider: '',
-            mta_routing_rule_name: '',
-            mta_route_block_code: '',
-          })} disabled={busy}>Clear Attempt Filters</button>
+          <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
         </div>
         {deliveryAttempts.length ? (
           <div className="delivery-audit-list">

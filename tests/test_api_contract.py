@@ -269,7 +269,14 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
         'mta_ip_pool_id',
         'mta_node_id',
         'mta_provider',
+        'mta_route_resolved',
+        'mta_route_send_type',
+        'mta_route_sender_domain',
+        'mta_route_recipient_domain',
         'mta_routing_rule_name',
+        'mta_routing_rule_source',
+        'mta_rule_hit_pool_source',
+        'mta_rule_hit_provider_preference',
         'mta_route_block_code',
     }.issubset(names)
 

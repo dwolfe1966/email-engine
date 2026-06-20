@@ -2963,7 +2963,14 @@ def list_delivery_attempts(
     mta_ip_pool_id: UUID | None = None,
     mta_node_id: UUID | None = None,
     mta_provider: str | None = None,
+    mta_route_resolved: bool | None = None,
+    mta_route_send_type: str | None = None,
+    mta_route_sender_domain: str | None = None,
+    mta_route_recipient_domain: str | None = None,
     mta_routing_rule_name: str | None = None,
+    mta_routing_rule_source: str | None = None,
+    mta_rule_hit_pool_source: str | None = None,
+    mta_rule_hit_provider_preference: str | None = None,
     mta_route_block_code: str | None = None,
     limit: Limit = 100,
     offset: Offset = 0,
@@ -2983,12 +2990,25 @@ def list_delivery_attempts(
         'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
         'mta_node_id': str(mta_node_id) if mta_node_id else None,
         'mta_provider': mta_provider,
+        'mta_route_send_type': mta_route_send_type,
+        'mta_route_sender_domain': mta_route_sender_domain,
+        'mta_route_recipient_domain': mta_route_recipient_domain,
         'mta_routing_rule_name': mta_routing_rule_name,
+        'mta_routing_rule_source': mta_routing_rule_source,
+        'mta_rule_hit_pool_source': mta_rule_hit_pool_source,
         'mta_route_block_code': mta_route_block_code,
     }
+    if mta_route_resolved is not None:
+        filters.append(DeliveryAttempt.metadata_json['mta_route_resolved'].astext == str(mta_route_resolved).lower())
     for metadata_key, metadata_value in metadata_filters.items():
         if metadata_value:
             filters.append(DeliveryAttempt.metadata_json[metadata_key].astext == metadata_value)
+    if mta_rule_hit_provider_preference:
+        filters.append(
+            DeliveryAttempt.metadata_json['mta_rule_hit_provider_preference'].contains(
+                [mta_rule_hit_provider_preference]
+            )
+        )
 
     statement = (
         select(DeliveryAttempt)
