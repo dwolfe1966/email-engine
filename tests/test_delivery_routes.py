@@ -215,6 +215,68 @@ def test_delete_managed_smtp_routing_rule_removes_named_rule() -> None:
     assert [rule['name'] for rule in route.config['routing_rules']] == ['backup']
 
 
+def test_managed_smtp_routing_rules_reports_same_priority_overlap() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [
+                {
+                    'name': 'gmail-scaleway',
+                    'priority': 10,
+                    'enabled': True,
+                    'send_types': ['internal_test'],
+                    'sender_domains': ['email-engine.app'],
+                    'recipient_domains': ['gmail.com'],
+                },
+                {
+                    'name': 'gmail-backup',
+                    'priority': 10,
+                    'enabled': True,
+                    'send_types': ['internal_test'],
+                    'sender_domains': ['Email-Engine.App'],
+                    'recipient_domains': ['gmail.com'],
+                },
+            ],
+        },
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+
+    result = service.managed_smtp_routing_rules(route_id)
+
+    assert result is not None
+    assert len(result.conflicts) == 1
+    assert result.conflicts[0]['code'] == 'ROUTING_RULE_OVERLAP'
+    assert result.conflicts[0]['rule_names'] == ['gmail-scaleway', 'gmail-backup']
+
+
+def test_managed_smtp_routing_rules_ignores_disabled_or_lower_priority_overlap() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [
+                {'name': 'primary', 'priority': 10, 'send_types': ['internal_test']},
+                {'name': 'backup', 'priority': 20, 'send_types': ['internal_test']},
+                {
+                    'name': 'disabled',
+                    'priority': 10,
+                    'enabled': False,
+                    'send_types': ['internal_test'],
+                },
+            ],
+        },
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+
+    result = service.managed_smtp_routing_rules(route_id)
+
+    assert result is not None
+    assert result.conflicts == []
+
+
 def test_delivery_route_selector_prefers_active_matching_route() -> None:
     route_id = uuid4()
     service = DeliveryRouteService(

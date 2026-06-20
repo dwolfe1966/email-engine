@@ -208,10 +208,12 @@ class DeliveryRouteService:
         route = self.get(route_id)
         if not route:
             return None
+        rules = self._routing_rules_from_route(route)
         return ManagedSmtpRoutingRulesRead(
             delivery_route_id=route.id,
             delivery_route_name=route.name,
-            rules=self._routing_rules_from_route(route),
+            rules=rules,
+            conflicts=self._routing_rule_conflicts(rules),
         )
 
     def upsert_managed_smtp_routing_rule(
@@ -238,6 +240,7 @@ class DeliveryRouteService:
             delivery_route_id=route.id,
             delivery_route_name=route.name,
             rules=next_rules,
+            conflicts=self._routing_rule_conflicts(next_rules),
         )
 
     def set_managed_smtp_routing_rule_enabled(
@@ -304,6 +307,7 @@ class DeliveryRouteService:
             delivery_route_id=route.id,
             delivery_route_name=route.name,
             rules=next_rules,
+            conflicts=self._routing_rule_conflicts(next_rules),
         )
 
     def _normalized_routing_rule(
@@ -325,6 +329,56 @@ class DeliveryRouteService:
         if payload.ip_pool_name:
             rule['ip_pool_name'] = payload.ip_pool_name.strip()
         return rule
+
+    def _routing_rule_conflicts(self, rules: list[dict[str, object]]) -> list[dict[str, object]]:
+        enabled_rules = [rule for rule in rules if rule.get('enabled') is not False]
+        conflicts: list[dict[str, object]] = []
+        for index, first in enumerate(enabled_rules):
+            for second in enabled_rules[index + 1:]:
+                if int(first.get('priority') or 100) != int(second.get('priority') or 100):
+                    continue
+                overlapping_dimensions = [
+                    dimension
+                    for dimension in ('send_types', 'sender_domains', 'recipient_domains')
+                    if self._routing_rule_dimension_overlaps(
+                        first.get(dimension),
+                        second.get(dimension),
+                        normalize_domains=dimension.endswith('_domains'),
+                    )
+                ]
+                if len(overlapping_dimensions) != 3:
+                    continue
+                conflicts.append(
+                    {
+                        'severity': 'warning',
+                        'code': 'ROUTING_RULE_OVERLAP',
+                        'rule_names': [
+                            str(first.get('name') or 'unnamed'),
+                            str(second.get('name') or 'unnamed'),
+                        ],
+                        'priority': int(first.get('priority') or 100),
+                        'overlapping_dimensions': overlapping_dimensions,
+                        'message': (
+                            'Enabled routing rules share priority and overlapping match criteria.'
+                        ),
+                    }
+                )
+        return conflicts
+
+    def _routing_rule_dimension_overlaps(
+        self,
+        first: object,
+        second: object,
+        normalize_domains: bool = False,
+    ) -> bool:
+        normalizer = self._normalized_domain_list if normalize_domains else self._normalized_string_list
+        first_values = set(normalizer(first))
+        second_values = set(normalizer(second))
+        if not first_values or not second_values:
+            return True
+        if '*' in first_values or '*' in second_values:
+            return True
+        return bool(first_values.intersection(second_values))
 
     @staticmethod
     def _normalized_string_list(value: object) -> list[str]:

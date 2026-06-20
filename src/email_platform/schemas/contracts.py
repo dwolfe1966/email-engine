@@ -692,6 +692,7 @@ class ManagedSmtpRoutingRulesRead(BaseModel):
     delivery_route_id: UUID
     delivery_route_name: str
     rules: list[JsonObject] = Field(default_factory=list)
+    conflicts: list[JsonObject] = Field(default_factory=list)
 
 
 class DomainDeliveryPolicyCreate(BaseModel):

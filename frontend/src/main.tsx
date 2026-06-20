@@ -498,6 +498,7 @@ type ManagedSmtpRoutingRulesRead = {
   delivery_route_id: string;
   delivery_route_name: string;
   rules: Record<string, unknown>[];
+  conflicts: Record<string, unknown>[];
 };
 
 type DomainReputationDashboardRead = {
@@ -11765,6 +11766,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{managedSmtpRulePreview.reason.message}</small>
             </article>
           ) : null}
+          {(managedSmtpRoutingRules?.conflicts || []).map((conflict) => (
+            <article className="managed-smtp-route-field warn" key={`${String(conflict.code || 'conflict')}-${String(conflict.rule_names || '')}`}>
+              <span>Conflict</span>
+              <strong>{Array.isArray(conflict.rule_names) ? conflict.rule_names.join(' / ') : String(conflict.code || 'Rule overlap')}</strong>
+              <small>{String(conflict.message || 'Enabled rules overlap on match criteria and priority.')}</small>
+            </article>
+          ))}
           {(managedSmtpRoutingRules?.rules || []).map((rule) => (
             <article
               className={`managed-smtp-route-field ${rule.enabled === false ? 'warn' : 'good'} ${String(rule.name || '') === selectedManagedSmtpRoutingRuleName ? 'selected-row' : ''}`}
