@@ -278,6 +278,22 @@ class DeliveryService:
     def _managed_smtp_submission_block_reason(self, attempt: DeliveryAttempt) -> str | None:
         if attempt.route_type != 'managed_smtp':
             return None
+        if attempt.metadata_json.get('mta_route_resolved') is True:
+            username = getattr(self.settings, 'smtp_username', None)
+            password = getattr(self.settings, 'smtp_password', None)
+            if not username or not password:
+                attempt.metadata_json = {
+                    **attempt.metadata_json,
+                    'mta_route_block_code': 'MANAGED_SMTP_SUBMISSION_AUTH_MISSING',
+                    'mta_route_block_message': (
+                        'Managed SMTP submission requires SMTP_USERNAME and SMTP_PASSWORD.'
+                    ),
+                }
+                return (
+                    'Managed SMTP route blocked (MANAGED_SMTP_SUBMISSION_AUTH_MISSING): '
+                    'Managed SMTP submission requires SMTP_USERNAME and SMTP_PASSWORD.'
+                )
+            return None
         if attempt.metadata_json.get('mta_route_resolved') is not False:
             return None
         code = str(attempt.metadata_json.get('mta_route_block_code') or 'UNKNOWN')

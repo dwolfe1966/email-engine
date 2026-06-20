@@ -441,6 +441,29 @@ def test_delivery_service_uses_resolved_mta_submission_provider(monkeypatch) -> 
     assert attempt.metadata_json['mta_submission_provider'] == 'managed_smtp'
 
 
+def test_delivery_service_blocks_managed_smtp_without_submission_auth() -> None:
+    service = DeliveryService.__new__(DeliveryService)
+    service.settings = SimpleNamespace(
+        smtp_username=None,
+        smtp_password=None,
+    )
+    attempt = SimpleNamespace(
+        route_type='managed_smtp',
+        metadata_json={
+            'mta_route_resolved': True,
+            'mta_submission_host': 'mta-001.example.com',
+            'mta_submission_port': 587,
+        },
+    )
+
+    reason = service._managed_smtp_submission_block_reason(attempt)
+
+    assert 'MANAGED_SMTP_SUBMISSION_AUTH_MISSING' in reason
+    assert attempt.metadata_json['mta_route_block_code'] == (
+        'MANAGED_SMTP_SUBMISSION_AUTH_MISSING'
+    )
+
+
 def test_delivery_service_keeps_default_provider_for_unresolved_managed_smtp_attempt() -> None:
     service = DeliveryService.__new__(DeliveryService)
     service.provider = object()
