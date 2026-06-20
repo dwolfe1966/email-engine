@@ -2385,6 +2385,24 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           actionLabel: 'Dry-Run Launch',
           run: dryRunLaunch,
         };
+  const proofSendRouteLabel = lastTestSendResult
+    ? [
+      lastTestSendResult.route_type || lastTestSendResult.provider,
+      lastTestSendResult.mta_provider || lastTestSendResult.route_key,
+    ].filter(Boolean).join(' / ')
+    : '';
+  const proofSendSummary = lastTestSendResult
+    ? [
+      `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}`,
+      lastTestSendResult.mta_route_status ? `route ${lastTestSendResult.mta_route_status}` : '',
+      lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
+    ].filter(Boolean).join(' | ')
+    : '';
+  const proofSendOk = Boolean(
+    lastTestSendResult
+    && lastTestSendResult.status_code < 400
+    && lastTestSendResult.mta_route_status !== 'blocked'
+  );
   const campaignTriageAction = !selectedCampaignId
     ? {
       tone: 'warn',
@@ -2439,6 +2457,19 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 run: testEmail.trim() ? sendTestEmail : previewTestEmail,
                 disabled: operationBusy,
               }
+              : !proofSendOk
+                ? {
+                  tone: 'warn',
+                  title: 'Resolve proof routing',
+                  detail: proofSendSummary || 'Proof send did not complete with a clean delivery handoff.',
+                  actionLabel: 'Open Delivery',
+                  run: () => {
+                    if (lastTestSendResult) {
+                      window.location.hash = `#delivery/${lastTestSendResult.send_record_id}${lastTestSendResult.delivery_attempt_id ? `/${lastTestSendResult.delivery_attempt_id}` : ''}`;
+                    }
+                  },
+                  disabled: operationBusy,
+                }
               : !lastLaunchResult
                 ? {
                   tone: 'warn',
@@ -2465,24 +2496,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                     run: () => { window.location.hash = '#analytics'; },
                     disabled: operationBusy,
                   };
-  const proofSendRouteLabel = lastTestSendResult
-    ? [
-      lastTestSendResult.route_type || lastTestSendResult.provider,
-      lastTestSendResult.mta_provider || lastTestSendResult.route_key,
-    ].filter(Boolean).join(' / ')
-    : '';
-  const proofSendSummary = lastTestSendResult
-    ? [
-      `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}`,
-      lastTestSendResult.mta_route_status ? `route ${lastTestSendResult.mta_route_status}` : '',
-      lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
-    ].filter(Boolean).join(' | ')
-    : '';
-  const proofSendOk = Boolean(
-    lastTestSendResult
-    && lastTestSendResult.status_code < 400
-    && lastTestSendResult.mta_route_status !== 'blocked'
-  );
   const campaignTriageItems = [
     {
       label: 'Draft',

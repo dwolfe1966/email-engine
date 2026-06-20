@@ -91,6 +91,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'proofSendSummary',
         'proofSendOk',
         'Proof blocked',
+        'Resolve proof routing',
+        'Proof send did not complete with a clean delivery handoff.',
         'route ${lastTestSendResult.mta_route_status}',
         '<span>Route</span>',
         'mta_route_status',
