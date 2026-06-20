@@ -387,6 +387,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         def get_provider_account(self, item_id):
             return account if item_id == account_id else None
 
+        def list_provider_accounts(self, **kwargs):
+            return [account]
+
         def get_node(self, item_id):
             return node if item_id == node_id else None
 
@@ -440,6 +443,9 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
 
     assert summary.provider_accounts.total == 1
     assert summary.provider_accounts.active == 1
+    assert summary.provider_readiness[0].provider_account.name == 'aws-staging'
+    assert summary.provider_readiness[0].status == 'ok'
+    assert summary.provider_readiness[0].active_node_count == 1
     assert summary.ip_pools.paused == 1
     assert summary.managed_smtp_route_count == 1
     assert summary.managed_smtp_domain_policy_count == 1
@@ -1288,6 +1294,9 @@ class _FakeFirstSendService(MtaInventoryService):
 
     def get_provider_account(self, item_id):
         return self.account if item_id == self.account.id else None
+
+    def list_provider_accounts(self, **kwargs):
+        return [self.account]
 
     def get_node(self, item_id):
         return self.node if item_id == self.node.id else None

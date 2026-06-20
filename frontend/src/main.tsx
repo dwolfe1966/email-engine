@@ -1060,6 +1060,21 @@ type ManagedSmtpPoolHealthRead = {
   reason_labels: string[];
 };
 
+type ManagedSmtpProviderReadinessRead = {
+  provider_account: MtaProviderAccountRead;
+  status: string;
+  status_label: string;
+  tone: 'good' | 'warn';
+  summary: string;
+  node_count: number;
+  active_node_count: number;
+  port25_status_label: string;
+  rdns_status_label: string;
+  blockers: string[];
+  blocker_labels: string[];
+  next_action: string;
+};
+
 type ManagedSmtpDeploymentSummaryRead = {
   provider_accounts: MtaInventoryCounts;
   nodes: MtaInventoryCounts;
@@ -1070,6 +1085,7 @@ type ManagedSmtpDeploymentSummaryRead = {
   managed_smtp_route_count: number;
   managed_smtp_domain_policy_count: number;
   fleet_health: ManagedSmtpFleetHealthRead;
+  provider_readiness: ManagedSmtpProviderReadinessRead[];
   pool_health: ManagedSmtpPoolHealthRead[];
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
 };
@@ -11660,6 +11676,29 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{item.detail}</small>
             </div>
           ))}
+        </div>
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Managed SMTP Provider Readiness</h3>
+            <span className="muted">Provider posture for live and pending MTA capacity.</span>
+          </div>
+          <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Refresh Providers</button>
+        </div>
+        <div className="managed-smtp-route-inspector">
+          {(managedSmtpDeploymentSummary?.provider_readiness || []).slice(0, 8).map((item) => (
+            <article className={`managed-smtp-route-field ${item.tone}`} key={item.provider_account.id}>
+              <span>{item.provider_account.provider} / {item.provider_account.name}</span>
+              <strong>{item.status_label}</strong>
+              <small>{`${item.summary} Port 25 ${item.port25_status_label}; rDNS ${item.rdns_status_label}; ${formatInt(item.active_node_count)} active node(s). ${item.next_action}`}</small>
+            </article>
+          ))}
+          {!managedSmtpDeploymentSummary?.provider_readiness?.length ? (
+            <article className="managed-smtp-route-field warn">
+              <span>Providers</span>
+              <strong>Not loaded</strong>
+              <small>Load SMTP Deployment to inspect Scaleway, AWS, and future MTA provider readiness.</small>
+            </article>
+          ) : null}
         </div>
         <div className="panel-head compact-head">
           <div>

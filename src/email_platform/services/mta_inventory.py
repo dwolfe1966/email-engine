@@ -26,6 +26,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFleetHealthRead,
     ManagedSmtpLogSampleRead,
     ManagedSmtpPoolHealthRead,
+    ManagedSmtpProviderReadinessRead,
     ManagedSmtpQueueSampleRead,
     ManagedSmtpReadinessSummaryRead,
     MtaInventoryCounts,
@@ -497,6 +498,7 @@ class MtaInventoryService:
             managed_smtp_route_count=self._managed_smtp_route_count(),
             managed_smtp_domain_policy_count=self._managed_smtp_domain_policy_count(),
             fleet_health=self._fleet_health(node_summaries),
+            provider_readiness=self._provider_readiness(),
             pool_health=self._pool_health(),
             recent_nodes=node_summaries,
         )
@@ -1082,6 +1084,46 @@ class MtaInventoryService:
             )
         return items
 
+    def _provider_readiness(self, limit: int = 100) -> list[ManagedSmtpProviderReadinessRead]:
+        items: list[ManagedSmtpProviderReadinessRead] = []
+        for account in self.list_provider_accounts(limit=limit, offset=0):
+            blockers = self._provider_blockers(account)
+            node_count = self.count_nodes(provider_account_id=account.id)
+            active_node_count = self.count_nodes(
+                provider_account_id=account.id,
+                status=MtaOperationalStatus.active,
+            )
+            if not blockers and active_node_count:
+                status = 'ok'
+            elif not blockers:
+                status = 'warning'
+            else:
+                status = 'blocked'
+            blocker_labels = [self._provider_blocker_label(blocker) for blocker in blockers]
+            items.append(
+                ManagedSmtpProviderReadinessRead(
+                    provider_account=account,
+                    status=status,
+                    status_label=self._provider_readiness_status_label(status),
+                    tone='good' if status == 'ok' else 'warn',
+                    summary=self._provider_readiness_summary(
+                        account,
+                        status,
+                        blocker_labels,
+                        active_node_count,
+                        node_count,
+                    ),
+                    node_count=node_count,
+                    active_node_count=active_node_count,
+                    port25_status_label=self._provider_status_label(account.port25_status),
+                    rdns_status_label=self._provider_status_label(account.rdns_status),
+                    blockers=blockers,
+                    blocker_labels=blocker_labels,
+                    next_action=self._provider_readiness_next_action(blockers, active_node_count),
+                )
+            )
+        return items
+
     @staticmethod
     def _node_has_log_severity(item: object, severity: str) -> bool:
         return any(
@@ -1315,6 +1357,41 @@ class MtaInventoryService:
             'port25_blocked': 'Port 25 blocked',
             'rdns_blocked': 'rDNS blocked',
         }.get(blocker, blocker)
+
+    @staticmethod
+    def _provider_readiness_status_label(status: str) -> str:
+        return {
+            'ok': 'Ready',
+            'warning': 'Needs nodes',
+            'blocked': 'Blocked',
+        }.get(status, status)
+
+    def _provider_readiness_summary(
+        self,
+        account,
+        status: str,
+        blocker_labels: list[str],
+        active_node_count: int,
+        node_count: int,
+    ) -> str:
+        provider = getattr(account, 'provider', 'provider')
+        if status == 'ok':
+            return f'{provider} is ready with {active_node_count} active node(s).'
+        if blocker_labels:
+            return f'{provider} blocked: {", ".join(blocker_labels)}.'
+        return f'{provider} has no active MTA nodes ({node_count} registered).'
+
+    @staticmethod
+    def _provider_readiness_next_action(blockers: list[str], active_node_count: int) -> str:
+        if 'port25_blocked' in blockers:
+            return 'Wait for outbound port 25 approval or keep this provider out of preferred routing.'
+        if 'rdns_blocked' in blockers:
+            return 'Configure rDNS before routing production traffic through this provider.'
+        if 'provider_inactive' in blockers:
+            return 'Activate the provider account after credentials and provider-side setup are ready.'
+        if active_node_count == 0:
+            return 'Register and activate at least one MTA node for this provider.'
+        return 'No provider action required.'
 
     @staticmethod
     def _pool_health_status_label(status: str) -> str:
