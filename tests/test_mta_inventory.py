@@ -454,6 +454,10 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.pool_health[0].route_ready_node_count == 1
     assert summary.pool_health[0].required_available_node_count == 1
     assert summary.pool_health[0].max_per_minute == 120
+    assert summary.pool_health[0].drain_impact is not None
+    assert summary.pool_health[0].drain_impact.active_membership_count == 1
+    assert summary.pool_health[0].drain_impact.route_ready_node_count == 1
+    assert summary.pool_health[0].drain_impact.capacity_after_drain_status == 'below_required'
     assert summary.submission_credentials_configured is True
     assert summary.submission_tls_enabled is True
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'

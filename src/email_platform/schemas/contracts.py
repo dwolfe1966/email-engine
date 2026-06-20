@@ -1498,6 +1498,18 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     active_queue_count: int
 
 
+class ManagedSmtpDrainImpactRead(BaseModel):
+    active_membership_count: int
+    route_ready_node_count: int
+    required_available_node_count: int
+    remaining_route_ready_node_count: int
+    capacity_after_drain_status: str
+    affected_route_count: int = 0
+    affected_domain_policy_count: int = 0
+    warning: bool = False
+    summary: str
+
+
 class ManagedSmtpPoolHealthRead(BaseModel):
     ip_pool: MtaIpPoolRead
     status: str
@@ -1514,6 +1526,7 @@ class ManagedSmtpPoolHealthRead(BaseModel):
     inactive_membership_count: int = 0
     reasons: list[str] = Field(default_factory=list)
     reason_labels: list[str] = Field(default_factory=list)
+    drain_impact: ManagedSmtpDrainImpactRead | None = None
 
 
 class ManagedSmtpProviderReadinessRead(BaseModel):

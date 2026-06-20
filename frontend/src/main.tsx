@@ -1076,6 +1076,17 @@ type ManagedSmtpPoolHealthRead = {
   inactive_membership_count: number;
   reasons: string[];
   reason_labels: string[];
+  drain_impact: {
+    active_membership_count: number;
+    route_ready_node_count: number;
+    required_available_node_count: number;
+    remaining_route_ready_node_count: number;
+    capacity_after_drain_status: string;
+    affected_route_count: number;
+    affected_domain_policy_count: number;
+    warning: boolean;
+    summary: string;
+  } | null;
 };
 
 type ManagedSmtpProviderReadinessRead = {
@@ -11868,7 +11879,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             }}>
               <span>{item.ip_pool.name}</span>
               <strong>{item.status_label}</strong>
-              <small>{`${item.summary} Active ${formatInt(item.active_membership_count)}, provider blockers ${formatInt(item.provider_blocker_count)}, readiness blockers ${formatInt(item.readiness_blocker_count)}.`}</small>
+              <small>{`${item.summary} Active ${formatInt(item.active_membership_count)}, provider blockers ${formatInt(item.provider_blocker_count)}, readiness blockers ${formatInt(item.readiness_blocker_count)}. Drain preview: ${item.drain_impact?.summary || 'not available'}`}</small>
             </article>
           ))}
           {!managedSmtpDeploymentSummary?.pool_health?.length ? (
@@ -11883,7 +11894,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <article className={mtaIpPoolTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Pools loaded</span>
             <strong>{formatInt(mtaIpPools.length)} / {formatInt(mtaIpPoolTotal)}</strong>
-            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPoolHealth ? `${formatInt(selectedMtaIpPoolHealth.route_ready_node_count)}/${formatInt(selectedMtaIpPoolHealth.required_available_node_count)} route-ready` : 'health not scored'}, ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}. ${latestMtaControlAuditLabel(selectedMtaIpPool.metadata_json)}` : 'Load pool controls to inspect resolver gates.'}</small>
+            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPoolHealth ? `${formatInt(selectedMtaIpPoolHealth.route_ready_node_count)}/${formatInt(selectedMtaIpPoolHealth.required_available_node_count)} route-ready` : 'health not scored'}, ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}. ${selectedMtaIpPoolHealth?.drain_impact ? `Drain affects ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_route_count)} route(s), ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_domain_policy_count)} policy row(s). ` : ''}${latestMtaControlAuditLabel(selectedMtaIpPool.metadata_json)}` : 'Load pool controls to inspect resolver gates.'}</small>
           </article>
           <article className={mtaIpPoolNodeTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Memberships loaded</span>

@@ -21,6 +21,7 @@ from email_platform.models.entities import (
 from email_platform.schemas.contracts import (
     ManagedSmtpDeploymentNodeSummary,
     ManagedSmtpDeploymentSummaryRead,
+    ManagedSmtpDrainImpactRead,
     ManagedSmtpFirstSendChecklistItem,
     ManagedSmtpFirstSendRead,
     ManagedSmtpFleetHealthRead,
@@ -1080,6 +1081,12 @@ class MtaInventoryService:
                     reason_labels=[
                         self._pool_health_reason_label(reason) for reason in unique_reasons
                     ],
+                    drain_impact=self._pool_drain_impact(
+                        pool=pool,
+                        active_membership_count=len(active_memberships),
+                        route_ready_node_count=route_ready_node_count,
+                        required_available_node_count=required_available_node_count,
+                    ),
                 )
             )
         return items
@@ -1123,6 +1130,102 @@ class MtaInventoryService:
                 )
             )
         return items
+
+    def _pool_drain_impact(
+        self,
+        *,
+        pool: MtaIpPool,
+        active_membership_count: int,
+        route_ready_node_count: int,
+        required_available_node_count: int,
+    ) -> ManagedSmtpDrainImpactRead:
+        affected_route_count, affected_domain_policy_count = self._pool_reference_counts(pool)
+        remaining_route_ready_node_count = 0
+        capacity_after_drain_status = (
+            'below_required' if required_available_node_count > 0 else 'not_required'
+        )
+        warning = bool(
+            affected_route_count
+            or affected_domain_policy_count
+            or route_ready_node_count < required_available_node_count
+            or active_membership_count
+        )
+        return ManagedSmtpDrainImpactRead(
+            active_membership_count=active_membership_count,
+            route_ready_node_count=route_ready_node_count,
+            required_available_node_count=required_available_node_count,
+            remaining_route_ready_node_count=remaining_route_ready_node_count,
+            capacity_after_drain_status=capacity_after_drain_status,
+            affected_route_count=affected_route_count,
+            affected_domain_policy_count=affected_domain_policy_count,
+            warning=warning,
+            summary=self._pool_drain_impact_summary(
+                affected_route_count,
+                affected_domain_policy_count,
+                route_ready_node_count,
+                required_available_node_count,
+            ),
+        )
+
+    def _pool_reference_counts(self, pool: MtaIpPool) -> tuple[int, int]:
+        pool_id = str(pool.id)
+        pool_name = str(pool.name)
+        try:
+            managed_routes = list(
+                self.db.scalars(
+                    select(DeliveryRoute).where(
+                        DeliveryRoute.route_type == DeliveryRouteType.managed_smtp
+                    )
+                ).all()
+            )
+            route_ids = [route.id for route in managed_routes]
+            domain_policies = list(
+                self.db.scalars(
+                    select(DomainDeliveryPolicy).where(
+                        DomainDeliveryPolicy.route_id.in_(route_ids)
+                    )
+                ).all()
+            ) if route_ids else []
+        except AttributeError:
+            return (0, 0)
+        affected_route_count = sum(
+            1
+            for route in managed_routes
+            if self._metadata_references_pool(route.config or {}, pool_id, pool_name)
+        )
+        affected_domain_policy_count = sum(
+            1
+            for policy in domain_policies
+            if self._metadata_references_pool(policy.metadata_json or {}, pool_id, pool_name)
+        )
+        return affected_route_count, affected_domain_policy_count
+
+    def _metadata_references_pool(self, value: object, pool_id: str, pool_name: str) -> bool:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in {'mta_ip_pool_id', 'ip_pool_id'} and str(item) == pool_id:
+                    return True
+                if key in {'ip_pool', 'ip_pool_name'} and str(item) == pool_name:
+                    return True
+                if self._metadata_references_pool(item, pool_id, pool_name):
+                    return True
+        if isinstance(value, list):
+            return any(self._metadata_references_pool(item, pool_id, pool_name) for item in value)
+        return False
+
+    @staticmethod
+    def _pool_drain_impact_summary(
+        affected_route_count: int,
+        affected_domain_policy_count: int,
+        route_ready_node_count: int,
+        required_available_node_count: int,
+    ) -> str:
+        return (
+            f'Draining would remove {route_ready_node_count} route-ready node(s) '
+            f'from this pool; {required_available_node_count} required. '
+            f'{affected_route_count} managed route(s), '
+            f'{affected_domain_policy_count} domain policy row(s) reference this pool.'
+        )
 
     @staticmethod
     def _node_has_log_severity(item: object, severity: str) -> bool:
