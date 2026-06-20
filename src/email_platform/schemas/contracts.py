@@ -1808,6 +1808,21 @@ class CampaignListSummaryRead(BaseModel):
     progress: CampaignSendJobProgressRead | None = None
 
 
+class CampaignProofRouteRead(BaseModel):
+    delivery_attempt_id: UUID
+    send_record_id: UUID
+    status: str
+    route_type: str | None = None
+    route_key: str | None = None
+    mta_route_status: MtaRouteStatus
+    mta_provider: str | None = None
+    mta_submission_host: str | None = None
+    mta_hostname: str | None = None
+    smtp_response_code: int | None = None
+    smtp_response: str | None = None
+    error_message: str | None = None
+
+
 class AudiencePerformanceRead(BaseModel):
     audience_id: UUID
     name: str
@@ -1931,6 +1946,7 @@ class CampaignWorkflowStatusRead(BaseModel):
     analytics: CampaignAnalyticsRead | None = None
     latest_send_job: CampaignSendJobRead | None = None
     latest_send_record: EmailSendRecordRead | None = None
+    latest_proof_route: CampaignProofRouteRead | None = None
 
 
 class LoginRequest(BaseModel):

@@ -84,6 +84,7 @@ from email_platform.schemas.contracts import (
     CampaignLaunchRequest,
     CampaignListSummaryRead,
     CampaignPerformanceRead,
+    CampaignProofRouteRead,
     CampaignProcessDueRead,
     CampaignRead,
     CampaignSendJobProgressRead,
@@ -2431,6 +2432,45 @@ def get_campaign_workflow_status(
         iter(campaign_service.list_send_records(campaign_id=campaign_id, limit=1, offset=0)),
         None,
     )
+    latest_proof_attempt = campaign_service._latest_campaign_test_attempt(campaign_id)
+    latest_proof_route = None
+    if latest_proof_attempt:
+        proof_metadata = latest_proof_attempt.metadata_json or {}
+        route_resolved = proof_metadata.get('mta_route_resolved')
+        if route_resolved is True:
+            proof_route_status = 'resolved'
+        elif route_resolved is False:
+            proof_route_status = 'blocked'
+        elif latest_proof_attempt.status == 'failed':
+            proof_route_status = 'blocked'
+        else:
+            proof_route_status = 'attempted'
+        latest_proof_route = CampaignProofRouteRead(
+            delivery_attempt_id=latest_proof_attempt.id,
+            send_record_id=latest_proof_attempt.send_record_id,
+            status=latest_proof_attempt.status,
+            route_type=latest_proof_attempt.route_type,
+            route_key=latest_proof_attempt.route_key,
+            mta_route_status=proof_route_status,
+            mta_provider=(
+                str(proof_metadata.get('mta_provider'))
+                if proof_metadata.get('mta_provider') is not None
+                else None
+            ),
+            mta_submission_host=(
+                str(proof_metadata.get('mta_submission_host'))
+                if proof_metadata.get('mta_submission_host') is not None
+                else None
+            ),
+            mta_hostname=(
+                str(proof_metadata.get('mta_hostname'))
+                if proof_metadata.get('mta_hostname') is not None
+                else None
+            ),
+            smtp_response_code=latest_proof_attempt.smtp_response_code,
+            smtp_response=latest_proof_attempt.smtp_response,
+            error_message=latest_proof_attempt.error_message,
+        )
     analytics = AnalyticsService(db).campaign_metrics(campaign_id)
 
     return CampaignWorkflowStatusRead(
@@ -2442,6 +2482,7 @@ def get_campaign_workflow_status(
         analytics=analytics,
         latest_send_job=latest_send_job,
         latest_send_record=latest_send_record,
+        latest_proof_route=latest_proof_route,
     )
 
 

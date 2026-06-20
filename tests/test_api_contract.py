@@ -235,6 +235,28 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
     }
 
 
+def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
+    client = TestClient(app)
+    schemas = client.get('/openapi.json').json()['components']['schemas']
+    workflow_properties = schemas['CampaignWorkflowStatusRead']['properties']
+    proof_route_properties = schemas['CampaignProofRouteRead']['properties']
+
+    assert 'latest_proof_route' in workflow_properties
+    assert {
+        'delivery_attempt_id',
+        'send_record_id',
+        'mta_route_status',
+        'mta_submission_host',
+        'smtp_response_code',
+    }.issubset(proof_route_properties.keys())
+    assert set(proof_route_properties['mta_route_status']['enum']) == {
+        'resolved',
+        'blocked',
+        'attempted',
+        'not_attempted',
+    }
+
+
 def test_api_tester_page() -> None:
     client = TestClient(app)
     response = client.get('/tester')

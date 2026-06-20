@@ -432,6 +432,20 @@ type CampaignWorkflowStatus = {
   analytics: CampaignAnalytics | null;
   latest_send_job: CampaignSendJobRead | null;
   latest_send_record: EmailSendRecordRead | null;
+  latest_proof_route: {
+    delivery_attempt_id: string;
+    send_record_id: string;
+    status: string;
+    route_type: string | null;
+    route_key: string | null;
+    mta_route_status: 'resolved' | 'blocked' | 'attempted' | 'not_attempted';
+    mta_provider: string | null;
+    mta_submission_host: string | null;
+    mta_hostname: string | null;
+    smtp_response_code: number | null;
+    smtp_response: string | null;
+    error_message: string | null;
+  } | null;
 };
 
 type CampaignTimelinePoint = {
@@ -2401,9 +2415,24 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     : '';
   const proofSendOk = Boolean(
     lastTestSendResult
-    && lastTestSendResult.status_code < 400
-    && lastTestSendResult.mta_route_status !== 'blocked'
+      ? lastTestSendResult.status_code < 400 && lastTestSendResult.mta_route_status !== 'blocked'
+      : workflowStatus?.latest_proof_route
+        ? workflowStatus.latest_proof_route.mta_route_status === 'resolved'
+          && workflowStatus.latest_proof_route.status !== 'failed'
+          && (!workflowStatus.latest_proof_route.smtp_response_code || workflowStatus.latest_proof_route.smtp_response_code < 400)
+        : false
   );
+  const proofAuditTarget = lastTestSendResult
+    ? {
+      sendRecordId: lastTestSendResult.send_record_id,
+      deliveryAttemptId: lastTestSendResult.delivery_attempt_id || '',
+    }
+    : workflowStatus?.latest_proof_route
+      ? {
+        sendRecordId: workflowStatus.latest_proof_route.send_record_id,
+        deliveryAttemptId: workflowStatus.latest_proof_route.delivery_attempt_id,
+      }
+      : null;
   const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
   const campaignTriageAction = !selectedCampaignId
     ? {
@@ -2466,8 +2495,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                   detail: proofSendSummary || 'Proof send did not complete with a clean delivery handoff.',
                   actionLabel: 'Open Delivery',
                   run: () => {
-                    if (lastTestSendResult) {
-                      window.location.hash = `#delivery/${lastTestSendResult.send_record_id}${lastTestSendResult.delivery_attempt_id ? `/${lastTestSendResult.delivery_attempt_id}` : ''}`;
+                    if (proofAuditTarget) {
+                      window.location.hash = `#delivery/${proofAuditTarget.sendRecordId}${proofAuditTarget.deliveryAttemptId ? `/${proofAuditTarget.deliveryAttemptId}` : ''}`;
                     }
                   },
                   disabled: operationBusy,
@@ -3028,12 +3057,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{operationBusy ? 'Working' : 'Status'}</strong>
           <span>{operationStatus}</span>
-          {operationNeedsProofRouting && lastTestSendResult ? (
+          {operationNeedsProofRouting && proofAuditTarget ? (
             <button
               className="ghost"
               type="button"
               onClick={() => {
-                window.location.hash = `#delivery/${lastTestSendResult.send_record_id}${lastTestSendResult.delivery_attempt_id ? `/${lastTestSendResult.delivery_attempt_id}` : ''}`;
+                window.location.hash = `#delivery/${proofAuditTarget.sendRecordId}${proofAuditTarget.deliveryAttemptId ? `/${proofAuditTarget.deliveryAttemptId}` : ''}`;
               }}
             >
               Open Delivery audit
