@@ -2478,6 +2478,11 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
     ].filter(Boolean).join(' | ')
     : '';
+  const proofSendOk = Boolean(
+    lastTestSendResult
+    && lastTestSendResult.status_code < 400
+    && lastTestSendResult.mta_route_status !== 'blocked'
+  );
   const campaignTriageItems = [
     {
       label: 'Draft',
@@ -2505,9 +2510,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     },
     {
       label: 'Proof and launch',
-      value: lastLaunchResult ? 'Dry-run' : lastTestSendResult ? 'Proof sent' : 'Pending',
+      value: lastLaunchResult ? 'Dry-run' : lastTestSendResult ? (proofSendOk ? 'Proof sent' : 'Proof blocked') : 'Pending',
       detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : lastTestSendResult ? proofSendSummary : 'Send proof, then dry-run launch',
-      tone: lastLaunchResult || lastTestSendResult ? 'good' : 'warn',
+      tone: lastLaunchResult || proofSendOk ? 'good' : 'warn',
     },
   ];
   const launchFoundationItems = [
