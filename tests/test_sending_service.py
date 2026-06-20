@@ -310,8 +310,14 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
                     error_message=record.error_message,
                     metadata_json={
                         'mta_route_resolved': False,
+                        'mta_route_sender_domain': 'email-engine.app',
+                        'mta_route_recipient_domain': 'gmail.com',
+                        'mta_route_send_type': 'internal_test',
                         'mta_route_block_code': 'NO_HEALTHY_MTA_NODE',
                         'mta_route_block_message': 'No active MTA node is available.',
+                        'mta_node_candidate_count': 2,
+                        'mta_node_skipped_count': 1,
+                        'mta_node_skipped_nodes': [{'reason': 'readiness_not_ok'}],
                     },
                 )
             )
@@ -355,8 +361,14 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
     assert result['route_type'] == 'managed_smtp'
     assert result['mta_route_resolved'] is False
     assert result['mta_route_status'] == 'blocked'
+    assert result['mta_route_sender_domain'] == 'email-engine.app'
+    assert result['mta_route_recipient_domain'] == 'gmail.com'
+    assert result['mta_route_send_type'] == 'internal_test'
     assert result['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert result['mta_route_block_message'] == 'No active MTA node is available.'
+    assert result['mta_node_candidate_count'] == 2
+    assert result['mta_node_skipped_count'] == 1
+    assert result['mta_node_skipped_nodes'] == [{'reason': 'readiness_not_ok'}]
     assert result['delivery_error_message'] == (
         'Managed SMTP route blocked (NO_HEALTHY_MTA_NODE)'
     )

@@ -314,21 +314,34 @@ class DeliveryService:
         resolver = getattr(self, 'managed_smtp_routing_service', None)
         if not resolver:
             return {}
+        sender_domain = self._sender_domain()
+        recipient_domain = self._recipient_domain(record)
+        send_type = self._send_type_for_record(record)
         result = resolver.resolve(
             ManagedSmtpRouteResolveRequest(
-                from_domain=self._sender_domain(),
-                recipient_domain=self._recipient_domain(record),
+                from_domain=sender_domain,
+                recipient_domain=recipient_domain,
                 route_id=selected_route.route_id,
-                send_type=self._send_type_for_record(record),
+                send_type=send_type,
             )
         )
         if not result.ok or not result.route:
             reason = result.reason
+            details = reason.details if reason else {}
             return {
                 'mta_route_resolved': False,
+                'mta_route_sender_domain': sender_domain,
+                'mta_route_recipient_domain': recipient_domain,
+                'mta_route_send_type': send_type,
                 'mta_route_block_code': reason.code if reason else 'UNKNOWN',
                 'mta_route_block_message': reason.message if reason else 'No reason returned.',
-                'mta_route_block_details': reason.details if reason else {},
+                'mta_route_block_details': details,
+                'mta_ip_pool_id': str(details.get('ip_pool_id')) if details.get('ip_pool_id') else None,
+                'mta_node_candidate_count': details.get('candidate_count'),
+                'mta_node_skipped_nodes': details.get('skipped_nodes'),
+                'mta_node_skipped_count': len(details.get('skipped_nodes') or [])
+                if isinstance(details.get('skipped_nodes'), list)
+                else None,
             }
         route = result.route
         return {
@@ -433,6 +446,7 @@ class DeliveryService:
             'mta_route_resolved',
             'mta_route_block_code',
             'mta_route_block_message',
+            'mta_route_block_details',
             'mta_route_domain',
             'mta_route_sender_domain',
             'mta_route_recipient_domain',

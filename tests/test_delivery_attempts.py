@@ -392,7 +392,17 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
             reason=ManagedSmtpRouteBlockReason(
                 code='NO_HEALTHY_MTA_NODE',
                 message='No active MTA node with passing readiness is available for this pool.',
-                details={'ip_pool_id': str(uuid4())},
+                details={
+                    'ip_pool_id': str(uuid4()),
+                    'candidate_count': 2,
+                    'skipped_nodes': [
+                        {
+                            'mta_node_id': str(uuid4()),
+                            'provider': 'aws',
+                            'reason': 'readiness_not_ok',
+                        }
+                    ],
+                },
             ),
         )
     )
@@ -406,12 +416,20 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
         variables={},
         attempt_count=1,
     )
+    db.jobs[record.send_job_id] = SimpleNamespace(metadata_json={'source': 'campaign_test_send'})
 
     attempt = service._start_attempt(record)
 
     assert attempt.metadata_json['mta_route_resolved'] is False
+    assert attempt.metadata_json['mta_route_sender_domain'] is None
+    assert attempt.metadata_json['mta_route_recipient_domain'] == 'example.com'
+    assert attempt.metadata_json['mta_route_send_type'] == 'internal_test'
     assert attempt.metadata_json['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert 'passing readiness' in attempt.metadata_json['mta_route_block_message']
+    assert attempt.metadata_json['mta_node_candidate_count'] == 2
+    assert attempt.metadata_json['mta_node_skipped_count'] == 1
+    assert attempt.metadata_json['mta_node_skipped_nodes'][0]['reason'] == 'readiness_not_ok'
+    assert service.managed_smtp_routing_service.requests[0].send_type == 'internal_test'
 
 
 def test_delivery_service_fails_closed_for_blocked_managed_smtp_route() -> None:
