@@ -159,10 +159,18 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                         'mta_route_domain': 'email-engine.app',
                         'mta_route_sender_domain': 'email-engine.app',
                         'mta_route_recipient_domain': 'gmail.com',
+                        'mta_route_send_type': 'internal_test',
                         'mta_route_decision_basis': 'sender_domain_policy',
                         'mta_routing_rule_name': 'transactional-scaleway',
                         'mta_routing_rule_source': 'delivery_route_rule',
                         'mta_preferred_providers': ['scaleway'],
+                        'mta_rule_hit_send_type': 'internal_test',
+                        'mta_rule_hit_sender_domain': 'email-engine.app',
+                        'mta_rule_hit_recipient_domain': 'gmail.com',
+                        'mta_rule_hit_name': 'transactional-scaleway',
+                        'mta_rule_hit_source': 'delivery_route_rule',
+                        'mta_rule_hit_pool_source': 'delivery_route_rule',
+                        'mta_rule_hit_provider_preference': ['scaleway'],
                         'mta_node_name': 'mta-002',
                         'mta_node_selection_priority': 100,
                         'mta_node_selection_weight': 100,
@@ -235,10 +243,18 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_route_domain'] == 'email-engine.app'
     assert result['mta_route_sender_domain'] == 'email-engine.app'
     assert result['mta_route_recipient_domain'] == 'gmail.com'
+    assert result['mta_route_send_type'] == 'internal_test'
     assert result['mta_route_decision_basis'] == 'sender_domain_policy'
     assert result['mta_routing_rule_name'] == 'transactional-scaleway'
     assert result['mta_routing_rule_source'] == 'delivery_route_rule'
     assert result['mta_preferred_providers'] == ['scaleway']
+    assert result['mta_rule_hit_send_type'] == 'internal_test'
+    assert result['mta_rule_hit_sender_domain'] == 'email-engine.app'
+    assert result['mta_rule_hit_recipient_domain'] == 'gmail.com'
+    assert result['mta_rule_hit_name'] == 'transactional-scaleway'
+    assert result['mta_rule_hit_source'] == 'delivery_route_rule'
+    assert result['mta_rule_hit_pool_source'] == 'delivery_route_rule'
+    assert result['mta_rule_hit_provider_preference'] == ['scaleway']
     assert result['mta_node_name'] == 'mta-002'
     assert result['mta_node_selection_priority'] == 100
     assert result['mta_node_selection_weight'] == 100

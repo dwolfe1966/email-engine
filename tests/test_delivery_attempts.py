@@ -23,6 +23,7 @@ class FakeDb:
         self.added = []
         self.flush_count = 0
         self.records = []
+        self.jobs = {}
         self.commit_count = 0
 
     def add(self, item) -> None:
@@ -36,6 +37,11 @@ class FakeDb:
 
     def scalars(self, statement):
         return SimpleNamespace(all=lambda: self.records)
+
+    def get(self, model, item_id):
+        if getattr(model, '__name__', '') == 'CampaignSendJob':
+            return self.jobs.get(item_id)
+        return None
 
 
 class FakeRouteService:
@@ -217,9 +223,11 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
             ok=True,
             route=ManagedSmtpResolvedRoute(
                 domain='example.com',
+                send_type='internal_test',
                 sender_domain='email-engine.app',
                 recipient_domain='gmail.com',
                 decision_basis='sender_domain_policy',
+                routing_rule_pool_source='domain_policy',
                 delivery_route_id=route_id,
                 delivery_route_name='managed-smtp-primary',
                 domain_policy_id=policy_id,
@@ -253,6 +261,7 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
         variables={},
         attempt_count=1,
     )
+    db.jobs[record.send_job_id] = SimpleNamespace(metadata_json={'source': 'campaign_test_send'})
 
     attempt = service._start_attempt(record)
 
@@ -261,9 +270,17 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_route_domain'] == 'example.com'
     assert attempt.metadata_json['mta_route_sender_domain'] == 'email-engine.app'
     assert attempt.metadata_json['mta_route_recipient_domain'] == 'gmail.com'
+    assert attempt.metadata_json['mta_route_send_type'] == 'internal_test'
     assert attempt.metadata_json['mta_route_decision_basis'] == 'sender_domain_policy'
     assert attempt.metadata_json['mta_routing_rule_name'] is None
     assert attempt.metadata_json['mta_preferred_providers'] == []
+    assert attempt.metadata_json['mta_rule_hit_send_type'] == 'internal_test'
+    assert attempt.metadata_json['mta_rule_hit_sender_domain'] == 'email-engine.app'
+    assert attempt.metadata_json['mta_rule_hit_recipient_domain'] == 'gmail.com'
+    assert attempt.metadata_json['mta_rule_hit_name'] is None
+    assert attempt.metadata_json['mta_rule_hit_source'] is None
+    assert attempt.metadata_json['mta_rule_hit_pool_source'] == 'domain_policy'
+    assert attempt.metadata_json['mta_rule_hit_provider_preference'] == []
     assert attempt.metadata_json['mta_provider'] == 'aws'
     assert attempt.metadata_json['mta_provider_account_id'] == str(provider_account_id)
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'
@@ -277,6 +294,64 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert service.managed_smtp_routing_service.requests[0].from_domain == 'email-engine.app'
     assert service.managed_smtp_routing_service.requests[0].recipient_domain == 'gmail.com'
     assert service.managed_smtp_routing_service.requests[0].route_id == route_id
+    assert service.managed_smtp_routing_service.requests[0].send_type == 'internal_test'
+
+
+def test_delivery_service_resolves_send_type_from_send_job_metadata() -> None:
+    db = FakeDb()
+    service = DeliveryService.__new__(DeliveryService)
+    service.db = db
+    proof_record = EmailSendRecord(
+        id=uuid4(),
+        campaign_id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='proof@example.com',
+        variables={},
+    )
+    campaign_record = EmailSendRecord(
+        id=uuid4(),
+        campaign_id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='campaign@example.com',
+        variables={},
+    )
+    override_record = EmailSendRecord(
+        id=uuid4(),
+        campaign_id=uuid4(),
+        send_job_id=uuid4(),
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='transactional@example.com',
+        variables={},
+    )
+    direct_record = EmailSendRecord(
+        id=uuid4(),
+        send_job_id=None,
+        contact_id=uuid4(),
+        template_id=uuid4(),
+        status=EmailSendStatus.sending,
+        to_email='direct@example.com',
+        variables={},
+    )
+    db.jobs[proof_record.send_job_id] = SimpleNamespace(
+        metadata_json={'source': 'campaign_test_send'}
+    )
+    db.jobs[campaign_record.send_job_id] = SimpleNamespace(metadata_json={})
+    db.jobs[override_record.send_job_id] = SimpleNamespace(
+        metadata_json={'send_type': 'transactional'}
+    )
+
+    assert service._send_type_for_record(proof_record) == 'internal_test'
+    assert service._send_type_for_record(campaign_record) == 'campaign'
+    assert service._send_type_for_record(override_record) == 'transactional'
+    assert service._send_type_for_record(direct_record) == 'transactional'
 
 
 def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() -> None:

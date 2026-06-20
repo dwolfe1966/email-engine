@@ -221,6 +221,7 @@ def test_resolve_returns_selected_submission_route() -> None:
     assert result.ok
     assert result.route is not None
     assert result.route.domain == 'example.com'
+    assert result.route.send_type == 'internal_test'
     assert result.route.sender_domain == 'example.com'
     assert result.route.recipient_domain is None
     assert result.route.decision_basis == 'sender_domain_policy'
@@ -326,7 +327,12 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
     assert resolved.route is not None
     assert resolved.route.routing_rule_name == 'transactional-scaleway'
     assert resolved.route.preferred_providers == ['scaleway']
+    assert resolved.route.routing_rule_provider_preference == ['scaleway']
     assert resolved.route.ip_pool_selection_source == 'delivery_route_rule'
+    assert resolved.route.routing_rule_pool_source == 'delivery_route_rule'
+    assert resolved.route.send_type == 'transactional'
+    assert resolved.route.sender_domain == 'example.com'
+    assert resolved.route.recipient_domain == 'gmail.com'
 
 
 def test_healthy_node_selection_skips_non_preferred_provider() -> None:

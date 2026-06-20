@@ -2459,6 +2459,46 @@ def get_campaign_workflow_status(
                 if proof_metadata.get('mta_provider') is not None
                 else None
             ),
+            mta_route_send_type=(
+                str(proof_metadata.get('mta_route_send_type'))
+                if proof_metadata.get('mta_route_send_type') is not None
+                else None
+            ),
+            mta_rule_hit_send_type=(
+                str(proof_metadata.get('mta_rule_hit_send_type'))
+                if proof_metadata.get('mta_rule_hit_send_type') is not None
+                else None
+            ),
+            mta_rule_hit_sender_domain=(
+                str(proof_metadata.get('mta_rule_hit_sender_domain'))
+                if proof_metadata.get('mta_rule_hit_sender_domain') is not None
+                else None
+            ),
+            mta_rule_hit_recipient_domain=(
+                str(proof_metadata.get('mta_rule_hit_recipient_domain'))
+                if proof_metadata.get('mta_rule_hit_recipient_domain') is not None
+                else None
+            ),
+            mta_rule_hit_name=(
+                str(proof_metadata.get('mta_rule_hit_name'))
+                if proof_metadata.get('mta_rule_hit_name') is not None
+                else None
+            ),
+            mta_rule_hit_source=(
+                str(proof_metadata.get('mta_rule_hit_source'))
+                if proof_metadata.get('mta_rule_hit_source') is not None
+                else None
+            ),
+            mta_rule_hit_pool_source=(
+                str(proof_metadata.get('mta_rule_hit_pool_source'))
+                if proof_metadata.get('mta_rule_hit_pool_source') is not None
+                else None
+            ),
+            mta_rule_hit_provider_preference=(
+                list(proof_metadata.get('mta_rule_hit_provider_preference'))
+                if isinstance(proof_metadata.get('mta_rule_hit_provider_preference'), list)
+                else None
+            ),
             mta_submission_host=(
                 str(proof_metadata.get('mta_submission_host'))
                 if proof_metadata.get('mta_submission_host') is not None

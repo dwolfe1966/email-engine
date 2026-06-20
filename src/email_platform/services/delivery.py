@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from email_platform.core.settings import Settings
 from email_platform.models.entities import (
+    CampaignSendJob,
     DeliveryAttempt,
     EmailEventType,
     EmailSendRecord,
@@ -318,7 +319,7 @@ class DeliveryService:
                 from_domain=self._sender_domain(),
                 recipient_domain=self._recipient_domain(record),
                 route_id=selected_route.route_id,
-                send_type='internal_test',
+                send_type=self._send_type_for_record(record),
             )
         )
         if not result.ok or not result.route:
@@ -335,10 +336,18 @@ class DeliveryService:
             'mta_route_domain': route.domain,
             'mta_route_sender_domain': route.sender_domain,
             'mta_route_recipient_domain': route.recipient_domain,
+            'mta_route_send_type': route.send_type,
             'mta_route_decision_basis': route.decision_basis,
             'mta_routing_rule_name': route.routing_rule_name,
             'mta_routing_rule_source': route.routing_rule_source,
             'mta_preferred_providers': route.preferred_providers,
+            'mta_rule_hit_send_type': route.send_type,
+            'mta_rule_hit_sender_domain': route.sender_domain,
+            'mta_rule_hit_recipient_domain': route.recipient_domain,
+            'mta_rule_hit_name': route.routing_rule_name,
+            'mta_rule_hit_source': route.routing_rule_source,
+            'mta_rule_hit_pool_source': route.routing_rule_pool_source,
+            'mta_rule_hit_provider_preference': route.routing_rule_provider_preference,
             'mta_provider_account_id': str(route.provider_account_id),
             'mta_provider': route.provider.value,
             'mta_ip_pool_id': str(route.ip_pool_id),
@@ -357,6 +366,19 @@ class DeliveryService:
             'mta_submission_port': route.submission_port,
             'mta_auth_secret_ref': route.auth_secret_ref,
         }
+
+    def _send_type_for_record(self, record: EmailSendRecord) -> str:
+        if not record.send_job_id:
+            return 'transactional'
+        job = self.db.get(CampaignSendJob, record.send_job_id)
+        metadata = job.metadata_json if job else {}
+        if isinstance(metadata, dict):
+            configured = metadata.get('send_type')
+            if configured:
+                return str(configured)
+            if metadata.get('source') == 'campaign_test_send':
+                return 'internal_test'
+        return 'campaign' if record.campaign_id else 'transactional'
 
     def _managed_smtp_message_options(
         self,
@@ -410,10 +432,18 @@ class DeliveryService:
             'mta_route_domain',
             'mta_route_sender_domain',
             'mta_route_recipient_domain',
+            'mta_route_send_type',
             'mta_route_decision_basis',
             'mta_routing_rule_name',
             'mta_routing_rule_source',
             'mta_preferred_providers',
+            'mta_rule_hit_send_type',
+            'mta_rule_hit_sender_domain',
+            'mta_rule_hit_recipient_domain',
+            'mta_rule_hit_name',
+            'mta_rule_hit_source',
+            'mta_rule_hit_pool_source',
+            'mta_rule_hit_provider_preference',
             'mta_provider_account_id',
             'mta_provider',
             'mta_ip_pool_id',

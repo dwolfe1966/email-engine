@@ -149,11 +149,14 @@ class ManagedSmtpRoutingService:
         dkim_key = metadata.get('dkim_key')
         route_read = ManagedSmtpResolvedRoute(
             domain=domain,
+            send_type=payload.send_type,
             sender_domain=sender_domain,
             recipient_domain=recipient_domain,
             decision_basis='sender_domain_policy' if sender_domain else 'recipient_domain_policy',
             routing_rule_name=pool_selection.rule_name,
             routing_rule_source=pool_selection.rule_source,
+            routing_rule_pool_source=pool_selection.source,
+            routing_rule_provider_preference=pool_selection.preferred_providers or [],
             preferred_providers=pool_selection.preferred_providers or [],
             delivery_route_id=route.id,
             delivery_route_name=route.name,
@@ -184,9 +187,12 @@ class ManagedSmtpRoutingService:
                 'mta_node': node.name,
                 'provider': provider.provider.value,
                 'decision_basis': 'sender_domain_policy' if sender_domain else 'recipient_domain_policy',
+                'send_type': payload.send_type,
                 'ip_pool_selection_source': pool_selection.source,
                 'routing_rule_name': pool_selection.rule_name,
                 'routing_rule_source': pool_selection.rule_source,
+                'routing_rule_pool_source': pool_selection.source,
+                'routing_rule_provider_preference': pool_selection.preferred_providers or [],
                 'preferred_providers': pool_selection.preferred_providers or [],
                 'selection': {
                     'candidate_count': selection.candidate_count,

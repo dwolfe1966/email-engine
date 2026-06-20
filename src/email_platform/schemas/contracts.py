@@ -1026,11 +1026,14 @@ class ManagedSmtpRouteBlockReason(BaseModel):
 
 class ManagedSmtpResolvedRoute(BaseModel):
     domain: str
+    send_type: str | None = None
     sender_domain: str | None = None
     recipient_domain: str | None = None
     decision_basis: str = 'sender_domain_policy'
     routing_rule_name: str | None = None
     routing_rule_source: str | None = None
+    routing_rule_pool_source: str | None = None
+    routing_rule_provider_preference: list[str] = Field(default_factory=list)
     preferred_providers: list[str] = Field(default_factory=list)
     delivery_route_id: UUID
     delivery_route_name: str
@@ -1759,10 +1762,18 @@ class CampaignTestSendResponse(SendResponse):
     mta_route_domain: str | None = None
     mta_route_sender_domain: str | None = None
     mta_route_recipient_domain: str | None = None
+    mta_route_send_type: str | None = None
     mta_route_decision_basis: str | None = None
     mta_routing_rule_name: str | None = None
     mta_routing_rule_source: str | None = None
     mta_preferred_providers: list[str] | None = None
+    mta_rule_hit_send_type: str | None = None
+    mta_rule_hit_sender_domain: str | None = None
+    mta_rule_hit_recipient_domain: str | None = None
+    mta_rule_hit_name: str | None = None
+    mta_rule_hit_source: str | None = None
+    mta_rule_hit_pool_source: str | None = None
+    mta_rule_hit_provider_preference: list[str] | None = None
     mta_node_name: str | None = None
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
@@ -1858,6 +1869,14 @@ class CampaignProofRouteRead(BaseModel):
     route_key: str | None = None
     mta_route_status: MtaRouteStatus
     mta_provider: str | None = None
+    mta_route_send_type: str | None = None
+    mta_rule_hit_send_type: str | None = None
+    mta_rule_hit_sender_domain: str | None = None
+    mta_rule_hit_recipient_domain: str | None = None
+    mta_rule_hit_name: str | None = None
+    mta_rule_hit_source: str | None = None
+    mta_rule_hit_pool_source: str | None = None
+    mta_rule_hit_provider_preference: list[str] | None = None
     mta_submission_host: str | None = None
     mta_hostname: str | None = None
     smtp_response_code: int | None = None

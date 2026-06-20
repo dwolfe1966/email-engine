@@ -440,6 +440,14 @@ type CampaignWorkflowStatus = {
     route_key: string | null;
     mta_route_status: 'resolved' | 'blocked' | 'attempted' | 'not_attempted';
     mta_provider: string | null;
+    mta_route_send_type: string | null;
+    mta_rule_hit_send_type: string | null;
+    mta_rule_hit_sender_domain: string | null;
+    mta_rule_hit_recipient_domain: string | null;
+    mta_rule_hit_name: string | null;
+    mta_rule_hit_source: string | null;
+    mta_rule_hit_pool_source: string | null;
+    mta_rule_hit_provider_preference: string[] | null;
     mta_submission_host: string | null;
     mta_hostname: string | null;
     smtp_response_code: number | null;
@@ -573,10 +581,18 @@ type CampaignTestSendResult = {
   mta_route_domain?: string | null;
   mta_route_sender_domain?: string | null;
   mta_route_recipient_domain?: string | null;
+  mta_route_send_type?: string | null;
   mta_route_decision_basis?: string | null;
   mta_routing_rule_name?: string | null;
   mta_routing_rule_source?: string | null;
   mta_preferred_providers?: string[] | null;
+  mta_rule_hit_send_type?: string | null;
+  mta_rule_hit_sender_domain?: string | null;
+  mta_rule_hit_recipient_domain?: string | null;
+  mta_rule_hit_name?: string | null;
+  mta_rule_hit_source?: string | null;
+  mta_rule_hit_pool_source?: string | null;
+  mta_rule_hit_provider_preference?: string[] | null;
   mta_node_name?: string | null;
   mta_node_selection_priority?: number | null;
   mta_node_selection_weight?: number | null;
@@ -751,11 +767,14 @@ type ManagedSmtpReadinessNotificationRead = {
 
 type ManagedSmtpResolvedRoute = {
   domain: string;
+  send_type: string | null;
   sender_domain: string | null;
   recipient_domain: string | null;
   decision_basis: string;
   routing_rule_name: string | null;
   routing_rule_source: string | null;
+  routing_rule_pool_source: string | null;
+  routing_rule_provider_preference: string[];
   preferred_providers: string[];
   delivery_route_id: string;
   delivery_route_name: string;
@@ -3003,7 +3022,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Route</span><strong>{proofSendRouteLabel || '-'}</strong></div>
               <div><span>Route status</span><strong>{lastTestSendResult.mta_route_status || (lastTestSendResult.mta_route_resolved ? 'resolved' : '-')}</strong></div>
               <div><span>Decision</span><strong>{lastTestSendResult.mta_route_decision_basis ? lastTestSendResult.mta_route_decision_basis.replace(/_/g, ' ') : '-'}</strong></div>
-              <div><span>Rule</span><strong>{lastTestSendResult.mta_routing_rule_name || '-'}</strong><small>{lastTestSendResult.mta_preferred_providers?.length ? `providers ${lastTestSendResult.mta_preferred_providers.join(', ')}` : lastTestSendResult.mta_routing_rule_source || ''}</small></div>
+              <div><span>Rule hit</span><strong>{lastTestSendResult.mta_rule_hit_name || lastTestSendResult.mta_routing_rule_name || '-'}</strong><small>{lastTestSendResult.mta_rule_hit_provider_preference?.length ? `providers ${lastTestSendResult.mta_rule_hit_provider_preference.join(', ')}` : lastTestSendResult.mta_rule_hit_source || lastTestSendResult.mta_routing_rule_source || ''}</small></div>
+              <div><span>Rule inputs</span><strong>{lastTestSendResult.mta_rule_hit_send_type || lastTestSendResult.mta_route_send_type || '-'}</strong><small>{`${lastTestSendResult.mta_rule_hit_sender_domain || lastTestSendResult.mta_route_sender_domain || '-'} -> ${lastTestSendResult.mta_rule_hit_recipient_domain || lastTestSendResult.mta_route_recipient_domain || '-'}`}</small></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
               <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong><small>{lastTestSendResult.mta_ip_pool_selection_source ? `from ${lastTestSendResult.mta_ip_pool_selection_source.replace(/_/g, ' ')}` : ''}</small></div>
@@ -10684,12 +10704,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         tone: 'good',
       },
       {
-        label: 'Rule',
+        label: 'Rule hit',
         value: managedSmtpRouteResolution.route.routing_rule_name || 'Default policy',
-        detail: managedSmtpRouteResolution.route.preferred_providers.length
-          ? `${managedSmtpRouteResolution.route.routing_rule_source || 'rule'} / providers ${managedSmtpRouteResolution.route.preferred_providers.join(', ')}`
+        detail: managedSmtpRouteResolution.route.routing_rule_provider_preference.length
+          ? `${managedSmtpRouteResolution.route.routing_rule_source || 'rule'} / providers ${managedSmtpRouteResolution.route.routing_rule_provider_preference.join(', ')}`
           : managedSmtpRouteResolution.route.routing_rule_source || 'No routing rule matched',
         tone: managedSmtpRouteResolution.route.routing_rule_name ? 'good' : 'warn',
+      },
+      {
+        label: 'Rule inputs',
+        value: managedSmtpRouteResolution.route.send_type || '-',
+        detail: `${managedSmtpRouteResolution.route.sender_domain || '-'} -> ${managedSmtpRouteResolution.route.recipient_domain || '-'}`,
+        tone: 'good',
       },
       {
         label: 'Route',
