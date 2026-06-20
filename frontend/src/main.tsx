@@ -10092,6 +10092,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
+  const [managedSmtpRulePreview, setManagedSmtpRulePreview] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRuleForm, setManagedSmtpRoutingRuleForm] = useState({
     name: 'gmail-scaleway',
     priority: '10',
@@ -10857,6 +10858,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .filter(Boolean);
   }
 
+  function firstRoutingRuleValue(value: string) {
+    return splitRoutingRuleList(value)[0] || '';
+  }
+
   function useSelectedRecordForFeedbackFilters() {
     if (!selectedRecord) {
       setStatus('Select a send record before applying feedback filters.');
@@ -11104,6 +11109,29 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       });
       setManagedSmtpRoutingRules(data);
       return `Saved ${payload.name}; ${formatInt(data.rules.length)} managed SMTP routing rule(s) configured.`;
+    });
+  }
+
+  async function previewManagedSmtpRoutingRule() {
+    await runDeliveryOperation('Previewing managed SMTP routing rule', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const senderDomain = firstRoutingRuleValue(managedSmtpRoutingRuleForm.sender_domains) || selectedDomainPolicy.domain;
+      const recipientDomain = firstRoutingRuleValue(managedSmtpRoutingRuleForm.recipient_domains) || 'gmail.com';
+      const sendType = firstRoutingRuleValue(managedSmtpRoutingRuleForm.send_types) || 'internal_test';
+      const result = await fetchJson<ManagedSmtpRouteResolutionRead>('/api/v1/managed-smtp/resolve-route', {
+        method: 'POST',
+        body: JSON.stringify({
+          from_domain: senderDomain,
+          recipient_domain: recipientDomain,
+          send_type: sendType,
+          route_id: selectedDomainPolicy.route_id,
+        }),
+      });
+      setManagedSmtpRulePreview(result);
+      if (result.ok && result.route) {
+        return `Preview resolved: ${result.route.routing_rule_name || 'default policy'} -> ${result.route.ip_pool_name} -> ${result.route.mta_node_name}.`;
+      }
+      return `Preview blocked: ${result.reason?.code || 'UNKNOWN'} - ${result.reason?.message || 'No reason returned.'}`;
     });
   }
 
@@ -11575,6 +11603,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               setSelectedDomainPolicyId(event.target.value);
               setDomainDashboard(null);
               setManagedSmtpRouteResolution(null);
+              setManagedSmtpRulePreview(null);
+              setManagedSmtpRoutingRules(null);
             }}>
               <option value="">Select domain policy</option>
               {domainPolicies.map((policy) => (
@@ -11673,6 +11703,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </label>
         </div>
         <div className="managed-smtp-route-inspector">
+          {managedSmtpRulePreview?.ok && managedSmtpRulePreview.route ? (
+            <article className="managed-smtp-route-field good">
+              <span>Preview</span>
+              <strong>{managedSmtpRulePreview.route.routing_rule_name || 'Default policy'}</strong>
+              <small>{`${managedSmtpRulePreview.route.ip_pool_name} -> ${managedSmtpRulePreview.route.mta_node_name} / ${managedSmtpRulePreview.route.provider}`}</small>
+            </article>
+          ) : managedSmtpRulePreview?.reason ? (
+            <article className="managed-smtp-route-field warn">
+              <span>Preview</span>
+              <strong>{managedSmtpRulePreview.reason.code}</strong>
+              <small>{managedSmtpRulePreview.reason.message}</small>
+            </article>
+          ) : null}
           {(managedSmtpRoutingRules?.rules || []).map((rule) => (
             <article className="managed-smtp-route-field good" key={String(rule.name || rule.id || JSON.stringify(rule))}>
               <span>{String(rule.name || 'unnamed rule')}</span>
@@ -11691,6 +11734,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
           <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
+          <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
           <button className="ghost" onClick={applyDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Apply Compliance Hold</button>
           <button className="ghost" onClick={releaseDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Release Compliance Hold</button>
