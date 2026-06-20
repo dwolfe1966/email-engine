@@ -907,6 +907,19 @@ type MtaNodeEventRead = {
   received_at: string;
 };
 
+type MtaIpPoolRead = {
+  id: string;
+  name: string;
+  pool_type: string;
+  status: string;
+  description: string | null;
+  max_per_minute: number | null;
+  min_available_nodes: number | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 type MtaIpPoolNodeRead = {
   id: string;
   ip_pool_id: string;
@@ -914,6 +927,7 @@ type MtaIpPoolNodeRead = {
   priority: number;
   weight: number;
   status: string;
+  max_per_minute: number | null;
   metadata_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -1044,16 +1058,7 @@ type ManagedSmtpDeploymentSummaryRead = {
 type ManagedSmtpBootstrapRead = {
   provider_account: MtaProviderAccountRead;
   node: MtaNodeRead;
-  ip_pool: {
-    id: string;
-    name: string;
-    pool_type: string;
-    status: string;
-    description: string | null;
-    metadata_json: Record<string, unknown>;
-    created_at: string;
-    updated_at: string;
-  };
+  ip_pool: MtaIpPoolRead;
   pool_node: MtaIpPoolNodeRead;
   delivery_route: DeliveryRouteRead;
   domain_policy: DomainDeliveryPolicyRead;
@@ -11455,6 +11460,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                 <div><dt>route</dt><dd>{lastManagedSmtpBootstrap.delivery_route.name}</dd></div>
                 <div><dt>domain</dt><dd>{lastManagedSmtpBootstrap.domain_policy.domain}</dd></div>
                 <div><dt>pool</dt><dd>{lastManagedSmtpBootstrap.ip_pool.name}</dd></div>
+                <div><dt>pool rate</dt><dd>{lastManagedSmtpBootstrap.ip_pool.max_per_minute ? `${formatInt(lastManagedSmtpBootstrap.ip_pool.max_per_minute)} / min` : 'none'}</dd></div>
+                <div><dt>pool capacity</dt><dd>{lastManagedSmtpBootstrap.ip_pool.min_available_nodes ? `${formatInt(lastManagedSmtpBootstrap.ip_pool.min_available_nodes)} node(s)` : 'default'}</dd></div>
+                <div><dt>node rate</dt><dd>{lastManagedSmtpBootstrap.pool_node.max_per_minute ? `${formatInt(lastManagedSmtpBootstrap.pool_node.max_per_minute)} / min` : 'none'}</dd></div>
                 <div><dt>port 25</dt><dd>{lastManagedSmtpBootstrap.provider_account.port25_status}</dd></div>
                 <div><dt>rDNS</dt><dd>{lastManagedSmtpBootstrap.provider_account.rdns_status}</dd></div>
               </dl>
@@ -11502,6 +11510,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                   <div><dt>provider blockers</dt><dd>{item.provider_blocker_labels.length ? item.provider_blocker_labels.join(', ') : 'none'}</dd></div>
                   <div><dt>submission</dt><dd>{item.submission_endpoint_label || `${item.node.submission_host || item.node.hostname}:${item.node.submission_port}`}</dd></div>
                   <div><dt>pools</dt><dd>{item.pool_membership_label || formatInt(item.pool_memberships.length)}</dd></div>
+                  <div><dt>pool node rate</dt><dd>{item.pool_memberships.some((membership) => membership.max_per_minute) ? item.pool_memberships.map((membership) => membership.max_per_minute ? `${formatInt(membership.max_per_minute)}/min` : 'none').join(', ') : 'none'}</dd></div>
                   <div><dt>readiness</dt><dd>{item.readiness_summary_label || 'Not checked'} / {formatInt(item.readiness_summary.ok_count)} ok / {formatInt(item.readiness_summary.failed_count)} failed</dd></div>
                   <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status_label || item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>

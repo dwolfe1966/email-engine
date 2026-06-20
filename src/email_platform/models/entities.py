@@ -21,6 +21,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from email_platform.db.session import Base
 
 
+def _metadata_positive_int(metadata: dict[str, object] | None, key: str) -> int | None:
+    value = (metadata or {}).get(key)
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 1 else None
+
+
 class CampaignStatus(StrEnum):
     draft = 'draft'
     scheduled = 'scheduled'
@@ -657,6 +668,14 @@ class MtaIpPool(Base):
         DateTime, default=datetime.utcnow, onupdate=func.now()
     )
 
+    @property
+    def max_per_minute(self) -> int | None:
+        return _metadata_positive_int(self.metadata_json, 'max_per_minute')
+
+    @property
+    def min_available_nodes(self) -> int | None:
+        return _metadata_positive_int(self.metadata_json, 'min_available_nodes')
+
 
 class MtaIpPoolNode(Base):
     __tablename__ = 'mta_ip_pool_nodes'
@@ -684,6 +703,10 @@ class MtaIpPoolNode(Base):
 
     ip_pool: Mapped[MtaIpPool] = relationship()
     mta_node: Mapped[MtaNode] = relationship()
+
+    @property
+    def max_per_minute(self) -> int | None:
+        return _metadata_positive_int(self.metadata_json, 'max_per_minute')
 
 
 class Suppression(Base):

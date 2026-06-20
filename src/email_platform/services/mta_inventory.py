@@ -227,7 +227,12 @@ class MtaInventoryService:
         return self._commit_refresh(node)
 
     def create_ip_pool(self, payload: MtaIpPoolCreate) -> MtaIpPool:
-        pool = MtaIpPool(**payload.model_dump())
+        data = payload.model_dump()
+        self._merge_metadata_int_controls(
+            data,
+            metadata_keys=('max_per_minute', 'min_available_nodes'),
+        )
+        pool = MtaIpPool(**data)
         self.db.add(pool)
         self.db.commit()
         self.db.refresh(pool)
@@ -257,7 +262,13 @@ class MtaInventoryService:
         pool = self.get_ip_pool(pool_id)
         if not pool:
             return None
-        self._apply(pool, payload.model_dump(exclude_unset=True))
+        updates = payload.model_dump(exclude_unset=True)
+        self._merge_metadata_int_controls(
+            updates,
+            metadata_keys=('max_per_minute', 'min_available_nodes'),
+            existing_metadata=pool.metadata_json,
+        )
+        self._apply(pool, updates)
         return self._commit_refresh(pool)
 
     def set_ip_pool_status(self, pool_id: UUID, status: MtaOperationalStatus) -> MtaIpPool | None:
@@ -270,7 +281,9 @@ class MtaInventoryService:
     def create_pool_node(self, payload: MtaIpPoolNodeCreate) -> MtaIpPoolNode:
         self._require_ip_pool(payload.ip_pool_id)
         self._require_node(payload.mta_node_id)
-        pool_node = MtaIpPoolNode(**payload.model_dump())
+        data = payload.model_dump()
+        self._merge_metadata_int_controls(data, metadata_keys=('max_per_minute',))
+        pool_node = MtaIpPoolNode(**data)
         self.db.add(pool_node)
         self.db.commit()
         self.db.refresh(pool_node)
@@ -322,7 +335,13 @@ class MtaInventoryService:
         pool_node = self.get_pool_node(pool_node_id)
         if not pool_node:
             return None
-        self._apply(pool_node, payload.model_dump(exclude_unset=True))
+        updates = payload.model_dump(exclude_unset=True)
+        self._merge_metadata_int_controls(
+            updates,
+            metadata_keys=('max_per_minute',),
+            existing_metadata=pool_node.metadata_json,
+        )
+        self._apply(pool_node, updates)
         return self._commit_refresh(pool_node)
 
     def set_pool_node_status(
@@ -1395,6 +1414,29 @@ class MtaInventoryService:
     def _apply(item, updates: dict[str, object]) -> None:
         for key, value in updates.items():
             setattr(item, key, value)
+
+    @staticmethod
+    def _merge_metadata_int_controls(
+        data: dict[str, object],
+        *,
+        metadata_keys: tuple[str, ...],
+        existing_metadata: dict[str, object] | None = None,
+    ) -> None:
+        controls = {
+            key: data.pop(key)
+            for key in metadata_keys
+            if key in data
+        }
+        if not controls:
+            return
+        metadata = dict(existing_metadata or {})
+        metadata.update(dict(data.get('metadata_json') or {}))
+        for key, value in controls.items():
+            if value is None:
+                metadata.pop(key, None)
+            else:
+                metadata[key] = int(value)
+        data['metadata_json'] = metadata
 
     @staticmethod
     def _inventory_counts(total: int, count_by_status) -> MtaInventoryCounts:

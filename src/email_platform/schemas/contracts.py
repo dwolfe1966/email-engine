@@ -967,6 +967,8 @@ class MtaIpPoolCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     pool_type: MtaIpPoolType
     description: str | None = None
+    max_per_minute: int | None = Field(default=None, ge=1)
+    min_available_nodes: int | None = Field(default=None, ge=1)
     metadata_json: JsonObject = Field(default_factory=dict)
 
 
@@ -975,6 +977,8 @@ class MtaIpPoolUpdate(BaseModel):
     pool_type: MtaIpPoolType | None = None
     status: MtaOperationalStatus | None = None
     description: str | None = None
+    max_per_minute: int | None = Field(default=None, ge=1)
+    min_available_nodes: int | None = Field(default=None, ge=1)
     metadata_json: JsonObject | None = None
 
 
@@ -992,6 +996,7 @@ class MtaIpPoolNodeCreate(BaseModel):
     mta_node_id: UUID
     priority: int = Field(default=100, ge=0)
     weight: int = Field(default=100, ge=0)
+    max_per_minute: int | None = Field(default=None, ge=1)
     metadata_json: JsonObject = Field(default_factory=dict)
 
 
@@ -999,6 +1004,7 @@ class MtaIpPoolNodeUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=0)
     weight: int | None = Field(default=None, ge=0)
     status: MtaOperationalStatus | None = None
+    max_per_minute: int | None = Field(default=None, ge=1)
     metadata_json: JsonObject | None = None
 
 

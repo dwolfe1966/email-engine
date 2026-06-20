@@ -9,7 +9,10 @@ from email_platform.schemas.contracts import (
     ManagedSmtpLogSampleRead,
     ManagedSmtpReadinessCheckRead,
     ManagedSmtpReadinessSummaryRead,
+    MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
+    MtaIpPoolNodeUpdate,
+    MtaIpPoolUpdate,
     MtaNodeCreate,
     MtaNodeUpdate,
     MtaProviderAccountCreate,
@@ -147,6 +150,90 @@ def test_create_pool_node_requires_existing_pool_before_node() -> None:
 
     with pytest.raises(MtaInventoryError, match='MTA IP pool not found'):
         service.create_pool_node(MtaIpPoolNodeCreate(ip_pool_id=uuid4(), mta_node_id=uuid4()))
+
+
+def test_create_ip_pool_merges_typed_enforcement_controls_into_metadata() -> None:
+    db = FakeDb()
+    service = MtaInventoryService(db)
+
+    pool = service.create_ip_pool(
+        MtaIpPoolCreate(
+            name='scaleway-transactional',
+            pool_type='shared_transactional',
+            max_per_minute=120,
+            min_available_nodes=2,
+            metadata_json={'source': 'operator'},
+        )
+    )
+
+    assert pool.metadata_json == {
+        'source': 'operator',
+        'max_per_minute': 120,
+        'min_available_nodes': 2,
+    }
+    assert pool.max_per_minute == 120
+    assert pool.min_available_nodes == 2
+    assert db.added == [pool]
+    assert db.committed
+    assert db.refreshed == [pool]
+
+
+def test_update_ip_pool_null_typed_controls_remove_metadata_gates() -> None:
+    pool_id = uuid4()
+    pool = SimpleNamespace(
+        id=pool_id,
+        metadata_json={
+            'source': 'operator',
+            'max_per_minute': 120,
+            'min_available_nodes': 2,
+        },
+    )
+    service = MtaInventoryService(FakeDb())
+    service.get_ip_pool = lambda item_id: pool if item_id == pool_id else None
+
+    updated = service.update_ip_pool(
+        pool_id,
+        MtaIpPoolUpdate(max_per_minute=None, min_available_nodes=1),
+    )
+
+    assert updated is pool
+    assert pool.metadata_json == {'source': 'operator', 'min_available_nodes': 1}
+
+
+def test_pool_node_typed_rate_limit_merges_into_metadata() -> None:
+    pool_id = uuid4()
+    node_id = uuid4()
+    db = FakeDb()
+    service = MtaInventoryService(db)
+    service._require_ip_pool = lambda item_id: SimpleNamespace(id=item_id)
+    service._require_node = lambda item_id: SimpleNamespace(id=item_id)
+
+    pool_node = service.create_pool_node(
+        MtaIpPoolNodeCreate(
+            ip_pool_id=pool_id,
+            mta_node_id=node_id,
+            max_per_minute=60,
+            metadata_json={'source': 'operator'},
+        )
+    )
+
+    assert pool_node.metadata_json == {'source': 'operator', 'max_per_minute': 60}
+    assert pool_node.max_per_minute == 60
+
+
+def test_update_pool_node_null_typed_rate_limit_removes_metadata_gate() -> None:
+    pool_node_id = uuid4()
+    pool_node = SimpleNamespace(
+        id=pool_node_id,
+        metadata_json={'source': 'operator', 'max_per_minute': 60},
+    )
+    service = MtaInventoryService(FakeDb())
+    service.get_pool_node = lambda item_id: pool_node if item_id == pool_node_id else None
+
+    updated = service.update_pool_node(pool_node_id, MtaIpPoolNodeUpdate(max_per_minute=None))
+
+    assert updated is pool_node
+    assert pool_node.metadata_json == {'source': 'operator'}
 
 
 def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeypatch) -> None:
