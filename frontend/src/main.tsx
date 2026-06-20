@@ -11735,6 +11735,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const policy = String(metadata.domain_delivery_policy_id || '-');
               const mtaHost = String(metadata.mta_submission_host || metadata.mta_hostname || '-');
               const smtpCode = attempt.smtp_response_code || metadata.smtp_response_code || '-';
+              const submissionProvider = String(metadata.mta_submission_provider || '-');
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
               const isFocusedAttempt = routeAttemptId && attempt.id === routeAttemptId;
@@ -11757,6 +11758,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     <div><dt>domain</dt><dd>{domain}</dd></div>
                     <div><dt>policy</dt><dd>{policy === '-' ? '-' : policy.slice(0, 8)}</dd></div>
                     <div><dt>mta</dt><dd>{mtaHost}</dd></div>
+                    <div><dt>submission</dt><dd>{submissionProvider}</dd></div>
                     <div><dt>smtp</dt><dd>{smtpCode}</dd></div>
                     <div><dt>dkim</dt><dd>{dkimSelector}</dd></div>
                     <div><dt>envelope</dt><dd>{envelopeFrom}</dd></div>

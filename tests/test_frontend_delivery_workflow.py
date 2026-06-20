@@ -138,6 +138,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'attemptHasIssue',
         'attemptCompletedOk',
         'mtaHost',
+        'submissionProvider',
+        '<dt>submission</dt>',
         'smtpCode',
         'dkimSelector',
         'envelopeFrom',
