@@ -4,7 +4,12 @@ from uuid import uuid4
 
 import pytest
 
-from email_platform.models.entities import MtaNodeEvent, MtaOperationalStatus, MtaProviderAccount
+from email_platform.models.entities import (
+    MtaIpPoolType,
+    MtaNodeEvent,
+    MtaOperationalStatus,
+    MtaProviderAccount,
+)
 from email_platform.schemas.contracts import (
     ManagedSmtpLogSampleRead,
     ManagedSmtpReadinessCheckRead,
@@ -332,6 +337,18 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         created_at=now,
         updated_at=now,
     )
+    pool = SimpleNamespace(
+        id=pool_id,
+        name='aws-staging-pool',
+        pool_type=MtaIpPoolType.internal_test,
+        status=MtaOperationalStatus.active,
+        description=None,
+        max_per_minute=120,
+        min_available_nodes=1,
+        metadata_json={'max_per_minute': 120, 'min_available_nodes': 1},
+        created_at=now,
+        updated_at=now,
+    )
 
     class FakeReadinessService:
         def __init__(self, db) -> None:
@@ -370,8 +387,15 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
         def get_provider_account(self, item_id):
             return account if item_id == account_id else None
 
+        def get_node(self, item_id):
+            return node if item_id == node_id else None
+
+        def list_ip_pools(self, **kwargs):
+            assert kwargs['limit'] == 100
+            return [pool]
+
         def list_pool_nodes(self, **kwargs):
-            assert kwargs['mta_node_id'] == node_id
+            assert kwargs.get('mta_node_id') == node_id or kwargs.get('ip_pool_id') == pool_id
             return [pool_node]
 
         def count_provider_accounts(self, status=None):
@@ -419,6 +443,11 @@ def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeyp
     assert summary.ip_pools.paused == 1
     assert summary.managed_smtp_route_count == 1
     assert summary.managed_smtp_domain_policy_count == 1
+    assert summary.pool_health[0].ip_pool.name == 'aws-staging-pool'
+    assert summary.pool_health[0].status == 'ok'
+    assert summary.pool_health[0].route_ready_node_count == 1
+    assert summary.pool_health[0].required_available_node_count == 1
+    assert summary.pool_health[0].max_per_minute == 120
     assert summary.submission_credentials_configured is True
     assert summary.submission_tls_enabled is True
     assert summary.recent_nodes[0].node.hostname == 'smtp.example.com'
@@ -1065,6 +1094,7 @@ def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) ->
     now = datetime.utcnow()
     account = _provider_account(account_id, now)
     node = _mta_node(node_id, account_id, now)
+    pool = _ip_pool(pool_id, now)
     pool_node = _pool_node(pool_node_id, pool_id, node_id, now)
     policy = SimpleNamespace(
         domain='email-engine.example',
@@ -1081,6 +1111,7 @@ def test_first_send_readiness_marks_ready_when_all_controls_pass(monkeypatch) ->
         FakeDb(),
         account=account,
         node=node,
+        pool=pool,
         pool_node=pool_node,
         policy=policy,
     ).first_send_readiness(
@@ -1110,6 +1141,7 @@ def test_first_send_readiness_blocks_when_port25_is_pending(monkeypatch) -> None
     now = datetime.utcnow()
     account = _provider_account(account_id, now, port25_status='pending')
     node = _mta_node(node_id, account_id, now)
+    pool = _ip_pool(pool_id, now)
     pool_node = _pool_node(pool_node_id, pool_id, node_id, now)
     policy = SimpleNamespace(
         domain='email-engine.example',
@@ -1123,6 +1155,7 @@ def test_first_send_readiness_blocks_when_port25_is_pending(monkeypatch) -> None
         FakeDb(),
         account=account,
         node=node,
+        pool=pool,
         pool_node=pool_node,
         policy=policy,
     ).first_send_readiness(
@@ -1178,6 +1211,21 @@ def _mta_node(node_id, account_id, now):
     )
 
 
+def _ip_pool(pool_id, now):
+    return SimpleNamespace(
+        id=pool_id,
+        name='aws-staging-pool',
+        pool_type=MtaIpPoolType.internal_test,
+        status=MtaOperationalStatus.active,
+        description=None,
+        max_per_minute=None,
+        min_available_nodes=1,
+        metadata_json={'min_available_nodes': 1},
+        created_at=now,
+        updated_at=now,
+    )
+
+
 def _pool_node(pool_node_id, pool_id, node_id, now):
     return SimpleNamespace(
         id=pool_node_id,
@@ -1227,10 +1275,11 @@ def _install_fake_readiness(monkeypatch, expected_host, status, now) -> None:
 
 
 class _FakeFirstSendService(MtaInventoryService):
-    def __init__(self, db, *, account, node, pool_node, policy) -> None:
+    def __init__(self, db, *, account, node, pool, pool_node, policy) -> None:
         super().__init__(db)
         self.account = account
         self.node = node
+        self.pool = pool
         self.pool_node = pool_node
         self.policy = policy
 
@@ -1239,6 +1288,12 @@ class _FakeFirstSendService(MtaInventoryService):
 
     def get_provider_account(self, item_id):
         return self.account if item_id == self.account.id else None
+
+    def get_node(self, item_id):
+        return self.node if item_id == self.node.id else None
+
+    def list_ip_pools(self, **kwargs):
+        return [self.pool]
 
     def list_pool_nodes(self, **kwargs):
         return [self.pool_node]

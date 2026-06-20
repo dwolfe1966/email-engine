@@ -1475,6 +1475,24 @@ class ManagedSmtpFleetHealthRead(BaseModel):
     active_queue_count: int
 
 
+class ManagedSmtpPoolHealthRead(BaseModel):
+    ip_pool: MtaIpPoolRead
+    status: str
+    status_label: str
+    tone: str
+    summary: str
+    active_membership_count: int
+    route_ready_node_count: int
+    required_available_node_count: int
+    max_per_minute: int | None = None
+    node_max_per_minute: int | None = None
+    provider_blocker_count: int = 0
+    readiness_blocker_count: int = 0
+    inactive_membership_count: int = 0
+    reasons: list[str] = Field(default_factory=list)
+    reason_labels: list[str] = Field(default_factory=list)
+
+
 class ManagedSmtpDeploymentSummaryRead(BaseModel):
     provider_accounts: MtaInventoryCounts
     nodes: MtaInventoryCounts
@@ -1485,6 +1503,7 @@ class ManagedSmtpDeploymentSummaryRead(BaseModel):
     managed_smtp_route_count: int
     managed_smtp_domain_policy_count: int
     fleet_health: ManagedSmtpFleetHealthRead
+    pool_health: list[ManagedSmtpPoolHealthRead] = Field(default_factory=list)
     recent_nodes: list[ManagedSmtpDeploymentNodeSummary] = Field(default_factory=list)
 
 

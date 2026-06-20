@@ -25,6 +25,7 @@ from email_platform.schemas.contracts import (
     ManagedSmtpFirstSendRead,
     ManagedSmtpFleetHealthRead,
     ManagedSmtpLogSampleRead,
+    ManagedSmtpPoolHealthRead,
     ManagedSmtpQueueSampleRead,
     ManagedSmtpReadinessSummaryRead,
     MtaInventoryCounts,
@@ -496,6 +497,7 @@ class MtaInventoryService:
             managed_smtp_route_count=self._managed_smtp_route_count(),
             managed_smtp_domain_policy_count=self._managed_smtp_domain_policy_count(),
             fleet_health=self._fleet_health(node_summaries),
+            pool_health=self._pool_health(),
             recent_nodes=node_summaries,
         )
 
@@ -994,6 +996,92 @@ class MtaInventoryService:
             active_queue_count=active_queue_count,
         )
 
+    def _pool_health(self, limit: int = 100) -> list[ManagedSmtpPoolHealthRead]:
+        readiness_service = ManagedSmtpReadinessService(self.db)
+        items: list[ManagedSmtpPoolHealthRead] = []
+        for pool in self.list_ip_pools(limit=limit, offset=0):
+            memberships = self.list_pool_nodes(ip_pool_id=pool.id, limit=100, offset=0)
+            active_memberships = [
+                membership
+                for membership in memberships
+                if self._status_value(membership.status) == 'active'
+            ]
+            route_ready_node_count = 0
+            provider_blocker_count = 0
+            readiness_blocker_count = 0
+            reasons: list[str] = []
+            node_limits = [
+                self._metadata_int(membership.metadata_json or {}, 'max_per_minute')
+                for membership in active_memberships
+            ]
+            node_limits = [limit for limit in node_limits if limit is not None]
+            for membership in active_memberships:
+                node = self.get_node(membership.mta_node_id)
+                if not node or self._status_value(node.status) != 'active':
+                    readiness_blocker_count += 1
+                    continue
+                provider = self.get_provider_account(node.provider_account_id)
+                provider_blockers = self._provider_blockers(provider)
+                if provider_blockers:
+                    provider_blocker_count += 1
+                    reasons.extend(provider_blockers)
+                    continue
+                readiness = readiness_service.summary(host=node.hostname)
+                if not readiness.latest_check or readiness.latest_check.status != 'ok':
+                    readiness_blocker_count += 1
+                    reasons.append('readiness_not_ok')
+                    continue
+                route_ready_node_count += 1
+
+            required_available_node_count = (
+                self._metadata_int(pool.metadata_json or {}, 'min_available_nodes')
+                or self._metadata_int(pool.metadata_json or {}, 'required_available_nodes')
+                or 1
+            )
+            if self._status_value(pool.status) != 'active':
+                reasons.append('pool_inactive')
+            if not active_memberships:
+                reasons.append('no_active_memberships')
+            if route_ready_node_count < required_available_node_count:
+                reasons.append('capacity_below_required')
+            inactive_membership_count = max(0, len(memberships) - len(active_memberships))
+            if inactive_membership_count:
+                reasons.append('inactive_memberships')
+            unique_reasons = sorted(set(reasons))
+            if self._status_value(pool.status) != 'active' or route_ready_node_count == 0:
+                status = 'blocked'
+            elif route_ready_node_count < required_available_node_count or unique_reasons:
+                status = 'warning'
+            else:
+                status = 'ok'
+            items.append(
+                ManagedSmtpPoolHealthRead(
+                    ip_pool=pool,
+                    status=status,
+                    status_label=self._pool_health_status_label(status),
+                    tone='good' if status == 'ok' else 'warn',
+                    summary=self._pool_health_summary(
+                        status,
+                        route_ready_node_count,
+                        required_available_node_count,
+                        unique_reasons,
+                    ),
+                    active_membership_count=len(active_memberships),
+                    route_ready_node_count=route_ready_node_count,
+                    required_available_node_count=required_available_node_count,
+                    max_per_minute=self._metadata_int(pool.metadata_json or {}, 'max_per_minute'),
+                    node_max_per_minute=min(node_limits) if node_limits else None,
+                    provider_blocker_count=provider_blocker_count,
+                    readiness_blocker_count=readiness_blocker_count,
+                    inactive_membership_count=inactive_membership_count,
+                    reasons=unique_reasons,
+                    reason_labels=[
+                        self._pool_health_reason_label(reason) for reason in unique_reasons
+                    ],
+                )
+            )
+        return items
+
     @staticmethod
     def _node_has_log_severity(item: object, severity: str) -> bool:
         return any(
@@ -1227,6 +1315,48 @@ class MtaInventoryService:
             'port25_blocked': 'Port 25 blocked',
             'rdns_blocked': 'rDNS blocked',
         }.get(blocker, blocker)
+
+    @staticmethod
+    def _pool_health_status_label(status: str) -> str:
+        return {
+            'ok': 'Route-ready',
+            'warning': 'Degraded',
+            'blocked': 'Blocked',
+        }.get(status, status)
+
+    @staticmethod
+    def _pool_health_reason_label(reason: str) -> str:
+        return {
+            'pool_inactive': 'Pool inactive',
+            'no_active_memberships': 'No active memberships',
+            'capacity_below_required': 'Capacity below required nodes',
+            'inactive_memberships': 'Inactive memberships present',
+            'provider_missing': 'Provider missing',
+            'provider_inactive': 'Provider inactive',
+            'port25_blocked': 'Port 25 blocked',
+            'rdns_blocked': 'rDNS blocked',
+            'readiness_not_ok': 'Readiness not passing',
+        }.get(reason, reason)
+
+    def _pool_health_summary(
+        self,
+        status: str,
+        route_ready_node_count: int,
+        required_available_node_count: int,
+        reasons: list[str],
+    ) -> str:
+        if status == 'ok':
+            return (
+                f'{route_ready_node_count} route-ready node(s); '
+                f'{required_available_node_count} required.'
+            )
+        if reasons:
+            labels = ', '.join(self._pool_health_reason_label(reason) for reason in reasons[:3])
+            return (
+                f'{route_ready_node_count}/{required_available_node_count} '
+                f'route-ready node(s): {labels}.'
+            )
+        return f'{route_ready_node_count}/{required_available_node_count} route-ready node(s).'
 
     @staticmethod
     def _provider_status_label(status: str) -> str:
