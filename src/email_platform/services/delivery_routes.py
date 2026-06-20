@@ -37,6 +37,8 @@ from email_platform.schemas.contracts import (
     DomainReputationDashboardRead,
     DomainWarmupProgressionRead,
     DomainWarmupProgressionRequest,
+    ManagedSmtpRoutingRuleUpsert,
+    ManagedSmtpRoutingRulesRead,
     ManagedSmtpMaintenancePolicyRead,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
@@ -202,6 +204,42 @@ class DeliveryRouteService:
         self.db.refresh(route)
         return route
 
+    def managed_smtp_routing_rules(self, route_id: UUID) -> ManagedSmtpRoutingRulesRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        return ManagedSmtpRoutingRulesRead(
+            delivery_route_id=route.id,
+            delivery_route_name=route.name,
+            rules=self._routing_rules_from_route(route),
+        )
+
+    def upsert_managed_smtp_routing_rule(
+        self,
+        route_id: UUID,
+        payload: ManagedSmtpRoutingRuleUpsert,
+    ) -> ManagedSmtpRoutingRulesRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        config = dict(route.config or {})
+        existing_rules = self._routing_rules_from_route(route)
+        normalized_rule = self._normalized_routing_rule(payload)
+        next_rules = [
+            rule for rule in existing_rules if str(rule.get('name') or '') != normalized_rule['name']
+        ]
+        next_rules.append(normalized_rule)
+        next_rules.sort(key=lambda rule: int(rule.get('priority') or 100))
+        config['routing_rules'] = next_rules
+        route.config = config
+        self.db.commit()
+        self.db.refresh(route)
+        return ManagedSmtpRoutingRulesRead(
+            delivery_route_id=route.id,
+            delivery_route_name=route.name,
+            rules=next_rules,
+        )
+
     def delete(self, route_id: UUID) -> bool:
         route = self.get(route_id)
         if not route:
@@ -209,6 +247,47 @@ class DeliveryRouteService:
         self.db.delete(route)
         self.db.commit()
         return True
+
+    def _routing_rules_from_route(self, route: DeliveryRoute) -> list[dict[str, object]]:
+        config = route.config or {}
+        rules = config.get('routing_rules') if isinstance(config, dict) else None
+        if not isinstance(rules, list):
+            return []
+        normalized_rules = [dict(rule) for rule in rules if isinstance(rule, dict)]
+        return sorted(normalized_rules, key=lambda rule: int(rule.get('priority') or 100))
+
+    def _normalized_routing_rule(
+        self,
+        payload: ManagedSmtpRoutingRuleUpsert,
+    ) -> dict[str, object]:
+        data = payload.model_dump()
+        rule: dict[str, object] = {
+            'name': payload.name.strip(),
+            'priority': payload.priority,
+            'enabled': payload.enabled,
+            'send_types': self._normalized_string_list(data.get('send_types')),
+            'sender_domains': self._normalized_domain_list(data.get('sender_domains')),
+            'recipient_domains': self._normalized_domain_list(data.get('recipient_domains')),
+            'preferred_providers': self._normalized_string_list(data.get('preferred_providers')),
+        }
+        if payload.mta_ip_pool_id:
+            rule['mta_ip_pool_id'] = str(payload.mta_ip_pool_id)
+        if payload.ip_pool_name:
+            rule['ip_pool_name'] = payload.ip_pool_name.strip()
+        return rule
+
+    @staticmethod
+    def _normalized_string_list(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item).strip().lower() for item in value if str(item).strip()]
+
+    def _normalized_domain_list(self, value: object) -> list[str]:
+        return [
+            domain
+            for domain in (self._normalized_domain(str(item)) for item in value or [])
+            if domain
+        ]
 
     def create_domain_policy(
         self,

@@ -167,6 +167,8 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessTrendRead,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
+    ManagedSmtpRoutingRuleUpsert,
+    ManagedSmtpRoutingRulesRead,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
     MtaIpPoolNodeRead,
@@ -3014,6 +3016,35 @@ def resume_delivery_route(route_id: UUID, db: DbSession) -> DeliveryRoute:
     if not route:
         raise HTTPException(status_code=404, detail='Delivery route not found')
     return route
+
+
+@router.get(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules',
+    response_model=ManagedSmtpRoutingRulesRead,
+)
+def get_managed_smtp_routing_rules(
+    route_id: UUID,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulesRead:
+    result = DeliveryRouteService(db).managed_smtp_routing_rules(route_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules',
+    response_model=ManagedSmtpRoutingRulesRead,
+)
+def upsert_managed_smtp_routing_rule(
+    route_id: UUID,
+    payload: ManagedSmtpRoutingRuleUpsert,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulesRead:
+    result = DeliveryRouteService(db).upsert_managed_smtp_routing_rule(route_id, payload)
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return result
 
 
 @router.get(

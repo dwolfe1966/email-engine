@@ -12,6 +12,7 @@ from email_platform.schemas.contracts import (
     DomainDkimKeyCreateRequest,
     DomainWarmupProgressionRequest,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpRoutingRuleUpsert,
 )
 from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
 
@@ -82,6 +83,85 @@ def test_delivery_route_selector_maps_smtp_provider_to_smtp_relay() -> None:
     assert selected.route_type == 'smtp_relay'
     assert selected.route_key == 'smtp'
     assert selected.source == 'settings'
+
+
+def test_upsert_managed_smtp_routing_rule_preserves_route_config() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'mta_ip_pool_id': str(uuid4()),
+            'routing_rules': [
+                {
+                    'name': 'existing-rule',
+                    'priority': 50,
+                    'send_types': ['internal_test'],
+                    'ip_pool_name': 'old-pool',
+                }
+            ],
+        },
+    )
+    db = FakeDb(get_result=route)
+    service = DeliveryRouteService(db)
+
+    result = service.upsert_managed_smtp_routing_rule(
+        route_id,
+        ManagedSmtpRoutingRuleUpsert(
+            name='gmail-scaleway',
+            priority=10,
+            send_types=['Transactional', 'internal_test'],
+            sender_domains=['Sender@Email-Engine.App'],
+            recipient_domains=['GMAIL.COM'],
+            ip_pool_name='scaleway-transactional',
+            preferred_providers=['Scaleway'],
+        ),
+    )
+
+    assert result is not None
+    assert db.committed
+    assert route.config['mta_ip_pool_id']
+    assert [rule['name'] for rule in route.config['routing_rules']] == [
+        'gmail-scaleway',
+        'existing-rule',
+    ]
+    rule = route.config['routing_rules'][0]
+    assert rule['send_types'] == ['transactional', 'internal_test']
+    assert rule['sender_domains'] == ['email-engine.app']
+    assert rule['recipient_domains'] == ['gmail.com']
+    assert rule['preferred_providers'] == ['scaleway']
+
+
+def test_upsert_managed_smtp_routing_rule_replaces_rule_by_name() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [
+                {
+                    'name': 'gmail-scaleway',
+                    'priority': 100,
+                    'ip_pool_name': 'old-pool',
+                }
+            ],
+        },
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+
+    result = service.upsert_managed_smtp_routing_rule(
+        route_id,
+        ManagedSmtpRoutingRuleUpsert(
+            name='gmail-scaleway',
+            priority=5,
+            ip_pool_name='new-pool',
+        ),
+    )
+
+    assert result is not None
+    assert len(route.config['routing_rules']) == 1
+    assert route.config['routing_rules'][0]['priority'] == 5
+    assert route.config['routing_rules'][0]['ip_pool_name'] == 'new-pool'
 
 
 def test_delivery_route_selector_prefers_active_matching_route() -> None:

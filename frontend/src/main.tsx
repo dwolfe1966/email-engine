@@ -483,6 +483,23 @@ type DomainDeliveryPolicyRead = {
   metadata_json: Record<string, unknown>;
 };
 
+type DeliveryRouteRead = {
+  id: string;
+  name: string;
+  route_type: string;
+  status: string;
+  priority: number;
+  config: Record<string, unknown>;
+  secret_ref: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
+type ManagedSmtpRoutingRulesRead = {
+  delivery_route_id: string;
+  delivery_route_name: string;
+  rules: Record<string, unknown>[];
+};
+
 type DomainReputationDashboardRead = {
   domain: string;
   route_id: string | null;
@@ -10074,6 +10091,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
+  const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
+  const [managedSmtpRoutingRuleForm, setManagedSmtpRoutingRuleForm] = useState({
+    name: 'gmail-scaleway',
+    priority: '10',
+    enabled: true,
+    send_types: 'internal_test',
+    sender_domains: '',
+    recipient_domains: 'gmail.com',
+    ip_pool_name: 'scaleway-internal-test',
+    preferred_providers: 'scaleway',
+  });
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
@@ -10818,6 +10846,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setMtaNodeEventFilters((current) => ({ ...current, [name]: value }));
   }
 
+  function updateManagedSmtpRoutingRuleForm(name: keyof typeof managedSmtpRoutingRuleForm, value: string | boolean) {
+    setManagedSmtpRoutingRuleForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function splitRoutingRuleList(value: string) {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   function useSelectedRecordForFeedbackFilters() {
     if (!selectedRecord) {
       setStatus('Select a send record before applying feedback filters.');
@@ -11033,6 +11072,38 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const data = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
       setDomainDashboard(data);
       return `Loaded ${data.domain} reputation dashboard: ${data.reputation_status}, compliance ${data.compliance_status}.`;
+    });
+  }
+
+  async function loadManagedSmtpRoutingRules() {
+    await runDeliveryOperation('Loading managed SMTP routing rules', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`);
+      setManagedSmtpRoutingRules(data);
+      return `Loaded ${formatInt(data.rules.length)} routing rule(s) for ${data.delivery_route_name}.`;
+    });
+  }
+
+  async function saveManagedSmtpRoutingRule() {
+    await runDeliveryOperation('Saving managed SMTP routing rule', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const payload = {
+        name: managedSmtpRoutingRuleForm.name.trim(),
+        priority: Number(managedSmtpRoutingRuleForm.priority || 100),
+        enabled: managedSmtpRoutingRuleForm.enabled,
+        send_types: splitRoutingRuleList(managedSmtpRoutingRuleForm.send_types),
+        sender_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.sender_domains),
+        recipient_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.recipient_domains),
+        ip_pool_name: managedSmtpRoutingRuleForm.ip_pool_name.trim() || null,
+        preferred_providers: splitRoutingRuleList(managedSmtpRoutingRuleForm.preferred_providers),
+      };
+      if (!payload.name) throw new Error('Rule name is required.');
+      const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setManagedSmtpRoutingRules(data);
+      return `Saved ${payload.name}; ${formatInt(data.rules.length)} managed SMTP routing rule(s) configured.`;
     });
   }
 
@@ -11557,9 +11628,70 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <pre className="json-preview">{JSON.stringify(managedSmtpRouteResolution.reason.details, null, 2)}</pre>
           </details>
         ) : null}
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Managed SMTP Routing Rules</h3>
+            <span className="muted">Edit rule-based pool and provider selection for the selected delivery route.</span>
+          </div>
+          <button className="link-button" onClick={loadManagedSmtpRoutingRules} disabled={busy || !selectedDomainPolicy?.route_id}>Load Rules</button>
+        </div>
+        <div className="form-grid compact-form">
+          <label>
+            Rule name
+            <input value={managedSmtpRoutingRuleForm.name} onChange={(event) => updateManagedSmtpRoutingRuleForm('name', event.target.value)} />
+          </label>
+          <label>
+            Priority
+            <input value={managedSmtpRoutingRuleForm.priority} onChange={(event) => updateManagedSmtpRoutingRuleForm('priority', event.target.value)} />
+          </label>
+          <label>
+            Send types
+            <input value={managedSmtpRoutingRuleForm.send_types} onChange={(event) => updateManagedSmtpRoutingRuleForm('send_types', event.target.value)} placeholder="internal_test, transactional" />
+          </label>
+          <label>
+            Sender domains
+            <input value={managedSmtpRoutingRuleForm.sender_domains} onChange={(event) => updateManagedSmtpRoutingRuleForm('sender_domains', event.target.value)} placeholder="email-engine.app" />
+          </label>
+          <label>
+            Recipient domains
+            <input value={managedSmtpRoutingRuleForm.recipient_domains} onChange={(event) => updateManagedSmtpRoutingRuleForm('recipient_domains', event.target.value)} placeholder="gmail.com" />
+          </label>
+          <label>
+            IP pool
+            <input value={managedSmtpRoutingRuleForm.ip_pool_name} onChange={(event) => updateManagedSmtpRoutingRuleForm('ip_pool_name', event.target.value)} placeholder="scaleway-internal-test" />
+          </label>
+          <label>
+            Providers
+            <input value={managedSmtpRoutingRuleForm.preferred_providers} onChange={(event) => updateManagedSmtpRoutingRuleForm('preferred_providers', event.target.value)} placeholder="scaleway" />
+          </label>
+          <label>
+            Enabled
+            <select value={managedSmtpRoutingRuleForm.enabled ? 'true' : 'false'} onChange={(event) => updateManagedSmtpRoutingRuleForm('enabled', event.target.value === 'true')}>
+              <option value="true">enabled</option>
+              <option value="false">disabled</option>
+            </select>
+          </label>
+        </div>
+        <div className="managed-smtp-route-inspector">
+          {(managedSmtpRoutingRules?.rules || []).map((rule) => (
+            <article className="managed-smtp-route-field good" key={String(rule.name || rule.id || JSON.stringify(rule))}>
+              <span>{String(rule.name || 'unnamed rule')}</span>
+              <strong>{String(rule.ip_pool_name || rule.ip_pool || rule.mta_ip_pool_id || '-')}</strong>
+              <small>{`priority ${String(rule.priority ?? '-')} / ${Array.isArray(rule.preferred_providers) ? rule.preferred_providers.join(', ') : 'any provider'}`}</small>
+            </article>
+          ))}
+          {!managedSmtpRoutingRules?.rules?.length ? (
+            <article className="managed-smtp-route-field warn">
+              <span>Rules</span>
+              <strong>Not loaded</strong>
+              <small>Load or save a rule for the selected managed SMTP route.</small>
+            </article>
+          ) : null}
+        </div>
         <div className="button-row">
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
           <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
+          <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
           <button className="ghost" onClick={applyDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Apply Compliance Hold</button>
           <button className="ghost" onClick={releaseDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Release Compliance Hold</button>
         </div>

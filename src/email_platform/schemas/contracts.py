@@ -676,6 +676,24 @@ class DeliveryRouteRead(DeliveryRouteCreate):
     model_config = {'from_attributes': True}
 
 
+class ManagedSmtpRoutingRuleUpsert(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    priority: int = Field(default=100, ge=0, le=10_000)
+    enabled: bool = True
+    send_types: list[str] = Field(default_factory=list)
+    sender_domains: list[str] = Field(default_factory=list)
+    recipient_domains: list[str] = Field(default_factory=list)
+    mta_ip_pool_id: UUID | None = None
+    ip_pool_name: str | None = Field(default=None, max_length=200)
+    preferred_providers: list[str] = Field(default_factory=list)
+
+
+class ManagedSmtpRoutingRulesRead(BaseModel):
+    delivery_route_id: UUID
+    delivery_route_name: str
+    rules: list[JsonObject] = Field(default_factory=list)
+
+
 class DomainDeliveryPolicyCreate(BaseModel):
     domain: str
     route_id: UUID | None = None
