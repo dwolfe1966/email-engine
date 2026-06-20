@@ -38,6 +38,9 @@ class MtaNodeSelection:
 class MtaPoolSelection:
     pool: MtaIpPool | None
     source: str
+    rule_name: str | None = None
+    rule_source: str | None = None
+    preferred_providers: list[str] | None = None
 
 
 class ManagedSmtpRoutingService:
@@ -100,7 +103,14 @@ class ManagedSmtpRoutingService:
                 route_id=str(route.id),
             )
 
-        pool_selection = self._selected_pool(payload.ip_pool_id, policy, route)
+        pool_selection = self._selected_pool(
+            payload.ip_pool_id,
+            policy,
+            route,
+            sender_domain=sender_domain,
+            recipient_domain=recipient_domain,
+            send_type=payload.send_type,
+        )
         pool = pool_selection.pool
         if not pool:
             return self._blocked(
@@ -118,7 +128,10 @@ class ManagedSmtpRoutingService:
                 ip_pool_status=pool.status.value,
             )
 
-        selection = self._healthy_node_for_pool(pool.id)
+        selection = self._healthy_node_for_pool(
+            pool.id,
+            preferred_providers=pool_selection.preferred_providers,
+        )
         node = selection.node
         provider = selection.provider
         if not node or not provider:
@@ -139,6 +152,9 @@ class ManagedSmtpRoutingService:
             sender_domain=sender_domain,
             recipient_domain=recipient_domain,
             decision_basis='sender_domain_policy' if sender_domain else 'recipient_domain_policy',
+            routing_rule_name=pool_selection.rule_name,
+            routing_rule_source=pool_selection.rule_source,
+            preferred_providers=pool_selection.preferred_providers or [],
             delivery_route_id=route.id,
             delivery_route_name=route.name,
             domain_policy_id=policy.id,
@@ -169,6 +185,9 @@ class ManagedSmtpRoutingService:
                 'provider': provider.provider.value,
                 'decision_basis': 'sender_domain_policy' if sender_domain else 'recipient_domain_policy',
                 'ip_pool_selection_source': pool_selection.source,
+                'routing_rule_name': pool_selection.rule_name,
+                'routing_rule_source': pool_selection.rule_source,
+                'preferred_providers': pool_selection.preferred_providers or [],
                 'selection': {
                     'candidate_count': selection.candidate_count,
                     'membership_id': str(selection.membership.id) if selection.membership else None,
@@ -197,9 +216,21 @@ class ManagedSmtpRoutingService:
         requested_pool_id: UUID | None,
         policy: DomainDeliveryPolicy,
         route: DeliveryRoute,
+        sender_domain: str | None,
+        recipient_domain: str | None,
+        send_type: str | None,
     ) -> MtaPoolSelection:
         if requested_pool_id:
             return MtaPoolSelection(self.db.get(MtaIpPool, requested_pool_id), 'request')
+        rule_selection = self._routing_rule_pool_selection(
+            policy,
+            route,
+            sender_domain=sender_domain,
+            recipient_domain=recipient_domain,
+            send_type=send_type,
+        )
+        if rule_selection:
+            return rule_selection
         policy_pool_id = self._metadata_uuid(policy.metadata_json, 'mta_ip_pool_id')
         route_pool_id = self._metadata_uuid(route.config, 'mta_ip_pool_id')
         pool_id = policy_pool_id or route_pool_id
@@ -223,7 +254,9 @@ class ManagedSmtpRoutingService:
     def _healthy_node_for_pool(
         self,
         pool_id: UUID,
+        preferred_providers: list[str] | None = None,
     ) -> MtaNodeSelection:
+        provider_preference = [provider.lower() for provider in preferred_providers or []]
         memberships = list(
             self.db.scalars(
                 select(MtaIpPoolNode)
@@ -255,6 +288,9 @@ class ManagedSmtpRoutingService:
                 skipped.append({**candidate, 'reason': 'provider_missing'})
                 continue
             candidate.update({'provider': provider.provider.value, 'provider_account_id': str(provider.id)})
+            if provider_preference and provider.provider.value.lower() not in provider_preference:
+                skipped.append({**candidate, 'reason': 'provider_not_preferred'})
+                continue
             if provider.status != MtaOperationalStatus.active:
                 skipped.append(
                     {
@@ -269,6 +305,110 @@ class ManagedSmtpRoutingService:
                 continue
             return MtaNodeSelection(node, provider, membership, len(memberships), skipped)
         return MtaNodeSelection(None, None, None, len(memberships), skipped)
+
+    def _routing_rule_pool_selection(
+        self,
+        policy: DomainDeliveryPolicy,
+        route: DeliveryRoute,
+        sender_domain: str | None,
+        recipient_domain: str | None,
+        send_type: str | None,
+    ) -> MtaPoolSelection | None:
+        for source, metadata in (
+            ('domain_policy_rule', policy.metadata_json),
+            ('delivery_route_rule', route.config),
+        ):
+            for rule in self._routing_rules(metadata):
+                if not self._routing_rule_matches(
+                    rule,
+                    sender_domain=sender_domain,
+                    recipient_domain=recipient_domain,
+                    send_type=send_type,
+                ):
+                    continue
+                pool = self._pool_from_rule(rule)
+                if not pool:
+                    continue
+                preferred_providers = self._string_list(
+                    rule.get('preferred_providers') or rule.get('provider_preferences')
+                )
+                rule_name = self._rule_name(rule)
+                return MtaPoolSelection(
+                    pool=pool,
+                    source=source,
+                    rule_name=rule_name,
+                    rule_source=source,
+                    preferred_providers=preferred_providers,
+                )
+        return None
+
+    def _routing_rules(self, metadata: object) -> list[dict[str, object]]:
+        if not isinstance(metadata, dict):
+            return []
+        rules = metadata.get('routing_rules')
+        if not isinstance(rules, list):
+            return []
+        normalized_rules = [rule for rule in rules if isinstance(rule, dict)]
+        return sorted(
+            normalized_rules,
+            key=lambda rule: int(rule.get('priority') or 100),
+        )
+
+    def _routing_rule_matches(
+        self,
+        rule: dict[str, object],
+        sender_domain: str | None,
+        recipient_domain: str | None,
+        send_type: str | None,
+    ) -> bool:
+        if rule.get('enabled') is False:
+            return False
+        return (
+            self._rule_value_matches(rule.get('send_types'), send_type)
+            and self._rule_value_matches(rule.get('sender_domains'), sender_domain)
+            and self._rule_value_matches(rule.get('recipient_domains'), recipient_domain)
+        )
+
+    def _pool_from_rule(self, rule: dict[str, object]) -> MtaIpPool | None:
+        pool_id = (
+            self._uuid_from_value(rule.get('mta_ip_pool_id'))
+            or self._uuid_from_value(rule.get('ip_pool_id'))
+        )
+        if pool_id:
+            return self.db.get(MtaIpPool, pool_id)
+        pool_name = rule.get('ip_pool') or rule.get('ip_pool_name')
+        if pool_name:
+            return self.db.scalar(select(MtaIpPool).where(MtaIpPool.name == str(pool_name)).limit(1))
+        return None
+
+    def _rule_name(self, rule: dict[str, object]) -> str | None:
+        value = rule.get('name') or rule.get('id')
+        return str(value) if value else None
+
+    def _uuid_from_value(self, value: object) -> UUID | None:
+        if not value:
+            return None
+        try:
+            return UUID(str(value))
+        except ValueError:
+            return None
+
+    def _string_list(self, value: object) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [str(item) for item in value if item]
+        return []
+
+    def _rule_value_matches(self, configured: object, actual: str | None) -> bool:
+        values = [value.lower() for value in self._string_list(configured)]
+        if not values:
+            return True
+        if '*' in values:
+            return True
+        if not actual:
+            return False
+        return actual.lower() in values
 
     def _latest_readiness_ok(self, node: MtaNode) -> bool:
         check = self.db.scalar(

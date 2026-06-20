@@ -262,6 +262,8 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_route_sender_domain'] == 'email-engine.app'
     assert attempt.metadata_json['mta_route_recipient_domain'] == 'gmail.com'
     assert attempt.metadata_json['mta_route_decision_basis'] == 'sender_domain_policy'
+    assert attempt.metadata_json['mta_routing_rule_name'] is None
+    assert attempt.metadata_json['mta_preferred_providers'] == []
     assert attempt.metadata_json['mta_provider'] == 'aws'
     assert attempt.metadata_json['mta_provider_account_id'] == str(provider_account_id)
     assert attempt.metadata_json['mta_ip_pool_name'] == 'warmup-a'

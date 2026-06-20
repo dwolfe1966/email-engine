@@ -32,10 +32,18 @@ class ResolverHarness(ManagedSmtpRoutingService):
     def _delivery_route(self, route_id):
         return self.route
 
-    def _selected_pool(self, requested_pool_id, policy, route):
+    def _selected_pool(
+        self,
+        requested_pool_id,
+        policy,
+        route,
+        sender_domain=None,
+        recipient_domain=None,
+        send_type=None,
+    ):
         return MtaPoolSelection(self.pool, 'domain_policy')
 
-    def _healthy_node_for_pool(self, pool_id):
+    def _healthy_node_for_pool(self, pool_id, preferred_providers=None):
         return MtaNodeSelection(
             node=self.node,
             provider=self.provider,
@@ -247,6 +255,130 @@ def test_resolve_can_fall_back_to_recipient_domain_policy() -> None:
     assert result.route.sender_domain is None
     assert result.route.recipient_domain == 'example.com'
     assert result.route.decision_basis == 'recipient_domain_policy'
+
+
+def test_route_config_rule_selects_pool_and_provider_preference() -> None:
+    selected_pool_id = uuid4()
+    route = _route(
+        config={
+            'routing_rules': [
+                {
+                    'name': 'transactional-scaleway',
+                    'priority': 10,
+                    'send_types': ['transactional'],
+                    'sender_domains': ['example.com'],
+                    'recipient_domains': ['gmail.com'],
+                    'mta_ip_pool_id': str(selected_pool_id),
+                    'preferred_providers': ['scaleway'],
+                }
+            ]
+        }
+    )
+    pool = _pool(id=selected_pool_id, name='scaleway-transactional')
+    node = _node(name='mta-002', hostname='mta-002.email-engine.example')
+    provider = _provider(provider=MtaProviderType.scaleway)
+
+    class FakeDb:
+        def get(self, model, item_id):
+            return pool if item_id == selected_pool_id else None
+
+    service = ManagedSmtpRoutingService(FakeDb())
+
+    selection = service._selected_pool(
+        None,
+        _policy(),
+        route,
+        sender_domain='example.com',
+        recipient_domain='gmail.com',
+        send_type='transactional',
+    )
+
+    assert selection.pool is pool
+    assert selection.source == 'delivery_route_rule'
+    assert selection.rule_name == 'transactional-scaleway'
+    assert selection.preferred_providers == ['scaleway']
+
+    class RuleHarness(ManagedSmtpRoutingService):
+        def _domain_policy(self, domain):
+            return _policy()
+
+        def _delivery_route(self, route_id):
+            return route
+
+        def _healthy_node_for_pool(self, pool_id, preferred_providers=None):
+            return MtaNodeSelection(
+                node=node,
+                provider=provider,
+                membership=SimpleNamespace(id=uuid4(), priority=100, weight=100),
+                candidate_count=1,
+                skipped=[],
+            )
+
+    resolved = RuleHarness(FakeDb()).resolve(
+        ManagedSmtpRouteResolveRequest(
+            from_domain='example.com',
+            recipient_domain='gmail.com',
+            send_type='transactional',
+        )
+    )
+
+    assert resolved.ok
+    assert resolved.route is not None
+    assert resolved.route.routing_rule_name == 'transactional-scaleway'
+    assert resolved.route.preferred_providers == ['scaleway']
+    assert resolved.route.ip_pool_selection_source == 'delivery_route_rule'
+
+
+def test_healthy_node_selection_skips_non_preferred_provider() -> None:
+    pool_id = uuid4()
+    first_node_id = uuid4()
+    second_node_id = uuid4()
+    first_provider_id = uuid4()
+    second_provider_id = uuid4()
+    first_membership = _membership(
+        ip_pool_id=pool_id,
+        mta_node_id=first_node_id,
+        priority=10,
+    )
+    second_membership = _membership(
+        ip_pool_id=pool_id,
+        mta_node_id=second_node_id,
+        priority=20,
+    )
+    first_node = _node(id=first_node_id, provider_account_id=first_provider_id)
+    second_node = _node(
+        id=second_node_id,
+        provider_account_id=second_provider_id,
+        name='mta-002',
+    )
+    first_provider = _provider(id=first_provider_id, provider=MtaProviderType.aws)
+    second_provider = _provider(id=second_provider_id, provider=MtaProviderType.scaleway)
+
+    class ScalarResult:
+        def all(self):
+            return [first_membership, second_membership]
+
+    class FakeDb:
+        def scalars(self, statement):
+            return ScalarResult()
+
+        def get(self, model, item_id):
+            values = {
+                first_node_id: first_node,
+                second_node_id: second_node,
+                first_provider_id: first_provider,
+                second_provider_id: second_provider,
+            }
+            return values.get(item_id)
+
+    service = ManagedSmtpRoutingService(FakeDb())
+    service._latest_readiness_ok = lambda node: True
+
+    selection = service._healthy_node_for_pool(pool_id, preferred_providers=['scaleway'])
+
+    assert selection.node is second_node
+    assert selection.provider is second_provider
+    assert selection.skipped[0]['reason'] == 'provider_not_preferred'
 
 
 def test_healthy_node_selection_skips_paused_node_and_uses_next_candidate() -> None:

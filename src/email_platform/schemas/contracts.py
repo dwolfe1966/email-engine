@@ -1010,6 +1010,9 @@ class ManagedSmtpResolvedRoute(BaseModel):
     sender_domain: str | None = None
     recipient_domain: str | None = None
     decision_basis: str = 'sender_domain_policy'
+    routing_rule_name: str | None = None
+    routing_rule_source: str | None = None
+    preferred_providers: list[str] = Field(default_factory=list)
     delivery_route_id: UUID
     delivery_route_name: str
     domain_policy_id: UUID
@@ -1738,6 +1741,9 @@ class CampaignTestSendResponse(SendResponse):
     mta_route_sender_domain: str | None = None
     mta_route_recipient_domain: str | None = None
     mta_route_decision_basis: str | None = None
+    mta_routing_rule_name: str | None = None
+    mta_routing_rule_source: str | None = None
+    mta_preferred_providers: list[str] | None = None
     mta_node_name: str | None = None
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
