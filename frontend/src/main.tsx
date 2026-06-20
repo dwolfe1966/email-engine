@@ -10366,6 +10366,47 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const queueControlAttempts = deliveryAttempts.filter((attempt) => attempt.route_type === 'queue_control' || ['claim_blocked', 'dead_lettered'].includes(attempt.status));
   const claimBlockedAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'claim_blocked').length;
   const deadLetterAttempts = deliveryAttempts.filter((attempt) => attempt.status === 'dead_lettered').length;
+  const resolvedRouteAttempts = deliveryAttempts.filter((attempt) => attempt.metadata_json?.mta_route_resolved === true).length;
+  const blockedRouteAttempts = deliveryAttempts.filter((attempt) => attempt.metadata_json?.mta_route_resolved === false).length;
+  const summarizeAttemptEvidence = (values: string[]) => {
+    const counts = new Map<string, number>();
+    values.filter((value) => value && value !== '-').forEach((value) => {
+      counts.set(value, (counts.get(value) || 0) + 1);
+    });
+    const [label, count] = Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0] || ['-', 0];
+    return { label, count };
+  };
+  const topAttemptProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_provider || '-')));
+  const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.mta_ip_pool_id || '-')));
+  const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
+  const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
+  const deliveryAttemptEvidenceRollups = [
+    {
+      label: 'Loaded evidence rows',
+      value: formatInt(deliveryAttempts.length),
+      detail: `${formatInt(resolvedRouteAttempts)} resolved, ${formatInt(blockedRouteAttempts)} blocked route decision(s).`,
+    },
+    {
+      label: 'Top route provider',
+      value: topAttemptProvider.label,
+      detail: topAttemptProvider.count ? `${formatInt(topAttemptProvider.count)} loaded attempt(s) used this provider.` : 'No managed SMTP provider evidence loaded.',
+    },
+    {
+      label: 'Top route pool',
+      value: topAttemptPool.label,
+      detail: topAttemptPool.count ? `${formatInt(topAttemptPool.count)} loaded attempt(s) used this pool.` : 'No managed SMTP pool evidence loaded.',
+    },
+    {
+      label: 'Top routing rule',
+      value: topAttemptRule.label,
+      detail: topAttemptRule.count ? `${formatInt(topAttemptRule.count)} loaded attempt(s) matched this rule.` : 'No routing rule evidence loaded.',
+    },
+    {
+      label: 'Top block code',
+      value: topAttemptBlockCode.label,
+      detail: topAttemptBlockCode.count ? `${formatInt(topAttemptBlockCode.count)} loaded attempt(s) hit this block code.` : 'No route block evidence loaded.',
+    },
+  ];
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
   const readinessWarningCount = readinessSummary
@@ -12656,6 +12697,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
+        </div>
+        <div className="summary-grid" aria-label="Delivery attempt evidence rollup">
+          {deliveryAttemptEvidenceRollups.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
         </div>
         {deliveryAttempts.length ? (
           <div className="delivery-audit-list">
