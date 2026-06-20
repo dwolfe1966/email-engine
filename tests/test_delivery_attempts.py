@@ -1,3 +1,4 @@
+import smtplib
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -543,3 +544,29 @@ def test_delivery_service_marks_terminal_failure_attempt_failed() -> None:
     assert record.next_attempt_at is None
     assert attempt.status == 'failed'
     assert attempt.error_message == 'permanent provider failure'
+
+
+def test_delivery_service_extracts_smtp_recipient_refusal_metadata() -> None:
+    exc = smtplib.SMTPRecipientsRefused(
+        {'dwolfe66@gmail.com': (554, b'5.7.1 relay access denied')}
+    )
+
+    metadata = DeliveryService._smtp_exception_metadata(exc)
+
+    assert metadata['smtp_response_code'] == 554
+    assert metadata['smtp_response'] == '5.7.1 relay access denied'
+    assert metadata['smtp_refused_recipients']['dwolfe66@gmail.com'] == [
+        554,
+        '5.7.1 relay access denied',
+    ]
+
+
+def test_delivery_service_extracts_smtp_response_exception_metadata() -> None:
+    exc = smtplib.SMTPDataError(451, b'4.7.1 try again later')
+
+    metadata = DeliveryService._smtp_exception_metadata(exc)
+
+    assert metadata == {
+        'smtp_response_code': 451,
+        'smtp_response': '4.7.1 try again later',
+    }

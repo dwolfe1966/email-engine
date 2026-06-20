@@ -1,3 +1,4 @@
+import smtplib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from urllib.parse import quote
@@ -124,7 +125,12 @@ class DeliveryService:
                     )
                 )
             except Exception as exc:  # noqa: BLE001
-                self._handle_failure(record, attempt, str(exc))
+                self._handle_failure(
+                    record,
+                    attempt,
+                    str(exc),
+                    metadata_json=self._smtp_exception_metadata(exc),
+                )
                 failed_count += 1
 
         self.db.commit()
@@ -463,6 +469,7 @@ class DeliveryService:
         attempt: DeliveryAttempt,
         message: str,
         retryable: bool = True,
+        metadata_json: dict[str, object] | None = None,
     ) -> None:
         record.error_message = message
         if not retryable or record.attempt_count >= record.max_attempts:
@@ -474,6 +481,7 @@ class DeliveryService:
                 provider=record.provider,
                 provider_message_id=record.provider_message_id,
                 error_message=message,
+                metadata_json=metadata_json,
             )
             return
         record.status = EmailSendStatus.deferred
@@ -484,8 +492,43 @@ class DeliveryService:
             provider=record.provider,
             provider_message_id=record.provider_message_id,
             error_message=message,
-            metadata_json={'next_attempt_at': record.next_attempt_at.isoformat()},
+            metadata_json={
+                'next_attempt_at': record.next_attempt_at.isoformat(),
+                **(metadata_json or {}),
+            },
         )
 
     def _retry_delay(self, attempt_count: int) -> timedelta:
         return timedelta(minutes=min(60, 2 ** max(attempt_count - 1, 0)))
+
+    @staticmethod
+    def _smtp_exception_metadata(exc: Exception) -> dict[str, object]:
+        if isinstance(exc, smtplib.SMTPRecipientsRefused):
+            refused = exc.recipients or {}
+            first = next(iter(refused.values()), None)
+            if not first:
+                return {}
+            code, response = first
+            return {
+                'smtp_response_code': int(code),
+                'smtp_response': response.decode('utf-8', errors='replace')
+                if isinstance(response, bytes)
+                else str(response),
+                'smtp_refused_recipients': {
+                    email: [
+                        int(item[0]),
+                        item[1].decode('utf-8', errors='replace')
+                        if isinstance(item[1], bytes)
+                        else str(item[1]),
+                    ]
+                    for email, item in refused.items()
+                },
+            }
+        if isinstance(exc, smtplib.SMTPResponseException):
+            return {
+                'smtp_response_code': int(exc.smtp_code),
+                'smtp_response': exc.smtp_error.decode('utf-8', errors='replace')
+                if isinstance(exc.smtp_error, bytes)
+                else str(exc.smtp_error),
+            }
+        return {}
