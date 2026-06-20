@@ -600,6 +600,10 @@ type CampaignTestSendResult = {
   mta_node_candidate_count?: number | null;
   mta_node_skipped_count?: number | null;
   mta_node_skipped_nodes?: Record<string, unknown>[] | null;
+  mta_provider_preference_blocked?: boolean | null;
+  mta_provider_preference_fallback_available?: boolean | null;
+  mta_provider_preference_fallback_provider?: string | null;
+  mta_provider_preference_fallback_node_name?: string | null;
   mta_hostname?: string | null;
   mta_public_ipv4?: string | null;
   mta_submission_host?: string | null;

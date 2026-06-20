@@ -342,6 +342,16 @@ class DeliveryService:
                 'mta_node_skipped_count': len(details.get('skipped_nodes') or [])
                 if isinstance(details.get('skipped_nodes'), list)
                 else None,
+                'mta_provider_preference_blocked': details.get('provider_preference_blocked'),
+                'mta_provider_preference_fallback_available': details.get(
+                    'provider_preference_fallback_available'
+                ),
+                'mta_provider_preference_fallback_provider': details.get(
+                    'provider_preference_fallback_provider'
+                ),
+                'mta_provider_preference_fallback_node_name': details.get(
+                    'provider_preference_fallback_mta_node_name'
+                ),
             }
         route = result.route
         return {
@@ -476,6 +486,10 @@ class DeliveryService:
             'mta_node_candidate_count',
             'mta_node_skipped_count',
             'mta_node_skipped_nodes',
+            'mta_provider_preference_blocked',
+            'mta_provider_preference_fallback_available',
+            'mta_provider_preference_fallback_provider',
+            'mta_provider_preference_fallback_node_name',
             'mta_hostname',
             'mta_public_ipv4',
             'mta_submission_host',

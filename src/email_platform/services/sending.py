@@ -231,6 +231,18 @@ class SendingService:
             'mta_node_candidate_count': attempt_metadata.get('mta_node_candidate_count'),
             'mta_node_skipped_count': attempt_metadata.get('mta_node_skipped_count'),
             'mta_node_skipped_nodes': attempt_metadata.get('mta_node_skipped_nodes'),
+            'mta_provider_preference_blocked': attempt_metadata.get(
+                'mta_provider_preference_blocked'
+            ),
+            'mta_provider_preference_fallback_available': attempt_metadata.get(
+                'mta_provider_preference_fallback_available'
+            ),
+            'mta_provider_preference_fallback_provider': attempt_metadata.get(
+                'mta_provider_preference_fallback_provider'
+            ),
+            'mta_provider_preference_fallback_node_name': attempt_metadata.get(
+                'mta_provider_preference_fallback_node_name'
+            ),
             'mta_hostname': attempt_metadata.get('mta_hostname'),
             'mta_public_ipv4': attempt_metadata.get('mta_public_ipv4'),
             'mta_submission_host': attempt_metadata.get('mta_submission_host'),

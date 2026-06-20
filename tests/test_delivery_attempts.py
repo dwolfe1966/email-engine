@@ -402,6 +402,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
                             'reason': 'readiness_not_ok',
                         }
                     ],
+                    'provider_preference_blocked': True,
+                    'provider_preference_fallback_available': True,
+                    'provider_preference_fallback_provider': 'aws',
+                    'provider_preference_fallback_mta_node_name': 'mta-aws-001',
                 },
             ),
         )
@@ -429,6 +433,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
     assert attempt.metadata_json['mta_node_candidate_count'] == 2
     assert attempt.metadata_json['mta_node_skipped_count'] == 1
     assert attempt.metadata_json['mta_node_skipped_nodes'][0]['reason'] == 'readiness_not_ok'
+    assert attempt.metadata_json['mta_provider_preference_blocked'] is True
+    assert attempt.metadata_json['mta_provider_preference_fallback_available'] is True
+    assert attempt.metadata_json['mta_provider_preference_fallback_provider'] == 'aws'
+    assert attempt.metadata_json['mta_provider_preference_fallback_node_name'] == 'mta-aws-001'
     assert service.managed_smtp_routing_service.requests[0].send_type == 'internal_test'
 
 

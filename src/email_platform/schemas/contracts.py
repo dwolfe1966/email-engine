@@ -1783,6 +1783,10 @@ class CampaignTestSendResponse(SendResponse):
     mta_node_candidate_count: int | None = None
     mta_node_skipped_count: int | None = None
     mta_node_skipped_nodes: list[JsonObject] | None = None
+    mta_provider_preference_blocked: bool | None = None
+    mta_provider_preference_fallback_available: bool | None = None
+    mta_provider_preference_fallback_provider: str | None = None
+    mta_provider_preference_fallback_node_name: str | None = None
     mta_hostname: str | None = None
     mta_public_ipv4: str | None = None
     mta_submission_host: str | None = None

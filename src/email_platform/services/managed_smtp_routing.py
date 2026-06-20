@@ -135,13 +135,20 @@ class ManagedSmtpRoutingService:
         node = selection.node
         provider = selection.provider
         if not node or not provider:
+            preference_block_details = self._provider_preference_block_details(
+                pool.id,
+                pool_selection.preferred_providers,
+                selection,
+            )
             return self._blocked(
                 'NO_HEALTHY_MTA_NODE',
                 'No active MTA node with passing readiness is available for this pool.',
                 domain=domain,
                 ip_pool_id=str(pool.id),
+                preferred_providers=pool_selection.preferred_providers or [],
                 candidate_count=selection.candidate_count,
                 skipped_nodes=selection.skipped,
+                **preference_block_details,
             )
 
         metadata = policy.metadata_json or {}
@@ -315,6 +322,42 @@ class ManagedSmtpRoutingService:
                 continue
             return MtaNodeSelection(node, provider, membership, len(memberships), skipped)
         return MtaNodeSelection(None, None, None, len(memberships), skipped)
+
+    def _provider_preference_block_details(
+        self,
+        pool_id: UUID,
+        preferred_providers: list[str] | None,
+        selection: MtaNodeSelection,
+    ) -> dict[str, object]:
+        if not preferred_providers:
+            return {}
+        provider_blocked = any(
+            candidate.get('reason') == 'provider_not_preferred'
+            for candidate in selection.skipped
+        )
+        if not provider_blocked:
+            return {}
+        fallback = self._healthy_node_for_pool(pool_id, preferred_providers=None)
+        details: dict[str, object] = {
+            'provider_preference_blocked': True,
+            'provider_preference_fallback_available': bool(fallback.node and fallback.provider),
+            'provider_preference_fallback_candidate_count': fallback.candidate_count,
+            'provider_preference_fallback_skipped_nodes': fallback.skipped,
+        }
+        if fallback.node and fallback.provider:
+            details.update(
+                {
+                    'provider_preference_fallback_provider': fallback.provider.provider.value,
+                    'provider_preference_fallback_provider_account_id': str(fallback.provider.id),
+                    'provider_preference_fallback_mta_node_id': str(fallback.node.id),
+                    'provider_preference_fallback_mta_node_name': fallback.node.name,
+                    'provider_preference_fallback_hostname': fallback.node.hostname,
+                    'provider_preference_fallback_membership_id': str(fallback.membership.id)
+                    if fallback.membership
+                    else None,
+                }
+            )
+        return details
 
     def _routing_rule_pool_selection(
         self,
