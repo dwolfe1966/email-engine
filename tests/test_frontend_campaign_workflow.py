@@ -88,6 +88,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'mta_route_block_code',
         'delivery_error_message',
         'proofSendRouteLabel',
+        'proofSendSummary',
+        'route ${lastTestSendResult.mta_route_status}',
         '<span>Route</span>',
         'mta_route_status',
         '<span>Route status</span>',

@@ -2471,6 +2471,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       lastTestSendResult.mta_provider || lastTestSendResult.route_key,
     ].filter(Boolean).join(' / ')
     : '';
+  const proofSendSummary = lastTestSendResult
+    ? [
+      `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}`,
+      lastTestSendResult.mta_route_status ? `route ${lastTestSendResult.mta_route_status}` : '',
+      lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
+    ].filter(Boolean).join(' | ')
+    : '';
   const campaignTriageItems = [
     {
       label: 'Draft',
@@ -2499,7 +2506,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     {
       label: 'Proof and launch',
       value: lastLaunchResult ? 'Dry-run' : lastTestSendResult ? 'Proof sent' : 'Pending',
-      detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : lastTestSendResult ? `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}` : 'Send proof, then dry-run launch',
+      detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : lastTestSendResult ? proofSendSummary : 'Send proof, then dry-run launch',
       tone: lastLaunchResult || lastTestSendResult ? 'good' : 'warn',
     },
   ];
