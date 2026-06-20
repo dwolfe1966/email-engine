@@ -172,7 +172,12 @@ def send_seed_message(
         results,
         'seed_send',
         200 <= int(response.get('status_code', 0)) < 300,
-        f'{seed_email} via {response.get("provider")} status={response.get("status_code")}',
+        (
+            f'{seed_email} via {response.get("provider")} '
+            f'status={response.get("status_code")} '
+            f'route={response.get("mta_route_status") or "unknown"} '
+            f'host={response.get("mta_submission_host") or response.get("mta_hostname") or "-"}'
+        ),
     )
     return response
 

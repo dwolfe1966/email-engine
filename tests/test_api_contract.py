@@ -210,6 +210,25 @@ def test_operator_user_schema_does_not_expose_password_hash() -> None:
     )
 
 
+def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None:
+    client = TestClient(app)
+    schema = client.get('/openapi.json').json()['components']['schemas'][
+        'CampaignTestSendResponse'
+    ]
+    properties = schema['properties']
+
+    assert {
+        'route_type',
+        'route_key',
+        'mta_route_resolved',
+        'mta_route_status',
+        'mta_route_block_code',
+        'mta_route_block_message',
+        'mta_submission_host',
+        'smtp_response_code',
+    }.issubset(properties.keys())
+
+
 def test_api_tester_page() -> None:
     client = TestClient(app)
     response = client.get('/tester')

@@ -1732,6 +1732,7 @@ class CampaignTestSendResponse(SendResponse):
     mta_submission_port: int | None = None
     mta_ip_pool_name: str | None = None
     mta_route_resolved: bool | None = None
+    mta_route_status: str | None = None
     mta_route_block_code: str | None = None
     mta_route_block_message: str | None = None
     envelope_from: str | None = None
