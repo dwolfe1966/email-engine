@@ -612,6 +612,12 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'managed_smtp_dsn_feedback',
         'dsn_bounce',
         '/api/v1/delivery-attempts/list',
+        'Apply Attempt Filters',
+        'Clear Attempt Filters',
+        'mta_routing_rule_name',
+        'mta_route_block_code',
+        'rule source',
+        'pool source',
         '/api/v1/ai/delivery/analyze',
         'No AI delivery review loaded',
     ]

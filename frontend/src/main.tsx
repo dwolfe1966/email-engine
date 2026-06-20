@@ -10222,6 +10222,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     event_type: '',
     severity: '',
   });
+  const [deliveryAttemptFilters, setDeliveryAttemptFilters] = useState({
+    mta_ip_pool_id: '',
+    mta_node_id: '',
+    mta_provider: '',
+    mta_routing_rule_name: '',
+    mta_route_block_code: '',
+  });
   const [feedbackFilters, setFeedbackFilters] = useState({
     provider: '',
     source: '',
@@ -10315,6 +10322,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const selectedMtaIpPool = mtaIpPools.find((pool) => pool.id === selectedMtaIpPoolId) || null;
   const selectedMtaIpPoolNode = mtaIpPoolNodes.find((membership) => membership.id === selectedMtaIpPoolNodeId) || null;
   const selectedMtaIpPoolHealth = managedSmtpDeploymentSummary?.pool_health.find((item) => item.ip_pool.id === selectedMtaIpPoolId) || null;
+  const mtaProviderOptions = Array.from(new Set((managedSmtpDeploymentSummary?.provider_readiness || [])
+    .map((item) => item.provider_account.provider)
+    .filter(Boolean)));
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
   const retryPressure = sendRecords.filter((record) => queuedDeliveryStatuses.includes(record.status) && Number(record.attempt_count || 0) > 0).length;
   const blockedRecords = countRecordsByStatus(sendRecords, blockedDeliveryStatuses);
@@ -10986,6 +10996,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const params = new URLSearchParams({ limit: '50', offset: '0' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
+    Object.entries(deliveryAttemptFilters).forEach(([key, value]) => {
+      if (value.trim()) params.set(key, value.trim());
+    });
     const data = await fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`);
     setDeliveryAttempts(data.items || []);
     return data.items || [];
@@ -10997,6 +11010,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function updateReadinessFilter(name: keyof typeof readinessFilters, value: string) {
     setReadinessFilters((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters, value: string) {
+    setDeliveryAttemptFilters((current) => ({ ...current, [name]: value }));
   }
 
   function updateMtaNodeEventFilter(name: keyof typeof mtaNodeEventFilters, value: string) {
@@ -12521,6 +12538,53 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
           <button className="link-button" onClick={loadDeliveryAttempts} disabled={busy}>{deliveryAttemptAuditButtonLabel}</button>
         </div>
+        <div className="form-grid">
+          <label>
+            MTA pool
+            <select value={deliveryAttemptFilters.mta_ip_pool_id} onChange={(event) => updateDeliveryAttemptFilter('mta_ip_pool_id', event.target.value)}>
+              <option value="">Any pool</option>
+              {mtaIpPools.map((pool) => (
+                <option value={pool.id} key={pool.id}>{pool.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            MTA node
+            <select value={deliveryAttemptFilters.mta_node_id} onChange={(event) => updateDeliveryAttemptFilter('mta_node_id', event.target.value)}>
+              <option value="">Any node</option>
+              {(managedSmtpDeploymentSummary?.recent_nodes || []).map((item) => (
+                <option value={item.node.id} key={item.node.id}>{item.node.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            MTA provider
+            <select value={deliveryAttemptFilters.mta_provider} onChange={(event) => updateDeliveryAttemptFilter('mta_provider', event.target.value)}>
+              <option value="">Any provider</option>
+              {mtaProviderOptions.map((provider) => (
+                <option value={provider} key={provider}>{providerLabel(provider)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Routing rule
+            <input value={deliveryAttemptFilters.mta_routing_rule_name} onChange={(event) => updateDeliveryAttemptFilter('mta_routing_rule_name', event.target.value)} placeholder="gmail-scaleway" />
+          </label>
+          <label>
+            Block code
+            <input value={deliveryAttemptFilters.mta_route_block_code} onChange={(event) => updateDeliveryAttemptFilter('mta_route_block_code', event.target.value)} placeholder="NO_HEALTHY_MTA_NODE" />
+          </label>
+        </div>
+        <div className="button-row">
+          <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
+          <button className="ghost" onClick={() => setDeliveryAttemptFilters({
+            mta_ip_pool_id: '',
+            mta_node_id: '',
+            mta_provider: '',
+            mta_routing_rule_name: '',
+            mta_route_block_code: '',
+          })} disabled={busy}>Clear Attempt Filters</button>
+        </div>
         {deliveryAttempts.length ? (
           <div className="delivery-audit-list">
             {deliveryAttempts.slice(0, 8).map((attempt) => {
@@ -12540,6 +12604,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const submissionProvider = String(metadata.mta_submission_provider || '-');
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
+              const mtaProvider = String(metadata.mta_provider || '-');
+              const mtaPool = String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-');
+              const mtaNode = String(metadata.mta_node_name || metadata.mta_node_id || '-');
+              const ruleHit = String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-');
+              const ruleSource = String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-');
+              const rulePoolSource = String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-');
+              const rulePreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+                ? metadata.mta_rule_hit_provider_preference.join(', ')
+                : String(metadata.mta_preferred_providers || '-');
+              const ruleSendType = String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-');
+              const senderDomain = String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-');
+              const recipientDomain = String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-');
               const isFocusedAttempt = routeAttemptId && attempt.id === routeAttemptId;
               const attemptHasIssue = ['claim_blocked', 'dead_lettered', 'deferred', 'failed'].includes(attempt.status)
                 || Boolean(routeBlockReason || attempt.error_message)
@@ -12560,6 +12636,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     <div><dt>domain</dt><dd>{domain}</dd></div>
                     <div><dt>policy</dt><dd>{policy === '-' ? '-' : policy.slice(0, 8)}</dd></div>
                     <div><dt>mta</dt><dd>{mtaHost}</dd></div>
+                    <div><dt>mta provider</dt><dd>{mtaProvider}</dd></div>
+                    <div><dt>pool</dt><dd>{mtaPool}</dd></div>
+                    <div><dt>node</dt><dd>{mtaNode}</dd></div>
+                    <div><dt>rule</dt><dd>{ruleHit}</dd></div>
+                    <div><dt>rule source</dt><dd>{ruleSource}</dd></div>
+                    <div><dt>pool source</dt><dd>{rulePoolSource}</dd></div>
+                    <div><dt>preference</dt><dd>{rulePreference}</dd></div>
+                    <div><dt>send type</dt><dd>{ruleSendType}</dd></div>
+                    <div><dt>sender</dt><dd>{senderDomain}</dd></div>
+                    <div><dt>recipient</dt><dd>{recipientDomain}</dd></div>
                     <div><dt>submission</dt><dd>{submissionProvider}</dd></div>
                     <div><dt>smtp</dt><dd>{smtpCode}</dd></div>
                     <div><dt>dkim</dt><dd>{dkimSelector}</dd></div>

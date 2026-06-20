@@ -258,6 +258,22 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
     }
 
 
+def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
+    client = TestClient(app)
+    params = client.get('/openapi.json').json()['paths']['/api/v1/delivery-attempts/list']['get'][
+        'parameters'
+    ]
+    names = {item['name'] for item in params}
+
+    assert {
+        'mta_ip_pool_id',
+        'mta_node_id',
+        'mta_provider',
+        'mta_routing_rule_name',
+        'mta_route_block_code',
+    }.issubset(names)
+
+
 def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
     client = TestClient(app)
     schemas = client.get('/openapi.json').json()['components']['schemas']

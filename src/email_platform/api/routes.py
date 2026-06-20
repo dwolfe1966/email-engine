@@ -2960,6 +2960,11 @@ def list_delivery_attempts(
     send_record_id: UUID | None = None,
     provider: str | None = None,
     status: str | None = None,
+    mta_ip_pool_id: UUID | None = None,
+    mta_node_id: UUID | None = None,
+    mta_provider: str | None = None,
+    mta_routing_rule_name: str | None = None,
+    mta_route_block_code: str | None = None,
     limit: Limit = 100,
     offset: Offset = 0,
 ) -> dict[str, object]:
@@ -2974,6 +2979,16 @@ def list_delivery_attempts(
         filters.append(DeliveryAttempt.provider == provider)
     if status:
         filters.append(DeliveryAttempt.status == status)
+    metadata_filters = {
+        'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
+        'mta_node_id': str(mta_node_id) if mta_node_id else None,
+        'mta_provider': mta_provider,
+        'mta_routing_rule_name': mta_routing_rule_name,
+        'mta_route_block_code': mta_route_block_code,
+    }
+    for metadata_key, metadata_value in metadata_filters.items():
+        if metadata_value:
+            filters.append(DeliveryAttempt.metadata_json[metadata_key].astext == metadata_value)
 
     statement = (
         select(DeliveryAttempt)
