@@ -2265,6 +2265,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const [variablesJson, setVariablesJson] = useState('{\n  "first_name": "David",\n  "plan": "trial",\n  "recommendations": ["Welcome email", "Product update"]\n}');
   const [operationStatus, setOperationStatus] = useState('Ready to create a draft campaign.');
   const [operationBusy, setOperationBusy] = useState(false);
+  const [operationNeedsProofRouting, setOperationNeedsProofRouting] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
   const [workflowStatus, setWorkflowStatus] = useState<CampaignWorkflowStatus | null>(null);
   const [lastLaunchResult, setLastLaunchResult] = useState<CampaignLaunchResult | null>(null);
@@ -2570,6 +2571,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
 
   async function runOperation(label: string, operation: () => Promise<string>) {
     setOperationBusy(true);
+    setOperationNeedsProofRouting(false);
     setOperationStatus(`${label}...`);
     onOperation({ label: 'Campaign workflow', message: `${label}...`, tone: 'working' });
     try {
@@ -2579,6 +2581,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       await onRefresh();
     } catch (error) {
       const message = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      setOperationNeedsProofRouting(message.includes('Resolve proof routing before dry-run launch.'));
       setOperationStatus(message);
       onOperation({ label: 'Campaign workflow', message, tone: 'warn' });
     } finally {
@@ -3025,6 +3028,17 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         <div className={`operation-banner ${operationStatus.startsWith('Error:') ? 'warn' : ''}`}>
           <strong>{operationBusy ? 'Working' : 'Status'}</strong>
           <span>{operationStatus}</span>
+          {operationNeedsProofRouting && lastTestSendResult ? (
+            <button
+              className="ghost"
+              type="button"
+              onClick={() => {
+                window.location.hash = `#delivery/${lastTestSendResult.send_record_id}${lastTestSendResult.delivery_attempt_id ? `/${lastTestSendResult.delivery_attempt_id}` : ''}`;
+              }}
+            >
+              Open Delivery audit
+            </button>
+          ) : null}
           {selectedCampaign ? <small>Selected: {selectedCampaign.name}</small> : null}
         </div>
         <div className="workflow-section">
