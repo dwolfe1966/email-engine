@@ -32,6 +32,7 @@ class MtaNodeSelection:
     membership: MtaIpPoolNode | None
     candidate_count: int
     skipped: list[dict[str, object]]
+    available_count: int = 0
 
 
 @dataclass
@@ -132,6 +133,19 @@ class ManagedSmtpRoutingService:
             pool.id,
             preferred_providers=pool_selection.preferred_providers,
         )
+        capacity = self._pool_capacity(pool, selection)
+        if not capacity['ok']:
+            return self._blocked(
+                'POOL_CAPACITY_EXHAUSTED',
+                'The selected MTA IP pool does not have enough healthy node capacity.',
+                domain=domain,
+                ip_pool_id=str(pool.id),
+                preferred_providers=pool_selection.preferred_providers or [],
+                candidate_count=selection.candidate_count,
+                available_node_count=selection.available_count,
+                required_available_node_count=capacity['required_available_node_count'],
+                skipped_nodes=selection.skipped,
+            )
         node = selection.node
         provider = selection.provider
         if not node or not provider:
@@ -180,6 +194,9 @@ class ManagedSmtpRoutingService:
             mta_node_selection_priority=selection.membership.priority if selection.membership else None,
             mta_node_selection_weight=selection.membership.weight if selection.membership else None,
             mta_node_candidate_count=selection.candidate_count,
+            mta_pool_available_node_count=selection.available_count,
+            mta_pool_required_available_node_count=capacity['required_available_node_count'],
+            mta_pool_capacity_status='ok',
             mta_node_skipped_count=len(selection.skipped),
             mta_node_skipped_nodes=selection.skipped,
             provider_account_id=provider.id,
@@ -207,6 +224,9 @@ class ManagedSmtpRoutingService:
                 'preferred_providers': pool_selection.preferred_providers or [],
                 'selection': {
                     'candidate_count': selection.candidate_count,
+                    'available_node_count': selection.available_count,
+                    'required_available_node_count': capacity['required_available_node_count'],
+                    'capacity_status': 'ok',
                     'membership_id': str(selection.membership.id) if selection.membership else None,
                     'priority': selection.membership.priority if selection.membership else None,
                     'weight': selection.membership.weight if selection.membership else None,
@@ -283,6 +303,10 @@ class ManagedSmtpRoutingService:
             ).all()
         )
         skipped: list[dict[str, object]] = []
+        selected_node = None
+        selected_provider = None
+        selected_membership = None
+        available_count = 0
         for membership in memberships:
             node = self.db.get(MtaNode, membership.mta_node_id)
             candidate = {
@@ -320,8 +344,31 @@ class ManagedSmtpRoutingService:
             if not self._latest_readiness_ok(node):
                 skipped.append({**candidate, 'reason': 'readiness_not_ok'})
                 continue
-            return MtaNodeSelection(node, provider, membership, len(memberships), skipped)
-        return MtaNodeSelection(None, None, None, len(memberships), skipped)
+            available_count += 1
+            if not selected_node:
+                selected_node = node
+                selected_provider = provider
+                selected_membership = membership
+        return MtaNodeSelection(
+            selected_node,
+            selected_provider,
+            selected_membership,
+            len(memberships),
+            skipped,
+            available_count,
+        )
+
+    def _pool_capacity(self, pool: MtaIpPool, selection: MtaNodeSelection) -> dict[str, object]:
+        required_available = self._metadata_int(
+            pool.metadata_json,
+            'min_available_nodes',
+        ) or self._metadata_int(pool.metadata_json, 'required_available_nodes')
+        if not required_available:
+            return {'ok': True, 'required_available_node_count': None}
+        return {
+            'ok': selection.available_count >= required_available,
+            'required_available_node_count': required_available,
+        }
 
     def _provider_preference_block_details(
         self,
@@ -488,6 +535,15 @@ class ManagedSmtpRoutingService:
             return None
         try:
             return UUID(value)
+        except ValueError:
+            return None
+
+    def _metadata_int(self, metadata: object, key: str) -> int | None:
+        value = self._metadata_value(metadata, key)
+        if value is None:
+            return None
+        try:
+            return int(value)
         except ValueError:
             return None
 

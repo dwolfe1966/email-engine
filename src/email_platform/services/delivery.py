@@ -338,6 +338,13 @@ class DeliveryService:
                 'mta_route_block_details': details,
                 'mta_ip_pool_id': str(details.get('ip_pool_id')) if details.get('ip_pool_id') else None,
                 'mta_node_candidate_count': details.get('candidate_count'),
+                'mta_pool_available_node_count': details.get('available_node_count'),
+                'mta_pool_required_available_node_count': details.get(
+                    'required_available_node_count'
+                ),
+                'mta_pool_capacity_status': 'exhausted'
+                if reason and reason.code == 'POOL_CAPACITY_EXHAUSTED'
+                else None,
                 'mta_node_skipped_nodes': details.get('skipped_nodes'),
                 'mta_node_skipped_count': len(details.get('skipped_nodes') or [])
                 if isinstance(details.get('skipped_nodes'), list)
@@ -385,6 +392,9 @@ class DeliveryService:
             'mta_node_selection_priority': route.mta_node_selection_priority,
             'mta_node_selection_weight': route.mta_node_selection_weight,
             'mta_node_candidate_count': route.mta_node_candidate_count,
+            'mta_pool_available_node_count': route.mta_pool_available_node_count,
+            'mta_pool_required_available_node_count': route.mta_pool_required_available_node_count,
+            'mta_pool_capacity_status': route.mta_pool_capacity_status,
             'mta_node_skipped_count': route.mta_node_skipped_count,
             'mta_node_skipped_nodes': route.mta_node_skipped_nodes,
             'mta_hostname': route.hostname,
@@ -484,6 +494,9 @@ class DeliveryService:
             'mta_node_selection_priority',
             'mta_node_selection_weight',
             'mta_node_candidate_count',
+            'mta_pool_available_node_count',
+            'mta_pool_required_available_node_count',
+            'mta_pool_capacity_status',
             'mta_node_skipped_count',
             'mta_node_skipped_nodes',
             'mta_provider_preference_blocked',

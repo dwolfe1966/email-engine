@@ -229,6 +229,11 @@ class SendingService:
             'mta_node_selection_priority': attempt_metadata.get('mta_node_selection_priority'),
             'mta_node_selection_weight': attempt_metadata.get('mta_node_selection_weight'),
             'mta_node_candidate_count': attempt_metadata.get('mta_node_candidate_count'),
+            'mta_pool_available_node_count': attempt_metadata.get('mta_pool_available_node_count'),
+            'mta_pool_required_available_node_count': attempt_metadata.get(
+                'mta_pool_required_available_node_count'
+            ),
+            'mta_pool_capacity_status': attempt_metadata.get('mta_pool_capacity_status'),
             'mta_node_skipped_count': attempt_metadata.get('mta_node_skipped_count'),
             'mta_node_skipped_nodes': attempt_metadata.get('mta_node_skipped_nodes'),
             'mta_provider_preference_blocked': attempt_metadata.get(

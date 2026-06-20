@@ -598,6 +598,9 @@ type CampaignTestSendResult = {
   mta_node_selection_priority?: number | null;
   mta_node_selection_weight?: number | null;
   mta_node_candidate_count?: number | null;
+  mta_pool_available_node_count?: number | null;
+  mta_pool_required_available_node_count?: number | null;
+  mta_pool_capacity_status?: string | null;
   mta_node_skipped_count?: number | null;
   mta_node_skipped_nodes?: Record<string, unknown>[] | null;
   mta_provider_preference_blocked?: boolean | null;
@@ -795,6 +798,9 @@ type ManagedSmtpResolvedRoute = {
   mta_node_selection_priority: number | null;
   mta_node_selection_weight: number | null;
   mta_node_candidate_count: number;
+  mta_pool_available_node_count: number;
+  mta_pool_required_available_node_count: number | null;
+  mta_pool_capacity_status: string | null;
   mta_node_skipped_count: number;
   mta_node_skipped_nodes: Record<string, unknown>[];
   provider_account_id: string;

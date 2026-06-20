@@ -176,6 +176,9 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                         'mta_node_selection_priority': 100,
                         'mta_node_selection_weight': 100,
                         'mta_node_candidate_count': 1,
+                        'mta_pool_available_node_count': 1,
+                        'mta_pool_required_available_node_count': None,
+                        'mta_pool_capacity_status': 'ok',
                         'mta_node_skipped_count': 0,
                         'mta_node_skipped_nodes': [],
                         'mta_hostname': 'mta-002.email-engine.app',
@@ -262,6 +265,9 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['mta_node_selection_priority'] == 100
     assert result['mta_node_selection_weight'] == 100
     assert result['mta_node_candidate_count'] == 1
+    assert result['mta_pool_available_node_count'] == 1
+    assert result['mta_pool_required_available_node_count'] is None
+    assert result['mta_pool_capacity_status'] == 'ok'
     assert result['mta_node_skipped_count'] == 0
     assert result['mta_node_skipped_nodes'] == []
     assert result['mta_hostname'] == 'mta-002.email-engine.app'
@@ -316,6 +322,9 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
                         'mta_route_block_code': 'NO_HEALTHY_MTA_NODE',
                         'mta_route_block_message': 'No active MTA node is available.',
                         'mta_node_candidate_count': 2,
+                        'mta_pool_available_node_count': 1,
+                        'mta_pool_required_available_node_count': 2,
+                        'mta_pool_capacity_status': 'exhausted',
                         'mta_node_skipped_count': 1,
                         'mta_node_skipped_nodes': [{'reason': 'readiness_not_ok'}],
                         'mta_provider_preference_blocked': True,
@@ -371,6 +380,9 @@ def test_campaign_test_send_returns_structured_delivery_failure(monkeypatch) -> 
     assert result['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert result['mta_route_block_message'] == 'No active MTA node is available.'
     assert result['mta_node_candidate_count'] == 2
+    assert result['mta_pool_available_node_count'] == 1
+    assert result['mta_pool_required_available_node_count'] == 2
+    assert result['mta_pool_capacity_status'] == 'exhausted'
     assert result['mta_node_skipped_count'] == 1
     assert result['mta_node_skipped_nodes'] == [{'reason': 'readiness_not_ok'}]
     assert result['mta_provider_preference_blocked'] is True

@@ -250,6 +250,9 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
                 mta_node_selection_priority=100,
                 mta_node_selection_weight=75,
                 mta_node_candidate_count=2,
+                mta_pool_available_node_count=1,
+                mta_pool_required_available_node_count=1,
+                mta_pool_capacity_status='ok',
                 mta_node_skipped_count=1,
                 mta_node_skipped_nodes=skipped_nodes,
                 provider_account_id=provider_account_id,
@@ -301,6 +304,9 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     assert attempt.metadata_json['mta_node_selection_priority'] == 100
     assert attempt.metadata_json['mta_node_selection_weight'] == 75
     assert attempt.metadata_json['mta_node_candidate_count'] == 2
+    assert attempt.metadata_json['mta_pool_available_node_count'] == 1
+    assert attempt.metadata_json['mta_pool_required_available_node_count'] == 1
+    assert attempt.metadata_json['mta_pool_capacity_status'] == 'ok'
     assert attempt.metadata_json['mta_node_skipped_count'] == 1
     assert attempt.metadata_json['mta_node_skipped_nodes'] == skipped_nodes
     assert attempt.metadata_json['mta_submission_port'] == 587
@@ -406,6 +412,8 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
                     'provider_preference_fallback_available': True,
                     'provider_preference_fallback_provider': 'aws',
                     'provider_preference_fallback_mta_node_name': 'mta-aws-001',
+                    'available_node_count': 1,
+                    'required_available_node_count': 2,
                 },
             ),
         )
@@ -431,6 +439,8 @@ def test_delivery_service_starts_managed_smtp_attempt_with_route_block_reason() 
     assert attempt.metadata_json['mta_route_block_code'] == 'NO_HEALTHY_MTA_NODE'
     assert 'passing readiness' in attempt.metadata_json['mta_route_block_message']
     assert attempt.metadata_json['mta_node_candidate_count'] == 2
+    assert attempt.metadata_json['mta_pool_available_node_count'] == 1
+    assert attempt.metadata_json['mta_pool_required_available_node_count'] == 2
     assert attempt.metadata_json['mta_node_skipped_count'] == 1
     assert attempt.metadata_json['mta_node_skipped_nodes'][0]['reason'] == 'readiness_not_ok'
     assert attempt.metadata_json['mta_provider_preference_blocked'] is True

@@ -1048,6 +1048,9 @@ class ManagedSmtpResolvedRoute(BaseModel):
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
     mta_node_candidate_count: int = 0
+    mta_pool_available_node_count: int = 0
+    mta_pool_required_available_node_count: int | None = None
+    mta_pool_capacity_status: str | None = None
     mta_node_skipped_count: int = 0
     mta_node_skipped_nodes: list[JsonObject] = Field(default_factory=list)
     provider_account_id: UUID
@@ -1781,6 +1784,9 @@ class CampaignTestSendResponse(SendResponse):
     mta_node_selection_priority: int | None = None
     mta_node_selection_weight: int | None = None
     mta_node_candidate_count: int | None = None
+    mta_pool_available_node_count: int | None = None
+    mta_pool_required_available_node_count: int | None = None
+    mta_pool_capacity_status: str | None = None
     mta_node_skipped_count: int | None = None
     mta_node_skipped_nodes: list[JsonObject] | None = None
     mta_provider_preference_blocked: bool | None = None

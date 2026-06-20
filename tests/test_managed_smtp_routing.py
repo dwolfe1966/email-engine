@@ -50,6 +50,7 @@ class ResolverHarness(ManagedSmtpRoutingService):
             membership=SimpleNamespace(id=uuid4(), priority=100, weight=100) if self.node else None,
             candidate_count=1 if self.node else 0,
             skipped=[],
+            available_count=1 if self.node else 0,
         )
 
 
@@ -87,6 +88,7 @@ def _pool(**overrides):
         'name': 'warmup-a',
         'pool_type': MtaIpPoolType.warmup,
         'status': MtaOperationalStatus.active,
+        'metadata_json': {},
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -231,6 +233,9 @@ def test_resolve_returns_selected_submission_route() -> None:
     assert result.route.mta_node_name == 'mta-001'
     assert result.route.mta_node_selection_membership_id is not None
     assert result.route.mta_node_candidate_count == 1
+    assert result.route.mta_pool_available_node_count == 1
+    assert result.route.mta_pool_required_available_node_count is None
+    assert result.route.mta_pool_capacity_status == 'ok'
     assert result.route.mta_node_selection_priority == 100
     assert result.route.mta_node_selection_weight == 100
     assert result.route.mta_node_skipped_nodes == []
@@ -258,6 +263,23 @@ def test_resolve_can_fall_back_to_recipient_domain_policy() -> None:
     assert result.route.sender_domain is None
     assert result.route.recipient_domain == 'example.com'
     assert result.route.decision_basis == 'recipient_domain_policy'
+
+
+def test_resolve_blocks_when_pool_available_capacity_is_below_required_minimum() -> None:
+    service = ResolverHarness()
+    service.policy = _policy()
+    service.route = _route()
+    service.pool = _pool(metadata_json={'min_available_nodes': 2})
+    service.node = _node()
+    service.provider = _provider()
+
+    result = service.resolve(ManagedSmtpRouteResolveRequest(from_domain='sender@example.com'))
+
+    assert not result.ok
+    assert result.reason is not None
+    assert result.reason.code == 'POOL_CAPACITY_EXHAUSTED'
+    assert result.reason.details['available_node_count'] == 1
+    assert result.reason.details['required_available_node_count'] == 2
 
 
 def test_route_config_rule_selects_pool_and_provider_preference() -> None:
@@ -324,6 +346,7 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
                 membership=SimpleNamespace(id=membership_id, priority=100, weight=100),
                 candidate_count=2,
                 skipped=skipped,
+                available_count=1,
             )
 
     resolved = RuleHarness(FakeDb()).resolve(
@@ -346,6 +369,7 @@ def test_route_config_rule_selects_pool_and_provider_preference() -> None:
     assert resolved.route.recipient_domain == 'gmail.com'
     assert resolved.route.mta_node_selection_membership_id == membership_id
     assert resolved.route.mta_node_candidate_count == 2
+    assert resolved.route.mta_pool_available_node_count == 1
     assert resolved.route.mta_node_skipped_count == 1
     assert resolved.route.mta_node_skipped_nodes == skipped
 
