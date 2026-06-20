@@ -263,10 +263,26 @@ class MtaInventoryService:
         if not pool:
             return None
         updates = payload.model_dump(exclude_unset=True)
+        operator = self._metadata_value_str(updates.pop('operator', None))
+        before_controls = self._pool_control_state(pool)
         self._merge_metadata_int_controls(
             updates,
             metadata_keys=('max_per_minute', 'min_available_nodes'),
             existing_metadata=pool.metadata_json,
+        )
+        after_controls = self._pool_control_state(
+            pool,
+            metadata=updates.get('metadata_json'),
+            updates=updates,
+        )
+        self._append_control_audit(
+            updates,
+            existing_metadata=pool.metadata_json,
+            entity_type='mta_ip_pool',
+            entity_id=pool.id,
+            operator=operator,
+            before=before_controls,
+            after=after_controls,
         )
         self._apply(pool, updates)
         return self._commit_refresh(pool)
@@ -336,10 +352,26 @@ class MtaInventoryService:
         if not pool_node:
             return None
         updates = payload.model_dump(exclude_unset=True)
+        operator = self._metadata_value_str(updates.pop('operator', None))
+        before_controls = self._pool_node_control_state(pool_node)
         self._merge_metadata_int_controls(
             updates,
             metadata_keys=('max_per_minute',),
             existing_metadata=pool_node.metadata_json,
+        )
+        after_controls = self._pool_node_control_state(
+            pool_node,
+            metadata=updates.get('metadata_json'),
+            updates=updates,
+        )
+        self._append_control_audit(
+            updates,
+            existing_metadata=pool_node.metadata_json,
+            entity_type='mta_ip_pool_node',
+            entity_id=pool_node.id,
+            operator=operator,
+            before=before_controls,
+            after=after_controls,
         )
         self._apply(pool_node, updates)
         return self._commit_refresh(pool_node)
@@ -1436,6 +1468,70 @@ class MtaInventoryService:
                 metadata.pop(key, None)
             else:
                 metadata[key] = int(value)
+        data['metadata_json'] = metadata
+
+    def _pool_control_state(
+        self,
+        pool,
+        *,
+        metadata: dict[str, object] | None = None,
+        updates: dict[str, object] | None = None,
+    ) -> dict[str, object | None]:
+        effective_metadata = metadata if metadata is not None else getattr(pool, 'metadata_json', {}) or {}
+        effective_updates = updates or {}
+        return {
+            'status': self._status_value(effective_updates.get('status', getattr(pool, 'status', None))),
+            'max_per_minute': self._metadata_int(effective_metadata, 'max_per_minute'),
+            'min_available_nodes': self._metadata_int(effective_metadata, 'min_available_nodes'),
+        }
+
+    def _pool_node_control_state(
+        self,
+        pool_node,
+        *,
+        metadata: dict[str, object] | None = None,
+        updates: dict[str, object] | None = None,
+    ) -> dict[str, object | None]:
+        effective_metadata = metadata if metadata is not None else getattr(pool_node, 'metadata_json', {}) or {}
+        effective_updates = updates or {}
+        return {
+            'status': self._status_value(
+                effective_updates.get('status', getattr(pool_node, 'status', None))
+            ),
+            'max_per_minute': self._metadata_int(effective_metadata, 'max_per_minute'),
+            'priority': effective_updates.get('priority', getattr(pool_node, 'priority', None)),
+            'weight': effective_updates.get('weight', getattr(pool_node, 'weight', None)),
+        }
+
+    def _append_control_audit(
+        self,
+        data: dict[str, object],
+        *,
+        existing_metadata: dict[str, object] | None,
+        entity_type: str,
+        entity_id: UUID,
+        operator: str | None,
+        before: dict[str, object | None],
+        after: dict[str, object | None],
+    ) -> None:
+        changed = {
+            key: {'previous': before.get(key), 'new': after.get(key)}
+            for key in sorted(set(before) | set(after))
+            if before.get(key) != after.get(key)
+        }
+        if not changed:
+            return
+        metadata = dict(data.get('metadata_json') or existing_metadata or {})
+        raw_audit_log = metadata.get('operator_control_audit_log')
+        audit_log = raw_audit_log if isinstance(raw_audit_log, list) else []
+        entry = {
+            'at': f'{datetime.utcnow().isoformat()}Z',
+            'operator': operator or 'system',
+            'entity_type': entity_type,
+            'entity_id': str(entity_id),
+            'changed': changed,
+        }
+        metadata['operator_control_audit_log'] = [entry, *audit_log][:25]
         data['metadata_json'] = metadata
 
     @staticmethod

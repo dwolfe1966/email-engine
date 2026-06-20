@@ -10984,6 +10984,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return deploymentNode?.node.name || membership.mta_node_id.slice(0, 8);
   }
 
+  function latestMtaControlAuditLabel(metadata: Record<string, unknown> | null | undefined): string {
+    const auditLog = metadata?.operator_control_audit_log;
+    if (!Array.isArray(auditLog) || !auditLog.length) return 'No operator control audit recorded.';
+    const latest = auditLog[0];
+    if (!latest || typeof latest !== 'object') return 'No operator control audit recorded.';
+    const entry = latest as Record<string, unknown>;
+    const changed = entry.changed && typeof entry.changed === 'object'
+      ? Object.keys(entry.changed as Record<string, unknown>).join(', ')
+      : 'controls';
+    return `${String(entry.operator || 'system')} changed ${changed || 'controls'} at ${String(entry.at || 'unknown time')}.`;
+  }
+
   function updateManagedSmtpRoutingRuleForm(name: keyof typeof managedSmtpRoutingRuleForm, value: string | boolean) {
     setManagedSmtpRoutingRuleForm((current) => ({ ...current, [name]: value }));
   }
@@ -11116,6 +11128,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           max_per_minute: optionalPositiveInt(mtaIpPoolForm.max_per_minute, 'Pool max per minute'),
           min_available_nodes: optionalPositiveInt(mtaIpPoolForm.min_available_nodes, 'Required available nodes'),
           status: mtaIpPoolForm.status || selectedMtaIpPool.status,
+          operator: 'esp_admin',
         }),
       });
       const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
@@ -11136,6 +11149,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           priority: requiredNonnegativeInt(mtaIpPoolNodeForm.priority, 'Priority'),
           weight: requiredNonnegativeInt(mtaIpPoolNodeForm.weight, 'Weight'),
           status: mtaIpPoolNodeForm.status || selectedMtaIpPoolNode.status,
+          operator: 'esp_admin',
         }),
       });
       const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
@@ -11731,12 +11745,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <article className={mtaIpPoolTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Pools loaded</span>
             <strong>{formatInt(mtaIpPools.length)} / {formatInt(mtaIpPoolTotal)}</strong>
-            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}` : 'Load pool controls to inspect resolver gates.'}</small>
+            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}. ${latestMtaControlAuditLabel(selectedMtaIpPool.metadata_json)}` : 'Load pool controls to inspect resolver gates.'}</small>
           </article>
           <article className={mtaIpPoolNodeTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Memberships loaded</span>
             <strong>{formatInt(mtaIpPoolNodes.length)} / {formatInt(mtaIpPoolNodeTotal)}</strong>
-            <small>{selectedMtaIpPoolNode ? `${mtaNodeNameForPoolMembership(selectedMtaIpPoolNode)}: priority ${formatInt(selectedMtaIpPoolNode.priority)}, weight ${formatInt(selectedMtaIpPoolNode.weight)}, ${selectedMtaIpPoolNode.max_per_minute ? `${formatInt(selectedMtaIpPoolNode.max_per_minute)}/min` : 'no node rate gate'}` : 'Select a pool membership to edit node-level controls.'}</small>
+            <small>{selectedMtaIpPoolNode ? `${mtaNodeNameForPoolMembership(selectedMtaIpPoolNode)}: priority ${formatInt(selectedMtaIpPoolNode.priority)}, weight ${formatInt(selectedMtaIpPoolNode.weight)}, ${selectedMtaIpPoolNode.max_per_minute ? `${formatInt(selectedMtaIpPoolNode.max_per_minute)}/min` : 'no node rate gate'}. ${latestMtaControlAuditLabel(selectedMtaIpPoolNode.metadata_json)}` : 'Select a pool membership to edit node-level controls.'}</small>
           </article>
         </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (

@@ -193,11 +193,19 @@ def test_update_ip_pool_null_typed_controls_remove_metadata_gates() -> None:
 
     updated = service.update_ip_pool(
         pool_id,
-        MtaIpPoolUpdate(max_per_minute=None, min_available_nodes=1),
+        MtaIpPoolUpdate(max_per_minute=None, min_available_nodes=1, operator='esp_admin'),
     )
 
     assert updated is pool
-    assert pool.metadata_json == {'source': 'operator', 'min_available_nodes': 1}
+    assert pool.metadata_json['source'] == 'operator'
+    assert pool.metadata_json['min_available_nodes'] == 1
+    assert 'max_per_minute' not in pool.metadata_json
+    audit_entry = pool.metadata_json['operator_control_audit_log'][0]
+    assert audit_entry['operator'] == 'esp_admin'
+    assert audit_entry['entity_type'] == 'mta_ip_pool'
+    assert audit_entry['entity_id'] == str(pool_id)
+    assert audit_entry['changed']['max_per_minute'] == {'previous': 120, 'new': None}
+    assert audit_entry['changed']['min_available_nodes'] == {'previous': 2, 'new': 1}
 
 
 def test_pool_node_typed_rate_limit_merges_into_metadata() -> None:
@@ -230,10 +238,21 @@ def test_update_pool_node_null_typed_rate_limit_removes_metadata_gate() -> None:
     service = MtaInventoryService(FakeDb())
     service.get_pool_node = lambda item_id: pool_node if item_id == pool_node_id else None
 
-    updated = service.update_pool_node(pool_node_id, MtaIpPoolNodeUpdate(max_per_minute=None))
+    updated = service.update_pool_node(
+        pool_node_id,
+        MtaIpPoolNodeUpdate(max_per_minute=None, priority=10, operator='esp_admin'),
+    )
 
     assert updated is pool_node
-    assert pool_node.metadata_json == {'source': 'operator'}
+    assert pool_node.metadata_json['source'] == 'operator'
+    assert 'max_per_minute' not in pool_node.metadata_json
+    assert pool_node.priority == 10
+    audit_entry = pool_node.metadata_json['operator_control_audit_log'][0]
+    assert audit_entry['operator'] == 'esp_admin'
+    assert audit_entry['entity_type'] == 'mta_ip_pool_node'
+    assert audit_entry['entity_id'] == str(pool_node_id)
+    assert audit_entry['changed']['max_per_minute'] == {'previous': 60, 'new': None}
+    assert audit_entry['changed']['priority'] == {'previous': None, 'new': 10}
 
 
 def test_deployment_summary_combines_inventory_counts_and_node_readiness(monkeypatch) -> None:

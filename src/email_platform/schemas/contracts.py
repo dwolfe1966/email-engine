@@ -979,6 +979,7 @@ class MtaIpPoolUpdate(BaseModel):
     description: str | None = None
     max_per_minute: int | None = Field(default=None, ge=1)
     min_available_nodes: int | None = Field(default=None, ge=1)
+    operator: str | None = Field(default=None, max_length=200)
     metadata_json: JsonObject | None = None
 
 
@@ -1005,6 +1006,7 @@ class MtaIpPoolNodeUpdate(BaseModel):
     weight: int | None = Field(default=None, ge=0)
     status: MtaOperationalStatus | None = None
     max_per_minute: int | None = Field(default=None, ge=1)
+    operator: str | None = Field(default=None, max_length=200)
     metadata_json: JsonObject | None = None
 
 
