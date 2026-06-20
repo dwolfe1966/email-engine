@@ -90,6 +90,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'proofSendRouteLabel',
         'proofSendSummary',
         'proofSendOk',
+        'canDryRunLaunch',
+        'Resolve proof routing before dry-run launch.',
         'Proof blocked',
         'Resolve proof routing',
         'Proof send did not complete with a clean delivery handoff.',

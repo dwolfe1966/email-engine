@@ -2403,6 +2403,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     && lastTestSendResult.status_code < 400
     && lastTestSendResult.mta_route_status !== 'blocked'
   );
+  const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
   const campaignTriageAction = !selectedCampaignId
     ? {
       tone: 'warn',
@@ -2657,6 +2658,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   async function dryRunLaunch() {
     await runOperation('Running dry-run launch', async () => {
       if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
+      if (!proofSendOk) throw new Error('Resolve proof routing before dry-run launch.');
       const data = await fetchJson<CampaignLaunchResult>(`/api/v1/campaigns/${selectedCampaignId}/launch`, {
         method: 'POST',
         body: JSON.stringify({ audience_id: audienceId || null, variables: parsedVariables(), dry_run: true }),
@@ -2877,7 +2879,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 <h3>Launch Foundations</h3>
                 <span className="muted">Template contract, audience snapshot, send engine handoff, and suppression impact.</span>
               </div>
-              <button className="link-button" type="button" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
+              <button className="link-button" type="button" onClick={dryRunLaunch} disabled={!canDryRunLaunch}>Dry-Run Launch</button>
             </div>
             <div className="campaign-foundation-strip">
               {launchFoundationItems.map((item) => (
@@ -3015,7 +3017,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div>
                 <strong>Send</strong>
                 <button className="ghost" onClick={sendTestEmail} disabled={operationBusy}>Send Test</button>
-                <button className="ghost" onClick={dryRunLaunch} disabled={operationBusy}>Dry-Run Launch</button>
+                <button className="ghost" onClick={dryRunLaunch} disabled={!canDryRunLaunch}>Dry-Run Launch</button>
               </div>
             </>
           ) : null}
