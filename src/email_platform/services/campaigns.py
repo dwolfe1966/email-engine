@@ -236,6 +236,7 @@ class CampaignService:
             raise ValueError('; '.join(validation.errors or validation.warnings))
         if not payload.dry_run and campaign.status != CampaignStatus.scheduled:
             raise ValueError('Campaign must be approved before queue launch.')
+        self._assert_latest_proof_route_ok(campaign.id)
 
         rule_tree = self._rule_tree(campaign, payload)
         audience_snapshot_id: UUID | None = None
@@ -291,6 +292,47 @@ class CampaignService:
             suppressed_count=job.suppressed_count,
             dry_run=payload.dry_run,
         )
+
+    def _assert_latest_proof_route_ok(self, campaign_id: UUID) -> None:
+        attempt = self._latest_campaign_test_attempt(campaign_id)
+        if not attempt:
+            raise ValueError('Run a successful campaign proof send before dry-run or launch.')
+        metadata = attempt.metadata_json or {}
+        route_blocked = metadata.get('mta_route_resolved') is False
+        smtp_failed = (
+            isinstance(attempt.smtp_response_code, int)
+            and attempt.smtp_response_code >= 400
+        )
+        if route_blocked or smtp_failed or attempt.status == 'failed':
+            raise ValueError('Resolve proof routing before dry-run launch.')
+
+    def _latest_campaign_test_attempt(self, campaign_id: UUID) -> DeliveryAttempt | None:
+        jobs = list(
+            self.db.scalars(
+                select(CampaignSendJob)
+                .where(CampaignSendJob.campaign_id == campaign_id)
+                .order_by(CampaignSendJob.created_at.desc())
+                .limit(25)
+            ).all()
+        )
+        for job in jobs:
+            if (job.metadata_json or {}).get('source') != 'campaign_test_send':
+                continue
+            record = self.db.scalar(
+                select(EmailSendRecord)
+                .where(EmailSendRecord.send_job_id == job.id)
+                .order_by(EmailSendRecord.created_at.desc())
+                .limit(1)
+            )
+            if not record:
+                continue
+            return self.db.scalar(
+                select(DeliveryAttempt)
+                .where(DeliveryAttempt.send_record_id == record.id)
+                .order_by(DeliveryAttempt.started_at.desc())
+                .limit(1)
+            )
+        return None
 
     def list_send_jobs(
         self, campaign_id: UUID | None = None, limit: int = 100, offset: int = 0

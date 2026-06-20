@@ -1,0 +1,62 @@
+from uuid import uuid4
+
+import pytest
+
+from email_platform.models.entities import DeliveryAttempt
+from email_platform.services.campaigns import CampaignService
+
+
+def proof_attempt(
+    *,
+    status: str = 'submitted',
+    smtp_response_code: int | None = 250,
+    route_resolved: bool | None = True,
+) -> DeliveryAttempt:
+    metadata = {}
+    if route_resolved is not None:
+        metadata['mta_route_resolved'] = route_resolved
+    return DeliveryAttempt(
+        send_record_id=uuid4(),
+        send_job_id=uuid4(),
+        campaign_id=uuid4(),
+        attempt_number=1,
+        provider='managed_smtp',
+        route_type='managed_smtp',
+        route_key='managed-smtp-scaleway-primary',
+        status=status,
+        smtp_response_code=smtp_response_code,
+        metadata_json=metadata,
+    )
+
+
+def service_with_latest_attempt(attempt: DeliveryAttempt | None) -> CampaignService:
+    service = CampaignService.__new__(CampaignService)
+    service._latest_campaign_test_attempt = lambda _campaign_id: attempt
+    return service
+
+
+def test_campaign_launch_proof_gate_accepts_successful_managed_smtp_attempt() -> None:
+    service = service_with_latest_attempt(proof_attempt())
+
+    service._assert_latest_proof_route_ok(uuid4())
+
+
+def test_campaign_launch_proof_gate_requires_a_proof_attempt() -> None:
+    service = service_with_latest_attempt(None)
+
+    with pytest.raises(ValueError, match='successful campaign proof send'):
+        service._assert_latest_proof_route_ok(uuid4())
+
+
+def test_campaign_launch_proof_gate_rejects_blocked_managed_smtp_route() -> None:
+    service = service_with_latest_attempt(proof_attempt(route_resolved=False))
+
+    with pytest.raises(ValueError, match='Resolve proof routing'):
+        service._assert_latest_proof_route_ok(uuid4())
+
+
+def test_campaign_launch_proof_gate_rejects_failed_smtp_response() -> None:
+    service = service_with_latest_attempt(proof_attempt(smtp_response_code=451))
+
+    with pytest.raises(ValueError, match='Resolve proof routing'):
+        service._assert_latest_proof_route_ok(uuid4())
