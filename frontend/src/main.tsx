@@ -835,6 +835,24 @@ type ManagedSmtpRouteResolutionRead = {
   } | null;
 };
 
+type ManagedSmtpRouteMatrixRead = {
+  total: number;
+  ok_count: number;
+  blocked_count: number;
+  results: Array<{
+    index: number;
+    label: string | null;
+    request: {
+      from_domain: string | null;
+      recipient_domain: string | null;
+      send_type: string;
+      route_id: string | null;
+      ip_pool_id: string | null;
+    };
+    result: ManagedSmtpRouteResolutionRead;
+  }>;
+};
+
 type MtaInventoryCounts = {
   total: number;
   pending: number;
@@ -10206,6 +10224,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
   const [managedSmtpRulePreview, setManagedSmtpRulePreview] = useState<ManagedSmtpRouteResolutionRead | null>(null);
+  const [managedSmtpRouteMatrix, setManagedSmtpRouteMatrix] = useState<ManagedSmtpRouteMatrixRead | null>(null);
+  const [managedSmtpRouteMatrixInput, setManagedSmtpRouteMatrixInput] = useState('internal_test,email-engine.app,gmail.com\ntransactional,email-engine.app,outlook.com\ninternal_test,email-engine.app,yahoo.com');
   const [selectedManagedSmtpRoutingRuleName, setSelectedManagedSmtpRoutingRuleName] = useState('');
   const [managedSmtpRoutingRuleForm, setManagedSmtpRoutingRuleForm] = useState({
     name: 'gmail-scaleway',
@@ -11047,6 +11067,28 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return splitRoutingRuleList(value)[0] || '';
   }
 
+  function buildManagedSmtpRouteMatrixCases() {
+    const rows = managedSmtpRouteMatrixInput
+      .split('\n')
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .slice(0, 25);
+    return rows.map((row, index) => {
+      const parts = row.split(',').map((part) => part.trim());
+      const [sendType, senderDomain, recipientDomain, label] = parts;
+      return {
+        label: label || `${sendType || 'internal_test'} ${senderDomain || selectedDomainPolicy?.domain || '-'} -> ${recipientDomain || 'any'}`,
+        request: {
+          send_type: sendType || 'internal_test',
+          from_domain: senderDomain || selectedDomainPolicy?.domain || null,
+          recipient_domain: recipientDomain || null,
+          route_id: selectedDomainPolicy?.route_id || null,
+          ip_pool_id: null,
+        },
+      };
+    });
+  }
+
   function loadManagedSmtpRoutingRuleIntoForm(rule: Record<string, unknown>) {
     const listValue = (value: unknown) => Array.isArray(value) ? value.map(String).join(', ') : '';
     const ruleName = String(rule.name || '');
@@ -11434,6 +11476,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         return `Preview resolved: ${result.route.routing_rule_name || 'default policy'} -> ${result.route.ip_pool_name} -> ${result.route.mta_node_name}.`;
       }
       return `Preview blocked: ${result.reason?.code || 'UNKNOWN'} - ${result.reason?.message || 'No reason returned.'}`;
+    });
+  }
+
+  async function previewManagedSmtpRouteMatrix() {
+    await runDeliveryOperation('Previewing managed SMTP route matrix', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const cases = buildManagedSmtpRouteMatrixCases();
+      if (!cases.length) throw new Error('Add at least one matrix row.');
+      const data = await fetchJson<ManagedSmtpRouteMatrixRead>('/api/v1/managed-smtp/resolve-route-matrix', {
+        method: 'POST',
+        body: JSON.stringify({ cases }),
+      });
+      setManagedSmtpRouteMatrix(data);
+      return `Previewed ${formatInt(data.total)} route matrix row(s): ${formatInt(data.ok_count)} ready, ${formatInt(data.blocked_count)} blocked.`;
     });
   }
 
@@ -12069,6 +12125,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               setDomainDashboard(null);
               setManagedSmtpRouteResolution(null);
               setManagedSmtpRulePreview(null);
+              setManagedSmtpRouteMatrix(null);
               setManagedSmtpRoutingRules(null);
               setSelectedManagedSmtpRoutingRuleName('');
             }}>
@@ -12215,10 +12272,40 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             </article>
           ) : null}
         </div>
+        <div className="panel-head compact-head">
+          <div>
+            <h3>Resolver Matrix</h3>
+            <span className="muted">Preview send type, sender domain, and recipient domain combinations before moving traffic.</span>
+          </div>
+          <button className="link-button" onClick={previewManagedSmtpRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
+        </div>
+        <div className="form-grid compact-form">
+          <label className="wide-field">
+            Matrix rows
+            <textarea value={managedSmtpRouteMatrixInput} onChange={(event) => setManagedSmtpRouteMatrixInput(event.target.value)} rows={4} placeholder="send_type,sender_domain,recipient_domain,label" />
+          </label>
+        </div>
+        <div className="managed-smtp-route-inspector">
+          {managedSmtpRouteMatrix ? (
+            <article className={managedSmtpRouteMatrix.blocked_count ? 'managed-smtp-route-field warn' : 'managed-smtp-route-field good'}>
+              <span>Matrix summary</span>
+              <strong>{formatInt(managedSmtpRouteMatrix.ok_count)} / {formatInt(managedSmtpRouteMatrix.total)} ready</strong>
+              <small>{formatInt(managedSmtpRouteMatrix.blocked_count)} blocked resolver row(s).</small>
+            </article>
+          ) : null}
+          {(managedSmtpRouteMatrix?.results || []).map((item) => (
+            <article className={`managed-smtp-route-field ${item.result.ok ? 'good' : 'warn'}`} key={`${item.index}-${item.label || 'row'}`}>
+              <span>{item.label || `Row ${item.index + 1}`}</span>
+              <strong>{item.result.ok && item.result.route ? item.result.route.routing_rule_name || item.result.route.ip_pool_name : item.result.reason?.code || 'Blocked'}</strong>
+              <small>{item.result.ok && item.result.route ? `${item.result.route.send_type || item.request.send_type} / ${item.result.route.sender_domain || item.request.from_domain || '-'} -> ${item.result.route.recipient_domain || item.request.recipient_domain || '-'} / ${item.result.route.ip_pool_name} -> ${item.result.route.mta_node_name} / ${item.result.route.provider}` : item.result.reason?.message || 'No route returned.'}</small>
+            </article>
+          ))}
+        </div>
         <div className="button-row">
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
           <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
           <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
+          <button className="ghost" onClick={previewManagedSmtpRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(false)} disabled={busy || !selectedDomainPolicy?.route_id}>Disable Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(true)} disabled={busy || !selectedDomainPolicy?.route_id}>Enable Rule</button>

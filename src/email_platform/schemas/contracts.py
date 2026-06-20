@@ -1084,6 +1084,29 @@ class ManagedSmtpRouteResolutionRead(BaseModel):
     reason: ManagedSmtpRouteBlockReason | None = None
 
 
+class ManagedSmtpRouteMatrixCase(BaseModel):
+    label: str | None = Field(default=None, max_length=200)
+    request: ManagedSmtpRouteResolveRequest
+
+
+class ManagedSmtpRouteMatrixRequest(BaseModel):
+    cases: list[ManagedSmtpRouteMatrixCase] = Field(..., min_length=1, max_length=25)
+
+
+class ManagedSmtpRouteMatrixResult(BaseModel):
+    index: int
+    label: str | None = None
+    request: ManagedSmtpRouteResolveRequest
+    result: ManagedSmtpRouteResolutionRead
+
+
+class ManagedSmtpRouteMatrixRead(BaseModel):
+    total: int
+    ok_count: int
+    blocked_count: int
+    results: list[ManagedSmtpRouteMatrixResult] = Field(default_factory=list)
+
+
 class ManagedSmtpBootstrapRequest(BaseModel):
     provider_account_name: str = Field(..., min_length=1, max_length=200)
     provider: MtaProviderType

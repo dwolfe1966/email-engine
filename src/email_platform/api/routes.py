@@ -165,6 +165,9 @@ from email_platform.schemas.contracts import (
     ManagedSmtpReadinessNotificationRead,
     ManagedSmtpReadinessSummaryRead,
     ManagedSmtpReadinessTrendRead,
+    ManagedSmtpRouteMatrixRead,
+    ManagedSmtpRouteMatrixRequest,
+    ManagedSmtpRouteMatrixResult,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
     ManagedSmtpRoutingRuleUpsert,
@@ -3488,6 +3491,30 @@ def resolve_managed_smtp_route(
     db: DbSession,
 ) -> ManagedSmtpRouteResolutionRead:
     return ManagedSmtpRoutingService(db).resolve(payload)
+
+
+@router.post('/managed-smtp/resolve-route-matrix', response_model=ManagedSmtpRouteMatrixRead)
+def resolve_managed_smtp_route_matrix(
+    payload: ManagedSmtpRouteMatrixRequest,
+    db: DbSession,
+) -> ManagedSmtpRouteMatrixRead:
+    service = ManagedSmtpRoutingService(db)
+    results = [
+        ManagedSmtpRouteMatrixResult(
+            index=index,
+            label=item.label,
+            request=item.request,
+            result=service.resolve(item.request),
+        )
+        for index, item in enumerate(payload.cases)
+    ]
+    ok_count = sum(1 for item in results if item.result.ok)
+    return ManagedSmtpRouteMatrixRead(
+        total=len(results),
+        ok_count=ok_count,
+        blocked_count=len(results) - ok_count,
+        results=results,
+    )
 
 
 @router.get('/managed-smtp/deployment-summary', response_model=ManagedSmtpDeploymentSummaryRead)
