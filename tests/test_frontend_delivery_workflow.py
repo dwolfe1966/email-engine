@@ -630,6 +630,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'mta_route_block_code',
         'Active delivery attempt evidence filters',
         'Active evidence filters',
+        'Remove filter',
         'Delivery attempt evidence rollup',
         'Matching evidence rows',
         'Export scope',

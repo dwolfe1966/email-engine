@@ -10427,7 +10427,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       : 'all attempts';
   const activeDeliveryAttemptFilters = Object.entries(deliveryAttemptFilters)
     .filter(([, value]) => value.trim())
-    .map(([key, value]) => `${key}=${value.trim()}`);
+    .map(([key, value]) => ({ key: key as keyof typeof deliveryAttemptFilters, label: `${key}=${value.trim()}` }));
   const activeDeliveryAttemptFilterCount = activeDeliveryAttemptFilters.length;
   const deliveryAttemptExportedCount = Math.min(evidenceSummaryTotal, deliveryAttemptExportLimit);
   const deliveryAttemptEvidenceRollups = [
@@ -11273,6 +11273,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function updateDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters, value: string) {
     setDeliveryAttemptFilters((current) => ({ ...current, [name]: value }));
+  }
+
+  function clearDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters) {
+    setDeliveryAttemptFilters((current) => ({ ...current, [name]: '' }));
+    setDeliveryAttempts([]);
+    setDeliveryAttemptEvidenceSummary(null);
   }
 
   function applyDeliveryAttemptPreset(filters: Partial<typeof deliveryAttemptFilters>) {
@@ -12890,7 +12896,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="delivery-ai-summary" aria-label="Active delivery attempt evidence filters">
           <span>Active evidence filters</span>
           {activeDeliveryAttemptFilters.length ? activeDeliveryAttemptFilters.map((filter) => (
-            <span key={filter}>{filter}</span>
+            <button className="link-button" type="button" onClick={() => clearDeliveryAttemptFilter(filter.key)} disabled={busy} key={filter.label}>
+              Remove filter {filter.label}
+            </button>
           )) : <span>none</span>}
         </div>
         <div className="summary-grid" aria-label="Delivery attempt evidence rollup">
