@@ -11448,6 +11448,49 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP resolver matrix with ${formatInt(managedSmtpRouteMatrix.total)} row(s).`);
   }
 
+  function buildProviderFeedbackEvidencePack() {
+    const activeFilters = Object.entries(feedbackFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const events = providerFeedbackEvents.slice(0, 12).map((event) => {
+      const metadata = event.metadata_json || {};
+      return [
+        `- event=${event.id}`,
+        `  provider=${event.provider}`,
+        `  source=${event.source}`,
+        `  event_name=${event.event_name}`,
+        `  email=${event.email}`,
+        `  provider_message_id=${event.provider_message_id || '-'}`,
+        `  idempotency_key=${event.idempotency_key}`,
+        `  dsn_status=${String(metadata.dsn_status || metadata.smtp_status || '-')}`,
+        `  source_key=${String(metadata.postfix_queue_id || metadata.maildir_key || '-')}`,
+        `  payload_keys=${Object.keys(event.payload_json || {}).join(', ') || '-'}`,
+        `  metadata_keys=${Object.keys(metadata).join(', ') || '-'}`,
+        `  received_at=${event.received_at}`,
+      ].join('\n');
+    }).join('\n');
+    return [
+      'Provider Feedback Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Active filters: ${activeFilters}`,
+      `Loaded events: ${formatInt(providerFeedbackEvents.length)} / ${formatInt(providerFeedbackTotal)}`,
+      `Review signals: ${formatInt(providerFeedbackWarningCount)}`,
+      '',
+      'Events',
+      events || '- no provider feedback events loaded',
+    ].join('\n');
+  }
+
+  async function copyProviderFeedbackEvidencePack() {
+    if (!providerFeedbackEvents.length) {
+      setStatus('Load provider feedback evidence before copying a feedback pack.');
+      return;
+    }
+    await copyTextToClipboard(buildProviderFeedbackEvidencePack());
+    setStatus(`Copied provider feedback evidence pack with ${formatInt(providerFeedbackEvents.length)} loaded event(s).`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -13564,7 +13607,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h2>Provider Feedback Evidence</h2>
             <span className="muted">Retained raw provider and managed-SMTP feedback for DSN, bounce, complaint, and duplicate-event review.</span>
           </div>
-          <button className="link-button" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+            <button className="ghost" onClick={copyProviderFeedbackEvidencePack} disabled={busy || !providerFeedbackEvents.length}>Copy Feedback Pack</button>
+          </div>
         </div>
         <div className="form-grid">
           <label>
@@ -13591,6 +13637,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={useSelectedRecordForFeedbackFilters} disabled={busy || !selectedRecordId}>Use Selected Record</button>
           <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
+          <button className="ghost" onClick={copyProviderFeedbackEvidencePack} disabled={busy || !providerFeedbackEvents.length}>Copy Feedback Pack</button>
         </div>
         {providerFeedbackEvents.length ? (
           <>
