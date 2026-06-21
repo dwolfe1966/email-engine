@@ -12784,6 +12784,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             Draft evidence
             <input value={managedSmtpRoutingRuleDraftEvidence || 'No evidence draft loaded'} readOnly />
           </label>
+          <button className="ghost" type="button" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id || !managedSmtpRoutingRuleDraftEvidence}>Preview Draft</button>
         </div>
         <div className="managed-smtp-route-inspector">
           {managedSmtpRulePreview?.ok && managedSmtpRulePreview.route ? (
