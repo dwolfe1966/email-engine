@@ -11361,6 +11361,54 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied delivery attempt evidence pack with ${formatInt(deliveryAttempts.length)} loaded attempt row(s).`);
   }
 
+  function buildManagedSmtpRoutingRuleDraftPack() {
+    const preview = managedSmtpRulePreview?.ok && managedSmtpRulePreview.route
+      ? [
+          `preview_rule=${managedSmtpRulePreview.route.routing_rule_name || 'Default policy'}`,
+          `preview_pool=${managedSmtpRulePreview.route.ip_pool_name || '-'}`,
+          `preview_node=${managedSmtpRulePreview.route.mta_node_name || '-'}`,
+          `preview_provider=${managedSmtpRulePreview.route.provider || '-'}`,
+        ].join('\n')
+      : managedSmtpRulePreview?.reason
+        ? [
+            `preview_block_code=${managedSmtpRulePreview.reason.code}`,
+            `preview_block_message=${managedSmtpRulePreview.reason.message}`,
+          ].join('\n')
+        : 'preview=not run';
+    return [
+      'Managed SMTP Routing Rule Draft',
+      `Generated at: ${new Date().toISOString()}`,
+      `Domain policy: ${selectedDomainPolicy?.domain || '-'}`,
+      `Route ID: ${selectedDomainPolicy?.route_id || '-'}`,
+      '',
+      'Evidence provenance',
+      managedSmtpRoutingRuleDraftEvidence || 'No evidence draft loaded',
+      '',
+      'Proposed rule',
+      `name=${managedSmtpRoutingRuleForm.name || '-'}`,
+      `priority=${managedSmtpRoutingRuleForm.priority || '-'}`,
+      `enabled=${managedSmtpRoutingRuleForm.enabled ? 'true' : 'false'}`,
+      `send_types=${managedSmtpRoutingRuleForm.send_types || '-'}`,
+      `sender_domains=${managedSmtpRoutingRuleForm.sender_domains || '-'}`,
+      `recipient_domains=${managedSmtpRoutingRuleForm.recipient_domains || '-'}`,
+      `ip_pool_name=${managedSmtpRoutingRuleForm.ip_pool_name || '-'}`,
+      `preferred_providers=${managedSmtpRoutingRuleForm.preferred_providers || '-'}`,
+      `provider_preference_mode=${managedSmtpRoutingRuleForm.provider_preference_mode || '-'}`,
+      '',
+      'Preview',
+      preview,
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpRoutingRuleDraft() {
+    if (!managedSmtpRoutingRuleDraftEvidence) {
+      setStatus('Draft a routing rule from evidence before copying.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpRoutingRuleDraftPack());
+    setStatus(`Copied managed SMTP routing rule draft evidence for ${managedSmtpRoutingRuleForm.name || 'unsaved rule'}.`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -12785,6 +12833,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <input value={managedSmtpRoutingRuleDraftEvidence || 'No evidence draft loaded'} readOnly />
           </label>
           <button className="ghost" type="button" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id || !managedSmtpRoutingRuleDraftEvidence}>Preview Draft</button>
+          <button className="ghost" type="button" onClick={copyManagedSmtpRoutingRuleDraft} disabled={busy || !managedSmtpRoutingRuleDraftEvidence}>Copy Draft Evidence</button>
         </div>
         <div className="managed-smtp-route-inspector">
           {managedSmtpRulePreview?.ok && managedSmtpRulePreview.route ? (
