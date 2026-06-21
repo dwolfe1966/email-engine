@@ -11742,6 +11742,44 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP deployment evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node(s).`);
   }
 
+  function buildManagedSmtpProviderReadinessEvidencePack() {
+    const summary = managedSmtpDeploymentSummary;
+    const providers = (summary?.provider_readiness || []).map((item) => [
+      `- provider=${item.provider_account.provider}`,
+      `  account=${item.provider_account.name}`,
+      `  account_id=${item.provider_account.id}`,
+      `  status=${item.status}`,
+      `  status_label=${item.status_label}`,
+      `  summary=${item.summary}`,
+      `  nodes=${formatInt(item.active_node_count)} active / ${formatInt(item.node_count)} total`,
+      `  port25=${item.port25_status_label}`,
+      `  rdns=${item.rdns_status_label}`,
+      `  blockers=${item.blocker_labels.join(', ') || item.blockers.join(', ') || '-'}`,
+      `  next_action=${item.next_action || '-'}`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Provider Readiness Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Fleet status: ${summary?.fleet_health.status || '-'}`,
+      `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
+      `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
+      `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
+      `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
+      '',
+      'Provider readiness',
+      providers || '- no provider readiness loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpProviderReadinessEvidencePack() {
+    if (!managedSmtpDeploymentSummary) {
+      setStatus('Load managed SMTP deployment before copying a provider readiness pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpProviderReadinessEvidencePack());
+    setStatus(`Copied managed SMTP provider readiness evidence pack with ${formatInt(managedSmtpDeploymentSummary.provider_readiness.length)} provider row(s).`);
+  }
+
   function buildManagedSmtpPoolControlsEvidencePack() {
     const pool = selectedMtaIpPool;
     const membership = selectedMtaIpPoolNode;
@@ -12815,7 +12853,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h3>Managed SMTP Provider Readiness</h3>
             <span className="muted">Provider posture for live and pending MTA capacity.</span>
           </div>
-          <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Refresh Providers</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Refresh Providers</button>
+            <button className="ghost" onClick={copyManagedSmtpProviderReadinessEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Provider Pack</button>
+          </div>
         </div>
         <div className="managed-smtp-route-inspector">
           {(managedSmtpDeploymentSummary?.provider_readiness || []).slice(0, 8).map((item) => (
