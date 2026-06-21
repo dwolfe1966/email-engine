@@ -11618,6 +11618,70 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied MTA agent telemetry evidence pack with ${formatInt(mtaNodeEvents.length)} loaded event(s).`);
   }
 
+  function buildManagedSmtpDeploymentEvidencePack() {
+    const summary = managedSmtpDeploymentSummary;
+    const providers = (summary?.provider_readiness || []).slice(0, 8).map((item) => [
+      `- provider=${item.provider_account.provider} ${item.provider_account.name}`,
+      `  status=${item.status_label}`,
+      `  nodes=${formatInt(item.active_node_count)} active / ${formatInt(item.node_count)} total`,
+      `  port25=${item.port25_status_label}`,
+      `  rdns=${item.rdns_status_label}`,
+      `  blockers=${item.blocker_labels.join(', ') || '-'}`,
+      `  next_action=${item.next_action || '-'}`,
+    ].join('\n')).join('\n');
+    const pools = (summary?.pool_health || []).slice(0, 8).map((item) => [
+      `- pool=${item.ip_pool.name}`,
+      `  status=${item.status_label}`,
+      `  route_ready=${formatInt(item.route_ready_node_count)} / ${formatInt(item.required_available_node_count)}`,
+      `  active_memberships=${formatInt(item.active_membership_count)}`,
+      `  max_per_minute=${item.max_per_minute || '-'}`,
+      `  blockers=${item.reason_labels.join(', ') || '-'}`,
+      `  summary=${item.summary}`,
+    ].join('\n')).join('\n');
+    const nodes = (summary?.recent_nodes || []).slice(0, 8).map((item) => [
+      `- node=${item.node.name} ${item.node.hostname}`,
+      `  status=${item.node.status}`,
+      `  operational=${item.agent_operational_status_label || item.agent_operational_status}`,
+      `  endpoint=${item.node_endpoint_label}`,
+      `  provider=${item.provider_account.provider} ${item.provider_account.name}`,
+      `  readiness=${item.latest_readiness?.status || '-'}`,
+      `  agent=${item.agent_status_label}`,
+      `  service=${item.agent_service_state_label || '-'}`,
+      `  timer=${item.agent_timer_state_label || '-'}`,
+      `  host_update=${item.agent_host_update_status_label || item.agent_host_update_status}`,
+      `  queue=${formatInt(item.agent_queue_depth)} total / ${formatInt(item.agent_deferred_count)} deferred`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Deployment Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Fleet status: ${summary?.fleet_health.status || '-'}`,
+      `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
+      `Primary next action: ${summary?.fleet_health.primary_next_action_label || '-'} - ${summary?.fleet_health.primary_next_action_summary || '-'}`,
+      `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
+      `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
+      `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
+      `Queue pressure: ${formatInt(summary?.fleet_health.queue_depth || 0)} queued, ${formatInt(summary?.fleet_health.deferred_count || 0)} deferred`,
+      '',
+      'Providers',
+      providers || '- no provider readiness loaded',
+      '',
+      'Pools',
+      pools || '- no pool health loaded',
+      '',
+      'Nodes',
+      nodes || '- no MTA nodes loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpDeploymentEvidencePack() {
+    if (!managedSmtpDeploymentSummary) {
+      setStatus('Load managed SMTP deployment summary before copying a deployment pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpDeploymentEvidencePack());
+    setStatus(`Copied managed SMTP deployment evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node(s).`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -12520,6 +12584,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
             <button className="ghost" onClick={loadManagedSmtpPoolControls} disabled={busy}>Load Pool Controls</button>
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
+            <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
           </div>
         </div>
         <div className="form-grid">
