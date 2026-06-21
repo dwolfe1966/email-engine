@@ -650,6 +650,21 @@ class DeliveryAttemptRead(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class DeliveryAttemptEvidenceCountRead(BaseModel):
+    label: str
+    count: int
+
+
+class DeliveryAttemptEvidenceSummaryRead(BaseModel):
+    total: int
+    resolved_count: int
+    blocked_count: int
+    top_providers: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_pools: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_rules: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_block_codes: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+
+
 class DeliveryRouteCreate(BaseModel):
     name: str
     route_type: DeliveryRouteType

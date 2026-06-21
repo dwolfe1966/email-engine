@@ -83,6 +83,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/delivery/managed-smtp/feedback',
         '/api/v1/delivery/managed-smtp/readiness-checks',
         '/api/v1/delivery-attempts/list',
+        '/api/v1/delivery-attempts/evidence-summary',
         '/api/v1/delivery-routes',
         '/api/v1/delivery-routes/list',
         '/api/v1/delivery-routes/{route_id}',
@@ -260,12 +261,13 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
 
 def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
     client = TestClient(app)
-    params = client.get('/openapi.json').json()['paths']['/api/v1/delivery-attempts/list']['get'][
-        'parameters'
-    ]
-    names = {item['name'] for item in params}
+    paths = client.get('/openapi.json').json()['paths']
+    list_params = paths['/api/v1/delivery-attempts/list']['get']['parameters']
+    summary_params = paths['/api/v1/delivery-attempts/evidence-summary']['get']['parameters']
+    list_names = {item['name'] for item in list_params}
+    summary_names = {item['name'] for item in summary_params}
 
-    assert {
+    expected = {
         'mta_ip_pool_id',
         'mta_node_id',
         'mta_provider',
@@ -278,7 +280,26 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
         'mta_rule_hit_pool_source',
         'mta_rule_hit_provider_preference',
         'mta_route_block_code',
-    }.issubset(names)
+    }
+    assert expected.issubset(list_names)
+    assert expected.issubset(summary_names)
+
+
+def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
+    client = TestClient(app)
+    schema = client.get('/openapi.json').json()['components']['schemas'][
+        'DeliveryAttemptEvidenceSummaryRead'
+    ]
+
+    assert {
+        'total',
+        'resolved_count',
+        'blocked_count',
+        'top_providers',
+        'top_pools',
+        'top_rules',
+        'top_block_codes',
+    }.issubset(schema['properties'].keys())
 
 
 def test_campaign_workflow_status_exposes_latest_proof_route() -> None:

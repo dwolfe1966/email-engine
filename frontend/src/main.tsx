@@ -710,6 +710,21 @@ type DeliveryAttemptRead = {
   completed_at: string | null;
 };
 
+type DeliveryAttemptEvidenceCountRead = {
+  label: string;
+  count: number;
+};
+
+type DeliveryAttemptEvidenceSummaryRead = {
+  total: number;
+  resolved_count: number;
+  blocked_count: number;
+  top_providers: DeliveryAttemptEvidenceCountRead[];
+  top_pools: DeliveryAttemptEvidenceCountRead[];
+  top_rules: DeliveryAttemptEvidenceCountRead[];
+  top_block_codes: DeliveryAttemptEvidenceCountRead[];
+};
+
 type ProviderFeedbackEventRead = {
   id: string;
   provider: string;
@@ -10179,6 +10194,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [progress, setProgress] = useState<CampaignSendJobProgress | null>(null);
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
   const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
+  const [deliveryAttemptEvidenceSummary, setDeliveryAttemptEvidenceSummary] = useState<DeliveryAttemptEvidenceSummaryRead | null>(null);
   const [providerFeedbackEvents, setProviderFeedbackEvents] = useState<ProviderFeedbackEventRead[]>([]);
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
@@ -10293,6 +10309,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     if (!routeRecordId || selectedRecordId === routeRecordId) return;
     setSelectedRecordId(routeRecordId);
     setDeliveryAttempts([]);
+    setDeliveryAttemptEvidenceSummary(null);
     setStatus(`Focused delivery record ${routeRecordId.slice(0, 8)} from navigation context.`);
   }, [routeRecordId, selectedRecordId]);
 
@@ -10380,31 +10397,38 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.mta_ip_pool_id || '-')));
   const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
+  const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
+  const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
+  const summaryTopRule = deliveryAttemptEvidenceSummary?.top_rules[0] || topAttemptRule;
+  const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
+  const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
+  const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
+  const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
   const deliveryAttemptEvidenceRollups = [
     {
-      label: 'Loaded evidence rows',
-      value: formatInt(deliveryAttempts.length),
-      detail: `${formatInt(resolvedRouteAttempts)} resolved, ${formatInt(blockedRouteAttempts)} blocked route decision(s).`,
+      label: 'Matching evidence rows',
+      value: formatInt(evidenceSummaryTotal),
+      detail: `${formatInt(evidenceSummaryResolved)} resolved, ${formatInt(evidenceSummaryBlocked)} blocked route decision(s).`,
     },
     {
       label: 'Top route provider',
-      value: topAttemptProvider.label,
-      detail: topAttemptProvider.count ? `${formatInt(topAttemptProvider.count)} loaded attempt(s) used this provider.` : 'No managed SMTP provider evidence loaded.',
+      value: summaryTopProvider.label,
+      detail: summaryTopProvider.count ? `${formatInt(summaryTopProvider.count)} matching attempt(s) used this provider.` : 'No managed SMTP provider evidence loaded.',
     },
     {
       label: 'Top route pool',
-      value: topAttemptPool.label,
-      detail: topAttemptPool.count ? `${formatInt(topAttemptPool.count)} loaded attempt(s) used this pool.` : 'No managed SMTP pool evidence loaded.',
+      value: summaryTopPool.label,
+      detail: summaryTopPool.count ? `${formatInt(summaryTopPool.count)} matching attempt(s) used this pool.` : 'No managed SMTP pool evidence loaded.',
     },
     {
       label: 'Top routing rule',
-      value: topAttemptRule.label,
-      detail: topAttemptRule.count ? `${formatInt(topAttemptRule.count)} loaded attempt(s) matched this rule.` : 'No routing rule evidence loaded.',
+      value: summaryTopRule.label,
+      detail: summaryTopRule.count ? `${formatInt(summaryTopRule.count)} matching attempt(s) matched this rule.` : 'No routing rule evidence loaded.',
     },
     {
       label: 'Top block code',
-      value: topAttemptBlockCode.label,
-      detail: topAttemptBlockCode.count ? `${formatInt(topAttemptBlockCode.count)} loaded attempt(s) hit this block code.` : 'No route block evidence loaded.',
+      value: summaryTopBlockCode.label,
+      detail: summaryTopBlockCode.count ? `${formatInt(summaryTopBlockCode.count)} matching attempt(s) hit this block code.` : 'No route block evidence loaded.',
     },
   ];
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
@@ -11075,8 +11099,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     Object.entries(deliveryAttemptFilters).forEach(([key, value]) => {
       if (value.trim()) params.set(key, value.trim());
     });
-    const data = await fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`);
+    const summaryParams = new URLSearchParams(params);
+    summaryParams.delete('limit');
+    summaryParams.delete('offset');
+    const [data, summary] = await Promise.all([
+      fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`),
+      fetchJson<DeliveryAttemptEvidenceSummaryRead>(`/api/v1/delivery-attempts/evidence-summary?${summaryParams.toString()}`),
+    ]);
     setDeliveryAttempts(data.items || []);
+    setDeliveryAttemptEvidenceSummary(summary);
     return data.items || [];
   }
 
@@ -12442,6 +12473,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     setSelectedJobId(job.id);
                     setProgress(null);
                     setDeliveryAttempts([]);
+                    setDeliveryAttemptEvidenceSummary(null);
                   }}
                 >
                   <td>{job.id.slice(0, 8)}</td>
@@ -12476,6 +12508,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     setSelectedRecordId(record.id);
                     setTrackingLinks(null);
                     setDeliveryAttempts([]);
+                    setDeliveryAttemptEvidenceSummary(null);
                   }}
                 >
                   <td>{record.to_email}</td>
@@ -12522,6 +12555,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               setSelectedJobId(event.target.value);
               setProgress(null);
               setDeliveryAttempts([]);
+              setDeliveryAttemptEvidenceSummary(null);
             }}>
               <option value="">All queued records</option>
               {sendJobs.map((job) => (
@@ -12537,6 +12571,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               setSelectedRecordId(event.target.value);
               setTrackingLinks(null);
               setDeliveryAttempts([]);
+              setDeliveryAttemptEvidenceSummary(null);
             }}>
               <option value="">Select record</option>
               {sendRecords.map((record) => (

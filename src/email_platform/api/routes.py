@@ -111,6 +111,7 @@ from email_platform.schemas.contracts import (
     DataSourceUpdate,
     DataSourceValidationRead,
     DeleteResponse,
+    DeliveryAttemptEvidenceSummaryRead,
     DeliveryAttemptRead,
     DeliveryRouteCreate,
     DeliveryRouteRead,
@@ -2952,9 +2953,7 @@ def list_email_send_records(
     }
 
 
-@router.get('/delivery-attempts/list', response_model=ListResponse[DeliveryAttemptRead])
-def list_delivery_attempts(
-    db: DbSession,
+def _delivery_attempt_evidence_filters(
     campaign_id: UUID | None = None,
     send_job_id: UUID | None = None,
     send_record_id: UUID | None = None,
@@ -2972,9 +2971,7 @@ def list_delivery_attempts(
     mta_rule_hit_pool_source: str | None = None,
     mta_rule_hit_provider_preference: str | None = None,
     mta_route_block_code: str | None = None,
-    limit: Limit = 100,
-    offset: Offset = 0,
-) -> dict[str, object]:
+) -> list[object]:
     filters = []
     if campaign_id:
         filters.append(DeliveryAttempt.campaign_id == campaign_id)
@@ -3009,6 +3006,74 @@ def list_delivery_attempts(
                 [mta_rule_hit_provider_preference]
             )
         )
+    return filters
+
+
+def _delivery_attempt_evidence_counts(
+    db: DbSession,
+    filters: list[object],
+    expression: object,
+) -> list[dict[str, object]]:
+    rows = db.execute(
+        select(expression.label('label'), func.count().label('count'))
+        .select_from(DeliveryAttempt)
+        .where(*filters)
+        .where(expression.is_not(None))
+        .group_by(expression)
+        .order_by(func.count().desc())
+        .limit(5)
+    ).all()
+    items = []
+    for row in rows:
+        mapping = row._mapping
+        if mapping['label'] in (None, ''):
+            continue
+        items.append({'label': str(mapping['label']), 'count': int(mapping['count'])})
+    return items
+
+
+@router.get('/delivery-attempts/list', response_model=ListResponse[DeliveryAttemptRead])
+def list_delivery_attempts(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    provider: str | None = None,
+    status: str | None = None,
+    mta_ip_pool_id: UUID | None = None,
+    mta_node_id: UUID | None = None,
+    mta_provider: str | None = None,
+    mta_route_resolved: bool | None = None,
+    mta_route_send_type: str | None = None,
+    mta_route_sender_domain: str | None = None,
+    mta_route_recipient_domain: str | None = None,
+    mta_routing_rule_name: str | None = None,
+    mta_routing_rule_source: str | None = None,
+    mta_rule_hit_pool_source: str | None = None,
+    mta_rule_hit_provider_preference: str | None = None,
+    mta_route_block_code: str | None = None,
+    limit: Limit = 100,
+    offset: Offset = 0,
+) -> dict[str, object]:
+    filters = _delivery_attempt_evidence_filters(
+        campaign_id=campaign_id,
+        send_job_id=send_job_id,
+        send_record_id=send_record_id,
+        provider=provider,
+        status=status,
+        mta_ip_pool_id=mta_ip_pool_id,
+        mta_node_id=mta_node_id,
+        mta_provider=mta_provider,
+        mta_route_resolved=mta_route_resolved,
+        mta_route_send_type=mta_route_send_type,
+        mta_route_sender_domain=mta_route_sender_domain,
+        mta_route_recipient_domain=mta_route_recipient_domain,
+        mta_routing_rule_name=mta_routing_rule_name,
+        mta_routing_rule_source=mta_routing_rule_source,
+        mta_rule_hit_pool_source=mta_rule_hit_pool_source,
+        mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_route_block_code=mta_route_block_code,
+    )
 
     statement = (
         select(DeliveryAttempt)
@@ -3023,6 +3088,89 @@ def list_delivery_attempts(
         'limit': limit,
         'offset': offset,
         'total': int(db.scalar(count_statement) or 0),
+    }
+
+
+@router.get(
+    '/delivery-attempts/evidence-summary',
+    response_model=DeliveryAttemptEvidenceSummaryRead,
+)
+def summarize_delivery_attempt_evidence(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    provider: str | None = None,
+    status: str | None = None,
+    mta_ip_pool_id: UUID | None = None,
+    mta_node_id: UUID | None = None,
+    mta_provider: str | None = None,
+    mta_route_resolved: bool | None = None,
+    mta_route_send_type: str | None = None,
+    mta_route_sender_domain: str | None = None,
+    mta_route_recipient_domain: str | None = None,
+    mta_routing_rule_name: str | None = None,
+    mta_routing_rule_source: str | None = None,
+    mta_rule_hit_pool_source: str | None = None,
+    mta_rule_hit_provider_preference: str | None = None,
+    mta_route_block_code: str | None = None,
+) -> dict[str, object]:
+    filters = _delivery_attempt_evidence_filters(
+        campaign_id=campaign_id,
+        send_job_id=send_job_id,
+        send_record_id=send_record_id,
+        provider=provider,
+        status=status,
+        mta_ip_pool_id=mta_ip_pool_id,
+        mta_node_id=mta_node_id,
+        mta_provider=mta_provider,
+        mta_route_resolved=mta_route_resolved,
+        mta_route_send_type=mta_route_send_type,
+        mta_route_sender_domain=mta_route_sender_domain,
+        mta_route_recipient_domain=mta_route_recipient_domain,
+        mta_routing_rule_name=mta_routing_rule_name,
+        mta_routing_rule_source=mta_routing_rule_source,
+        mta_rule_hit_pool_source=mta_rule_hit_pool_source,
+        mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_route_block_code=mta_route_block_code,
+    )
+    route_resolved = DeliveryAttempt.metadata_json['mta_route_resolved'].astext
+    provider_expr = DeliveryAttempt.metadata_json['mta_provider'].astext
+    pool_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_ip_pool_name'].astext,
+        DeliveryAttempt.metadata_json['mta_ip_pool_id'].astext,
+    )
+    rule_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_name'].astext,
+        DeliveryAttempt.metadata_json['mta_routing_rule_name'].astext,
+    )
+    block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
+    return {
+        'total': int(
+            db.scalar(select(func.count()).select_from(DeliveryAttempt).where(*filters)) or 0
+        ),
+        'resolved_count': int(
+            db.scalar(
+                select(func.count())
+                .select_from(DeliveryAttempt)
+                .where(*filters)
+                .where(route_resolved == 'true')
+            )
+            or 0
+        ),
+        'blocked_count': int(
+            db.scalar(
+                select(func.count())
+                .select_from(DeliveryAttempt)
+                .where(*filters)
+                .where(route_resolved == 'false')
+            )
+            or 0
+        ),
+        'top_providers': _delivery_attempt_evidence_counts(db, filters, provider_expr),
+        'top_pools': _delivery_attempt_evidence_counts(db, filters, pool_expr),
+        'top_rules': _delivery_attempt_evidence_counts(db, filters, rule_expr),
+        'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
     }
 
 
