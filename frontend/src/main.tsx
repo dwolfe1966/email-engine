@@ -10419,11 +10419,31 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
+  const deliveryAttemptExportLimit = 5000;
+  const deliveryAttemptExportScope = selectedRecordId
+    ? `record ${selectedRecordId.slice(0, 8)}`
+    : selectedJobId
+      ? `job ${selectedJobId.slice(0, 8)}`
+      : 'all attempts';
+  const activeDeliveryAttemptFilterCount = Object.values(deliveryAttemptFilters).filter((value) => value.trim()).length;
+  const deliveryAttemptExportedCount = Math.min(evidenceSummaryTotal, deliveryAttemptExportLimit);
   const deliveryAttemptEvidenceRollups = [
     {
       label: 'Matching evidence rows',
       value: formatInt(evidenceSummaryTotal),
       detail: `${formatInt(evidenceSummaryResolved)} resolved, ${formatInt(evidenceSummaryBlocked)} blocked route decision(s).`,
+    },
+    {
+      label: 'Export scope',
+      value: deliveryAttemptExportScope,
+      detail: `${formatInt(activeDeliveryAttemptFilterCount)} active evidence filter(s); CSV includes scope and filter metadata.`,
+    },
+    {
+      label: 'Export cap',
+      value: `${formatInt(deliveryAttemptExportedCount)} / ${formatInt(deliveryAttemptExportLimit)}`,
+      detail: evidenceSummaryTotal > deliveryAttemptExportLimit
+        ? `${formatInt(evidenceSummaryTotal - deliveryAttemptExportLimit)} matching row(s) exceed the CSV cap.`
+        : 'Full matching set fits within the CSV export cap.',
     },
     {
       label: 'Top route provider',
