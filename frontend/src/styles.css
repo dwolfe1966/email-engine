@@ -314,11 +314,18 @@ nav a.active {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 18px;
+  margin: -26px -26px 18px;
+  padding: 18px 26px 14px;
+  border-bottom: 1px solid rgba(216, 229, 247, .86);
+  background: rgba(244, 248, 255, .9);
+  backdrop-filter: blur(18px);
 }
 
 h1,
@@ -8721,10 +8728,17 @@ th {
 
 @media (max-width: 760px) {
   .workspace { padding: 16px; }
+  .topbar {
+    margin: -16px -16px 16px;
+    padding: 14px 16px 12px;
+  }
   .topbar,
   .topbar-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+  .global-operation {
+    max-width: none;
   }
   .overview-hero {
     align-items: stretch;
