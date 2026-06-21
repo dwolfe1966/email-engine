@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 from collections.abc import Mapping
 from datetime import datetime
@@ -261,6 +263,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 Limit = Annotated[int, Query(ge=1, le=500)]
 RecentEventLimit = Annotated[int, Query(ge=0, le=500)]
+DeliveryAttemptExportLimit = Annotated[int, Query(ge=1, le=5000)]
 Offset = Annotated[int, Query(ge=0)]
 TRANSPARENT_GIF = (
     b'GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!'
@@ -3199,6 +3202,131 @@ def summarize_delivery_attempt_evidence(
         'top_pool_sources': _delivery_attempt_evidence_counts(db, filters, pool_source_expr),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
     }
+
+
+@router.get('/delivery-attempts/evidence-export.csv')
+def export_delivery_attempt_evidence_csv(
+    db: DbSession,
+    campaign_id: UUID | None = None,
+    send_job_id: UUID | None = None,
+    send_record_id: UUID | None = None,
+    provider: str | None = None,
+    status: str | None = None,
+    mta_ip_pool_id: UUID | None = None,
+    mta_node_id: UUID | None = None,
+    mta_provider: str | None = None,
+    mta_route_resolved: bool | None = None,
+    mta_route_send_type: str | None = None,
+    mta_route_sender_domain: str | None = None,
+    mta_route_recipient_domain: str | None = None,
+    mta_routing_rule_name: str | None = None,
+    mta_routing_rule_source: str | None = None,
+    mta_rule_hit_pool_source: str | None = None,
+    mta_rule_hit_provider_preference: str | None = None,
+    mta_route_block_code: str | None = None,
+    limit: DeliveryAttemptExportLimit = 5000,
+) -> Response:
+    filters = _delivery_attempt_evidence_filters(
+        campaign_id=campaign_id,
+        send_job_id=send_job_id,
+        send_record_id=send_record_id,
+        provider=provider,
+        status=status,
+        mta_ip_pool_id=mta_ip_pool_id,
+        mta_node_id=mta_node_id,
+        mta_provider=mta_provider,
+        mta_route_resolved=mta_route_resolved,
+        mta_route_send_type=mta_route_send_type,
+        mta_route_sender_domain=mta_route_sender_domain,
+        mta_route_recipient_domain=mta_route_recipient_domain,
+        mta_routing_rule_name=mta_routing_rule_name,
+        mta_routing_rule_source=mta_routing_rule_source,
+        mta_rule_hit_pool_source=mta_rule_hit_pool_source,
+        mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_route_block_code=mta_route_block_code,
+    )
+    attempts = db.scalars(
+        select(DeliveryAttempt)
+        .where(*filters)
+        .order_by(DeliveryAttempt.started_at.desc())
+        .limit(limit)
+    ).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            'attempt_id',
+            'send_record_id',
+            'send_job_id',
+            'campaign_id',
+            'status',
+            'route_type',
+            'route_key',
+            'route_resolved',
+            'send_type',
+            'sender_domain',
+            'recipient_domain',
+            'mta_provider',
+            'ip_pool',
+            'mta_node',
+            'routing_rule',
+            'rule_source',
+            'pool_source',
+            'provider_preference',
+            'block_code',
+            'smtp_response_code',
+            'started_at',
+        ]
+    )
+    for attempt in attempts:
+        metadata = attempt.metadata_json or {}
+        provider_preference = metadata.get('mta_rule_hit_provider_preference')
+        if isinstance(provider_preference, list):
+            provider_preference_value = ';'.join(str(item) for item in provider_preference)
+        else:
+            provider_preference_value = str(metadata.get('mta_preferred_providers') or '')
+        writer.writerow(
+            [
+                attempt.id,
+                attempt.send_record_id,
+                attempt.send_job_id or '',
+                attempt.campaign_id or '',
+                attempt.status,
+                attempt.route_type or '',
+                attempt.route_key or '',
+                metadata.get('mta_route_resolved', ''),
+                metadata.get('mta_rule_hit_send_type')
+                or metadata.get('mta_route_send_type')
+                or '',
+                metadata.get('mta_rule_hit_sender_domain')
+                or metadata.get('mta_route_sender_domain')
+                or '',
+                metadata.get('mta_rule_hit_recipient_domain')
+                or metadata.get('mta_route_recipient_domain')
+                or '',
+                metadata.get('mta_provider') or '',
+                metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id') or '',
+                metadata.get('mta_node_name') or metadata.get('mta_node_id') or '',
+                metadata.get('mta_rule_hit_name') or metadata.get('mta_routing_rule_name') or '',
+                metadata.get('mta_rule_hit_source')
+                or metadata.get('mta_routing_rule_source')
+                or '',
+                metadata.get('mta_rule_hit_pool_source')
+                or metadata.get('mta_ip_pool_selection_source')
+                or '',
+                provider_preference_value,
+                metadata.get('mta_route_block_code') or '',
+                attempt.smtp_response_code or metadata.get('smtp_response_code') or '',
+                attempt.started_at.isoformat() if attempt.started_at else '',
+            ]
+        )
+    return Response(
+        content=output.getvalue(),
+        media_type='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': 'attachment; filename="delivery-attempt-evidence.csv"'
+        },
+    )
 
 
 @router.get('/delivery-routes/list', response_model=ListResponse[DeliveryRouteRead])

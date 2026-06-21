@@ -84,6 +84,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/delivery/managed-smtp/readiness-checks',
         '/api/v1/delivery-attempts/list',
         '/api/v1/delivery-attempts/evidence-summary',
+        '/api/v1/delivery-attempts/evidence-export.csv',
         '/api/v1/delivery-routes',
         '/api/v1/delivery-routes/list',
         '/api/v1/delivery-routes/{route_id}',
