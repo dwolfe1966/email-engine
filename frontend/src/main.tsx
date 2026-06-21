@@ -11578,6 +11578,46 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP first-send evidence pack with ${formatInt(firstSendReadinessItems.length)} checklist item(s).`);
   }
 
+  function buildMtaNodeEventEvidencePack() {
+    const activeFilters = Object.entries(mtaNodeEventFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const warningCount = mtaNodeEvents.filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
+    const events = mtaNodeEvents.slice(0, 12).map((event) => {
+      const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+      return [
+        `- event=${event.id}`,
+        `  node=${node ? `${node.name} ${node.hostname}` : event.mta_node_id}`,
+        `  event_type=${event.event_type}`,
+        `  severity=${event.severity}`,
+        `  summary=${event.summary || '-'}`,
+        `  observed_at=${event.observed_at || '-'}`,
+        `  received_at=${event.received_at}`,
+        `  payload_keys=${Object.keys(event.payload_json || {}).join(', ') || '-'}`,
+      ].join('\n');
+    }).join('\n');
+    return [
+      'MTA Agent Telemetry Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Active filters: ${activeFilters}`,
+      `Loaded events: ${formatInt(mtaNodeEvents.length)} / ${formatInt(mtaNodeEventTotal)}`,
+      `Review signals: ${formatInt(warningCount)}`,
+      '',
+      'Events',
+      events || '- no MTA node events loaded',
+    ].join('\n');
+  }
+
+  async function copyMtaNodeEventEvidencePack() {
+    if (!mtaNodeEvents.length) {
+      setStatus('Load MTA agent telemetry before copying an event pack.');
+      return;
+    }
+    await copyTextToClipboard(buildMtaNodeEventEvidencePack());
+    setStatus(`Copied MTA agent telemetry evidence pack with ${formatInt(mtaNodeEvents.length)} loaded event(s).`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -12822,7 +12862,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h2>MTA Agent Telemetry</h2>
             <span className="muted">Signed node events from managed MTA hosts, including config application, queue warnings, and operational signals.</span>
           </div>
-          <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
+            <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
+          </div>
         </div>
         <div className="form-grid">
           <label className="wide-field">
@@ -12855,6 +12898,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Apply MTA Event Filters</button>
           <button className="ghost" onClick={() => setMtaNodeEventFilters({ mta_node_id: '', event_type: '', severity: '' })} disabled={busy}>Clear MTA Event Filters</button>
+          <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
         </div>
         {mtaNodeEvents.length ? (
           <>
