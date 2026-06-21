@@ -10266,6 +10266,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_rule_hit_provider_preference: '',
     mta_rule_hit_provider_preference_mode: '',
     mta_provider_preference_fallback_used: '',
+    mta_node_skipped_reason: '',
     mta_route_block_code: '',
   });
   const [feedbackFilters, setFeedbackFilters] = useState({
@@ -10403,6 +10404,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_rule_hit_provider_preference: '',
     mta_rule_hit_provider_preference_mode: '',
     mta_provider_preference_fallback_used: '',
+    mta_node_skipped_reason: '',
     mta_route_block_code: '',
   };
   const deliveryAttemptPresetViews = [
@@ -10421,6 +10423,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     {
       label: 'Preference Fallbacks',
       filters: { mta_route_resolved: 'true', mta_provider_preference_fallback_used: 'true' },
+    },
+    {
+      label: 'Readiness Skips',
+      filters: { mta_node_skipped_reason: 'readiness_not_ok' },
     },
   ];
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
@@ -14150,6 +14156,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <option value="true">fallback used</option>
               <option value="false">preferred provider used</option>
             </select>
+          </label>
+          <label>
+            Skipped reason
+            <input value={deliveryAttemptFilters.mta_node_skipped_reason} onChange={(event) => updateDeliveryAttemptFilter('mta_node_skipped_reason', event.target.value)} placeholder="readiness_not_ok" />
           </label>
           <label>
             Block code

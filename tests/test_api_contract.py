@@ -286,6 +286,7 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
         'mta_rule_hit_provider_preference',
         'mta_rule_hit_provider_preference_mode',
         'mta_provider_preference_fallback_used',
+        'mta_node_skipped_reason',
         'mta_route_block_code',
     }
     assert expected.issubset(list_names)
