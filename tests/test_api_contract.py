@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -10,6 +11,9 @@ from email_platform.main import app
 from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateValidationRequest
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_openapi_exposes_gui_integration_paths() -> None:
@@ -322,6 +326,22 @@ def test_delivery_attempt_evidence_export_exposes_limit_contract() -> None:
 
     assert limit_param['schema']['maximum'] == 5000
     assert limit_param['schema']['minimum'] == 1
+
+
+def test_delivery_attempt_evidence_export_includes_provider_preference_columns() -> None:
+    source = (ROOT / 'src' / 'email_platform' / 'api' / 'routes.py').read_text()
+
+    for token in [
+        "'provider_preference_mode'",
+        "'provider_fallback_used'",
+        "'provider_fallback_provider'",
+        "'provider_fallback_node'",
+        "metadata.get('mta_rule_hit_provider_preference_mode')",
+        "metadata.get('mta_provider_preference_fallback_used')",
+        "metadata.get('mta_provider_preference_fallback_provider')",
+        "metadata.get('mta_provider_preference_fallback_node_name')",
+    ]:
+        assert token in source
 
 
 def test_campaign_workflow_status_exposes_latest_proof_route() -> None:

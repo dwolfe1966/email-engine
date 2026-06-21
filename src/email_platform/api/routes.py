@@ -3384,13 +3384,17 @@ def export_delivery_attempt_evidence_csv(
             'rule_source',
             'pool_source',
             'provider_preference',
+            'provider_preference_mode',
+            'provider_fallback_used',
+            'provider_fallback_provider',
+            'provider_fallback_node',
             'block_code',
             'smtp_response_code',
             'started_at',
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 21)])
+        writer.writerow([*export_context, *([''] * 25)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3429,6 +3433,10 @@ def export_delivery_attempt_evidence_csv(
                 or metadata.get('mta_ip_pool_selection_source')
                 or '',
                 provider_preference_value,
+                metadata.get('mta_rule_hit_provider_preference_mode') or '',
+                metadata.get('mta_provider_preference_fallback_used') or '',
+                metadata.get('mta_provider_preference_fallback_provider') or '',
+                metadata.get('mta_provider_preference_fallback_node_name') or '',
                 metadata.get('mta_route_block_code') or '',
                 attempt.smtp_response_code or metadata.get('smtp_response_code') or '',
                 attempt.started_at.isoformat() if attempt.started_at else '',
