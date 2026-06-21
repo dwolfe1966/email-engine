@@ -11591,8 +11591,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     };
   }
 
-  function buildManagedSmtpRouteMatrixCases(inputOverride = managedSmtpRouteMatrixInput) {
-    const rows = inputOverride
+  function buildManagedSmtpRouteMatrixCases(inputOverride: string = managedSmtpRouteMatrixInput) {
+    const rows = String(inputOverride || managedSmtpRouteMatrixInput)
       .split('\n')
       .map((row) => row.trim())
       .filter(Boolean)
@@ -12115,7 +12115,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
-  async function previewManagedSmtpRouteMatrix(inputOverride = managedSmtpRouteMatrixInput) {
+  async function previewManagedSmtpRouteMatrix(inputOverride: string = managedSmtpRouteMatrixInput) {
     await runDeliveryOperation('Previewing managed SMTP route matrix', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
       const cases = buildManagedSmtpRouteMatrixCases(inputOverride);
@@ -12944,7 +12944,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h3>Resolver Matrix</h3>
             <span className="muted">Preview send type, sender domain, and recipient domain combinations before moving traffic.</span>
           </div>
-          <button className="link-button" onClick={previewManagedSmtpRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
+          <button className="link-button" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
         </div>
         <div className="form-grid compact-form">
           <label className="wide-field">
@@ -12972,7 +12972,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
           <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
           <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
-          <button className="ghost" onClick={previewManagedSmtpRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
+          <button className="ghost" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(false)} disabled={busy || !selectedDomainPolicy?.route_id}>Disable Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(true)} disabled={busy || !selectedDomainPolicy?.route_id}>Enable Rule</button>

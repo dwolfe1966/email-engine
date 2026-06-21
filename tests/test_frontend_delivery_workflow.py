@@ -282,6 +282,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'pool=${summaryTopPool.label}',
         'provider=${summaryTopProvider.label}',
         'buildManagedSmtpRouteMatrixCases(inputOverride',
+        'String(inputOverride || managedSmtpRouteMatrixInput)',
+        'onClick={() => previewManagedSmtpRouteMatrix()}',
         'draftManagedSmtpRoutingRuleFromEvidence',
         'managedSmtpRoutingRuleDraftEvidence',
         'setManagedSmtpRoutingRuleDraftEvidence',
