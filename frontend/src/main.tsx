@@ -11551,6 +11551,51 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied provider feedback evidence pack with ${formatInt(providerFeedbackEvents.length)} loaded event(s).`);
   }
 
+  function deliveryCsvCell(value: unknown) {
+    const text = String(value ?? '');
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportProviderFeedbackEvidenceCsv() {
+    if (!providerFeedbackEvents.length) {
+      setStatus('Load provider feedback evidence before exporting feedback CSV.');
+      return;
+    }
+    const activeFilters = Object.entries(feedbackFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const rows = [
+      ['Provider Feedback Evidence Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Active filters', activeFilters],
+      ['Loaded rows', providerFeedbackEvents.length, 'Total matching rows', providerFeedbackTotal],
+      [],
+      ['id', 'provider', 'source', 'event_name', 'email', 'provider_message_id', 'idempotency_key', 'received_at', 'payload_json', 'metadata_json'],
+      ...providerFeedbackEvents.map((event) => [
+        event.id,
+        event.provider,
+        event.source,
+        event.event_name,
+        event.email,
+        event.provider_message_id || '',
+        event.idempotency_key,
+        event.received_at,
+        JSON.stringify(event.payload_json || {}),
+        JSON.stringify(event.metadata_json || {}),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `provider-feedback-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded provider feedback evidence CSV with ${formatInt(providerFeedbackEvents.length)} loaded event row(s).`);
+  }
+
   function buildManagedSmtpReadinessEvidencePack() {
     const activeFilters = Object.entries(readinessFilters)
       .filter(([, value]) => value.trim())
@@ -14182,6 +14227,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
             <button className="ghost" onClick={copyProviderFeedbackEvidencePack} disabled={busy || !providerFeedbackEvents.length}>Copy Feedback Pack</button>
+            <button className="ghost" onClick={exportProviderFeedbackEvidenceCsv} disabled={busy || !providerFeedbackEvents.length}>Export Feedback CSV</button>
           </div>
         </div>
         <div className="form-grid">
@@ -14210,6 +14256,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={useSelectedRecordForFeedbackFilters} disabled={busy || !selectedRecordId}>Use Selected Record</button>
           <button className="ghost" onClick={loadProviderFeedbackEvents} disabled={busy}>Load Provider Feedback</button>
           <button className="ghost" onClick={copyProviderFeedbackEvidencePack} disabled={busy || !providerFeedbackEvents.length}>Copy Feedback Pack</button>
+          <button className="ghost" onClick={exportProviderFeedbackEvidenceCsv} disabled={busy || !providerFeedbackEvents.length}>Export Feedback CSV</button>
         </div>
         {providerFeedbackEvents.length ? (
           <>
