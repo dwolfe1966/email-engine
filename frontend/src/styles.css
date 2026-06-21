@@ -148,6 +148,9 @@ nav a.active {
 }
 
 .global-operation {
+  position: sticky;
+  top: 10px;
+  z-index: 70;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -160,6 +163,7 @@ nav a.active {
   padding: 8px 10px;
   color: #29405f;
   font-size: 12px;
+  box-shadow: 0 10px 24px rgba(33, 68, 125, .12);
 }
 
 .global-operation.working {
@@ -8807,6 +8811,7 @@ th {
   }
   .global-operation {
     max-width: none;
+    top: 8px;
   }
   .overview-hero {
     align-items: stretch;

@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_SOURCE = ROOT / 'frontend' / 'src' / 'main.tsx'
+FRONTEND_STYLES = ROOT / 'frontend' / 'src' / 'styles.css'
 FRONTEND_DIST = ROOT / 'frontend' / 'dist'
 
 
@@ -16,13 +17,17 @@ def frontend_bundle() -> str:
     return '\n'.join(asset.read_text() for asset in assets)
 
 
+def frontend_styles() -> str:
+    return FRONTEND_STYLES.read_text()
+
+
 def assert_overview_triage_contract(source: str) -> None:
     expected_tokens = [
         'overviewTriageAction',
         'overviewTriageItems',
         "title: 'Resolve schema readiness'",
         "title: 'Configure outbound provider'",
-        "title: 'Plan owned SMTP'",
+        "title: 'Review managed SMTP rollout'",
         "title: 'Review delivery pressure'",
         "title: 'Review import failures'",
         "title: 'Review journey failures'",
@@ -30,7 +35,7 @@ def assert_overview_triage_contract(source: str) -> None:
         "title: 'Workspace ready'",
         'Workspace triage',
         'Provider',
-        'Owned SMTP',
+        'Managed SMTP',
         'Delivery',
         'Imports',
         'AI handoff',
@@ -42,18 +47,19 @@ def assert_overview_triage_contract(source: str) -> None:
         'Data model',
         'Activate data sources and model client-owned entities.',
         'Send engine',
-        'SMTP server, queues, and throttle controls still need foundation work.',
+        'Managed SMTP path configured',
         'Feedback loop',
         'Bounce and complaint events need durable webhook-backed feedback.',
         'Agent layer',
         'Production agents need OpenAI configuration and persistent workflow memory.',
-        'Owned SMTP remains a platform foundation gap even while provider adapters are available.',
+        'Multi-provider MTA inventory is managed from Delivery.',
         'overview-foundation-panel',
         'overview-foundation-strip',
         'overview-foundation-item',
         'overview-triage-panel',
         'overview-triage-list',
         'overview-triage-row',
+        'Persistent operation status',
     ]
 
     for token in expected_tokens:
@@ -64,19 +70,33 @@ def test_overview_source_has_workspace_triage_panel() -> None:
     assert_overview_triage_contract(frontend_source())
 
 
+def test_global_operation_status_bar_is_sticky() -> None:
+    styles = frontend_styles()
+    expected_tokens = [
+        '.global-operation',
+        'position: sticky;',
+        'top: 10px;',
+        'z-index: 70;',
+        'box-shadow: 0 10px 24px rgba(33, 68, 125, .12);',
+    ]
+
+    for token in expected_tokens:
+        assert token in styles
+
+
 def test_built_esp_bundle_includes_workspace_triage_panel() -> None:
     bundle = frontend_bundle()
     expected_tokens = [
         'Workspace triage',
         'Resolve schema readiness',
         'Configure outbound provider',
-        'Plan owned SMTP',
+        'Review managed SMTP rollout',
         'Review delivery pressure',
         'Review import failures',
         'Review journey failures',
         'Configure AI handoff',
         'Workspace ready',
-        'Owned SMTP',
+        'Managed SMTP',
         'AI handoff',
         'Platform Foundations',
         'Data model',
@@ -86,6 +106,7 @@ def test_built_esp_bundle_includes_workspace_triage_panel() -> None:
         'Open Integrations',
         'Open Delivery',
         'Open Reports',
+        'Persistent operation status',
     ]
 
     for token in expected_tokens:

@@ -1862,7 +1862,7 @@ function Header({
       <div>
         <h1>{title}</h1>
         <p>{status}</p>
-        <div className={`global-operation ${operation.tone || 'success'}`}>
+        <div className={`global-operation ${operation.tone || 'success'}`} aria-label="Persistent operation status">
           <strong>{operation.label}</strong>
           <span>{operation.message}</span>
         </div>
