@@ -10264,6 +10264,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_routing_rule_source: '',
     mta_rule_hit_pool_source: '',
     mta_rule_hit_provider_preference: '',
+    mta_rule_hit_provider_preference_mode: '',
+    mta_provider_preference_fallback_used: '',
     mta_route_block_code: '',
   });
   const [feedbackFilters, setFeedbackFilters] = useState({
@@ -10399,6 +10401,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_routing_rule_source: '',
     mta_rule_hit_pool_source: '',
     mta_rule_hit_provider_preference: '',
+    mta_rule_hit_provider_preference_mode: '',
+    mta_provider_preference_fallback_used: '',
     mta_route_block_code: '',
   };
   const deliveryAttemptPresetViews = [
@@ -10412,7 +10416,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     },
     {
       label: 'Strict Provider Preference',
-      filters: { mta_route_resolved: 'true', mta_rule_hit_provider_preference: mtaProviderOptions[0] || '' },
+      filters: { mta_route_resolved: 'true', mta_rule_hit_provider_preference_mode: 'strict' },
+    },
+    {
+      label: 'Preference Fallbacks',
+      filters: { mta_route_resolved: 'true', mta_provider_preference_fallback_used: 'true' },
     },
   ];
   const selectedCampaign = campaigns.find((campaign) => campaign.id === selectedJob?.campaign_id || campaign.id === selectedRecord?.campaign_id);
@@ -14126,6 +14134,22 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <label>
             Provider preference
             <input value={deliveryAttemptFilters.mta_rule_hit_provider_preference} onChange={(event) => updateDeliveryAttemptFilter('mta_rule_hit_provider_preference', event.target.value)} placeholder="scaleway" />
+          </label>
+          <label>
+            Preference mode
+            <select value={deliveryAttemptFilters.mta_rule_hit_provider_preference_mode} onChange={(event) => updateDeliveryAttemptFilter('mta_rule_hit_provider_preference_mode', event.target.value)}>
+              <option value="">Any preference mode</option>
+              <option value="strict">strict</option>
+              <option value="fallback_allowed">fallback allowed</option>
+            </select>
+          </label>
+          <label>
+            Fallback used
+            <select value={deliveryAttemptFilters.mta_provider_preference_fallback_used} onChange={(event) => updateDeliveryAttemptFilter('mta_provider_preference_fallback_used', event.target.value)}>
+              <option value="">Any fallback state</option>
+              <option value="true">fallback used</option>
+              <option value="false">preferred provider used</option>
+            </select>
           </label>
           <label>
             Block code

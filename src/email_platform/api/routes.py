@@ -2973,6 +2973,8 @@ def _delivery_attempt_evidence_filters(
     mta_routing_rule_source: str | None = None,
     mta_rule_hit_pool_source: str | None = None,
     mta_rule_hit_provider_preference: str | None = None,
+    mta_rule_hit_provider_preference_mode: str | None = None,
+    mta_provider_preference_fallback_used: bool | None = None,
     mta_route_block_code: str | None = None,
 ) -> list[object]:
     filters = []
@@ -2996,6 +2998,7 @@ def _delivery_attempt_evidence_filters(
         'mta_routing_rule_name': mta_routing_rule_name,
         'mta_routing_rule_source': mta_routing_rule_source,
         'mta_rule_hit_pool_source': mta_rule_hit_pool_source,
+        'mta_rule_hit_provider_preference_mode': mta_rule_hit_provider_preference_mode,
         'mta_route_block_code': mta_route_block_code,
     }
     if mta_route_resolved is not None:
@@ -3008,6 +3011,11 @@ def _delivery_attempt_evidence_filters(
             DeliveryAttempt.metadata_json['mta_rule_hit_provider_preference'].contains(
                 [mta_rule_hit_provider_preference]
             )
+        )
+    if mta_provider_preference_fallback_used is not None:
+        filters.append(
+            DeliveryAttempt.metadata_json['mta_provider_preference_fallback_used'].astext
+            == str(mta_provider_preference_fallback_used).lower()
         )
     return filters
 
@@ -3062,6 +3070,8 @@ def list_delivery_attempts(
     mta_routing_rule_source: str | None = None,
     mta_rule_hit_pool_source: str | None = None,
     mta_rule_hit_provider_preference: str | None = None,
+    mta_rule_hit_provider_preference_mode: str | None = None,
+    mta_provider_preference_fallback_used: bool | None = None,
     mta_route_block_code: str | None = None,
     limit: Limit = 100,
     offset: Offset = 0,
@@ -3083,6 +3093,8 @@ def list_delivery_attempts(
         mta_routing_rule_source=mta_routing_rule_source,
         mta_rule_hit_pool_source=mta_rule_hit_pool_source,
         mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_rule_hit_provider_preference_mode=mta_rule_hit_provider_preference_mode,
+        mta_provider_preference_fallback_used=mta_provider_preference_fallback_used,
         mta_route_block_code=mta_route_block_code,
     )
 
@@ -3124,6 +3136,8 @@ def summarize_delivery_attempt_evidence(
     mta_routing_rule_source: str | None = None,
     mta_rule_hit_pool_source: str | None = None,
     mta_rule_hit_provider_preference: str | None = None,
+    mta_rule_hit_provider_preference_mode: str | None = None,
+    mta_provider_preference_fallback_used: bool | None = None,
     mta_route_block_code: str | None = None,
 ) -> dict[str, object]:
     filters = _delivery_attempt_evidence_filters(
@@ -3143,6 +3157,8 @@ def summarize_delivery_attempt_evidence(
         mta_routing_rule_source=mta_routing_rule_source,
         mta_rule_hit_pool_source=mta_rule_hit_pool_source,
         mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_rule_hit_provider_preference_mode=mta_rule_hit_provider_preference_mode,
+        mta_provider_preference_fallback_used=mta_provider_preference_fallback_used,
         mta_route_block_code=mta_route_block_code,
     )
     route_resolved = DeliveryAttempt.metadata_json['mta_route_resolved'].astext
@@ -3259,6 +3275,8 @@ def export_delivery_attempt_evidence_csv(
     mta_routing_rule_source: str | None = None,
     mta_rule_hit_pool_source: str | None = None,
     mta_rule_hit_provider_preference: str | None = None,
+    mta_rule_hit_provider_preference_mode: str | None = None,
+    mta_provider_preference_fallback_used: bool | None = None,
     mta_route_block_code: str | None = None,
     limit: DeliveryAttemptExportLimit = 5000,
 ) -> Response:
@@ -3279,6 +3297,8 @@ def export_delivery_attempt_evidence_csv(
         mta_routing_rule_source=mta_routing_rule_source,
         mta_rule_hit_pool_source=mta_rule_hit_pool_source,
         mta_rule_hit_provider_preference=mta_rule_hit_provider_preference,
+        mta_rule_hit_provider_preference_mode=mta_rule_hit_provider_preference_mode,
+        mta_provider_preference_fallback_used=mta_provider_preference_fallback_used,
         mta_route_block_code=mta_route_block_code,
     )
     attempts = db.scalars(
@@ -3317,6 +3337,10 @@ def export_delivery_attempt_evidence_csv(
         'mta_routing_rule_source': mta_routing_rule_source,
         'mta_rule_hit_pool_source': mta_rule_hit_pool_source,
         'mta_rule_hit_provider_preference': mta_rule_hit_provider_preference,
+        'mta_rule_hit_provider_preference_mode': mta_rule_hit_provider_preference_mode,
+        'mta_provider_preference_fallback_used': str(mta_provider_preference_fallback_used).lower()
+        if mta_provider_preference_fallback_used is not None
+        else None,
         'mta_route_block_code': mta_route_block_code,
     }
     export_filters = ';'.join(
