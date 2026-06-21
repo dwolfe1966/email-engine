@@ -10287,6 +10287,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     preferred_providers: 'scaleway',
     provider_preference_mode: 'strict',
   });
+  const [managedSmtpRoutingRuleDraftEvidence, setManagedSmtpRoutingRuleDraftEvidence] = useState('');
   const [aiDeliverySummary, setAiDeliverySummary] = useState<string[]>([]);
   const [aiDeliveryRecommendations, setAiDeliveryRecommendations] = useState<AIWorkflowAnalysis['recommendations']>([]);
   const [status, setStatus] = useState('Ready to inspect send jobs and delivery records.');
@@ -11526,6 +11527,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       provider_preference_mode: String(rule.provider_preference_mode || 'strict'),
     });
     setManagedSmtpRulePreview(null);
+    setManagedSmtpRoutingRuleDraftEvidence('');
   }
 
   function evidenceLabelValue(item: DeliveryAttemptEvidenceCountRead, fallback = '') {
@@ -11554,6 +11556,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       preferred_providers: provider,
       provider_preference_mode: provider ? 'strict' : 'fallback_allowed',
     });
+    setManagedSmtpRoutingRuleDraftEvidence([
+      `send_type=${sendType}`,
+      `sender_domain=${senderDomain || '-'}`,
+      `recipient_domain=${recipientDomain || '-'}`,
+      `rule=${summaryTopRule.label}`,
+      `pool=${poolName || '-'}`,
+      `provider=${provider || '-'}`,
+    ].join(', '));
     setManagedSmtpRulePreview(null);
     setStatus(`Drafted routing rule ${ruleName} from delivery attempt evidence; review and save it to apply.`);
   }
@@ -12769,6 +12779,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <option value="true">enabled</option>
               <option value="false">disabled</option>
             </select>
+          </label>
+          <label className="wide-field">
+            Draft evidence
+            <input value={managedSmtpRoutingRuleDraftEvidence || 'No evidence draft loaded'} readOnly />
           </label>
         </div>
         <div className="managed-smtp-route-inspector">
