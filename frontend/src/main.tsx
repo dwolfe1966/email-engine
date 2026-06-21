@@ -727,6 +727,9 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_recipient_domains: DeliveryAttemptEvidenceCountRead[];
   top_rule_sources: DeliveryAttemptEvidenceCountRead[];
   top_pool_sources: DeliveryAttemptEvidenceCountRead[];
+  top_provider_preferences: DeliveryAttemptEvidenceCountRead[];
+  top_provider_preference_modes: DeliveryAttemptEvidenceCountRead[];
+  top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
 };
 
@@ -10436,6 +10439,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptRecipientDomain = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_recipient_domain || attempt.metadata_json?.mta_route_recipient_domain || '-')));
   const topAttemptRuleSource = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_source || attempt.metadata_json?.mta_routing_rule_source || '-')));
   const topAttemptPoolSource = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_pool_source || attempt.metadata_json?.mta_ip_pool_selection_source || '-')));
+  const topAttemptProviderPreference = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
+    const preference = attempt.metadata_json?.mta_rule_hit_provider_preference;
+    return Array.isArray(preference) ? preference.join(', ') || '-' : String(preference || '-');
+  }));
+  const topAttemptProviderPreferenceMode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_provider_preference_mode || '-')));
+  const topAttemptProviderFallback = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
+    if (attempt.metadata_json?.mta_provider_preference_fallback_used === true) return 'fallback used';
+    if (attempt.metadata_json?.mta_provider_preference_fallback_used === false) return 'preferred provider used';
+    return '-';
+  }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
   const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
@@ -10445,6 +10458,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopRecipientDomain = deliveryAttemptEvidenceSummary?.top_recipient_domains[0] || topAttemptRecipientDomain;
   const summaryTopRuleSource = deliveryAttemptEvidenceSummary?.top_rule_sources[0] || topAttemptRuleSource;
   const summaryTopPoolSource = deliveryAttemptEvidenceSummary?.top_pool_sources[0] || topAttemptPoolSource;
+  const summaryTopProviderPreference = deliveryAttemptEvidenceSummary?.top_provider_preferences[0] || topAttemptProviderPreference;
+  const summaryTopProviderPreferenceMode = deliveryAttemptEvidenceSummary?.top_provider_preference_modes[0] || topAttemptProviderPreferenceMode;
+  const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
@@ -10520,6 +10536,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top pool source',
       value: summaryTopPoolSource.label,
       detail: summaryTopPoolSource.count ? `${formatInt(summaryTopPoolSource.count)} matching attempt(s) used this pool source.` : 'No pool source evidence loaded.',
+    },
+    {
+      label: 'Top provider preference',
+      value: summaryTopProviderPreference.label,
+      detail: summaryTopProviderPreference.count ? `${formatInt(summaryTopProviderPreference.count)} matching attempt(s) carried this provider preference.` : 'No provider preference evidence loaded.',
+    },
+    {
+      label: 'Top preference mode',
+      value: summaryTopProviderPreferenceMode.label,
+      detail: summaryTopProviderPreferenceMode.count ? `${formatInt(summaryTopProviderPreferenceMode.count)} matching attempt(s) used this preference mode.` : 'No provider preference mode evidence loaded.',
+    },
+    {
+      label: 'Fallback usage',
+      value: summaryTopProviderFallback.label,
+      detail: summaryTopProviderFallback.count ? `${formatInt(summaryTopProviderFallback.count)} matching attempt(s) reported this fallback state.` : 'No provider fallback evidence loaded.',
     },
     {
       label: 'Top block code',

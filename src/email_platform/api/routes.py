@@ -11,7 +11,7 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from email_platform.api.deps import require_user
@@ -3031,7 +3031,15 @@ def _delivery_attempt_evidence_counts(
         mapping = row._mapping
         if mapping['label'] in (None, ''):
             continue
-        items.append({'label': str(mapping['label']), 'count': int(mapping['count'])})
+        label = str(mapping['label'])
+        if label.startswith('['):
+            try:
+                parsed_label = json.loads(label)
+                if isinstance(parsed_label, list):
+                    label = ', '.join(str(item) for item in parsed_label if item) or label
+            except json.JSONDecodeError:
+                pass
+        items.append({'label': label, 'count': int(mapping['count'])})
     return items
 
 
@@ -3167,6 +3175,25 @@ def summarize_delivery_attempt_evidence(
         DeliveryAttempt.metadata_json['mta_rule_hit_pool_source'].astext,
         DeliveryAttempt.metadata_json['mta_ip_pool_selection_source'].astext,
     )
+    provider_preference_expr = DeliveryAttempt.metadata_json[
+        'mta_rule_hit_provider_preference'
+    ].astext
+    provider_preference_mode_expr = DeliveryAttempt.metadata_json[
+        'mta_rule_hit_provider_preference_mode'
+    ].astext
+    provider_fallback_expr = case(
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_fallback_used'].astext
+            == 'true',
+            'fallback used',
+        ),
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_fallback_used'].astext
+            == 'false',
+            'preferred provider used',
+        ),
+        else_=None,
+    )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     return {
         'total': int(
@@ -3200,6 +3227,15 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_rule_sources': _delivery_attempt_evidence_counts(db, filters, rule_source_expr),
         'top_pool_sources': _delivery_attempt_evidence_counts(db, filters, pool_source_expr),
+        'top_provider_preferences': _delivery_attempt_evidence_counts(
+            db, filters, provider_preference_expr
+        ),
+        'top_provider_preference_modes': _delivery_attempt_evidence_counts(
+            db, filters, provider_preference_mode_expr
+        ),
+        'top_provider_fallbacks': _delivery_attempt_evidence_counts(
+            db, filters, provider_fallback_expr
+        ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
     }
 

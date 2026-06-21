@@ -667,6 +667,9 @@ class DeliveryAttemptEvidenceSummaryRead(BaseModel):
     top_recipient_domains: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_rule_sources: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_pool_sources: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_provider_preferences: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_provider_preference_modes: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_provider_fallbacks: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_block_codes: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
 
 
