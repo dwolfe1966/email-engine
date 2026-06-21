@@ -3144,6 +3144,26 @@ def summarize_delivery_attempt_evidence(
         DeliveryAttempt.metadata_json['mta_rule_hit_name'].astext,
         DeliveryAttempt.metadata_json['mta_routing_rule_name'].astext,
     )
+    send_type_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_send_type'].astext,
+        DeliveryAttempt.metadata_json['mta_route_send_type'].astext,
+    )
+    sender_domain_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_sender_domain'].astext,
+        DeliveryAttempt.metadata_json['mta_route_sender_domain'].astext,
+    )
+    recipient_domain_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_recipient_domain'].astext,
+        DeliveryAttempt.metadata_json['mta_route_recipient_domain'].astext,
+    )
+    rule_source_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_source'].astext,
+        DeliveryAttempt.metadata_json['mta_routing_rule_source'].astext,
+    )
+    pool_source_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_rule_hit_pool_source'].astext,
+        DeliveryAttempt.metadata_json['mta_ip_pool_selection_source'].astext,
+    )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     return {
         'total': int(
@@ -3170,6 +3190,13 @@ def summarize_delivery_attempt_evidence(
         'top_providers': _delivery_attempt_evidence_counts(db, filters, provider_expr),
         'top_pools': _delivery_attempt_evidence_counts(db, filters, pool_expr),
         'top_rules': _delivery_attempt_evidence_counts(db, filters, rule_expr),
+        'top_send_types': _delivery_attempt_evidence_counts(db, filters, send_type_expr),
+        'top_sender_domains': _delivery_attempt_evidence_counts(db, filters, sender_domain_expr),
+        'top_recipient_domains': _delivery_attempt_evidence_counts(
+            db, filters, recipient_domain_expr
+        ),
+        'top_rule_sources': _delivery_attempt_evidence_counts(db, filters, rule_source_expr),
+        'top_pool_sources': _delivery_attempt_evidence_counts(db, filters, pool_source_expr),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
     }
 

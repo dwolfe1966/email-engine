@@ -722,6 +722,11 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_providers: DeliveryAttemptEvidenceCountRead[];
   top_pools: DeliveryAttemptEvidenceCountRead[];
   top_rules: DeliveryAttemptEvidenceCountRead[];
+  top_send_types: DeliveryAttemptEvidenceCountRead[];
+  top_sender_domains: DeliveryAttemptEvidenceCountRead[];
+  top_recipient_domains: DeliveryAttemptEvidenceCountRead[];
+  top_rule_sources: DeliveryAttemptEvidenceCountRead[];
+  top_pool_sources: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
 };
 
@@ -10396,10 +10401,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_provider || '-')));
   const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.mta_ip_pool_id || '-')));
   const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
+  const topAttemptSendType = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_send_type || attempt.metadata_json?.mta_route_send_type || '-')));
+  const topAttemptSenderDomain = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_sender_domain || attempt.metadata_json?.mta_route_sender_domain || '-')));
+  const topAttemptRecipientDomain = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_recipient_domain || attempt.metadata_json?.mta_route_recipient_domain || '-')));
+  const topAttemptRuleSource = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_source || attempt.metadata_json?.mta_routing_rule_source || '-')));
+  const topAttemptPoolSource = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_pool_source || attempt.metadata_json?.mta_ip_pool_selection_source || '-')));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
   const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
   const summaryTopRule = deliveryAttemptEvidenceSummary?.top_rules[0] || topAttemptRule;
+  const summaryTopSendType = deliveryAttemptEvidenceSummary?.top_send_types[0] || topAttemptSendType;
+  const summaryTopSenderDomain = deliveryAttemptEvidenceSummary?.top_sender_domains[0] || topAttemptSenderDomain;
+  const summaryTopRecipientDomain = deliveryAttemptEvidenceSummary?.top_recipient_domains[0] || topAttemptRecipientDomain;
+  const summaryTopRuleSource = deliveryAttemptEvidenceSummary?.top_rule_sources[0] || topAttemptRuleSource;
+  const summaryTopPoolSource = deliveryAttemptEvidenceSummary?.top_pool_sources[0] || topAttemptPoolSource;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
@@ -10424,6 +10439,31 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top routing rule',
       value: summaryTopRule.label,
       detail: summaryTopRule.count ? `${formatInt(summaryTopRule.count)} matching attempt(s) matched this rule.` : 'No routing rule evidence loaded.',
+    },
+    {
+      label: 'Top send type',
+      value: summaryTopSendType.label,
+      detail: summaryTopSendType.count ? `${formatInt(summaryTopSendType.count)} matching attempt(s) used this send type.` : 'No send type evidence loaded.',
+    },
+    {
+      label: 'Top sender domain',
+      value: summaryTopSenderDomain.label,
+      detail: summaryTopSenderDomain.count ? `${formatInt(summaryTopSenderDomain.count)} matching attempt(s) used this sender domain.` : 'No sender domain evidence loaded.',
+    },
+    {
+      label: 'Top recipient domain',
+      value: summaryTopRecipientDomain.label,
+      detail: summaryTopRecipientDomain.count ? `${formatInt(summaryTopRecipientDomain.count)} matching attempt(s) targeted this recipient domain.` : 'No recipient domain evidence loaded.',
+    },
+    {
+      label: 'Top rule source',
+      value: summaryTopRuleSource.label,
+      detail: summaryTopRuleSource.count ? `${formatInt(summaryTopRuleSource.count)} matching attempt(s) used this rule source.` : 'No rule source evidence loaded.',
+    },
+    {
+      label: 'Top pool source',
+      value: summaryTopPoolSource.label,
+      detail: summaryTopPoolSource.count ? `${formatInt(summaryTopPoolSource.count)} matching attempt(s) used this pool source.` : 'No pool source evidence loaded.',
     },
     {
       label: 'Top block code',

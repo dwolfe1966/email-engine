@@ -298,6 +298,11 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_providers',
         'top_pools',
         'top_rules',
+        'top_send_types',
+        'top_sender_domains',
+        'top_recipient_domains',
+        'top_rule_sources',
+        'top_pool_sources',
         'top_block_codes',
     }.issubset(schema['properties'].keys())
 
