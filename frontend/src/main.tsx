@@ -10561,7 +10561,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         ? `Use the top block code to inspect readiness, provider blockers, or pool capacity before retrying queued sends.`
         : 'No route block code is dominant in the current evidence scope.',
       actionLabel: 'Load SMTP Readiness',
-      run: loadReadinessChecks,
+      run: loadEvidenceReadinessChecks,
       disabled: busy,
       tone: summaryTopBlockCode.count ? 'warn' : 'good',
     },
@@ -11528,11 +11528,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
-  async function loadReadinessChecks() {
+  async function loadReadinessChecks(filterOverride: typeof readinessFilters = readinessFilters) {
     await runDeliveryOperation('Loading managed SMTP readiness checks', async () => {
       const params = new URLSearchParams({ limit: '25', offset: '0' });
       const summaryParams = new URLSearchParams();
-      Object.entries(readinessFilters).forEach(([key, value]) => {
+      Object.entries(filterOverride).forEach(([key, value]) => {
         if (value.trim()) {
           params.set(key, value.trim());
           summaryParams.set(key, value.trim());
@@ -11554,6 +11554,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const warningCount = summary.warning_count + summary.failed_count;
       return `Loaded ${formatInt(data.items?.length || 0)} managed SMTP readiness check(s), ${formatInt(alerts.alert_count || warningCount)} alert evidence row(s).`;
     });
+  }
+
+  async function loadEvidenceReadinessChecks() {
+    const nextFilters = {
+      ...readinessFilters,
+      status: summaryTopBlockCode.count ? 'failed' : readinessFilters.status,
+      domain: summaryTopSenderDomain.count ? summaryTopSenderDomain.label : readinessFilters.domain,
+    };
+    setReadinessFilters(nextFilters);
+    await loadReadinessChecks(nextFilters);
   }
 
   async function loadManagedSmtpDeploymentSummary() {
