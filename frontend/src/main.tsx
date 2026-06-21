@@ -11682,6 +11682,57 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP deployment evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node(s).`);
   }
 
+  function buildManagedSmtpPoolControlsEvidencePack() {
+    const pool = selectedMtaIpPool;
+    const membership = selectedMtaIpPoolNode;
+    const health = selectedMtaIpPoolHealth;
+    return [
+      'Managed SMTP Pool Controls Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Pools loaded: ${formatInt(mtaIpPools.length)} / ${formatInt(mtaIpPoolTotal)}`,
+      `Memberships loaded: ${formatInt(mtaIpPoolNodes.length)} / ${formatInt(mtaIpPoolNodeTotal)}`,
+      '',
+      'Selected pool',
+      `id=${pool?.id || '-'}`,
+      `name=${pool?.name || '-'}`,
+      `type=${pool?.pool_type || '-'}`,
+      `status=${pool?.status || '-'}`,
+      `form_status=${mtaIpPoolForm.status || '-'}`,
+      `max_per_minute=${mtaIpPoolForm.max_per_minute || pool?.max_per_minute || '-'}`,
+      `min_available_nodes=${mtaIpPoolForm.min_available_nodes || pool?.min_available_nodes || '-'}`,
+      `audit=${pool ? latestMtaControlAuditLabel(pool.metadata_json) : '-'}`,
+      '',
+      'Pool health',
+      `status=${health?.status_label || '-'}`,
+      `summary=${health?.summary || '-'}`,
+      `route_ready=${formatInt(health?.route_ready_node_count || 0)} / ${formatInt(health?.required_available_node_count || 0)}`,
+      `active_memberships=${formatInt(health?.active_membership_count || 0)}`,
+      `provider_blockers=${formatInt(health?.provider_blocker_count || 0)}`,
+      `readiness_blockers=${formatInt(health?.readiness_blocker_count || 0)}`,
+      `reasons=${health?.reason_labels.join(', ') || '-'}`,
+      `drain=${health?.drain_impact?.summary || '-'}`,
+      '',
+      'Selected membership',
+      `id=${membership?.id || '-'}`,
+      `node=${membership ? mtaNodeNameForPoolMembership(membership) : '-'}`,
+      `status=${membership?.status || '-'}`,
+      `form_status=${mtaIpPoolNodeForm.status || '-'}`,
+      `priority=${mtaIpPoolNodeForm.priority || membership?.priority || '-'}`,
+      `weight=${mtaIpPoolNodeForm.weight || membership?.weight || '-'}`,
+      `max_per_minute=${mtaIpPoolNodeForm.max_per_minute || membership?.max_per_minute || '-'}`,
+      `audit=${membership ? latestMtaControlAuditLabel(membership.metadata_json) : '-'}`,
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpPoolControlsEvidencePack() {
+    if (!selectedMtaIpPool && !mtaIpPools.length) {
+      setStatus('Load managed SMTP pool controls before copying a pool controls pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpPoolControlsEvidencePack());
+    setStatus(`Copied managed SMTP pool controls evidence pack for ${selectedMtaIpPool?.name || 'loaded pools'}.`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -12686,7 +12737,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h3>Managed SMTP Pool Controls</h3>
             <span className="muted">Set resolver-facing pool capacity and per-minute rate gates without editing metadata.</span>
           </div>
-          <button className="link-button" onClick={loadManagedSmtpPoolControls} disabled={busy}>Refresh Pools</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadManagedSmtpPoolControls} disabled={busy}>Refresh Pools</button>
+            <button className="ghost" onClick={copyManagedSmtpPoolControlsEvidencePack} disabled={busy || (!selectedMtaIpPool && !mtaIpPools.length)}>Copy Pool Pack</button>
+          </div>
         </div>
         <div className="form-grid compact-form">
           <label className="wide-field">
