@@ -11491,6 +11491,49 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied provider feedback evidence pack with ${formatInt(providerFeedbackEvents.length)} loaded event(s).`);
   }
 
+  function buildManagedSmtpReadinessEvidencePack() {
+    const activeFilters = Object.entries(readinessFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const checks = readinessChecks.slice(0, 12).map((check) => [
+      `- check=${check.id}`,
+      `  source=${check.source}`,
+      `  check_type=${check.check_type}`,
+      `  status=${check.status}`,
+      `  domain=${check.domain || '-'}`,
+      `  host=${check.host || '-'}`,
+      `  summary=${check.summary || '-'}`,
+      `  result_keys=${Object.keys(check.result_json || {}).join(', ') || '-'}`,
+      `  created_at=${check.created_at}`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Readiness Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Active filters: ${activeFilters}`,
+      `Loaded checks: ${formatInt(readinessChecks.length)} / ${formatInt(readinessSummary?.total_count ?? readinessCheckTotal)}`,
+      `Status counts: ${formatInt(readinessSummary?.ok_count || 0)} ok, ${formatInt(readinessSummary?.warning_count || 0)} warning, ${formatInt(readinessSummary?.failed_count || 0)} failed`,
+      `Trend: ${readinessTrend?.trend || '-'} (${readinessTrend ? `${formatPct(readinessTrend.failure_rate)} failure rate` : 'not loaded'})`,
+      `Alert: ${readinessAlerts?.alert_status || readinessTrend?.alert_status || '-'}`,
+      `Alert reasons: ${(readinessAlerts?.alert_reasons || readinessTrend?.alert_reasons || []).join(', ') || '-'}`,
+      `Notification: ${readinessNotification ? `${readinessNotification.severity} should_notify=${readinessNotification.should_notify} dedupe=${readinessNotification.dedupe_key}` : '-'}`,
+      `Latest check: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.created_at}` : '-'}`,
+      `Latest pass: ${latestSuccessfulReadiness ? latestSuccessfulReadiness.created_at : '-'}`,
+      '',
+      'Checks',
+      checks || '- no readiness checks loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpReadinessEvidencePack() {
+    if (!readinessChecks.length) {
+      setStatus('Load managed SMTP readiness checks before copying a readiness pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpReadinessEvidencePack());
+    setStatus(`Copied managed SMTP readiness evidence pack with ${formatInt(readinessChecks.length)} loaded check(s).`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -13469,7 +13512,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h2>Managed SMTP Readiness</h2>
             <span className="muted">Published MTA smoke, STARTTLS, DKIM, and feedback-loop checks from managed SMTP hosts.</span>
           </div>
-          <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
+            <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
+          </div>
         </div>
         <div className="form-grid">
           <label>
@@ -13497,6 +13543,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Apply Readiness Filters</button>
           <button className="ghost" onClick={() => setReadinessFilters({ status: '', domain: '', host: '', check_type: '' })} disabled={busy}>Clear Readiness Filters</button>
+          <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
         </div>
         {readinessChecks.length ? (
           <>
