@@ -11765,6 +11765,49 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied MTA agent telemetry evidence pack with ${formatInt(mtaNodeEvents.length)} loaded event(s).`);
   }
 
+  function exportMtaNodeEventEvidenceCsv() {
+    if (!mtaNodeEvents.length) {
+      setStatus('Load MTA agent telemetry before exporting event CSV.');
+      return;
+    }
+    const activeFilters = Object.entries(mtaNodeEventFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const rows = [
+      ['MTA Agent Telemetry Evidence Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Active filters', activeFilters],
+      ['Loaded rows', mtaNodeEvents.length, 'Total matching rows', mtaNodeEventTotal],
+      [],
+      ['id', 'mta_node_id', 'node_name', 'node_hostname', 'event_type', 'severity', 'summary', 'observed_at', 'received_at', 'payload_json'],
+      ...mtaNodeEvents.map((event) => {
+        const deploymentNode = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+        return [
+          event.id,
+          event.mta_node_id,
+          deploymentNode?.name || '',
+          deploymentNode?.hostname || '',
+          event.event_type,
+          event.severity,
+          event.summary || '',
+          event.observed_at || '',
+          event.received_at,
+          JSON.stringify(event.payload_json || {}),
+        ];
+      }),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mta-agent-telemetry-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded MTA agent telemetry CSV with ${formatInt(mtaNodeEvents.length)} loaded event row(s).`);
+  }
+
   function buildManagedSmtpDeploymentEvidencePack() {
     const summary = managedSmtpDeploymentSummary;
     const providers = (summary?.provider_readiness || []).slice(0, 8).map((item) => [
@@ -13336,6 +13379,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
+            <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
           </div>
         </div>
         <div className="form-grid">
@@ -13370,6 +13414,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Apply MTA Event Filters</button>
           <button className="ghost" onClick={() => setMtaNodeEventFilters({ mta_node_id: '', event_type: '', severity: '' })} disabled={busy}>Clear MTA Event Filters</button>
           <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
+          <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
         </div>
         {mtaNodeEvents.length ? (
           <>
