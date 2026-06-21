@@ -11151,6 +11151,81 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return data.items || [];
   }
 
+  async function copyTextToClipboard(text: string) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+
+  function buildDeliveryAttemptEvidencePack() {
+    const activeFilters = Object.entries(deliveryAttemptFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const scope = selectedRecordId
+      ? `send_record_id=${selectedRecordId}`
+      : selectedJobId
+        ? `send_job_id=${selectedJobId}`
+        : 'all loaded delivery context';
+    const rollups = deliveryAttemptEvidenceRollups
+      .map((item) => `- ${item.label}: ${item.value} (${item.detail})`)
+      .join('\n');
+    const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
+      const metadata = attempt.metadata_json || {};
+      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+        ? metadata.mta_rule_hit_provider_preference.join(', ')
+        : String(metadata.mta_preferred_providers || '-');
+      return [
+        `- attempt=${attempt.id}`,
+        `  status=${attempt.status}`,
+        `  record=${attempt.send_record_id}`,
+        `  route=${attempt.route_type || '-'}:${attempt.route_key || '-'}`,
+        `  resolved=${String(metadata.mta_route_resolved ?? '-')}`,
+        `  send_type=${String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-')}`,
+        `  sender_domain=${String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-')}`,
+        `  recipient_domain=${String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-')}`,
+        `  provider=${String(metadata.mta_provider || '-')}`,
+        `  pool=${String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-')}`,
+        `  node=${String(metadata.mta_node_name || metadata.mta_node_id || '-')}`,
+        `  rule=${String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-')}`,
+        `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
+        `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
+        `  provider_preference=${providerPreference}`,
+        `  block_code=${String(metadata.mta_route_block_code || '-')}`,
+        `  smtp=${String(attempt.smtp_response_code || metadata.smtp_response_code || '-')}`,
+        `  started_at=${attempt.started_at}`,
+      ].join('\n');
+    }).join('\n');
+    return [
+      'Delivery Attempt Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Scope: ${scope}`,
+      `Active filters: ${activeFilters}`,
+      '',
+      'Summary',
+      rollups,
+      '',
+      `Visible attempts (${deliveryAttempts.length} loaded)`,
+      attempts || '- no attempts loaded',
+    ].join('\n');
+  }
+
+  async function copyDeliveryAttemptEvidencePack() {
+    const pack = buildDeliveryAttemptEvidencePack();
+    await copyTextToClipboard(pack);
+    setStatus(`Copied delivery attempt evidence pack with ${formatInt(deliveryAttempts.length)} loaded attempt row(s).`);
+  }
+
   function updateFeedbackFilter(name: keyof typeof feedbackFilters, value: string) {
     setFeedbackFilters((current) => ({ ...current, [name]: value }));
   }
@@ -12771,6 +12846,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
+          <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
           <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
         </div>
         <div className="summary-grid" aria-label="Delivery attempt evidence rollup">
