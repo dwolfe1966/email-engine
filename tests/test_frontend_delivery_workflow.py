@@ -634,6 +634,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Remove filter',
         'Removed ',
         'Cleared delivery attempt evidence filters.',
+        'Auto-refreshed delivery attempt evidence filters',
         'Delivery attempt evidence rollup',
         'Matching evidence rows',
         'Export scope',

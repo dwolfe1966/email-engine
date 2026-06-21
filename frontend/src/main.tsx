@@ -10200,6 +10200,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown> | null>(null);
   const [deliveryAttempts, setDeliveryAttempts] = useState<DeliveryAttemptRead[]>([]);
   const [deliveryAttemptEvidenceSummary, setDeliveryAttemptEvidenceSummary] = useState<DeliveryAttemptEvidenceSummaryRead | null>(null);
+  const deliveryAttemptFilterRefreshReady = useRef(false);
+  const skipNextDeliveryAttemptFilterRefresh = useRef(false);
   const [providerFeedbackEvents, setProviderFeedbackEvents] = useState<ProviderFeedbackEventRead[]>([]);
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
@@ -10324,6 +10326,28 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       setStatus(error instanceof Error ? error.message : String(error));
     });
   }, [routeRecordId, routeAttemptId, selectedRecordId]);
+
+  useEffect(() => {
+    if (!deliveryAttemptFilterRefreshReady.current) {
+      deliveryAttemptFilterRefreshReady.current = true;
+      return;
+    }
+    if (skipNextDeliveryAttemptFilterRefresh.current) {
+      skipNextDeliveryAttemptFilterRefresh.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      refreshDeliveryAttempts()
+        .then((items) => {
+          if (!deliveryAttempts.length && !deliveryAttemptEvidenceSummary) return;
+          setStatus(`Auto-refreshed delivery attempt evidence filters with ${formatInt(items.length)} loaded row(s).`);
+        })
+        .catch((error) => {
+          setStatus(error instanceof Error ? error.message : String(error));
+        });
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [deliveryAttemptFilters]);
 
   useEffect(() => {
     let active = true;
@@ -11277,12 +11301,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   async function clearDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters) {
     const nextFilters = { ...deliveryAttemptFilters, [name]: '' };
+    skipNextDeliveryAttemptFilterRefresh.current = true;
     setDeliveryAttemptFilters(nextFilters);
     await refreshDeliveryAttempts(nextFilters);
     setStatus(`Removed ${name} from delivery attempt evidence filters.`);
   }
 
   async function clearDeliveryAttemptFilters() {
+    skipNextDeliveryAttemptFilterRefresh.current = true;
     setDeliveryAttemptFilters(emptyDeliveryAttemptFilters);
     await refreshDeliveryAttempts(emptyDeliveryAttemptFilters);
     setStatus('Cleared delivery attempt evidence filters.');
@@ -11290,6 +11316,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   async function applyDeliveryAttemptPreset(label: string, filters: Partial<typeof deliveryAttemptFilters>) {
     const nextFilters = { ...emptyDeliveryAttemptFilters, ...filters };
+    skipNextDeliveryAttemptFilterRefresh.current = true;
     setDeliveryAttemptFilters(nextFilters);
     await refreshDeliveryAttempts(nextFilters);
     setStatus(`Applied ${label} delivery attempt evidence preset.`);
