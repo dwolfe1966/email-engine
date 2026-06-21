@@ -732,6 +732,9 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
   top_block_messages: DeliveryAttemptEvidenceCountRead[];
+  top_rate_limit_scopes: DeliveryAttemptEvidenceCountRead[];
+  top_rate_limit_max_per_minute: DeliveryAttemptEvidenceCountRead[];
+  top_rate_limit_recent_counts: DeliveryAttemptEvidenceCountRead[];
 };
 
 type ProviderFeedbackEventRead = {
@@ -10466,6 +10469,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
+  const topAttemptRateLimitScope = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_scope || '-')));
+  const topAttemptRateLimitMax = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_max_per_minute || '-')));
+  const topAttemptRateLimitRecent = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_recent_count || '-')));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
   const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
   const summaryTopRule = deliveryAttemptEvidenceSummary?.top_rules[0] || topAttemptRule;
@@ -10479,6 +10485,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
+  const summaryTopRateLimitScope = deliveryAttemptEvidenceSummary?.top_rate_limit_scopes[0] || topAttemptRateLimitScope;
+  const summaryTopRateLimitMax = deliveryAttemptEvidenceSummary?.top_rate_limit_max_per_minute[0] || topAttemptRateLimitMax;
+  const summaryTopRateLimitRecent = deliveryAttemptEvidenceSummary?.top_rate_limit_recent_counts[0] || topAttemptRateLimitRecent;
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10578,6 +10587,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top block message',
       value: summaryTopBlockMessage.label,
       detail: summaryTopBlockMessage.count ? `${formatInt(summaryTopBlockMessage.count)} matching attempt(s) returned this resolver explanation.` : 'No route block message evidence loaded.',
+    },
+    {
+      label: 'Top rate-limit scope',
+      value: summaryTopRateLimitScope.label,
+      detail: summaryTopRateLimitScope.count ? `${formatInt(summaryTopRateLimitScope.count)} matching attempt(s) carried this rate-limit scope.` : 'No rate-limit scope evidence loaded.',
+    },
+    {
+      label: 'Top rate limit',
+      value: summaryTopRateLimitMax.label,
+      detail: summaryTopRateLimitMax.count ? `${formatInt(summaryTopRateLimitMax.count)} matching attempt(s) shared this max-per-minute gate.` : 'No rate-limit max evidence loaded.',
+    },
+    {
+      label: 'Top recent rate count',
+      value: summaryTopRateLimitRecent.label,
+      detail: summaryTopRateLimitRecent.count ? `${formatInt(summaryTopRateLimitRecent.count)} matching attempt(s) shared this recent send count.` : 'No recent rate-count evidence loaded.',
     },
   ];
   const deliveryAttemptEvidenceFollowUps = [

@@ -3223,6 +3223,9 @@ def summarize_delivery_attempt_evidence(
     )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
+    rate_limit_scope_expr = DeliveryAttempt.metadata_json['mta_rate_limit_scope'].astext
+    rate_limit_max_expr = DeliveryAttempt.metadata_json['mta_rate_limit_max_per_minute'].astext
+    rate_limit_recent_expr = DeliveryAttempt.metadata_json['mta_rate_limit_recent_count'].astext
     return {
         'total': int(
             db.scalar(select(func.count()).select_from(DeliveryAttempt).where(*filters)) or 0
@@ -3266,6 +3269,15 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
         'top_block_messages': _delivery_attempt_evidence_counts(db, filters, block_message_expr),
+        'top_rate_limit_scopes': _delivery_attempt_evidence_counts(
+            db, filters, rate_limit_scope_expr
+        ),
+        'top_rate_limit_max_per_minute': _delivery_attempt_evidence_counts(
+            db, filters, rate_limit_max_expr
+        ),
+        'top_rate_limit_recent_counts': _delivery_attempt_evidence_counts(
+            db, filters, rate_limit_recent_expr
+        ),
     }
 
 

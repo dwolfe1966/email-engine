@@ -316,6 +316,9 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_provider_fallbacks',
         'top_block_codes',
         'top_block_messages',
+        'top_rate_limit_scopes',
+        'top_rate_limit_max_per_minute',
+        'top_rate_limit_recent_counts',
     }.issubset(schema['properties'].keys())
 
 
