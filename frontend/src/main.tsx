@@ -12343,7 +12343,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function parseManagedSmtpRoutingRuleDraftEvidence() {
-    return managedSmtpRoutingRuleDraftEvidence
+    return deliveryFilterValue(managedSmtpRoutingRuleDraftEvidence)
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
@@ -12399,7 +12399,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function buildManagedSmtpRouteMatrixCases(inputOverride: string = managedSmtpRouteMatrixInput) {
     const rows = String(inputOverride || managedSmtpRouteMatrixInput)
       .split('\n')
-      .map((row) => row.trim())
+      .map((row) => deliveryFilterValue(row))
       .filter(Boolean)
       .slice(0, 25);
     return rows.map((row, index) => {
@@ -12687,7 +12687,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? 'Operator pausing MTA node for delivery review'
       : 'Operator resuming MTA node after review';
     const reason = window.prompt(`Reason for ${action === 'pause' ? 'pausing' : 'resuming'} ${node.name}?`, defaultReason) || '';
-    if (!reason.trim()) {
+    const trimmedReason = deliveryFilterValue(reason);
+    if (!trimmedReason) {
       setStatus('MTA node status change cancelled; reason is required.');
       return;
     }
@@ -12695,7 +12696,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const updatedNode = await fetchJson<MtaNodeRead>(`/api/v1/managed-smtp/nodes/${node.id}/${action}`, {
         method: 'POST',
         body: JSON.stringify({
-          reason: reason.trim(),
+          reason: trimmedReason,
           operator: 'esp_admin',
         }),
       });
@@ -12957,11 +12958,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     await runDeliveryOperation('Applying domain compliance hold', async () => {
       if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
       const reason = window.prompt('Reason for the compliance hold?', domainDashboard?.compliance_reason || 'Operator compliance review') || '';
-      if (!reason.trim()) throw new Error('Compliance hold reason is required.');
+      const trimmedReason = deliveryFilterValue(reason);
+      if (!trimmedReason) throw new Error('Compliance hold reason is required.');
       const policy = await fetchJson<DomainDeliveryPolicyRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/compliance-hold`, {
         method: 'POST',
         body: JSON.stringify({
-          reason,
+          reason: trimmedReason,
           abuse_type: 'operator_review',
           operator: 'esp_admin',
           paused_hours: 24,
