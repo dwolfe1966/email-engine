@@ -145,6 +145,15 @@ model clearer and more operationally complete.
      inspectors so pages feel less repetitive and easier to operate.
    - Prioritize delivery, campaigns, overview, analytics, and template editor because those screens
      currently lean hardest on repeated card grids.
+12. Persistent operation feedback visibility
+   - Keep the current app-wide action/status messaging bar because it gives useful global feedback.
+   - Anchor the messaging bar to the top of the screen, or another always-visible viewport location,
+     so operators working far down long pages can still see success, failure, loading, and warning
+     states without scrolling back to the top.
+   - Evaluate sticky header behavior, a compact floating status bar, or a synced local status strip
+     while preserving the current app-wide feedback semantics.
+   - Prioritize Delivery first because its managed-SMTP, routing, pool, feedback, and evidence panels
+     create the longest operator workspace.
 
 ### Template Builder / Template Editor
 
