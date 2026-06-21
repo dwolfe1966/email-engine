@@ -11508,6 +11508,50 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP resolver matrix with ${formatInt(managedSmtpRouteMatrix.total)} row(s).`);
   }
 
+  function exportManagedSmtpRouteMatrixCsv() {
+    if (!managedSmtpRouteMatrix) {
+      setStatus('Run the resolver matrix before exporting CSV.');
+      return;
+    }
+    const rows = [
+      ['Managed SMTP Resolver Matrix Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Domain policy', selectedDomainPolicy?.domain || ''],
+      ['Route ID', selectedDomainPolicy?.route_id || ''],
+      ['Summary', `${formatInt(managedSmtpRouteMatrix.ok_count)} / ${formatInt(managedSmtpRouteMatrix.total)} ready`, 'Blocked', managedSmtpRouteMatrix.blocked_count],
+      [],
+      ['row', 'label', 'send_type', 'sender_domain', 'recipient_domain', 'status', 'routing_rule', 'pool', 'node', 'provider', 'block_code', 'block_message', 'block_details'],
+      ...managedSmtpRouteMatrix.results.map((item) => {
+        const route = item.result.route;
+        const reason = item.result.reason;
+        return [
+          item.index + 1,
+          item.label || '',
+          item.request.send_type,
+          item.request.from_domain || '',
+          item.request.recipient_domain || '',
+          item.result.ok ? 'ready' : 'blocked',
+          route?.routing_rule_name || (route ? 'Default policy' : ''),
+          route?.ip_pool_name || '',
+          route?.mta_node_name || '',
+          route?.provider || '',
+          reason?.code || '',
+          reason?.message || '',
+          JSON.stringify(reason?.details || {}),
+        ];
+      }),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `managed-smtp-resolver-matrix-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded managed SMTP resolver matrix CSV with ${formatInt(managedSmtpRouteMatrix.total)} row(s).`);
+  }
+
   function buildProviderFeedbackEvidencePack() {
     const activeFilters = Object.entries(feedbackFilters)
       .filter(([, value]) => value.trim())
@@ -13725,6 +13769,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
             <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
+            <button className="ghost" onClick={exportManagedSmtpRouteMatrixCsv} disabled={busy || !managedSmtpRouteMatrix}>Export Matrix CSV</button>
           </div>
         </div>
         <div className="form-grid compact-form">
@@ -13756,6 +13801,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
           <button className="ghost" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
           <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
+          <button className="ghost" onClick={exportManagedSmtpRouteMatrixCsv} disabled={busy || !managedSmtpRouteMatrix}>Export Matrix CSV</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(false)} disabled={busy || !selectedDomainPolicy?.route_id}>Disable Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(true)} disabled={busy || !selectedDomainPolicy?.route_id}>Enable Rule</button>
