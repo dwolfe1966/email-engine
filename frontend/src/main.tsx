@@ -10452,9 +10452,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     : selectedJobId
       ? `job ${selectedJobId.slice(0, 8)}`
       : 'all attempts';
+  function deliveryFilterValue(value: unknown) {
+    return String(value ?? '').trim();
+  }
   const activeDeliveryAttemptFilters = Object.entries(deliveryAttemptFilters)
-    .filter(([, value]) => value.trim())
-    .map(([key, value]) => ({ key: key as keyof typeof deliveryAttemptFilters, label: `${key}=${value.trim()}` }));
+    .filter(([, value]) => deliveryFilterValue(value))
+    .map(([key, value]) => ({ key: key as keyof typeof deliveryAttemptFilters, label: `${key}=${deliveryFilterValue(value)}` }));
   const activeDeliveryAttemptFilterCount = activeDeliveryAttemptFilters.length;
   const deliveryAttemptExportedCount = Math.min(evidenceSummaryTotal, deliveryAttemptExportLimit);
   const deliveryAttemptEvidenceRollups = [
@@ -11268,7 +11271,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
     Object.entries(filterOverride).forEach(([key, value]) => {
-      if (value.trim()) params.set(key, value.trim());
+      const trimmed = deliveryFilterValue(value);
+      if (trimmed) params.set(key, trimmed);
     });
     const summaryParams = new URLSearchParams(params);
     summaryParams.delete('limit');
@@ -11304,8 +11308,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function buildDeliveryAttemptEvidencePack() {
     const activeFilters = Object.entries(deliveryAttemptFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const scope = selectedRecordId
       ? `send_record_id=${selectedRecordId}`
@@ -11554,8 +11558,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function buildProviderFeedbackEvidencePack() {
     const activeFilters = Object.entries(feedbackFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const events = providerFeedbackEvents.slice(0, 12).map((event) => {
       const metadata = event.metadata_json || {};
@@ -11606,8 +11610,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       return;
     }
     const activeFilters = Object.entries(feedbackFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const rows = [
       ['Provider Feedback Evidence Export'],
@@ -11642,8 +11646,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function buildManagedSmtpReadinessEvidencePack() {
     const activeFilters = Object.entries(readinessFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const checks = readinessChecks.slice(0, 12).map((check) => [
       `- check=${check.id}`,
@@ -11689,8 +11693,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       return;
     }
     const activeFilters = Object.entries(readinessFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const rows = [
       ['Managed SMTP Readiness Evidence Export'],
@@ -11813,8 +11817,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function buildMtaNodeEventEvidencePack() {
     const activeFilters = Object.entries(mtaNodeEventFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const warningCount = mtaNodeEvents.filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
     const events = mtaNodeEvents.slice(0, 12).map((event) => {
@@ -11857,8 +11861,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       return;
     }
     const activeFilters = Object.entries(mtaNodeEventFilters)
-      .filter(([, value]) => value.trim())
-      .map(([key, value]) => `${key}=${value.trim()}`)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const rows = [
       ['MTA Agent Telemetry Evidence Export'],
@@ -12214,7 +12218,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
     Object.entries(deliveryAttemptFilters).forEach(([key, value]) => {
-      if (value.trim()) params.set(key, value.trim());
+      const trimmed = deliveryFilterValue(value);
+      if (trimmed) params.set(key, trimmed);
     });
     const link = document.createElement('a');
     link.href = `/api/v1/delivery-attempts/evidence-export.csv?${params.toString()}`;
@@ -12288,7 +12293,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function optionalPositiveInt(value: string, label: string): number | null {
-    const trimmed = value.trim();
+    const trimmed = deliveryFilterValue(value);
     if (!trimmed) return null;
     const parsed = Number(trimmed);
     if (!Number.isInteger(parsed) || parsed < 1) {
@@ -12298,7 +12303,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function requiredNonnegativeInt(value: string, label: string): number {
-    const parsed = Number(value.trim());
+    const parsed = Number(deliveryFilterValue(value));
     if (!Number.isInteger(parsed) || parsed < 0) {
       throw new Error(`${label} must be zero or a positive whole number.`);
     }
@@ -12327,7 +12332,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function splitRoutingRuleList(value: string) {
-    return value
+    return deliveryFilterValue(value)
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
@@ -12365,7 +12370,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['send type', evidence.send_type && !routingRuleListIncludes(managedSmtpRoutingRuleForm.send_types, evidence.send_type)],
       ['sender domain', evidence.sender_domain && !routingRuleListIncludes(managedSmtpRoutingRuleForm.sender_domains, evidence.sender_domain)],
       ['recipient domain', evidence.recipient_domain && !routingRuleListIncludes(managedSmtpRoutingRuleForm.recipient_domains, evidence.recipient_domain)],
-      ['pool', evidence.pool && managedSmtpRoutingRuleForm.ip_pool_name.trim().toLowerCase() !== evidence.pool.toLowerCase()],
+      ['pool', evidence.pool && deliveryFilterValue(managedSmtpRoutingRuleForm.ip_pool_name).toLowerCase() !== evidence.pool.toLowerCase()],
       ['provider', evidence.provider && !routingRuleListIncludes(managedSmtpRoutingRuleForm.preferred_providers, evidence.provider)],
     ]
       .filter(([, mismatched]) => mismatched)
@@ -12471,7 +12476,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function mtaIpPoolMatchesEvidence(pool: MtaIpPoolRead, evidenceLabel: string) {
-    const normalized = evidenceLabel.trim().toLowerCase();
+    const normalized = deliveryFilterValue(evidenceLabel).toLowerCase();
     return Boolean(normalized && normalized !== '-')
       && [pool.id, pool.name].some((value) => String(value || '').toLowerCase() === normalized);
   }
@@ -12493,7 +12498,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     await runDeliveryOperation('Loading provider feedback evidence', async () => {
       const params = new URLSearchParams({ limit: '50', offset: '0' });
       Object.entries(filterOverride).forEach(([key, value]) => {
-        if (value.trim()) params.set(key, value.trim());
+        const trimmed = deliveryFilterValue(value);
+        if (trimmed) params.set(key, trimmed);
       });
       const data = await fetchJson<ListResponse<ProviderFeedbackEventRead>>(`/api/v1/provider-feedback-events/list?${params.toString()}`);
       setProviderFeedbackEvents(data.items || []);
@@ -12517,9 +12523,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const params = new URLSearchParams({ limit: '25', offset: '0' });
       const summaryParams = new URLSearchParams();
       Object.entries(filterOverride).forEach(([key, value]) => {
-        if (value.trim()) {
-          params.set(key, value.trim());
-          summaryParams.set(key, value.trim());
+        const trimmed = deliveryFilterValue(value);
+        if (trimmed) {
+          params.set(key, trimmed);
+          summaryParams.set(key, trimmed);
         }
       });
       const [data, summary, trend, alerts, notification] = await Promise.all([
@@ -12663,7 +12670,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     await runDeliveryOperation('Loading MTA agent events', async () => {
       const params = new URLSearchParams({ limit: '50', offset: '0' });
       Object.entries(mtaNodeEventFilters).forEach(([key, value]) => {
-        if (value.trim()) params.set(key, value.trim());
+        const trimmed = deliveryFilterValue(value);
+        if (trimmed) params.set(key, trimmed);
       });
       const data = await fetchJson<ListResponse<MtaNodeEventRead>>(`/api/v1/managed-smtp/node-events/list?${params.toString()}`);
       setMtaNodeEvents(data.items || []);
@@ -12748,9 +12756,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const readinessParams = new URLSearchParams({ limit: '25', offset: '0' });
       const readinessSummaryParams = new URLSearchParams();
       Object.entries(readinessFilters).forEach(([key, value]) => {
-        if (value.trim()) {
-          readinessParams.set(key, value.trim());
-          readinessSummaryParams.set(key, value.trim());
+        const trimmed = deliveryFilterValue(value);
+        if (trimmed) {
+          readinessParams.set(key, trimmed);
+          readinessSummaryParams.set(key, trimmed);
         }
       });
       const [firstSend, readiness, summary, trend, alerts, notification, policies] = await Promise.all([
@@ -12826,7 +12835,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function loadEvidenceManagedSmtpRoutingRule() {
     await runDeliveryOperation('Loading evidence-matched managed SMTP routing rule', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
-      const evidenceRule = summaryTopRule.label.trim().toLowerCase();
+      const evidenceRule = deliveryFilterValue(summaryTopRule.label).toLowerCase();
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`);
       setManagedSmtpRoutingRules(data);
       const matchedRule = data.rules.find((rule) => String(rule.name || '').toLowerCase() === evidenceRule);
@@ -12842,13 +12851,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     await runDeliveryOperation('Saving managed SMTP routing rule', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
       const payload = {
-        name: managedSmtpRoutingRuleForm.name.trim(),
+        name: deliveryFilterValue(managedSmtpRoutingRuleForm.name),
         priority: Number(managedSmtpRoutingRuleForm.priority || 100),
         enabled: managedSmtpRoutingRuleForm.enabled,
         send_types: splitRoutingRuleList(managedSmtpRoutingRuleForm.send_types),
         sender_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.sender_domains),
         recipient_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.recipient_domains),
-        ip_pool_name: managedSmtpRoutingRuleForm.ip_pool_name.trim() || null,
+        ip_pool_name: deliveryFilterValue(managedSmtpRoutingRuleForm.ip_pool_name) || null,
         preferred_providers: splitRoutingRuleList(managedSmtpRoutingRuleForm.preferred_providers),
         provider_preference_mode: managedSmtpRoutingRuleForm.provider_preference_mode,
       };
@@ -12866,7 +12875,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function setSelectedManagedSmtpRoutingRuleEnabled(enabled: boolean) {
     await runDeliveryOperation(`${enabled ? 'Enabling' : 'Disabling'} managed SMTP routing rule`, async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
-      const ruleName = selectedManagedSmtpRoutingRuleName || managedSmtpRoutingRuleForm.name.trim();
+      const ruleName = selectedManagedSmtpRoutingRuleName || deliveryFilterValue(managedSmtpRoutingRuleForm.name);
       if (!ruleName) throw new Error('Select or name a routing rule.');
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/${encodeURIComponent(ruleName)}/${enabled ? 'enable' : 'disable'}`, {
         method: 'POST',
@@ -12880,7 +12889,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function deleteSelectedManagedSmtpRoutingRule() {
     await runDeliveryOperation('Deleting managed SMTP routing rule', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
-      const ruleName = selectedManagedSmtpRoutingRuleName || managedSmtpRoutingRuleForm.name.trim();
+      const ruleName = selectedManagedSmtpRoutingRuleName || deliveryFilterValue(managedSmtpRoutingRuleForm.name);
       if (!ruleName) throw new Error('Select or name a routing rule.');
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/${encodeURIComponent(ruleName)}`, {
         method: 'DELETE',

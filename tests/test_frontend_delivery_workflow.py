@@ -147,6 +147,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'routeRecordId',
         'routeAttemptId',
         'focusedDeliveryAttempt',
+        'deliveryFilterValue',
+        "String(value ?? '').trim()",
         'deliveryAttemptAuditLabel',
         'deliveryAttemptAuditButtonLabel',
         'Load linked audit',
