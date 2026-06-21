@@ -11835,6 +11835,76 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP fleet health evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node row(s).`);
   }
 
+  function buildManagedSmtpBootstrapProfileEvidencePack() {
+    const bootstrap = lastManagedSmtpBootstrap;
+    const route = bootstrap?.route_resolution.route;
+    const reason = bootstrap?.route_resolution.reason;
+    return [
+      'Managed SMTP Bootstrap Profile Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Selected profile: ${selectedManagedSmtpBootstrapProfile || '-'}`,
+      `Route resolution: ${bootstrap?.route_resolution.ok ? 'ready' : 'blocked'}`,
+      '',
+      'Provider account',
+      `id=${bootstrap?.provider_account.id || '-'}`,
+      `provider=${bootstrap?.provider_account.provider || '-'}`,
+      `name=${bootstrap?.provider_account.name || '-'}`,
+      `status=${bootstrap?.provider_account.status || '-'}`,
+      `port25=${bootstrap?.provider_account.port25_status || '-'}`,
+      `rdns=${bootstrap?.provider_account.rdns_status || '-'}`,
+      '',
+      'MTA node',
+      `id=${bootstrap?.node.id || '-'}`,
+      `name=${bootstrap?.node.name || '-'}`,
+      `hostname=${bootstrap?.node.hostname || '-'}`,
+      `status=${bootstrap?.node.status || '-'}`,
+      `provider=${bootstrap?.node.provider || '-'}`,
+      `public_ipv4=${bootstrap?.node.public_ipv4 || '-'}`,
+      `submission=${bootstrap?.node.submission_host || '-'}:${bootstrap?.node.submission_port || '-'}`,
+      `last_readiness_at=${bootstrap?.node.last_readiness_at || '-'}`,
+      '',
+      'IP pool',
+      `id=${bootstrap?.ip_pool.id || '-'}`,
+      `name=${bootstrap?.ip_pool.name || '-'}`,
+      `type=${bootstrap?.ip_pool.pool_type || '-'}`,
+      `status=${bootstrap?.ip_pool.status || '-'}`,
+      `max_per_minute=${bootstrap?.ip_pool.max_per_minute || '-'}`,
+      `min_available_nodes=${bootstrap?.ip_pool.min_available_nodes || '-'}`,
+      `membership_id=${bootstrap?.pool_node.id || '-'}`,
+      `membership_status=${bootstrap?.pool_node.status || '-'}`,
+      `membership_priority=${bootstrap?.pool_node.priority ?? '-'}`,
+      `membership_weight=${bootstrap?.pool_node.weight ?? '-'}`,
+      '',
+      'Route and domain policy',
+      `delivery_route=${bootstrap?.delivery_route.name || '-'}`,
+      `delivery_route_id=${bootstrap?.delivery_route.id || '-'}`,
+      `domain_policy=${bootstrap?.domain_policy.domain || '-'}`,
+      `domain_policy_id=${bootstrap?.domain_policy.id || '-'}`,
+      `warmup=${bootstrap?.domain_policy.warmup_stage || '-'}`,
+      `paused_until=${bootstrap?.domain_policy.paused_until || '-'}`,
+      '',
+      'Route resolution',
+      route ? `route=${route.delivery_route_name}` : `block_code=${reason?.code || '-'}`,
+      route ? `rule=${route.routing_rule_name || 'Default policy'}` : `block_message=${reason?.message || '-'}`,
+      route ? `pool=${route.ip_pool_name}` : `block_details=${JSON.stringify(reason?.details || {})}`,
+      route ? `node=${route.mta_node_name}` : null,
+      route ? `provider=${route.provider}` : null,
+      route ? `submission=${route.submission_host}:${route.submission_port}` : null,
+      '',
+      'Next steps',
+      bootstrap?.next_steps.map((item) => `- ${item}`).join('\n') || '- no next steps returned',
+    ].filter((line) => line !== null).join('\n');
+  }
+
+  async function copyManagedSmtpBootstrapProfileEvidencePack() {
+    if (!lastManagedSmtpBootstrap) {
+      setStatus('Apply a managed SMTP bootstrap profile before copying a bootstrap pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpBootstrapProfileEvidencePack());
+    setStatus(`Copied managed SMTP bootstrap profile evidence pack for ${lastManagedSmtpBootstrap.node.hostname}.`);
+  }
+
   function buildManagedSmtpProviderReadinessEvidencePack() {
     const summary = managedSmtpDeploymentSummary;
     const providers = (summary?.provider_readiness || []).map((item) => [
@@ -12869,6 +12939,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
             <button className="ghost" onClick={copyManagedSmtpFleetHealthEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Fleet Pack</button>
+            <button className="ghost" onClick={copyManagedSmtpBootstrapProfileEvidencePack} disabled={busy || !lastManagedSmtpBootstrap}>Copy Bootstrap Pack</button>
           </div>
         </div>
         <div className="form-grid">
