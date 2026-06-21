@@ -10527,8 +10527,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       detail: summaryTopPool.count
         ? `Review pool membership, provider blockers, rate gates, and drain impact for ${formatInt(summaryTopPool.count)} matching attempt(s).`
         : 'Load or filter attempt evidence to identify the selected IP pool.',
-      actionLabel: 'Load Pool Controls',
-      run: loadManagedSmtpPoolControls,
+      actionLabel: 'Focus Pool Controls',
+      run: loadEvidenceMtaPoolControls,
       disabled: busy,
       tone: summaryTopPool.count ? 'good' : 'warn',
     },
@@ -10538,8 +10538,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       detail: summaryTopRule.count
         ? `Check routing rule priority, source, pool source, and provider preference for ${formatInt(summaryTopRule.count)} matching attempt(s).`
         : 'Filter by routing rule name or source to isolate resolver rule hits.',
-      actionLabel: 'Load Routing Rules',
-      run: loadManagedSmtpRoutingRules,
+      actionLabel: 'Select Matched Rule',
+      run: loadEvidenceManagedSmtpRoutingRule,
       disabled: busy || !selectedDomainPolicy?.route_id,
       tone: summaryTopRule.count ? 'good' : 'warn',
     },
@@ -11495,6 +11495,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setManagedSmtpRulePreview(null);
   }
 
+  function mtaIpPoolMatchesEvidence(pool: MtaIpPoolRead, evidenceLabel: string) {
+    const normalized = evidenceLabel.trim().toLowerCase();
+    return Boolean(normalized && normalized !== '-')
+      && [pool.id, pool.name].some((value) => String(value || '').toLowerCase() === normalized);
+  }
+
   function useSelectedRecordForFeedbackFilters() {
     if (!selectedRecord) {
       setStatus('Select a send record before applying feedback filters.');
@@ -11582,6 +11588,39 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(nextMembership));
       setManagedSmtpDeploymentSummary(summary);
       return `Loaded ${formatInt(pools.length)} managed SMTP pool(s) and ${formatInt(memberships.length)} pool membership(s).`;
+    });
+  }
+
+  async function loadEvidenceMtaPoolControls() {
+    await runDeliveryOperation('Loading evidence-matched SMTP pool controls', async () => {
+      const evidencePool = summaryTopPool.label;
+      const [poolData, membershipData, summary] = await Promise.all([
+        fetchJson<ListResponse<MtaIpPoolRead>>('/api/v1/managed-smtp/ip-pools/list?limit=100&offset=0'),
+        fetchJson<ListResponse<MtaIpPoolNodeRead>>('/api/v1/managed-smtp/ip-pool-nodes/list?limit=100&offset=0'),
+        fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8'),
+      ]);
+      const pools = poolData.items || [];
+      const memberships = membershipData.items || [];
+      const nextPool = pools.find((pool) => mtaIpPoolMatchesEvidence(pool, evidencePool))
+        || pools.find((pool) => pool.id === selectedMtaIpPoolId)
+        || pools[0]
+        || null;
+      const nextMembership = memberships.find((membership) => membership.ip_pool_id === nextPool?.id)
+        || memberships.find((membership) => membership.id === selectedMtaIpPoolNodeId)
+        || memberships[0]
+        || null;
+      setMtaIpPools(pools);
+      setMtaIpPoolTotal(poolData.total || 0);
+      setSelectedMtaIpPoolId(nextPool?.id || '');
+      setMtaIpPoolForm(mtaIpPoolFormFromPool(nextPool));
+      setMtaIpPoolNodes(memberships);
+      setMtaIpPoolNodeTotal(membershipData.total || 0);
+      setSelectedMtaIpPoolNodeId(nextMembership?.id || '');
+      setMtaIpPoolNodeForm(mtaIpPoolNodeFormFromMembership(nextMembership));
+      setManagedSmtpDeploymentSummary(summary);
+      return nextPool
+        ? `Loaded evidence-matched pool controls for ${nextPool.name}.`
+        : `Loaded ${formatInt(pools.length)} managed SMTP pool(s); no evidence-matched pool was found.`;
     });
   }
 
@@ -11787,6 +11826,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`);
       setManagedSmtpRoutingRules(data);
       return `Loaded ${formatInt(data.rules.length)} routing rule(s) for ${data.delivery_route_name}.`;
+    });
+  }
+
+  async function loadEvidenceManagedSmtpRoutingRule() {
+    await runDeliveryOperation('Loading evidence-matched managed SMTP routing rule', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const evidenceRule = summaryTopRule.label.trim().toLowerCase();
+      const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`);
+      setManagedSmtpRoutingRules(data);
+      const matchedRule = data.rules.find((rule) => String(rule.name || '').toLowerCase() === evidenceRule);
+      if (matchedRule) {
+        loadManagedSmtpRoutingRuleIntoForm(matchedRule);
+        return `Loaded and selected evidence-matched routing rule ${String(matchedRule.name || evidenceRule)}.`;
+      }
+      return `Loaded ${formatInt(data.rules.length)} routing rule(s); no evidence-matched rule was found.`;
     });
   }
 
