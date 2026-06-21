@@ -11733,6 +11733,47 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP pool controls evidence pack for ${selectedMtaIpPool?.name || 'loaded pools'}.`);
   }
 
+  function buildManagedSmtpDomainComplianceEvidencePack() {
+    const activeHold = activeComplianceHold && typeof activeComplianceHold === 'object'
+      ? activeComplianceHold as Record<string, unknown>
+      : null;
+    return [
+      'Managed SMTP Domain Compliance Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Domain: ${selectedDomainPolicy?.domain || domainDashboard?.domain || '-'}`,
+      `Policy ID: ${selectedDomainPolicy?.id || '-'}`,
+      `Route ID: ${selectedDomainPolicy?.route_id || domainDashboard?.route_id || '-'}`,
+      `Route: ${domainDashboard?.route_name || domainDashboard?.route_type || '-'}`,
+      `Warmup: ${selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || '-'}`,
+      `Paused until: ${selectedDomainPolicy?.paused_until || domainDashboard?.paused_until || '-'}`,
+      `Compliance status: ${domainDashboard?.compliance_status || complianceHoldStatus}`,
+      `Compliance reason: ${domainDashboard?.compliance_reason || String(activeHold?.reason || '-')}`,
+      `Hold status: ${String(activeHold?.status || complianceHoldStatus)}`,
+      `Hold operator: ${String(activeHold?.operator || '-')}`,
+      `Hold at: ${String(activeHold?.at || '-')}`,
+      `Reputation: ${domainDashboard?.reputation_status || '-'}`,
+      `Bounce rate: ${domainDashboard ? formatPct(domainDashboard.bounce_rate) : '-'}`,
+      `Complaint rate: ${domainDashboard ? formatPct(domainDashboard.complaint_rate) : '-'}`,
+      `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
+      `Authentication: ${domainDashboard?.authentication_status || '-'}`,
+      `IP pool: ${domainDashboard?.ip_pool || '-'}`,
+      `Send records: ${formatInt(domainDashboard?.send_record_count || 0)}`,
+      `Audit entries: ${formatInt(complianceAuditLog.length)}`,
+      '',
+      'Recommendations',
+      (domainDashboard?.recommendations || []).map((item) => `- ${item}`).join('\n') || '- no recommendations loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpDomainComplianceEvidencePack() {
+    if (!selectedDomainPolicy && !domainDashboard) {
+      setStatus('Select a domain policy before copying a compliance pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpDomainComplianceEvidencePack());
+    setStatus(`Copied managed SMTP domain compliance evidence pack for ${selectedDomainPolicy?.domain || domainDashboard?.domain || 'selected domain'}.`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -13099,7 +13140,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h2>Managed SMTP Domain Compliance</h2>
             <span className="muted">Compliance hold, release, reputation dashboard, and policy audit controls for managed sending domains.</span>
           </div>
-          <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
+          <div className="button-row">
+            <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
+            <button className="ghost" onClick={copyManagedSmtpDomainComplianceEvidencePack} disabled={busy || (!selectedDomainPolicy && !domainDashboard)}>Copy Compliance Pack</button>
+          </div>
         </div>
         <div className="form-grid">
           <label className="wide-field">
@@ -13316,6 +13360,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={deleteSelectedManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Delete Rule</button>
           <button className="ghost" onClick={applyDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Apply Compliance Hold</button>
           <button className="ghost" onClick={releaseDomainComplianceHold} disabled={busy || !selectedDomainPolicyId}>Release Compliance Hold</button>
+          <button className="ghost" onClick={copyManagedSmtpDomainComplianceEvidencePack} disabled={busy || (!selectedDomainPolicy && !domainDashboard)}>Copy Compliance Pack</button>
         </div>
       </section>
       <section className="panel table-panel full-span">
