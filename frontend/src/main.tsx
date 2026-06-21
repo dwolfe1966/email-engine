@@ -10544,6 +10544,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: summaryTopRule.count ? 'good' : 'warn',
     },
     {
+      label: 'Draft evidence rule',
+      value: summaryTopRule.label,
+      detail: summaryTopSendType.count || summaryTopRecipientDomain.count || summaryTopPool.count
+        ? 'Prefill a routing rule from evidence dimensions so an operator can review and save it.'
+        : 'Load route evidence first to draft a routing rule.',
+      actionLabel: 'Draft Rule From Evidence',
+      run: draftManagedSmtpRoutingRuleFromEvidence,
+      disabled: busy || !selectedDomainPolicy?.route_id,
+      tone: summaryTopPool.count || summaryTopRecipientDomain.count ? 'good' : 'warn',
+    },
+    {
       label: 'Validate provider path',
       value: summaryTopProvider.label,
       detail: summaryTopProvider.count
@@ -11515,6 +11526,36 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       provider_preference_mode: String(rule.provider_preference_mode || 'strict'),
     });
     setManagedSmtpRulePreview(null);
+  }
+
+  function evidenceLabelValue(item: DeliveryAttemptEvidenceCountRead, fallback = '') {
+    return item.label && item.label !== '-' ? item.label : fallback;
+  }
+
+  function draftManagedSmtpRoutingRuleFromEvidence() {
+    const sendType = evidenceLabelValue(summaryTopSendType, 'internal_test');
+    const senderDomain = evidenceLabelValue(summaryTopSenderDomain, selectedDomainPolicy?.domain || '');
+    const recipientDomain = evidenceLabelValue(summaryTopRecipientDomain);
+    const poolName = evidenceLabelValue(summaryTopPool);
+    const provider = evidenceLabelValue(summaryTopProvider);
+    const ruleName = [
+      recipientDomain || 'route',
+      provider || poolName || 'managed-smtp',
+    ].join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'evidence-route-rule';
+    setSelectedManagedSmtpRoutingRuleName('');
+    setManagedSmtpRoutingRuleForm({
+      name: ruleName,
+      priority: '10',
+      enabled: true,
+      send_types: sendType,
+      sender_domains: senderDomain,
+      recipient_domains: recipientDomain,
+      ip_pool_name: poolName,
+      preferred_providers: provider,
+      provider_preference_mode: provider ? 'strict' : 'fallback_allowed',
+    });
+    setManagedSmtpRulePreview(null);
+    setStatus(`Drafted routing rule ${ruleName} from delivery attempt evidence; review and save it to apply.`);
   }
 
   function mtaIpPoolMatchesEvidence(pool: MtaIpPoolRead, evidenceLabel: string) {
