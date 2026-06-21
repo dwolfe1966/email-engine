@@ -10555,6 +10555,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: summaryTopProvider.count ? 'good' : 'warn',
     },
     {
+      label: 'Review provider feedback',
+      value: summaryTopProvider.label,
+      detail: summaryTopProvider.count
+        ? 'Load retained feedback with the route provider filter applied for DSN, bounce, complaint, and tempfail evidence.'
+        : 'Load route evidence first to identify the provider feedback scope.',
+      actionLabel: 'Filter Provider Feedback',
+      run: loadEvidenceProviderFeedbackEvents,
+      disabled: busy,
+      tone: summaryTopProvider.count ? 'warn' : 'good',
+    },
+    {
       label: 'Resolve block evidence',
       value: summaryTopBlockCode.label,
       detail: summaryTopBlockCode.count
@@ -11514,10 +11525,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     }));
   }
 
-  async function loadProviderFeedbackEvents() {
+  async function loadProviderFeedbackEvents(filterOverride: typeof feedbackFilters = feedbackFilters) {
     await runDeliveryOperation('Loading provider feedback evidence', async () => {
       const params = new URLSearchParams({ limit: '50', offset: '0' });
-      Object.entries(feedbackFilters).forEach(([key, value]) => {
+      Object.entries(filterOverride).forEach(([key, value]) => {
         if (value.trim()) params.set(key, value.trim());
       });
       const data = await fetchJson<ListResponse<ProviderFeedbackEventRead>>(`/api/v1/provider-feedback-events/list?${params.toString()}`);
@@ -11526,6 +11537,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const warningCount = (data.items || []).filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
       return `Loaded ${formatInt(data.items?.length || 0)} provider feedback event(s), ${formatInt(warningCount)} requiring delivery review.`;
     });
+  }
+
+  async function loadEvidenceProviderFeedbackEvents() {
+    const nextFilters = {
+      ...feedbackFilters,
+      provider: summaryTopProvider.count ? summaryTopProvider.label : feedbackFilters.provider,
+    };
+    setFeedbackFilters(nextFilters);
+    await loadProviderFeedbackEvents(nextFilters);
   }
 
   async function loadReadinessChecks(filterOverride: typeof readinessFilters = readinessFilters) {
