@@ -6723,6 +6723,74 @@ th {
   padding: 5px 8px;
 }
 
+.delivery-evidence-followup {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.delivery-evidence-followup .compact-head {
+  margin: 0;
+}
+
+.delivery-evidence-followup h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.delivery-evidence-followup-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.delivery-evidence-followup-grid article {
+  display: grid;
+  gap: 10px;
+  align-content: space-between;
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.delivery-evidence-followup-grid article.warn {
+  border-color: #f5d49a;
+  background: #fffaf0;
+}
+
+.delivery-evidence-followup-grid article.good {
+  border-color: #bfe8d0;
+  background: #f4fff8;
+}
+
+.delivery-evidence-followup-grid article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.delivery-evidence-followup-grid span,
+.delivery-evidence-followup-grid small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.delivery-evidence-followup-grid strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 14px;
+}
+
 .delivery-ai-review-panel .recommendation-list small {
   color: #29405f;
   font-size: 11px;
@@ -9108,6 +9176,7 @@ th {
   .data-command-strip article.wide { grid-column: auto; }
   .launch-result-card,
   .test-send-result-card { grid-template-columns: 1fr; }
+  .delivery-evidence-followup-grid,
   .delivery-score-strip,
   .domain-compliance-strip,
   .provider-feedback-strip,

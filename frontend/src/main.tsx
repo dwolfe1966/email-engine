@@ -10520,6 +10520,52 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       detail: summaryTopBlockCode.count ? `${formatInt(summaryTopBlockCode.count)} matching attempt(s) hit this block code.` : 'No route block evidence loaded.',
     },
   ];
+  const deliveryAttemptEvidenceFollowUps = [
+    {
+      label: 'Inspect selected pool',
+      value: summaryTopPool.label,
+      detail: summaryTopPool.count
+        ? `Review pool membership, provider blockers, rate gates, and drain impact for ${formatInt(summaryTopPool.count)} matching attempt(s).`
+        : 'Load or filter attempt evidence to identify the selected IP pool.',
+      actionLabel: 'Load Pool Controls',
+      run: loadManagedSmtpPoolControls,
+      disabled: busy,
+      tone: summaryTopPool.count ? 'good' : 'warn',
+    },
+    {
+      label: 'Review matched rule',
+      value: summaryTopRule.label,
+      detail: summaryTopRule.count
+        ? `Check routing rule priority, source, pool source, and provider preference for ${formatInt(summaryTopRule.count)} matching attempt(s).`
+        : 'Filter by routing rule name or source to isolate resolver rule hits.',
+      actionLabel: 'Load Routing Rules',
+      run: loadManagedSmtpRoutingRules,
+      disabled: busy || !selectedDomainPolicy?.route_id,
+      tone: summaryTopRule.count ? 'good' : 'warn',
+    },
+    {
+      label: 'Validate provider path',
+      value: summaryTopProvider.label,
+      detail: summaryTopProvider.count
+        ? 'Confirm provider account status, port 25, rDNS, submission endpoint, and MTA agent health.'
+        : 'Load deployment summary to inspect Scaleway, AWS, and future provider readiness.',
+      actionLabel: 'Load SMTP Deployment',
+      run: loadManagedSmtpDeploymentSummary,
+      disabled: busy,
+      tone: summaryTopProvider.count ? 'good' : 'warn',
+    },
+    {
+      label: 'Resolve block evidence',
+      value: summaryTopBlockCode.label,
+      detail: summaryTopBlockCode.count
+        ? `Use the top block code to inspect readiness, provider blockers, or pool capacity before retrying queued sends.`
+        : 'No route block code is dominant in the current evidence scope.',
+      actionLabel: 'Load SMTP Readiness',
+      run: loadReadinessChecks,
+      disabled: busy,
+      tone: summaryTopBlockCode.count ? 'warn' : 'good',
+    },
+  ];
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
   const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
   const readinessWarningCount = readinessSummary
@@ -12954,6 +13000,26 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{item.detail}</small>
             </div>
           ))}
+        </div>
+        <div className="delivery-evidence-followup" aria-label="Delivery attempt evidence follow-up">
+          <div className="panel-head compact-head">
+            <div>
+              <h3>Evidence Follow-Up</h3>
+              <span className="muted">Jump from route evidence into pool, rule, provider, and readiness controls.</span>
+            </div>
+          </div>
+          <div className="delivery-evidence-followup-grid">
+            {deliveryAttemptEvidenceFollowUps.map((item) => (
+              <article className={item.tone} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <small>{item.detail}</small>
+                </div>
+                <button className={item.tone === 'warn' ? 'primary' : 'ghost'} type="button" onClick={item.run} disabled={item.disabled}>{item.actionLabel}</button>
+              </article>
+            ))}
+          </div>
         </div>
         {deliveryAttempts.length ? (
           <div className="delivery-audit-list">
