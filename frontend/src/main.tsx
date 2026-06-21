@@ -10566,6 +10566,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: summaryTopProvider.count ? 'warn' : 'good',
     },
     {
+      label: 'Replay route case',
+      value: summaryTopRecipientDomain.label,
+      detail: summaryTopSendType.count || summaryTopSenderDomain.count || summaryTopRecipientDomain.count
+        ? 'Fill the resolver matrix from the top evidence dimensions and rerun the route decision.'
+        : 'Load route evidence first to replay a concrete resolver case.',
+      actionLabel: 'Replay Resolver Matrix',
+      run: previewEvidenceRouteMatrix,
+      disabled: busy || !selectedDomainPolicy?.route_id,
+      tone: summaryTopRecipientDomain.count ? 'good' : 'warn',
+    },
+    {
       label: 'Resolve block evidence',
       value: summaryTopBlockCode.label,
       detail: summaryTopBlockCode.count
@@ -11466,8 +11477,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return splitRoutingRuleList(value)[0] || '';
   }
 
-  function buildManagedSmtpRouteMatrixCases() {
-    const rows = managedSmtpRouteMatrixInput
+  function buildManagedSmtpRouteMatrixCases(inputOverride = managedSmtpRouteMatrixInput) {
+    const rows = inputOverride
       .split('\n')
       .map((row) => row.trim())
       .filter(Boolean)
@@ -11951,10 +11962,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
-  async function previewManagedSmtpRouteMatrix() {
+  async function previewManagedSmtpRouteMatrix(inputOverride = managedSmtpRouteMatrixInput) {
     await runDeliveryOperation('Previewing managed SMTP route matrix', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
-      const cases = buildManagedSmtpRouteMatrixCases();
+      const cases = buildManagedSmtpRouteMatrixCases(inputOverride);
       if (!cases.length) throw new Error('Add at least one matrix row.');
       const data = await fetchJson<ManagedSmtpRouteMatrixRead>('/api/v1/managed-smtp/resolve-route-matrix', {
         method: 'POST',
@@ -11963,6 +11974,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       setManagedSmtpRouteMatrix(data);
       return `Previewed ${formatInt(data.total)} route matrix row(s): ${formatInt(data.ok_count)} ready, ${formatInt(data.blocked_count)} blocked.`;
     });
+  }
+
+  async function previewEvidenceRouteMatrix() {
+    const sendType = summaryTopSendType.label !== '-' ? summaryTopSendType.label : 'internal_test';
+    const senderDomain = summaryTopSenderDomain.label !== '-' ? summaryTopSenderDomain.label : selectedDomainPolicy?.domain || '';
+    const recipientDomain = summaryTopRecipientDomain.label !== '-' ? summaryTopRecipientDomain.label : '';
+    const matrixInput = `${sendType},${senderDomain},${recipientDomain},evidence replay`;
+    setManagedSmtpRouteMatrixInput(matrixInput);
+    await previewManagedSmtpRouteMatrix(matrixInput);
   }
 
   async function applyDomainComplianceHold() {
