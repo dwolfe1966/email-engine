@@ -11980,7 +11980,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const sendType = summaryTopSendType.label !== '-' ? summaryTopSendType.label : 'internal_test';
     const senderDomain = summaryTopSenderDomain.label !== '-' ? summaryTopSenderDomain.label : selectedDomainPolicy?.domain || '';
     const recipientDomain = summaryTopRecipientDomain.label !== '-' ? summaryTopRecipientDomain.label : '';
-    const matrixInput = `${sendType},${senderDomain},${recipientDomain},evidence replay`;
+    const evidenceLabel = [
+      'evidence replay',
+      `rule=${summaryTopRule.label}`,
+      `pool=${summaryTopPool.label}`,
+      `provider=${summaryTopProvider.label}`,
+    ].join(' ');
+    const matrixInput = `${sendType},${senderDomain},${recipientDomain},${evidenceLabel}`;
     setManagedSmtpRouteMatrixInput(matrixInput);
     await previewManagedSmtpRouteMatrix(matrixInput);
   }
