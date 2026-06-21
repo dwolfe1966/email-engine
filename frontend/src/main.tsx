@@ -11534,6 +11534,50 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP readiness evidence pack with ${formatInt(readinessChecks.length)} loaded check(s).`);
   }
 
+  function buildManagedSmtpFirstSendEvidencePack() {
+    const items = firstSendReadiness
+      ? firstSendReadiness.items.map((item) => [
+          `- ${item.key}`,
+          `  label=${item.label}`,
+          `  status=${item.status}`,
+          `  value=${item.value || '-'}`,
+          `  blocking=${item.blocking}`,
+          `  detail=${item.detail || '-'}`,
+        ].join('\n')).join('\n')
+      : firstSendReadinessItems.map((item) => [
+          `- ${item.label}`,
+          `  status=${item.tone === 'good' ? 'ready' : 'review'}`,
+          `  value=${item.value || '-'}`,
+          `  detail=${item.detail || '-'}`,
+        ].join('\n')).join('\n');
+    const provider = firstManagedSmtpProvider;
+    const node = firstManagedSmtpNode?.node;
+    return [
+      'Managed SMTP First Send Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Status: ${firstSendReadiness?.status || firstSendSummaryTitle}`,
+      `Ready: ${firstSendReadiness?.ok ? 'true' : 'false'}`,
+      `Progress: ${firstSendControlProgress || 'not loaded'}`,
+      `Blockers: ${firstSendReadiness?.blockers.length ? firstSendReadiness.blockers.join(', ') : 'none loaded'}`,
+      `Domain policy: ${selectedDomainPolicy?.domain || '-'}`,
+      `Route ID: ${selectedDomainPolicy?.route_id || '-'}`,
+      `Provider: ${provider ? `${provider.provider} ${provider.name}` : '-'}`,
+      `Provider port25: ${provider?.port25_status || '-'}`,
+      `Provider rDNS: ${provider?.rdns_status || '-'}`,
+      `MTA node: ${node ? `${node.name} ${node.hostname}` : '-'}`,
+      `Latest readiness: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.created_at}` : '-'}`,
+      `Compliance: ${domainDashboard?.compliance_status || firstSendComplianceStatus}`,
+      '',
+      'Checklist',
+      items || '- no first-send checklist loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpFirstSendEvidencePack() {
+    await copyTextToClipboard(buildManagedSmtpFirstSendEvidencePack());
+    setStatus(`Copied managed SMTP first-send evidence pack with ${formatInt(firstSendReadinessItems.length)} checklist item(s).`);
+  }
+
   function exportDeliveryAttemptEvidenceCsv() {
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
@@ -12868,6 +12912,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="ghost" onClick={loadFirstSendEvidence} disabled={busy}>Load First Send Evidence</button>
             <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load Readiness</button>
+            <button className="ghost" onClick={copyManagedSmtpFirstSendEvidencePack} disabled={busy}>Copy First-Send Pack</button>
           </div>
         </div>
         <div className="first-send-checklist">
