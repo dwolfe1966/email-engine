@@ -11594,6 +11594,48 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP readiness evidence pack with ${formatInt(readinessChecks.length)} loaded check(s).`);
   }
 
+  function buildManagedSmtpReadinessAlertEvidencePack() {
+    const alertChecks = readinessAlerts?.alert_checks || [];
+    const checks = alertChecks.slice(0, 8).map((check) => [
+      `- check=${check.id}`,
+      `  source=${check.source}`,
+      `  check_type=${check.check_type}`,
+      `  status=${check.status}`,
+      `  domain=${check.domain || '-'}`,
+      `  host=${check.host || '-'}`,
+      `  summary=${check.summary || '-'}`,
+      `  created_at=${check.created_at}`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Readiness Alert Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Alert status: ${readinessAlerts?.alert_status || readinessNotification?.alert_status || readinessTrend?.alert_status || '-'}`,
+      `Alert count: ${formatInt(readinessAlerts?.alert_count ?? readinessNotification?.alert_count ?? 0)}`,
+      `Alert reasons: ${(readinessAlerts?.alert_reasons || readinessNotification?.alert_reasons || readinessTrend?.alert_reasons || []).join(', ') || '-'}`,
+      `Trend: ${readinessTrend?.trend || '-'} latest_failure=${readinessTrend ? formatPct(readinessTrend.latest_window_failure_rate) : '-'} previous_failure=${readinessTrend ? formatPct(readinessTrend.previous_window_failure_rate) : '-'}`,
+      '',
+      'Notification',
+      `should_notify=${readinessNotification ? String(readinessNotification.should_notify) : '-'}`,
+      `severity=${readinessNotification?.severity || '-'}`,
+      `title=${readinessNotification?.title || '-'}`,
+      `message=${readinessNotification?.message || '-'}`,
+      `dedupe_key=${readinessNotification?.dedupe_key || '-'}`,
+      `latest_alert_check=${readinessNotification?.latest_alert_check?.id || '-'}`,
+      '',
+      'Alert checks',
+      checks || '- no alert checks loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpReadinessAlertEvidencePack() {
+    if (!readinessAlerts && !readinessNotification && !readinessTrend) {
+      setStatus('Load managed SMTP readiness before copying an alert pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpReadinessAlertEvidencePack());
+    setStatus(`Copied managed SMTP readiness alert evidence pack with ${formatInt(readinessAlerts?.alert_checks.length || 0)} alert check(s).`);
+  }
+
   function buildManagedSmtpFirstSendEvidencePack() {
     const items = firstSendReadiness
       ? firstSendReadiness.items.map((item) => [
@@ -13873,6 +13915,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
             <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
+            <button className="ghost" onClick={copyManagedSmtpReadinessAlertEvidencePack} disabled={busy || (!readinessAlerts && !readinessNotification && !readinessTrend)}>Copy Alert Pack</button>
           </div>
         </div>
         <div className="form-grid">
@@ -13902,6 +13945,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Apply Readiness Filters</button>
           <button className="ghost" onClick={() => setReadinessFilters({ status: '', domain: '', host: '', check_type: '' })} disabled={busy}>Clear Readiness Filters</button>
           <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
+          <button className="ghost" onClick={copyManagedSmtpReadinessAlertEvidencePack} disabled={busy || (!readinessAlerts && !readinessNotification && !readinessTrend)}>Copy Alert Pack</button>
         </div>
         {readinessChecks.length ? (
           <>
