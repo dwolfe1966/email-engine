@@ -11155,11 +11155,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
-  async function refreshDeliveryAttempts() {
+  async function refreshDeliveryAttempts(filterOverride: typeof deliveryAttemptFilters = deliveryAttemptFilters) {
     const params = new URLSearchParams({ limit: '50', offset: '0' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
-    Object.entries(deliveryAttemptFilters).forEach(([key, value]) => {
+    Object.entries(filterOverride).forEach(([key, value]) => {
       if (value.trim()) params.set(key, value.trim());
     });
     const summaryParams = new URLSearchParams(params);
@@ -11275,10 +11275,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setDeliveryAttemptFilters((current) => ({ ...current, [name]: value }));
   }
 
-  function clearDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters) {
-    setDeliveryAttemptFilters((current) => ({ ...current, [name]: '' }));
-    setDeliveryAttempts([]);
-    setDeliveryAttemptEvidenceSummary(null);
+  async function clearDeliveryAttemptFilter(name: keyof typeof deliveryAttemptFilters) {
+    const nextFilters = { ...deliveryAttemptFilters, [name]: '' };
+    setDeliveryAttemptFilters(nextFilters);
+    await refreshDeliveryAttempts(nextFilters);
+    setStatus(`Removed ${name} from delivery attempt evidence filters.`);
+  }
+
+  async function clearDeliveryAttemptFilters() {
+    setDeliveryAttemptFilters(emptyDeliveryAttemptFilters);
+    await refreshDeliveryAttempts(emptyDeliveryAttemptFilters);
+    setStatus('Cleared delivery attempt evidence filters.');
   }
 
   function applyDeliveryAttemptPreset(filters: Partial<typeof deliveryAttemptFilters>) {
@@ -12891,7 +12898,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
           <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
-          <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
+          <button className="ghost" onClick={clearDeliveryAttemptFilters} disabled={busy}>Clear Attempt Filters</button>
         </div>
         <div className="delivery-ai-summary" aria-label="Active delivery attempt evidence filters">
           <span>Active evidence filters</span>
