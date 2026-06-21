@@ -4453,7 +4453,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
   function fieldProfileForField(field: string) {
     const values = (metadata?.sample_contacts || [])
       .map((contact) => contactFieldValue(contact, field))
-      .filter((value) => value !== undefined && value !== null && String(value).trim() !== '');
+      .filter((value) => formText(value) !== '');
     const uniqueValues = Array.from(new Set(values.map(displayFieldValue))).slice(0, 3);
     return {
       field,
@@ -5582,7 +5582,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
 
   function styleValue(style: string, property: string) {
     const pattern = new RegExp(`${property}\\s*:\\s*([^;]+)`, 'i');
-    return style.match(pattern)?.[1]?.trim() || '';
+    return formText(style.match(pattern)?.[1]);
   }
 
   function cssNumber(value: string, fallback: number) {
@@ -5591,7 +5591,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function paddingPair(value: string, fallbackY: number, fallbackX: number) {
-    const parts = value.trim().split(/\s+/).filter(Boolean);
+    const parts = formText(value).split(/\s+/).filter(Boolean);
     if (!parts.length) return { y: fallbackY, x: fallbackX };
     return {
       y: cssNumber(parts[0], fallbackY),
@@ -5600,12 +5600,12 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function htmlInner(markup: string, tag: string) {
-    const match = markup.match(new RegExp(`^<${tag}\\b[^>]*>([\\s\\S]*)<\\/${tag}>$`, 'i'));
-    return match?.[1]?.trim() || '';
+    const match = String(markup ?? '').match(new RegExp(`^<${tag}\\b[^>]*>([\\s\\S]*)<\\/${tag}>$`, 'i'));
+    return formText(match?.[1]);
   }
 
   function htmlText(markup: string) {
-    return decodeTemplateText(markup.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    return decodeTemplateText(formText(markup).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
   }
 
   function footerTextWithoutLinks(markup: string) {
@@ -5645,14 +5645,14 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     let cursor = 0;
     let token: ReturnType<typeof nextDesignToken> | null;
     while ((token = nextDesignToken(source, cursor))) {
-      const before = source.slice(cursor, token.start).trim();
+      const before = formText(source.slice(cursor, token.start));
       if (before) blocks.push({ id: designBlockId(), type: 'html', code: before });
       blocks.push(...parseHtmlDesignBlock(token.markup));
       cursor = token.end;
     }
-    const after = source.slice(cursor).trim();
+    const after = formText(source.slice(cursor));
     if (after) blocks.push({ id: designBlockId(), type: 'html', code: after });
-    return blocks.filter((block) => block.type !== 'html' || String(block.code || '').trim());
+    return blocks.filter((block) => block.type !== 'html' || formText(block.code));
   }
 
   function parseHtmlDesignBlock(markup: string): TemplateDesignBlock[] {
@@ -5892,8 +5892,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function parseTableRowsText(value: string) {
-    return value.split('\n')
-      .map((row) => row.split('|').map((cell) => cell.trim()))
+    return String(value ?? '').split('\n')
+      .map((row) => row.split('|').map((cell) => formText(cell)))
       .filter((row) => row.some(Boolean));
   }
 
@@ -5913,10 +5913,10 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function parseSocialLinksText(value: string) {
-    return value.split('\n')
+    return String(value ?? '').split('\n')
       .map((row) => {
         const [label, ...urlParts] = row.split('|');
-        return { label: label.trim(), url: urlParts.join('|').trim() };
+        return { label: formText(label), url: formText(urlParts.join('|')) };
       })
       .filter((link) => link.label || link.url)
       .map((link) => ({ label: link.label || 'Link', url: link.url || '#' }));
@@ -5987,7 +5987,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
       const gap = Math.max(0, Number(block.gap ?? 16));
       const mobileStack = block.mobile_stack || 'stack';
       const mobileClass = mobileStack === 'reverse' ? 'stack-mobile-reverse' : mobileStack === 'keep' ? 'keep-mobile' : 'stack-mobile';
-      const columnClass = `${block.className || 'email-columns'} ${mobileClass}`.trim();
+      const columnClass = formText(`${block.className || 'email-columns'} ${mobileClass}`);
       const columnClassAttr = ` class="${escapeTemplateText(columnClass)}"`;
       const tableStyle = `width:100%;border-collapse:collapse;${block.bg ? `background:${block.bg};` : ''}`;
       const outerPadding = Number(block.padding_y || 0);
@@ -7271,7 +7271,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         return;
       }
       if (data?.type === 'ee-design-block-edit' && typeof data.blockId === 'string') {
-        const nextValue = String(data.value || '').trim();
+        const nextValue = formText(data.value);
         const block = flattenDesignBlocks(designDoc.blocks).find((item) => item.id === data.blockId);
         if (!block) return;
         if (data.field === 'item') {
@@ -7292,7 +7292,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       if (data?.type === 'ee-design-block-image-edit' && typeof data.blockId === 'string') {
         const field = data.field === 'alt' ? 'alt' : data.field === 'src' ? 'src' : '';
         if (!field) return;
-        const nextValue = String(data.value || '').trim();
+        const nextValue = formText(data.value);
         updateDesignBlock(data.blockId, { [field]: nextValue });
         setStatus(`Updated image ${field === 'src' ? 'URL' : 'alt text'} from the canvas.`);
         return;
@@ -7307,7 +7307,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                     : data.field === 'color' ? 'color'
                       : '';
         if (!field) return;
-        const nextValue = ['padding_y', 'padding_x', 'height', 'gap'].includes(field) ? Number(data.value || 0) : String(data.value || '').trim();
+        const nextValue = ['padding_y', 'padding_x', 'height', 'gap'].includes(field) ? Number(data.value || 0) : formText(data.value);
         updateDesignBlock(data.blockId, { [field]: nextValue });
         const fieldLabel = field === 'href' ? 'button URL'
           : field === 'bg' ? 'section background'
@@ -7733,8 +7733,8 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
   function cssProperty(rule: string, property: string) {
     const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = rule.match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
-    return match?.[1]?.trim() || '';
+    const match = String(rule ?? '').match(new RegExp(`${escaped}\\s*:\\s*([^;]+)`, 'i'));
+    return formText(match?.[1]);
   }
 
   function normalizeCssColor(value: string, fallback: string) {
@@ -8008,7 +8008,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function formatCssSource(source: string) {
-    return source
+    return formText(String(source ?? '')
       .replace(/\/\*/g, '\n/*')
       .replace(/\*\//g, '*/\n')
       .replace(/\s*\{\s*/g, ' {\n  ')
@@ -8018,8 +8018,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       .map((line) => line.trimEnd())
       .join('\n')
       .replace(/\n\s+\}/g, '\n}')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+      .replace(/\n{3,}/g, '\n\n'));
   }
 
   function formatCssEditor() {
@@ -8141,10 +8140,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function formatHtmlJinjaSource(source: string) {
-    const tokens = source.replace(/>\s+</g, '>\n<').replace(/\s*({%|{{)/g, '\n$1').replace(/(%}|}})\s*/g, '$1\n').split('\n');
+    const tokens = String(source ?? '').replace(/>\s+</g, '>\n<').replace(/\s*({%|{{)/g, '\n$1').replace(/(%}|}})\s*/g, '$1\n').split('\n');
     let depth = 0;
     return tokens
-      .map((raw) => raw.trim())
+      .map((raw) => formText(raw))
       .filter(Boolean)
       .map((line) => {
         if (/^<\//.test(line) || /^{%\s*(else|elif|endif|endfor|endblock)/.test(line)) depth = Math.max(0, depth - 1);
@@ -8180,7 +8179,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const after = htmlBody.slice(end);
     const prefix = before && !before.endsWith('\n') ? '\n\n' : '';
     const suffix = after && !after.startsWith('\n') ? '\n\n' : '';
-    const nextHtml = `${before}${prefix}${snippet}${suffix}${after}`.trim();
+    const nextHtml = formText(`${before}${prefix}${snippet}${suffix}${after}`);
     const nextCursor = Math.min(`${before}${prefix}${snippet}`.length, nextHtml.length);
     setHtmlBody(nextHtml);
     markPreviewStale();
@@ -8228,7 +8227,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function parseSampleInput(value: string) {
-    const trimmed = value.trim();
+    const trimmed = formText(value);
     if (!trimmed) return '';
     try {
       return JSON.parse(trimmed);
@@ -8297,7 +8296,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const textArea = (label: string, key: keyof TemplateDesignBlock) => (
       <label className="wide-field">
         {label}
-        <textarea rows={3} value={Array.isArray(block[key]) ? (block[key] as string[]).join('\n') : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: key === 'items' ? event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) : event.target.value })} />
+        <textarea rows={3} value={Array.isArray(block[key]) ? (block[key] as string[]).join('\n') : String(block[key] ?? '')} onChange={(event) => updateDesignBlock(block.id, { [key]: key === 'items' ? event.target.value.split('\n').map((item) => formText(item)).filter(Boolean) : event.target.value })} />
       </label>
     );
     const designColorPanel = (config: {
@@ -8358,7 +8357,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 placeholder={config.allowTransparent ? 'transparent' : '#111827'}
                 value={rawValue}
                 onChange={(event) => updateColor(event.target.value)}
-                onBlur={(event) => updateColor(event.target.value.trim() ? normalizeCssColor(event.target.value, color) : '')}
+                onBlur={(event) => updateColor(formText(event.target.value) ? normalizeCssColor(event.target.value, color) : '')}
               />
               <input
                 aria-label={`${config.ariaPrefix} color picker`}
@@ -8467,7 +8466,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
             <input
               value={(block.table_headers || []).join(' | ')}
               onChange={(event) => updateDesignBlock(block.id, {
-                table_headers: event.target.value.split('|').map((cell) => cell.trim()).filter(Boolean),
+                table_headers: event.target.value.split('|').map((cell) => formText(cell)).filter(Boolean),
               })}
             />
           </label>
@@ -11991,7 +11990,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Fleet status: ${fleet?.status || '-'}`,
       `Fleet summary: ${fleet?.summary || '-'}`,
       `Primary next action: ${fleet?.primary_next_action_label || '-'} (${formatInt(fleet?.primary_next_action_count || 0)}) - ${fleet?.primary_next_action_summary || '-'}`,
-      `Platform revision: ${fleet?.platform_code_revision_label || '-'} ${fleet?.platform_code_revision || ''}`.trim(),
+      formText(`Platform revision: ${fleet?.platform_code_revision_label || '-'} ${fleet?.platform_code_revision || ''}`),
       `Providers: ${formatInt(fleet?.active_provider_count || 0)} active / ${formatInt(fleet?.provider_count || 0)} total, ${formatInt(fleet?.blocked_provider_count || 0)} blocked`,
       `Provider blockers: port25=${formatInt(fleet?.provider_port25_blocked_count || 0)} rdns=${formatInt(fleet?.provider_rdns_blocked_count || 0)} inactive=${formatInt(fleet?.provider_inactive_count || 0)}`,
       `Nodes: ${formatInt(fleet?.active_nodes || 0)} active / ${formatInt(fleet?.total_nodes || 0)} total, route_ready=${formatInt(fleet?.route_ready_nodes || 0)}, readiness_ok=${formatInt(fleet?.readiness_ok_nodes || 0)}`,
@@ -12338,7 +12337,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function splitRoutingRuleList(value: string) {
     return deliveryFilterValue(value)
       .split(',')
-      .map((item) => item.trim())
+      .map((item) => deliveryFilterValue(item))
       .filter(Boolean);
   }
 
@@ -12349,13 +12348,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function parseManagedSmtpRoutingRuleDraftEvidence() {
     return deliveryFilterValue(managedSmtpRoutingRuleDraftEvidence)
       .split(',')
-      .map((item) => item.trim())
+      .map((item) => deliveryFilterValue(item))
       .filter(Boolean)
       .reduce<Record<string, string>>((acc, item) => {
         const separator = item.indexOf('=');
         if (separator === -1) return acc;
-        const key = item.slice(0, separator).trim();
-        const value = item.slice(separator + 1).trim();
+        const key = deliveryFilterValue(item.slice(0, separator));
+        const value = deliveryFilterValue(item.slice(separator + 1));
         if (key && value && value !== '-') acc[key] = value;
         return acc;
       }, {});
@@ -12407,7 +12406,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .filter(Boolean)
       .slice(0, 25);
     return rows.map((row, index) => {
-      const parts = row.split(',').map((part) => part.trim());
+      const parts = row.split(',').map((part) => deliveryFilterValue(part));
       const [sendType, senderDomain, recipientDomain, label] = parts;
       return {
         label: label || `${sendType || 'internal_test'} ${senderDomain || selectedDomainPolicy?.domain || '-'} -> ${recipientDomain || 'any'}`,
