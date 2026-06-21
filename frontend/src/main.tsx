@@ -11537,6 +11537,60 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return splitRoutingRuleList(value)[0] || '';
   }
 
+  function parseManagedSmtpRoutingRuleDraftEvidence() {
+    return managedSmtpRoutingRuleDraftEvidence
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .reduce<Record<string, string>>((acc, item) => {
+        const separator = item.indexOf('=');
+        if (separator === -1) return acc;
+        const key = item.slice(0, separator).trim();
+        const value = item.slice(separator + 1).trim();
+        if (key && value && value !== '-') acc[key] = value;
+        return acc;
+      }, {});
+  }
+
+  function routingRuleListIncludes(value: string, expected: string) {
+    if (!expected) return true;
+    return splitRoutingRuleList(value)
+      .map((item) => item.toLowerCase())
+      .includes(expected.toLowerCase());
+  }
+
+  function buildManagedSmtpRoutingRuleDraftReview() {
+    const evidence = parseManagedSmtpRoutingRuleDraftEvidence();
+    const mismatches = [
+      ['send type', evidence.send_type && !routingRuleListIncludes(managedSmtpRoutingRuleForm.send_types, evidence.send_type)],
+      ['sender domain', evidence.sender_domain && !routingRuleListIncludes(managedSmtpRoutingRuleForm.sender_domains, evidence.sender_domain)],
+      ['recipient domain', evidence.recipient_domain && !routingRuleListIncludes(managedSmtpRoutingRuleForm.recipient_domains, evidence.recipient_domain)],
+      ['pool', evidence.pool && managedSmtpRoutingRuleForm.ip_pool_name.trim().toLowerCase() !== evidence.pool.toLowerCase()],
+      ['provider', evidence.provider && !routingRuleListIncludes(managedSmtpRoutingRuleForm.preferred_providers, evidence.provider)],
+    ]
+      .filter(([, mismatched]) => mismatched)
+      .map(([label]) => String(label));
+    if (!managedSmtpRoutingRuleDraftEvidence) {
+      return {
+        tone: 'warn',
+        value: 'No draft evidence',
+        detail: 'Draft a routing rule from evidence before reviewing save readiness.',
+      };
+    }
+    if (mismatches.length) {
+      return {
+        tone: 'warn',
+        value: 'Evidence drift',
+        detail: `${mismatches.join(', ')} differ from loaded evidence; preview again before saving.`,
+      };
+    }
+    return {
+      tone: 'good',
+      value: 'Evidence match',
+      detail: 'Current draft fields match send type, sender domain, recipient domain, pool, and provider evidence.',
+    };
+  }
+
   function buildManagedSmtpRouteMatrixCases(inputOverride = managedSmtpRouteMatrixInput) {
     const rows = inputOverride
       .split('\n')
@@ -12836,6 +12890,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" type="button" onClick={copyManagedSmtpRoutingRuleDraft} disabled={busy || !managedSmtpRoutingRuleDraftEvidence}>Copy Draft Evidence</button>
         </div>
         <div className="managed-smtp-route-inspector">
+          {managedSmtpRoutingRuleDraftEvidence ? (() => {
+            const draftReview = buildManagedSmtpRoutingRuleDraftReview();
+            return (
+              <article className={`managed-smtp-route-field ${draftReview.tone}`} aria-label="Managed SMTP routing rule draft review">
+                <span>Draft Review</span>
+                <strong>{draftReview.value}</strong>
+                <small>{draftReview.detail}</small>
+              </article>
+            );
+          })() : null}
           {managedSmtpRulePreview?.ok && managedSmtpRulePreview.route ? (
             <article className="managed-smtp-route-field good">
               <span>Preview</span>
