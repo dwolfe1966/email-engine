@@ -80,7 +80,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'latestProofRouteDetail',
         'Latest proof route',
         'Refresh readiness after proof send to load persisted route evidence.',
-        'setLastTestSendResult({ ...data, to_email: testEmail.trim() })',
+        'setLastTestSendResult({ ...data, to_email: formText(testEmail) })',
         'setLastLaunchResult(data)',
         'Dry-run result',
         'Launch result',

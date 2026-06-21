@@ -1645,6 +1645,10 @@ function decodeTemplateText(value: unknown) {
     .trim();
 }
 
+function formText(value: unknown) {
+  return String(value ?? '').trim();
+}
+
 function formatPct(value: number | undefined) {
   return `${Math.round(Number(value || 0) * 1000) / 10}%`;
 }
@@ -2491,14 +2495,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
 
   useEffect(() => {
     if (!selectedCampaign) return;
-    setCampaignName(selectedCampaign.name);
+    setCampaignName(formText(selectedCampaign.name));
     if (selectedCampaign.template_id) setTemplateId(selectedCampaign.template_id);
   }, [selectedCampaign]);
   const workflowSteps = [
     { label: 'Setup', detail: selectedCampaign ? selectedCampaign.name : 'Create or select a draft', ready: Boolean(selectedCampaignId) },
     { label: 'Content', detail: selectedTemplate ? selectedTemplate.name : 'Choose a template', ready: Boolean(templateId) },
     { label: 'Audience', detail: selectedAudience ? `${selectedAudience.name} (${formatInt(selectedAudience.estimated_count)})` : 'Choose an audience', ready: Boolean(audienceId) },
-    { label: 'Test', detail: testEmail.trim() ? testEmail.trim() : 'Enter a test recipient', ready: Boolean(testEmail.trim()) },
+    { label: 'Test', detail: formText(testEmail) ? formText(testEmail) : 'Enter a test recipient', ready: Boolean(formText(testEmail)) },
     { label: 'Launch', detail: 'Dry-run before production send', ready: Boolean(selectedCampaignId && templateId && audienceId) },
   ];
   const readinessCards = [
@@ -2554,7 +2558,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
           ? 'Run readiness before launch.'
           : validationErrors.length
             ? 'Resolve validation errors before sending.'
-            : !testEmail.trim()
+            : !formText(testEmail)
               ? 'Enter a test recipient and send a test email.'
               : 'Ready for test send or dry-run launch.';
   const campaignNextStep = !workflowStatus
@@ -2571,7 +2575,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         actionLabel: 'Check Audience',
         run: validateCampaign,
       }
-      : !testEmail.trim()
+      : !formText(testEmail)
         ? {
           label: 'Preview test content',
           detail: 'Review rendered campaign content, then add a recipient for test send.',
@@ -2675,9 +2679,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               ? {
                 tone: 'warn',
                 title: 'Send proof email',
-                detail: testEmail.trim() ? 'Send a proof to confirm rendered content and provider handoff.' : 'Add a test recipient before proofing this campaign.',
-                actionLabel: testEmail.trim() ? 'Send Test' : 'Preview Email',
-                run: testEmail.trim() ? sendTestEmail : previewTestEmail,
+                detail: formText(testEmail) ? 'Send a proof to confirm rendered content and provider handoff.' : 'Add a test recipient before proofing this campaign.',
+                actionLabel: formText(testEmail) ? 'Send Test' : 'Preview Email',
+                run: formText(testEmail) ? sendTestEmail : previewTestEmail,
                 disabled: operationBusy,
               }
               : !proofSendOk
@@ -2820,7 +2824,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     await runOperation(selectedCampaignId ? 'Saving campaign setup' : 'Creating draft campaign', async () => {
       if (!templateId) throw new Error('Select a template.');
       const payload = {
-        name: campaignName.trim() || `ESP Campaign ${new Date().toISOString()}`,
+        name: formText(campaignName) || `ESP Campaign ${new Date().toISOString()}`,
         template_id: templateId,
         audience_query: selectedAudience?.rule_tree || {},
       };
@@ -2875,12 +2879,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   async function sendTestEmail() {
     await runOperation('Sending test email', async () => {
       if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
-      if (!testEmail.trim()) throw new Error('Enter a test recipient email.');
+      if (!formText(testEmail)) throw new Error('Enter a test recipient email.');
       const data = await fetchJson<CampaignTestSendResult>(`/api/v1/campaigns/${selectedCampaignId}/test-send`, {
         method: 'POST',
-        body: JSON.stringify({ to_email: testEmail.trim(), variables: parsedVariables() }),
+        body: JSON.stringify({ to_email: formText(testEmail), variables: parsedVariables() }),
       });
-      setLastTestSendResult({ ...data, to_email: testEmail.trim() });
+      setLastTestSendResult({ ...data, to_email: formText(testEmail) });
       return `Test send ${data.status_code < 400 ? 'sent' : 'failed'}${data.provider_message_id ? ` (${data.provider_message_id})` : ''}.`;
     });
   }
@@ -3525,7 +3529,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
 
   function loadJourneyIntoEditor(journey: JourneyRead) {
     setSelectedJourneyId(journey.id);
-    setName(journey.name);
+    setName(formText(journey.name));
     setDescription(journey.description || '');
     setEntryRuleJson(JSON.stringify(journey.entry_rule_tree || {}, null, 2));
     setExitRuleJson(JSON.stringify(journey.exit_rule_tree || {}, null, 2));
@@ -3569,7 +3573,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
   async function saveJourney() {
     await runJourneyOperation(selectedJourneyId ? 'Saving journey' : 'Creating journey', async () => {
       const payload = {
-        name: name.trim() || 'Untitled ESP Journey',
+        name: formText(name) || 'Untitled ESP Journey',
         description: description || null,
         entry_rule_tree: parseJsonObject(entryRuleJson, 'entry rule'),
         exit_rule_tree: parseJsonObject(exitRuleJson, 'exit rule'),
@@ -3598,7 +3602,7 @@ function AutomationsPage({ journeys, journeyItems, templates, contacts, enrollme
       const step = await fetchJson<JourneyStepRead>(`/api/v1/journeys/${selectedJourneyId}/steps`, {
         method: 'POST',
         body: JSON.stringify({
-          name: stepName.trim() || 'Send email',
+          name: formText(stepName) || 'Send email',
           step_type: 'send_email',
           position: selectedJourney?.steps?.length || 0,
           config: { template_id: templateId },
@@ -4122,7 +4126,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
   const attributeFields = attributeKeys.map((key) => `attributes.${key}`);
   const fieldHints = [...availableFields, ...attributeFields].slice(0, 24);
   const workflowSteps = [
-    { label: 'Define', detail: name.trim() ? name.trim() : 'Name the audience', ready: Boolean(name.trim()) },
+    { label: 'Define', detail: formText(name) ? formText(name) : 'Name the audience', ready: Boolean(formText(name)) },
     { label: 'Rule', detail: ruleJsonValid ? 'Valid JSON rule' : 'Fix rule JSON', ready: ruleJsonValid },
     { label: 'Preview', detail: matchedCount === null ? 'Preview reach' : `${formatInt(matchedCount)} matched`, ready: matchedCount !== null },
     { label: 'Snapshot', detail: selectedAudienceId ? 'Ready to snapshot' : 'Save audience first', ready: Boolean(selectedAudienceId) },
@@ -4201,7 +4205,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
             reach: matchRate === null ? `${formatInt(matchedCount)} matched` : `${formatPct(matchRate)} of contacts`,
             sample: `${formatInt(sampleContacts.length)} sample(s)`,
           };
-  const audienceNextAction = !name.trim()
+  const audienceNextAction = !formText(name)
     ? {
       tone: 'warn',
       title: 'Name the audience',
@@ -4257,7 +4261,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
       run: () => { window.location.hash = '#data'; },
       disabled: busy,
     }
-    : !name.trim()
+    : !formText(name)
       ? {
         tone: 'warn',
         title: 'Name the audience',
@@ -4474,7 +4478,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
 
   function loadAudienceIntoEditor(audience: AudienceRead) {
     setSelectedAudienceId(audience.id);
-    setName(audience.name);
+    setName(formText(audience.name));
     setDescription(audience.description || '');
     setRuleJson(JSON.stringify(audience.rule_tree || {}, null, 2));
     setMatchedCount(audience.estimated_count);
@@ -4540,7 +4544,7 @@ function AudiencePage({ audiences, audienceItems, campaigns, metadata, route, on
   async function saveAudience() {
     await runAudienceOperation(selectedAudienceId ? 'Saving audience' : 'Creating audience', async () => {
       const payload = {
-        name: name.trim() || 'Untitled ESP Audience',
+        name: formText(name) || 'Untitled ESP Audience',
         description: description || null,
         rule_tree: parsedRuleTree(),
       };
@@ -5374,8 +5378,8 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   const liveTemplateGuidance = [
     {
       label: 'Subject',
-      ready: Boolean(subject.trim()),
-      detail: subject.trim() ? 'Subject line is present.' : 'Add a clear subject before preview or send.',
+      ready: Boolean(formText(subject)),
+      detail: formText(subject) ? 'Subject line is present.' : 'Add a clear subject before preview or send.',
     },
     {
       label: 'Personalization',
@@ -5404,9 +5408,9 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
     },
   ];
   const templateSteps = [
-    { label: 'Setup', detail: name.trim() || 'Name the template', ready: Boolean(name.trim()) },
-    { label: 'Subject', detail: subject.trim() || 'Add a subject line', ready: Boolean(subject.trim()) },
-    { label: 'Content', detail: htmlBody.trim() ? 'HTML/Jinja ready' : 'Add HTML/Jinja', ready: Boolean(htmlBody.trim()) },
+    { label: 'Setup', detail: formText(name) || 'Name the template', ready: Boolean(formText(name)) },
+    { label: 'Subject', detail: formText(subject) || 'Add a subject line', ready: Boolean(formText(subject)) },
+    { label: 'Content', detail: formText(htmlBody) ? 'HTML/Jinja ready' : 'Add HTML/Jinja', ready: Boolean(formText(htmlBody)) },
     { label: 'Variables', detail: variables.length ? `${formatInt(variables.length)} detected` : 'Auto-detected at preview', ready: Boolean(variables.length) },
     { label: 'Preview', detail: previewFreshness === 'current' ? 'Preview rendered' : 'Render preview', ready: previewFreshness === 'current' },
   ];
@@ -5446,7 +5450,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
           ? {
             tone: 'neutral',
             title: 'Send an AI edit request',
-            detail: aiInstruction.trim() ? 'Use the selected request preset or custom instruction.' : 'Choose a preset or write a custom instruction first.',
+            detail: formText(aiInstruction) ? 'Use the selected request preset or custom instruction.' : 'Choose a preset or write a custom instruction first.',
             actionLabel: 'Review AI Edit',
             run: () => { void applyAiEdit(); },
           }
@@ -5524,7 +5528,7 @@ function TemplatesPage({ templates, route, onRefresh, onOperation }: {
   }
 
   function htmlToDesignDocument(source: string): TemplateDesignDocument {
-    const trimmed = source.trim();
+    const trimmed = formText(source);
     if (!trimmed) return { blocks: [newDesignBlock('paragraph')] };
     const blocks = parseHtmlDesignBlocks(trimmed);
     if (!blocks.length) return { blocks: [{ id: designBlockId(), type: 'html', code: trimmed }] };
@@ -7469,10 +7473,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   function restoreTemplateLocalDraft() {
     if (!localTemplateDraft) return;
     const nextDesignDoc = cloneDesignDocument(localTemplateDraft.designDoc);
-    setName(localTemplateDraft.name);
-    setSubject(localTemplateDraft.subject);
-    setHtmlBody(localTemplateDraft.htmlBody);
-    setCssBody(localTemplateDraft.cssBody);
+    setName(formText(localTemplateDraft.name));
+    setSubject(formText(localTemplateDraft.subject));
+    setHtmlBody(String(localTemplateDraft.htmlBody ?? ''));
+    setCssBody(String(localTemplateDraft.cssBody ?? ''));
     setDesignDoc(nextDesignDoc);
     setSelectedDesignBlockId(nextDesignDoc.blocks[0]?.id || '');
     setDesignDocEdited(true);
@@ -7486,10 +7490,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     if (!options.force && !confirmDiscardTemplateChanges('start a new template')) return false;
     clearTemplateLocalDraft(selectedTemplateId);
     setSelectedTemplateId('');
-    setName(defaultTemplateSnapshot.name);
-    setSubject(defaultTemplateSnapshot.subject);
-    setHtmlBody(defaultTemplateSnapshot.htmlBody);
-    setCssBody(defaultTemplateSnapshot.cssBody);
+    setName(formText(defaultTemplateSnapshot.name));
+    setSubject(formText(defaultTemplateSnapshot.subject));
+    setHtmlBody(String(defaultTemplateSnapshot.htmlBody ?? ''));
+    setCssBody(String(defaultTemplateSnapshot.cssBody ?? ''));
     setDesignDoc({ blocks: [] });
     setDesignDocEdited(false);
     setDesignUndoStack([]);
@@ -7525,10 +7529,10 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       designDocJson: semanticDesignDocJson(nextDesignDoc),
     };
     setSelectedTemplateId(template.id);
-    setName(snapshot.name);
-    setSubject(snapshot.subject);
-    setHtmlBody(snapshot.htmlBody);
-    setCssBody(snapshot.cssBody);
+    setName(formText(snapshot.name));
+    setSubject(formText(snapshot.subject));
+    setHtmlBody(String(snapshot.htmlBody ?? ''));
+    setCssBody(String(snapshot.cssBody ?? ''));
     setDesignDoc(nextDesignDoc);
     setDesignDocEdited(false);
     setDesignUndoStack([]);
@@ -8029,9 +8033,9 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const classRule = classRuleFromPreset(selectedCssClass);
       const escaped = selectedCssClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const classRegex = new RegExp(`\\.${escaped}\\s*\\{[^}]*\\}`, 'm');
-      setCssBody((current) => classRegex.test(current)
-        ? current.replace(classRegex, classRule)
-        : `${current.trim()}\n\n${classRule}`.trim());
+      setCssBody((current) => classRegex.test(String(current ?? ''))
+        ? String(current ?? '').replace(classRegex, classRule)
+        : formText(`${formText(current)}\n\n${classRule}`));
     } else {
       setCssBody(generatedCssFromPreset());
     }
@@ -8045,7 +8049,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       return;
     }
     const missingRules = missingCssClasses.map((className) => classRuleFromPreset(className, inferCssClassKind(className))).join('\n\n');
-    setCssBody((current) => `${current.trim()}\n\n${missingRules}`.trim());
+    setCssBody((current) => formText(`${formText(current)}\n\n${missingRules}`));
     markPreviewStale();
     setStatus(`Created CSS rules for ${missingCssClasses.map((className) => `.${className}`).join(', ')}. Click Preview to render them.`);
   }
@@ -8130,7 +8134,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
     const nextRules = missingRules.map((className) => classRuleFromPreset(className, inferCssClassKind(className))).join('\n\n');
     setHtmlBody(nextHtml);
     if (nextRules) {
-      setCssBody((current) => `${current.trim()}\n\n${nextRules}`.trim());
+      setCssBody((current) => formText(`${formText(current)}\n\n${nextRules}`));
     }
     markPreviewStale();
     setStatus(`Added ${formatInt(added)} class(es) and created ${formatInt(missingRules.length)} CSS rule(s). Use Preview to render the updated template.`);
@@ -8154,7 +8158,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
   }
 
   function ensureTemplateContainer(source: string) {
-    const trimmed = source.trim();
+    const trimmed = formText(source);
     if (!trimmed) return '<div class="email-container">\n</div>';
     if (/^<div[^>]+class=["'][^"']*email-container/.test(trimmed)) return trimmed;
     return `<div class="email-container">\n${formatHtmlJinjaSource(trimmed).split('\n').map((line) => `  ${line}`).join('\n')}\n</div>`;
@@ -8621,7 +8625,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       const normalizedHtml = ensureTemplateContainer(formatHtmlJinjaSource(designHtml));
       const documentJson = editorMode === 'design' ? designDoc : designDoc.blocks.length ? designDoc : {};
       const payload = {
-        name: name.trim() || 'Untitled ESP Template',
+        name: formText(name) || 'Untitled ESP Template',
         subject,
         html_body: normalizedHtml,
         css_body: cssBody || null,
@@ -8835,7 +8839,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 
   async function importSourceToDesignBlocks() {
     await runTemplateOperation('Importing source to design', async () => {
-      const source = htmlBody.trim();
+      const source = formText(htmlBody);
       if (!source) return 'Add HTML/Jinja source before importing design blocks.';
       let nextDesignDoc: TemplateDesignDocument;
       let rawBlockCount = 0;
@@ -9061,7 +9065,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       disabled: busy,
     },
   ];
-  const templateTriageAction = !name.trim()
+  const templateTriageAction = !formText(name)
     ? {
       tone: 'warn',
       title: 'Name template',
@@ -9070,7 +9074,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
       run: () => setStatus('Add a template name before saving.'),
       disabled: busy,
     }
-    : !subject.trim()
+    : !formText(subject)
       ? {
         tone: 'warn',
         title: 'Add subject line',
@@ -9079,7 +9083,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
         run: () => setStatus('Add a subject line before preview or save.'),
         disabled: busy,
       }
-      : !htmlBody.trim()
+      : !formText(htmlBody)
         ? {
           tone: 'warn',
           title: 'Add template content',
@@ -9246,7 +9250,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
               <button className="ghost" onClick={draftWithAi} disabled={busy}>Draft with AI</button>
             ) : (
               <>
-                <button className="ghost" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
+                <button className="ghost" onClick={() => applyAiEdit()} disabled={busy || !formText(aiInstruction)}>Review AI Edit</button>
                 <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>AI Suggestions</button>
               </>
             )}
@@ -9543,7 +9547,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                    {cssToolsOpen ? (
 	                      <>
 			                    <div className="css-tool-actions">
-			                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !cssBody.trim()}>Format CSS</button>
+			                      <button className="ghost" type="button" onClick={formatCssEditor} disabled={busy || !formText(cssBody)}>Format CSS</button>
 	                              <button className="ghost" type="button" onClick={() => returnToDesignBlockForClass()} disabled={busy || !selectedCssClass || !selectedCssDesignBlock}>Back to Design</button>
 			                      <span>{selectedCssClass ? `Working on .${selectedCssClass}` : 'Global CSS mode'}</span>
 			                    </div>
@@ -9705,7 +9709,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                           <span>{designImportConfidence.detail}</span>
                         </div>
                         <div className="button-row">
-                          <button className="ghost" type="button" onClick={importSourceToDesignBlocks} disabled={busy || !htmlBody.trim()}>Import Source</button>
+                          <button className="ghost" type="button" onClick={importSourceToDesignBlocks} disabled={busy || !formText(htmlBody)}>Import Source</button>
                           <button className={designDocEdited ? 'primary' : 'ghost'} type="button" onClick={syncDesignToCode} disabled={busy || !designDoc.blocks.length}>Sync to Code</button>
                           {missingCssClasses.length ? <button className="ghost" type="button" onClick={openCssGapTools} disabled={busy}>Fix CSS</button> : null}
                           <button className="primary" type="button" onClick={previewTemplate} disabled={busy || !designDoc.blocks.length}>Preview</button>
@@ -9980,7 +9984,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
                 <strong>{aiAssistNextStep.title}</strong>
                 <small>{aiAssistNextStep.detail}</small>
               </div>
-              <button className={aiAssistNextStep.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={aiAssistNextStep.run} disabled={busy || (aiAssistNextStep.actionLabel === 'Review AI Edit' && !aiInstruction.trim())}>{aiAssistNextStep.actionLabel}</button>
+              <button className={aiAssistNextStep.tone === 'good' ? 'ghost' : 'primary'} type="button" onClick={aiAssistNextStep.run} disabled={busy || (aiAssistNextStep.actionLabel === 'Review AI Edit' && !formText(aiInstruction))}>{aiAssistNextStep.actionLabel}</button>
             </section>
             {templateRenderResult ? (
               <section className={`template-render-result ${templateRenderResult.ok ? 'good' : 'warn'}`}>
@@ -10096,7 +10100,7 @@ ${bodyHtml.split('\n').map((line) => `      ${line}`).join('\n')}
 	                  }} rows={4} />
 	                  <span className="ai-request-mode">{aiInstructionMode === 'Custom' ? 'Custom AI request' : `${aiInstructionMode} preset selected`}</span>
                   <div className="button-row">
-                    <button className="primary" onClick={() => applyAiEdit()} disabled={busy || !aiInstruction.trim()}>Review AI Edit</button>
+                    <button className="primary" onClick={() => applyAiEdit()} disabled={busy || !formText(aiInstruction)}>Review AI Edit</button>
                     <button className="ghost" onClick={loadAiRecommendations} disabled={busy}>Suggestions</button>
                   </div>
                 </div>
@@ -14685,15 +14689,15 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
 
   function loadSuppression(item: SuppressionRead) {
     setSelectedSuppressionId(item.id);
-    setEmail(item.email);
+    setEmail(formText(item.email));
     setReason(item.reason);
-    setSource(item.source);
+    setSource(formText(item.source));
     setStatus(`Loaded suppression for ${item.email}.`);
   }
 
   function draftSuppressionFromRecord(record: EmailSendRecordRead) {
     setSelectedSuppressionId('');
-    setEmail(record.to_email);
+    setEmail(formText(record.to_email));
     setReason('manual');
     setSource(`delivery_failure:${providerLabel(record.provider)}`);
     setStatus(`Drafting suppression for failed delivery recipient ${record.to_email}.`);
@@ -14714,14 +14718,14 @@ function CompliancePage({ suppressions, sendRecords, route, onRefresh }: {
 
   async function addSuppression() {
     await runComplianceOperation('Creating suppression', async () => {
-      const trimmedEmail = email.trim();
+      const trimmedEmail = formText(email);
       if (!trimmedEmail) throw new Error('Email is required.');
       const created = await fetchJson<SuppressionRead>('/api/v1/suppressions', {
         method: 'POST',
         body: JSON.stringify({
           email: trimmedEmail,
           reason,
-          source: source.trim() || 'esp_compliance',
+          source: formText(source) || 'esp_compliance',
           metadata_json: { source_page: 'esp_compliance' },
         }),
       });
@@ -15409,7 +15413,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
 
   function loadSource(source: DataSourceRead) {
     setSelectedSourceId(source.id);
-    setName(source.name);
+    setName(formText(source.name));
     setSourceType(source.source_type);
     setStatusValue(source.status);
     setConfigJson(JSON.stringify(source.config || {}, null, 2));
@@ -15434,7 +15438,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
 
   function loadMapping(mapping: DataSourceMappingRead) {
     setSelectedMappingId(mapping.id);
-    setMappingName(mapping.name);
+    setMappingName(formText(mapping.name));
     setMappingJson(JSON.stringify(mapping.mapping || {}, null, 2));
     setStatus(`Loaded mapping: ${mapping.name}`);
   }
@@ -15504,7 +15508,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
   async function saveSource() {
     await runDataOperation(selectedSourceId ? 'Saving data source' : 'Creating data source', async () => {
       const payload = {
-        name: name.trim() || 'Untitled ESP Data Source',
+        name: formText(name) || 'Untitled ESP Data Source',
         source_type: sourceType,
         status: statusValue,
         config: parseJsonObject(configJson, 'config'),
@@ -15554,7 +15558,7 @@ function DataPage({ dataSources, mappings, importJobs, route, onRefresh, onOpera
       if (!selectedSourceId) throw new Error('Save or select a data source first.');
       const payload = {
         data_source_id: selectedSourceId,
-        name: mappingName.trim() || 'Contact import mapping',
+        name: formText(mappingName) || 'Contact import mapping',
         object_type: 'contact',
         mapping: parseJsonObject(mappingJson, 'mapping'),
         extraction_plan: { source: 'esp_data_page' },
@@ -16310,7 +16314,7 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
 
   function loadContact(contact: ContactRead) {
     setSelectedContactId(contact.id);
-    setEmail(contact.email);
+    setEmail(formText(contact.email));
     setFirstName(contact.first_name || '');
     setLastName(contact.last_name || '');
     setSource(contact.source || '');
@@ -16341,7 +16345,7 @@ function ContactsPage({ contacts, metadata, route, onRefresh }: {
   async function saveContact() {
     await runContactOperation(selectedContactId ? 'Saving contact' : 'Creating contact', async () => {
       const payload = {
-        email: email.trim(),
+        email: formText(email),
         first_name: firstName || null,
         last_name: lastName || null,
         source: source || null,
@@ -17162,7 +17166,7 @@ function AnalyticsPage({ overview, campaigns, campaignItems, audiences, journeys
       ])
       .map((row) => row.map(csvCell).join(','))
       .join('\n');
-    if (!csv.trim()) {
+    if (!formText(csv)) {
       setStatus('No analytics rows are available to export yet.');
       return;
     }
@@ -17624,8 +17628,8 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
   const [workflowRecommendations, setWorkflowRecommendations] = useState<AIWorkflowRecommendation[]>([]);
   const [workflowSummary, setWorkflowSummary] = useState<string[]>([]);
   const [previewHtml, setPreviewHtml] = useState('');
-  const hasBrief = Boolean(brief.trim());
-  const hasInstruction = Boolean(instruction.trim());
+  const hasBrief = Boolean(formText(brief));
+  const hasInstruction = Boolean(formText(instruction));
   const hasTemplateRecommendations = recommendations.length > 0;
   const hasWorkflowRecommendations = workflowRecommendations.length > 0;
   const hasPreview = Boolean(previewHtml);
@@ -17846,9 +17850,9 @@ function AiStudioPage({ insights, diagnostics, dashboard, onTemplatesRefresh, on
   }
 
   function applyDraft(draft: AITemplateDraft) {
-    setSubject(draft.subject || subject);
-    setHtmlBody(draft.html_body || htmlBody);
-    setCssBody(draft.css_body || '');
+    setSubject(formText(draft.subject) || subject);
+    setHtmlBody(String(draft.html_body ?? htmlBody));
+    setCssBody(String(draft.css_body ?? ''));
     if (draft.sample_variables && Object.keys(draft.sample_variables).length) {
       setSampleJson(JSON.stringify(draft.sample_variables, null, 2));
     }

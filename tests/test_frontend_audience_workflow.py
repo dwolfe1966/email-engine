@@ -18,7 +18,7 @@ def frontend_bundle() -> str:
 
 def assert_audience_guided_next_step_contract(source: str) -> None:
     expected_tokens = [
-        'const audienceNextAction = !name.trim()',
+        'const audienceNextAction = !formText(name)',
         "title: 'Name the audience'",
         "title: 'Fix rule JSON'",
         "title: 'Preview audience reach'",
