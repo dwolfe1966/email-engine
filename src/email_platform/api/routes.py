@@ -3389,12 +3389,17 @@ def export_delivery_attempt_evidence_csv(
             'provider_fallback_provider',
             'provider_fallback_node',
             'block_code',
+            'block_message',
+            'candidate_count',
+            'skipped_count',
+            'skipped_reasons',
+            'skipped_nodes_json',
             'smtp_response_code',
             'started_at',
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 25)])
+        writer.writerow([*export_context, *([''] * 30)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3402,6 +3407,14 @@ def export_delivery_attempt_evidence_csv(
             provider_preference_value = ';'.join(str(item) for item in provider_preference)
         else:
             provider_preference_value = str(metadata.get('mta_preferred_providers') or '')
+        skipped_nodes = metadata.get('mta_node_skipped_nodes')
+        skipped_node_items = skipped_nodes if isinstance(skipped_nodes, list) else []
+        skipped_reasons = ';'.join(
+            str(item.get('reason'))
+            for item in skipped_node_items
+            if isinstance(item, dict) and item.get('reason')
+        )
+        skipped_nodes_json = json.dumps(skipped_node_items, separators=(',', ':')) if skipped_node_items else ''
         writer.writerow(
             [
                 *export_context,
@@ -3438,6 +3451,11 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_provider_preference_fallback_provider') or '',
                 metadata.get('mta_provider_preference_fallback_node_name') or '',
                 metadata.get('mta_route_block_code') or '',
+                metadata.get('mta_route_block_message') or '',
+                metadata.get('mta_node_candidate_count') or '',
+                metadata.get('mta_node_skipped_count') or '',
+                skipped_reasons,
+                skipped_nodes_json,
                 attempt.smtp_response_code or metadata.get('smtp_response_code') or '',
                 attempt.started_at.isoformat() if attempt.started_at else '',
             ]

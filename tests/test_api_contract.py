@@ -336,10 +336,19 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "'provider_fallback_used'",
         "'provider_fallback_provider'",
         "'provider_fallback_node'",
+        "'block_message'",
+        "'candidate_count'",
+        "'skipped_count'",
+        "'skipped_reasons'",
+        "'skipped_nodes_json'",
         "metadata.get('mta_rule_hit_provider_preference_mode')",
         "metadata.get('mta_provider_preference_fallback_used')",
         "metadata.get('mta_provider_preference_fallback_provider')",
         "metadata.get('mta_provider_preference_fallback_node_name')",
+        "metadata.get('mta_route_block_message')",
+        "metadata.get('mta_node_candidate_count')",
+        "metadata.get('mta_node_skipped_count')",
+        "metadata.get('mta_node_skipped_nodes')",
     ]:
         assert token in source
 
