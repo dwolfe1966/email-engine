@@ -836,6 +836,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Top rule source',
         'Top pool source',
         'Top block code',
+        'Top block message',
+        'top_block_messages',
         'rule source',
         'pool source',
         '/api/v1/ai/delivery/analyze',

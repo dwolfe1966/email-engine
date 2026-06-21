@@ -731,6 +731,7 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_provider_preference_modes: DeliveryAttemptEvidenceCountRead[];
   top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
+  top_block_messages: DeliveryAttemptEvidenceCountRead[];
 };
 
 type ProviderFeedbackEventRead = {
@@ -10464,6 +10465,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return '-';
   }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
+  const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
   const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
   const summaryTopRule = deliveryAttemptEvidenceSummary?.top_rules[0] || topAttemptRule;
@@ -10476,6 +10478,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopProviderPreferenceMode = deliveryAttemptEvidenceSummary?.top_provider_preference_modes[0] || topAttemptProviderPreferenceMode;
   const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
+  const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10570,6 +10573,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top block code',
       value: summaryTopBlockCode.label,
       detail: summaryTopBlockCode.count ? `${formatInt(summaryTopBlockCode.count)} matching attempt(s) hit this block code.` : 'No route block evidence loaded.',
+    },
+    {
+      label: 'Top block message',
+      value: summaryTopBlockMessage.label,
+      detail: summaryTopBlockMessage.count ? `${formatInt(summaryTopBlockMessage.count)} matching attempt(s) returned this resolver explanation.` : 'No route block message evidence loaded.',
     },
   ];
   const deliveryAttemptEvidenceFollowUps = [

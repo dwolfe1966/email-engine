@@ -3222,6 +3222,7 @@ def summarize_delivery_attempt_evidence(
         else_=None,
     )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
+    block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
     return {
         'total': int(
             db.scalar(select(func.count()).select_from(DeliveryAttempt).where(*filters)) or 0
@@ -3264,6 +3265,7 @@ def summarize_delivery_attempt_evidence(
             db, filters, provider_fallback_expr
         ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
+        'top_block_messages': _delivery_attempt_evidence_counts(db, filters, block_message_expr),
     }
 
 

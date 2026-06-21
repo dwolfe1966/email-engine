@@ -315,6 +315,7 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_provider_preference_modes',
         'top_provider_fallbacks',
         'top_block_codes',
+        'top_block_messages',
     }.issubset(schema['properties'].keys())
 
 
