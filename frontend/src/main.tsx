@@ -11639,6 +11639,48 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP readiness evidence pack with ${formatInt(readinessChecks.length)} loaded check(s).`);
   }
 
+  function exportManagedSmtpReadinessEvidenceCsv() {
+    if (!readinessChecks.length) {
+      setStatus('Load managed SMTP readiness checks before exporting readiness CSV.');
+      return;
+    }
+    const activeFilters = Object.entries(readinessFilters)
+      .filter(([, value]) => value.trim())
+      .map(([key, value]) => `${key}=${value.trim()}`)
+      .join(', ') || 'none';
+    const rows = [
+      ['Managed SMTP Readiness Evidence Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Active filters', activeFilters],
+      ['Loaded rows', readinessChecks.length, 'Total matching rows', readinessSummary?.total_count ?? readinessCheckTotal],
+      ['Status counts', `ok=${readinessSummary?.ok_count || 0}`, `warning=${readinessSummary?.warning_count || 0}`, `failed=${readinessSummary?.failed_count || 0}`],
+      ['Trend', readinessTrend?.trend || '', 'failure_rate', readinessTrend ? formatPct(readinessTrend.failure_rate) : ''],
+      ['Alert', readinessAlerts?.alert_status || readinessTrend?.alert_status || '', 'Reasons', (readinessAlerts?.alert_reasons || readinessTrend?.alert_reasons || []).join(', ')],
+      [],
+      ['id', 'source', 'check_type', 'status', 'domain', 'host', 'summary', 'created_at', 'result_json'],
+      ...readinessChecks.map((check) => [
+        check.id,
+        check.source,
+        check.check_type,
+        check.status,
+        check.domain || '',
+        check.host || '',
+        check.summary || '',
+        check.created_at,
+        JSON.stringify(check.result_json || {}),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `managed-smtp-readiness-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded managed SMTP readiness CSV with ${formatInt(readinessChecks.length)} loaded check row(s).`);
+  }
+
   function buildManagedSmtpReadinessAlertEvidencePack() {
     const alertChecks = readinessAlerts?.alert_checks || [];
     const checks = alertChecks.slice(0, 8).map((check) => [
@@ -14128,6 +14170,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadReadinessChecks} disabled={busy}>Load SMTP Readiness</button>
             <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
+            <button className="ghost" onClick={exportManagedSmtpReadinessEvidenceCsv} disabled={busy || !readinessChecks.length}>Export Readiness CSV</button>
             <button className="ghost" onClick={copyManagedSmtpReadinessAlertEvidencePack} disabled={busy || (!readinessAlerts && !readinessNotification && !readinessTrend)}>Copy Alert Pack</button>
           </div>
         </div>
@@ -14158,6 +14201,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Apply Readiness Filters</button>
           <button className="ghost" onClick={() => setReadinessFilters({ status: '', domain: '', host: '', check_type: '' })} disabled={busy}>Clear Readiness Filters</button>
           <button className="ghost" onClick={copyManagedSmtpReadinessEvidencePack} disabled={busy || !readinessChecks.length}>Copy Readiness Pack</button>
+          <button className="ghost" onClick={exportManagedSmtpReadinessEvidenceCsv} disabled={busy || !readinessChecks.length}>Export Readiness CSV</button>
           <button className="ghost" onClick={copyManagedSmtpReadinessAlertEvidencePack} disabled={busy || (!readinessAlerts && !readinessNotification && !readinessTrend)}>Copy Alert Pack</button>
         </div>
         {readinessChecks.length ? (
