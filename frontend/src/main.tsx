@@ -11288,8 +11288,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus('Cleared delivery attempt evidence filters.');
   }
 
-  function applyDeliveryAttemptPreset(filters: Partial<typeof deliveryAttemptFilters>) {
-    setDeliveryAttemptFilters({ ...emptyDeliveryAttemptFilters, ...filters });
+  async function applyDeliveryAttemptPreset(label: string, filters: Partial<typeof deliveryAttemptFilters>) {
+    const nextFilters = { ...emptyDeliveryAttemptFilters, ...filters };
+    setDeliveryAttemptFilters(nextFilters);
+    await refreshDeliveryAttempts(nextFilters);
+    setStatus(`Applied ${label} delivery attempt evidence preset.`);
   }
 
   function updateMtaNodeEventFilter(name: keyof typeof mtaNodeEventFilters, value: string) {
@@ -12820,7 +12823,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         <div className="button-row">
           {deliveryAttemptPresetViews.map((preset) => (
-            <button className="ghost" type="button" onClick={() => applyDeliveryAttemptPreset(preset.filters)} disabled={busy} key={preset.label}>
+            <button className="ghost" type="button" onClick={() => applyDeliveryAttemptPreset(preset.label, preset.filters)} disabled={busy} key={preset.label}>
               {preset.label}
             </button>
           ))}

@@ -617,6 +617,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Route Blocks',
         'Resolved Rule Hits',
         'Strict Provider Preference',
+        'delivery attempt evidence preset.',
         'Apply Attempt Filters',
         'Clear Attempt Filters',
         'mta_route_resolved',
