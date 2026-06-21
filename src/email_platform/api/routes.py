@@ -3418,6 +3418,10 @@ def export_delivery_attempt_evidence_csv(
             'provider_fallback_node',
             'block_code',
             'block_message',
+            'rate_limit_scope',
+            'rate_limit_window_seconds',
+            'rate_limit_max_per_minute',
+            'rate_limit_recent_count',
             'candidate_count',
             'skipped_count',
             'skipped_reasons',
@@ -3427,7 +3431,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 30)])
+        writer.writerow([*export_context, *([''] * 34)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3480,6 +3484,10 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_provider_preference_fallback_node_name') or '',
                 metadata.get('mta_route_block_code') or '',
                 metadata.get('mta_route_block_message') or '',
+                metadata.get('mta_rate_limit_scope') or '',
+                metadata.get('mta_rate_limit_window_seconds') or '',
+                metadata.get('mta_rate_limit_max_per_minute') or '',
+                metadata.get('mta_rate_limit_recent_count') or '',
                 metadata.get('mta_node_candidate_count') or '',
                 metadata.get('mta_node_skipped_count') or '',
                 skipped_reasons,

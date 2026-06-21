@@ -11421,6 +11421,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
         `  provider_preference=${providerPreference}`,
         `  block_code=${String(metadata.mta_route_block_code || '-')}`,
+        `  rate_limit_scope=${String(metadata.mta_rate_limit_scope || '-')}`,
+        `  rate_limit_window_seconds=${String(metadata.mta_rate_limit_window_seconds || '-')}`,
+        `  rate_limit_max_per_minute=${String(metadata.mta_rate_limit_max_per_minute || '-')}`,
+        `  rate_limit_recent_count=${String(metadata.mta_rate_limit_recent_count || '-')}`,
         `  smtp=${String(attempt.smtp_response_code || metadata.smtp_response_code || '-')}`,
         `  started_at=${attempt.started_at}`,
       ].join('\n');
