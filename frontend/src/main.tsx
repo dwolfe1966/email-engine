@@ -11226,6 +11226,81 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied delivery attempt evidence pack with ${formatInt(deliveryAttempts.length)} loaded attempt row(s).`);
   }
 
+  function deliveryAttemptCsvCell(value: unknown) {
+    const text = String(value ?? '');
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportDeliveryAttemptEvidenceCsv() {
+    if (!deliveryAttempts.length) {
+      setStatus('No delivery attempt evidence rows are loaded for CSV export.');
+      return;
+    }
+    const headers = [
+      'attempt_id',
+      'send_record_id',
+      'send_job_id',
+      'campaign_id',
+      'status',
+      'route_type',
+      'route_key',
+      'route_resolved',
+      'send_type',
+      'sender_domain',
+      'recipient_domain',
+      'mta_provider',
+      'ip_pool',
+      'mta_node',
+      'routing_rule',
+      'rule_source',
+      'pool_source',
+      'provider_preference',
+      'block_code',
+      'smtp_response_code',
+      'started_at',
+    ];
+    const rows = deliveryAttempts.map((attempt) => {
+      const metadata = attempt.metadata_json || {};
+      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+        ? metadata.mta_rule_hit_provider_preference.join(';')
+        : String(metadata.mta_preferred_providers || '');
+      return [
+        attempt.id,
+        attempt.send_record_id,
+        attempt.send_job_id || '',
+        attempt.campaign_id || '',
+        attempt.status,
+        attempt.route_type || '',
+        attempt.route_key || '',
+        String(metadata.mta_route_resolved ?? ''),
+        String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || ''),
+        String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || ''),
+        String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || ''),
+        String(metadata.mta_provider || ''),
+        String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || ''),
+        String(metadata.mta_node_name || metadata.mta_node_id || ''),
+        String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || ''),
+        String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || ''),
+        String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || ''),
+        providerPreference,
+        String(metadata.mta_route_block_code || ''),
+        String(attempt.smtp_response_code || metadata.smtp_response_code || ''),
+        attempt.started_at,
+      ];
+    });
+    const csv = [headers, ...rows]
+      .map((row) => row.map(deliveryAttemptCsvCell).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `delivery-attempt-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded delivery attempt evidence CSV with ${formatInt(deliveryAttempts.length)} row(s).`);
+  }
+
   function updateFeedbackFilter(name: keyof typeof feedbackFilters, value: string) {
     setFeedbackFilters((current) => ({ ...current, [name]: value }));
   }
@@ -12847,6 +12922,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
+          <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
           <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
         </div>
         <div className="summary-grid" aria-label="Delivery attempt evidence rollup">
