@@ -11361,6 +11361,66 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied delivery attempt evidence pack with ${formatInt(deliveryAttempts.length)} loaded attempt row(s).`);
   }
 
+  function buildManagedSmtpRouteResolutionEvidencePack() {
+    const route = managedSmtpRouteResolution?.route;
+    const reason = managedSmtpRouteResolution?.reason;
+    const skippedNodes = (route?.mta_node_skipped_nodes || []).slice(0, 5).map((item, index) => {
+      const nodeName = String(item.node_name || item.name || item.mta_node_name || `node ${index + 1}`);
+      const reasonCode = String(item.reason || item.code || item.status || 'skipped');
+      return `- ${nodeName}: ${reasonCode}`;
+    }).join('\n');
+    return [
+      'Managed SMTP Route Resolution Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Domain policy: ${selectedDomainPolicy?.domain || route?.domain || '-'}`,
+      `Route ID: ${selectedDomainPolicy?.route_id || route?.delivery_route_id || '-'}`,
+      `Status: ${managedSmtpRouteResolution?.ok ? 'ready' : 'blocked'}`,
+      '',
+      'Resolver input',
+      `send_type=${route?.send_type || 'internal_test'}`,
+      `sender_domain=${route?.sender_domain || selectedDomainPolicy?.domain || '-'}`,
+      `recipient_domain=${route?.recipient_domain || '-'}`,
+      '',
+      'Decision',
+      route ? `decision_basis=${route.decision_basis}` : `block_code=${reason?.code || '-'}`,
+      route ? `routing_rule_name=${route.routing_rule_name || 'Default policy'}` : `block_message=${reason?.message || '-'}`,
+      route ? `routing_rule_source=${route.routing_rule_source || '-'}` : `block_details=${JSON.stringify(reason?.details || {})}`,
+      route ? `pool_source=${route.routing_rule_pool_source || route.ip_pool_selection_source || '-'}` : null,
+      route ? `provider_preference=${route.routing_rule_provider_preference.length ? route.routing_rule_provider_preference.join(', ') : route.preferred_providers.join(', ') || '-'}` : null,
+      route ? `provider_preference_mode=${route.routing_rule_provider_preference_mode || '-'}` : null,
+      route ? `fallback_used=${route.provider_preference_fallback_used ? 'true' : 'false'}` : null,
+      route?.provider_preference_fallback_provider ? `fallback_provider=${route.provider_preference_fallback_provider}` : null,
+      '',
+      'Selected route',
+      route ? `delivery_route=${route.delivery_route_name}` : '- no route selected',
+      route ? `provider=${route.provider}` : null,
+      route ? `ip_pool=${route.ip_pool_name} (${route.ip_pool_type})` : null,
+      route ? `mta_node=${route.mta_node_name}` : null,
+      route ? `public_ipv4=${route.public_ipv4 || '-'}` : null,
+      route ? `submission=${route.submission_host}:${route.submission_port}` : null,
+      route ? `auth_secret_ref=${route.auth_secret_ref || '-'}` : null,
+      '',
+      'Pool and failover',
+      route ? `available_nodes=${formatInt(route.mta_pool_available_node_count)}` : '-',
+      route ? `required_nodes=${route.mta_pool_required_available_node_count ? formatInt(route.mta_pool_required_available_node_count) : '-'}` : null,
+      route ? `capacity_status=${route.mta_pool_capacity_status || '-'}` : null,
+      route ? `candidate_count=${formatInt(route.mta_node_candidate_count)}` : null,
+      route ? `selected_priority=${route.mta_node_selection_priority ?? '-'}` : null,
+      route ? `selected_weight=${route.mta_node_selection_weight ?? '-'}` : null,
+      route ? `skipped_count=${formatInt(route.mta_node_skipped_count)}` : null,
+      skippedNodes || '- no skipped nodes reported',
+    ].filter((line) => line !== null).join('\n');
+  }
+
+  async function copyManagedSmtpRouteResolutionEvidencePack() {
+    if (!managedSmtpRouteResolution) {
+      setStatus('Resolve a managed SMTP route before copying a route pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpRouteResolutionEvidencePack());
+    setStatus(`Copied managed SMTP route resolution evidence pack for ${selectedDomainPolicy?.domain || managedSmtpRouteResolution.route?.domain || 'selected route'}.`);
+  }
+
   function buildManagedSmtpRoutingRuleDraftPack() {
     const preview = managedSmtpRulePreview?.ok && managedSmtpRulePreview.route
       ? [
@@ -13192,7 +13252,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <h3>Managed SMTP Route Resolution</h3>
             <span className="muted">Resolve the selected domain to its IP pool, MTA node, and submission endpoint before cloud send testing.</span>
           </div>
-          <button className="link-button" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve Route</button>
+          <div className="button-row">
+            <button className="link-button" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve Route</button>
+            <button className="ghost" onClick={copyManagedSmtpRouteResolutionEvidencePack} disabled={busy || !managedSmtpRouteResolution}>Copy Route Pack</button>
+          </div>
         </div>
         <div className="managed-smtp-route-inspector">
           {managedSmtpRouteItems.map((item) => (
@@ -13351,6 +13414,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadDomainReputationDashboard} disabled={busy || !selectedDomainPolicyId}>Load Reputation Dashboard</button>
           <button className="ghost" onClick={resolveManagedSmtpRoute} disabled={busy || !selectedDomainPolicyId}>Resolve SMTP Route</button>
+          <button className="ghost" onClick={copyManagedSmtpRouteResolutionEvidencePack} disabled={busy || !managedSmtpRouteResolution}>Copy Route Pack</button>
           <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
           <button className="ghost" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
           <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
