@@ -11237,7 +11237,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     link.href = `/api/v1/delivery-attempts/evidence-export.csv?${params.toString()}`;
     link.download = `delivery-attempt-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-    setStatus(`Started matching delivery attempt evidence CSV export for up to ${formatInt(5000)} row(s).`);
+    setStatus(`Started matching delivery attempt evidence CSV export with scope and truncation metadata for up to ${formatInt(5000)} row(s).`);
   }
 
   function updateFeedbackFilter(name: keyof typeof feedbackFilters, value: string) {

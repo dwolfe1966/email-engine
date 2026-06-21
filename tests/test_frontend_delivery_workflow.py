@@ -635,7 +635,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Copied delivery attempt evidence pack',
         'Export Evidence CSV',
         'delivery-attempt-evidence-',
-        'Started matching delivery attempt evidence CSV export',
+        'scope and truncation metadata',
         'Top route provider',
         'Top route pool',
         'Top routing rule',

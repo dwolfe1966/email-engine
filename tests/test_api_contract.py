@@ -308,6 +308,17 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
     }.issubset(schema['properties'].keys())
 
 
+def test_delivery_attempt_evidence_export_exposes_limit_contract() -> None:
+    client = TestClient(app)
+    params = client.get('/openapi.json').json()['paths'][
+        '/api/v1/delivery-attempts/evidence-export.csv'
+    ]['get']['parameters']
+    limit_param = next(item for item in params if item['name'] == 'limit')
+
+    assert limit_param['schema']['maximum'] == 5000
+    assert limit_param['schema']['minimum'] == 1
+
+
 def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
     client = TestClient(app)
     schemas = client.get('/openapi.json').json()['components']['schemas']

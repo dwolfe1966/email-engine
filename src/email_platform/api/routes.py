@@ -2,7 +2,7 @@ import csv
 import io
 import json
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from html import escape
 from typing import Annotated, cast
 from urllib.parse import quote, urlparse
@@ -3251,10 +3251,61 @@ def export_delivery_attempt_evidence_csv(
         .order_by(DeliveryAttempt.started_at.desc())
         .limit(limit)
     ).all()
+    total_matching = int(
+        db.scalar(select(func.count()).select_from(DeliveryAttempt).where(*filters)) or 0
+    )
+    exported_count = len(attempts)
+    export_generated_at = datetime.now(UTC).isoformat()
+    export_scope = (
+        f'send_record_id={send_record_id}'
+        if send_record_id
+        else f'send_job_id={send_job_id}'
+        if send_job_id
+        else f'campaign_id={campaign_id}'
+        if campaign_id
+        else 'all_delivery_attempts'
+    )
+    active_filter_values = {
+        'provider': provider,
+        'status': status,
+        'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
+        'mta_node_id': str(mta_node_id) if mta_node_id else None,
+        'mta_provider': mta_provider,
+        'mta_route_resolved': str(mta_route_resolved).lower()
+        if mta_route_resolved is not None
+        else None,
+        'mta_route_send_type': mta_route_send_type,
+        'mta_route_sender_domain': mta_route_sender_domain,
+        'mta_route_recipient_domain': mta_route_recipient_domain,
+        'mta_routing_rule_name': mta_routing_rule_name,
+        'mta_routing_rule_source': mta_routing_rule_source,
+        'mta_rule_hit_pool_source': mta_rule_hit_pool_source,
+        'mta_rule_hit_provider_preference': mta_rule_hit_provider_preference,
+        'mta_route_block_code': mta_route_block_code,
+    }
+    export_filters = ';'.join(
+        f'{key}={value}' for key, value in active_filter_values.items() if value
+    )
+    export_context = [
+        export_generated_at,
+        limit,
+        total_matching,
+        exported_count,
+        str(total_matching > exported_count).lower(),
+        export_scope,
+        export_filters or 'none',
+    ]
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(
         [
+            'export_generated_at',
+            'export_limit',
+            'export_total_matching',
+            'exported_row_count',
+            'export_truncated',
+            'export_scope',
+            'export_filters',
             'attempt_id',
             'send_record_id',
             'send_job_id',
@@ -3278,6 +3329,8 @@ def export_delivery_attempt_evidence_csv(
             'started_at',
         ]
     )
+    if not attempts:
+        writer.writerow([*export_context, *([''] * 21)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3287,6 +3340,7 @@ def export_delivery_attempt_evidence_csv(
             provider_preference_value = str(metadata.get('mta_preferred_providers') or '')
         writer.writerow(
             [
+                *export_context,
                 attempt.id,
                 attempt.send_record_id,
                 attempt.send_job_id or '',
