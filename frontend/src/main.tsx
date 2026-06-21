@@ -10202,6 +10202,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [deliveryAttemptEvidenceSummary, setDeliveryAttemptEvidenceSummary] = useState<DeliveryAttemptEvidenceSummaryRead | null>(null);
   const deliveryAttemptFilterRefreshReady = useRef(false);
   const skipNextDeliveryAttemptFilterRefresh = useRef(false);
+  const deliveryAttemptRefreshSeq = useRef(0);
   const [providerFeedbackEvents, setProviderFeedbackEvents] = useState<ProviderFeedbackEventRead[]>([]);
   const [providerFeedbackTotal, setProviderFeedbackTotal] = useState(0);
   const [readinessChecks, setReadinessChecks] = useState<ManagedSmtpReadinessCheckRead[]>([]);
@@ -10338,7 +10339,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     }
     const timer = window.setTimeout(() => {
       refreshDeliveryAttempts()
-        .then((items) => {
+        .then(({ items, applied }) => {
+          if (!applied) return;
           if (!deliveryAttempts.length && !deliveryAttemptEvidenceSummary) return;
           setStatus(`Auto-refreshed delivery attempt evidence filters with ${formatInt(items.length)} loaded row(s).`);
         })
@@ -11180,6 +11182,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   async function refreshDeliveryAttempts(filterOverride: typeof deliveryAttemptFilters = deliveryAttemptFilters) {
+    const refreshSeq = deliveryAttemptRefreshSeq.current + 1;
+    deliveryAttemptRefreshSeq.current = refreshSeq;
     const params = new URLSearchParams({ limit: '50', offset: '0' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
@@ -11193,9 +11197,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       fetchJson<ListResponse<DeliveryAttemptRead>>(`/api/v1/delivery-attempts/list?${params.toString()}`),
       fetchJson<DeliveryAttemptEvidenceSummaryRead>(`/api/v1/delivery-attempts/evidence-summary?${summaryParams.toString()}`),
     ]);
-    setDeliveryAttempts(data.items || []);
-    setDeliveryAttemptEvidenceSummary(summary);
-    return data.items || [];
+    const items = data.items || [];
+    const applied = refreshSeq === deliveryAttemptRefreshSeq.current;
+    if (applied) {
+      setDeliveryAttempts(items);
+      setDeliveryAttemptEvidenceSummary(summary);
+    }
+    return { items, applied };
   }
 
   async function copyTextToClipboard(text: string) {
@@ -11701,7 +11709,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   async function loadDeliveryAttempts() {
     await runDeliveryOperation('Loading delivery attempt audit', async () => {
-      const items = await refreshDeliveryAttempts();
+      const { items } = await refreshDeliveryAttempts();
       const blocked = items.filter((attempt) => attempt.status === 'claim_blocked').length;
       const dead = items.filter((attempt) => attempt.status === 'dead_lettered').length;
       return `Loaded ${formatInt(items.length)} attempt row(s): ${formatInt(blocked)} claim-blocked, ${formatInt(dead)} dead-lettered.`;
