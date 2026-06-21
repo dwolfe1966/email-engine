@@ -10425,7 +10425,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     : selectedJobId
       ? `job ${selectedJobId.slice(0, 8)}`
       : 'all attempts';
-  const activeDeliveryAttemptFilterCount = Object.values(deliveryAttemptFilters).filter((value) => value.trim()).length;
+  const activeDeliveryAttemptFilters = Object.entries(deliveryAttemptFilters)
+    .filter(([, value]) => value.trim())
+    .map(([key, value]) => `${key}=${value.trim()}`);
+  const activeDeliveryAttemptFilterCount = activeDeliveryAttemptFilters.length;
   const deliveryAttemptExportedCount = Math.min(evidenceSummaryTotal, deliveryAttemptExportLimit);
   const deliveryAttemptEvidenceRollups = [
     {
@@ -12883,6 +12886,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
           <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
           <button className="ghost" onClick={() => setDeliveryAttemptFilters(emptyDeliveryAttemptFilters)} disabled={busy}>Clear Attempt Filters</button>
+        </div>
+        <div className="delivery-ai-summary" aria-label="Active delivery attempt evidence filters">
+          <span>Active evidence filters</span>
+          {activeDeliveryAttemptFilters.length ? activeDeliveryAttemptFilters.map((filter) => (
+            <span key={filter}>{filter}</span>
+          )) : <span>none</span>}
         </div>
         <div className="summary-grid" aria-label="Delivery attempt evidence rollup">
           {deliveryAttemptEvidenceRollups.map((item) => (
