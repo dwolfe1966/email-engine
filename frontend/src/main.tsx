@@ -11472,6 +11472,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? `${firstSendControlProgress}; ${formatInt(firstSendReadiness.blockers.length)} blocker(s): ${firstSendReadiness.blockers.join(', ')}.`
       : `${firstSendControlProgress}.`
     : 'Load First Send Evidence to check provider, MTA, auth, DNS, smoke, and compliance gates.';
+  const controlledSeedReady = Boolean(firstSendReadiness?.ok && awsNextGateValue === 'Run controlled seed');
+  const controlledSeedValue = controlledSeedReady
+    ? 'Ready'
+    : firstSendReadiness
+      ? 'Blocked'
+      : 'Not checked';
+  const controlledSeedDetail = controlledSeedReady
+    ? 'All loaded first-send gates are ready; run one small seed through the owned MTA path and inspect delivery evidence.'
+    : firstSendReadiness?.blockers.length
+      ? `Clear blockers before seed traffic: ${firstSendReadiness.blockers.join(', ')}.`
+      : 'Load First Send Evidence and complete AWS activation gates before controlled seed traffic.';
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -12387,6 +12398,48 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function copyManagedSmtpFirstSendEvidencePack() {
     await copyTextToClipboard(buildManagedSmtpFirstSendEvidencePack());
     setStatus(`Copied managed SMTP first-send evidence pack with ${formatInt(firstSendReadinessItems.length)} checklist item(s).`);
+  }
+
+  function buildManagedSmtpControlledSeedEvidencePack() {
+    const checklist = firstSendReadinessItems.map((item) => [
+      `- ${item.label}`,
+      `  status=${item.tone === 'good' ? 'ready' : 'review'}`,
+      `  value=${item.value || '-'}`,
+      `  detail=${item.detail || '-'}`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Controlled Seed Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Controlled seed: ${controlledSeedValue}`,
+      `Seed detail: ${controlledSeedDetail}`,
+      `AWS next gate: ${awsNextGateValue} (${awsNextGateDetail})`,
+      `First-send status: ${firstSendReadiness?.status || firstSendSummaryTitle}`,
+      `First-send ready: ${firstSendReadiness?.ok ? 'true' : 'false'}`,
+      `First-send blockers: ${firstSendReadiness?.blockers.length ? firstSendReadiness.blockers.join(', ') : 'none loaded'}`,
+      `Domain policy: ${selectedDomainPolicy?.domain || '-'}`,
+      `Route ID: ${selectedDomainPolicy?.route_id || '-'}`,
+      `AWS node: ${awsAgentHostname} (${awsAgentPublicIp})`,
+      `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
+      `Latest readiness: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.host || latestReadinessCheck.domain || '-'} ${latestReadinessCheck.created_at}` : '-'}`,
+      `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
+      `Compliance: ${domainDashboard?.compliance_status || firstSendComplianceStatus}`,
+      '',
+      'Runbook',
+      '- Load First Send Evidence immediately before the seed.',
+      '- Confirm Controlled seed is Ready.',
+      '- Send one internal seed recipient only.',
+      '- Click Process Queued once if the seed creates a queued delivery record.',
+      '- Reload Delivery Attempts and copy route/send proof evidence.',
+      '- Hold expansion until provider feedback, MTA logs, and first attempt evidence are clean.',
+      '',
+      'Checklist',
+      checklist || '- no first-send checklist loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpControlledSeedEvidencePack() {
+    await copyTextToClipboard(buildManagedSmtpControlledSeedEvidencePack());
+    setStatus(`Copied managed SMTP controlled seed pack: ${controlledSeedValue}.`);
   }
 
   function buildMtaNodeEventEvidencePack() {
@@ -14397,6 +14450,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="ghost" onClick={loadFirstSendEvidence} disabled={busy}>Load First Send Evidence</button>
             <button className="ghost" onClick={loadReadinessChecks} disabled={busy}>Load Readiness</button>
             <button className="ghost" onClick={copyManagedSmtpFirstSendEvidencePack} disabled={busy}>Copy First-Send Pack</button>
+            <button className="ghost" onClick={copyManagedSmtpControlledSeedEvidencePack} disabled={busy}>Copy Controlled Seed Pack</button>
           </div>
         </div>
         <div className="first-send-checklist">
@@ -14404,6 +14458,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <span>First-send status</span>
             <strong>{firstSendSummaryTitle}</strong>
             <small>{firstSendSummaryDetail}</small>
+          </article>
+          <article className={`first-send-summary-card ${controlledSeedReady ? 'good' : 'warn'}`}>
+            <span>Controlled seed</span>
+            <strong>{controlledSeedValue}</strong>
+            <small>{controlledSeedDetail}</small>
           </article>
           {firstSendReadinessItems.map((item) => (
             <article className={`first-send-check ${item.tone}`} key={item.label}>
