@@ -851,6 +851,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Top block code',
         'Top block message',
         'top_block_messages',
+        'Provider failover signal',
+        'Provider failover:',
         'Top candidate count',
         'Top skipped count',
         'top_node_candidate_counts',

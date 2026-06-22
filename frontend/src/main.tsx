@@ -10608,6 +10608,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const poolPressureDetail = poolPressureSignals.length
     ? poolPressureSignals.join(', ')
     : 'Loaded evidence does not show capacity, rate-limit, skipped-node, or fallback pressure.';
+  const providerFailoverSignals = [
+    summaryTopProviderPreferenceBlock.label === 'preference blocked' ? 'preferred provider blocked' : '',
+    summaryTopProviderFallbackAvailability.label === 'fallback unavailable' ? 'fallback unavailable' : '',
+    summaryTopProviderFallback.label === 'fallback used' ? 'fallback used' : '',
+  ].filter(Boolean);
+  const providerFailoverValue = providerFailoverSignals.length ? 'Failover pressure' : 'Preferred path';
+  const providerFailoverDetail = providerFailoverSignals.length
+    ? providerFailoverSignals.join(', ')
+    : 'Loaded evidence shows preferred providers available without fallback pressure.';
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10702,6 +10711,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top provider preference',
       value: summaryTopProviderPreference.label,
       detail: summaryTopProviderPreference.count ? `${formatInt(summaryTopProviderPreference.count)} matching attempt(s) carried this provider preference.` : 'No provider preference evidence loaded.',
+    },
+    {
+      label: 'Provider failover signal',
+      value: providerFailoverValue,
+      detail: providerFailoverDetail,
     },
     {
       label: 'Top preference mode',
@@ -11658,6 +11672,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Scope: ${scope}`,
       `Active filters: ${activeFilters}`,
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
       '',
       'Summary',
       rollups,
