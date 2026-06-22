@@ -850,6 +850,7 @@ class DomainWarmupProgressionRequest(BaseModel):
     max_complaint_rate: float = Field(default=0.001, ge=0, le=1)
     min_sent_count: int = Field(default=25, ge=0)
     operator: str | None = Field(default=None, max_length=200)
+    gate_evidence: JsonObject = Field(default_factory=dict)
 
 
 class DomainWarmupProgressionRead(BaseModel):

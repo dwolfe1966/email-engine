@@ -776,6 +776,7 @@ class DeliveryRouteService:
                 'sent_count': sent_count,
                 'bounce_rate': bounce_rate,
                 'complaint_rate': complaint_rate,
+                'gate_evidence': payload.gate_evidence,
             },
         )
         policy.metadata_json = metadata

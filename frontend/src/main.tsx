@@ -12246,8 +12246,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       : 100;
     const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
     const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
+    const gateEvidence = buildWarmupGateEvidence();
     const auditEntries = warmupAuditLog.slice(-8).map((entry) => {
       const item = entry as Record<string, unknown>;
+      const storedGateEvidence = item.gate_evidence && typeof item.gate_evidence === 'object'
+        ? item.gate_evidence as Record<string, unknown>
+        : {};
       return [
         `- action=${String(item.action || '-')}`,
         `  status=${String(item.status || '-')}`,
@@ -12256,6 +12260,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  evaluated_at=${String(item.evaluated_at || '-')}`,
         `  stage=${String(item.previous_stage || '-')} -> ${String(item.current_stage || '-')}`,
         `  daily_limit=${String(item.previous_daily_limit || '-')} -> ${String(item.current_daily_limit || '-')}`,
+        `  gate_evidence_keys=${Object.keys(storedGateEvidence).join(', ') || '-'}`,
       ].join('\n');
     }).join('\n');
     return [
@@ -12285,6 +12290,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
       `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
       `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
+      `Gate evidence snapshot: ${Object.keys(gateEvidence).join(', ') || '-'}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       '',
       'Operator guidance',
@@ -12308,6 +12314,43 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function copyManagedSmtpWarmupReviewPack() {
     await copyTextToClipboard(buildManagedSmtpWarmupReviewPack());
     setStatus(`Copied managed SMTP warmup review pack: ${warmupReviewValue}.`);
+  }
+
+  function buildWarmupGateEvidence(): Record<string, unknown> {
+    return {
+      controlled_seed_proof: {
+        value: controlledSeedProofValue,
+        detail: controlledSeedProofDetail,
+        accepted: controlledSeedProofAccepted,
+        resolved: controlledSeedProofResolved,
+        rejected: controlledSeedProofRejected,
+        loaded_attempts: controlledSeedProofAttempts.length,
+      },
+      controlled_expansion: {
+        value: controlledExpansionValue,
+        detail: controlledExpansionDetail,
+        ready: controlledExpansionReady,
+      },
+      expansion_pool_gate: {
+        value: expansionPoolGateValue,
+        detail: expansionPoolGateDetail,
+        ready: expansionPoolGateReady,
+        selected_pool_id: selectedMtaIpPool?.id || null,
+        selected_pool_name: selectedMtaIpPool?.name || null,
+        selected_membership_id: selectedMtaIpPoolNode?.id || null,
+      },
+      feedback_gate: {
+        value: feedbackGateValue,
+        detail: feedbackGateDetail,
+        ready: feedbackGateReady,
+        warning_count: providerFeedbackWarningCount,
+        loaded_events: providerFeedbackEvents.length,
+      },
+      evidence_completeness: {
+        value: evidenceCompletenessValue,
+        detail: evidenceCompletenessDetail,
+      },
+    };
   }
 
   function buildManagedSmtpRouteResolutionEvidencePack() {
@@ -14270,6 +14313,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         body: JSON.stringify({
           advance: false,
           operator: 'esp_admin_review',
+          gate_evidence: buildWarmupGateEvidence(),
         }),
       });
       setWarmupProgression(result);
@@ -14297,6 +14341,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           advance: true,
           next_daily_limit: nextDailyLimit,
           operator: 'esp_admin_approved',
+          gate_evidence: buildWarmupGateEvidence(),
         }),
       });
       setWarmupProgression(result);

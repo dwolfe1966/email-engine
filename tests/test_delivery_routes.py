@@ -1013,7 +1013,13 @@ def test_progress_domain_warmup_advances_healthy_stage() -> None:
 
     result = service.progress_domain_warmup(
         policy.id,
-        DomainWarmupProgressionRequest(),
+        DomainWarmupProgressionRequest(
+            gate_evidence={
+                'controlled_seed_proof': {'value': 'Expand cautiously'},
+                'expansion_pool_gate': {'value': 'Ready'},
+                'feedback_gate': {'value': 'Quiet', 'warning_count': 0},
+            }
+        ),
         deliverability=deliverability,
     )
 
@@ -1025,6 +1031,7 @@ def test_progress_domain_warmup_advances_healthy_stage() -> None:
     assert policy.metadata_json['warmup_stage_order'] == 2
     assert policy.metadata_json['warmup_daily_limit'] == 200
     assert policy.metadata_json['warmup_audit_log'][-1]['action'] == 'advance'
+    assert policy.metadata_json['warmup_audit_log'][-1]['gate_evidence']['feedback_gate']['value'] == 'Quiet'
     assert db.committed
 
 
