@@ -10639,6 +10639,22 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
+  const submissionPathSignals = [
+    summaryTopSubmissionProvider.count ? `provider ${summaryTopSubmissionProvider.label}` : '',
+    summaryTopSubmissionHost.count ? `host ${summaryTopSubmissionHost.label}` : '',
+    summaryTopSubmissionPort.count ? `port ${summaryTopSubmissionPort.label}` : '',
+    summaryTopMtaHostname.count ? `mta ${summaryTopMtaHostname.label}` : '',
+  ].filter(Boolean);
+  const submissionPathValue = submissionPathSignals.length
+    ? 'Captured'
+    : evidenceSummaryBlocked
+      ? 'Blocked before submit'
+      : 'Missing submission evidence';
+  const submissionPathDetail = submissionPathSignals.length
+    ? submissionPathSignals.join(', ')
+    : evidenceSummaryBlocked
+      ? `${formatInt(evidenceSummaryBlocked)} blocked route decision(s) did not reach SMTP submission.`
+      : 'Resolved attempts should include provider, host, port, or MTA hostname evidence.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
     ? `record ${selectedRecordId.slice(0, 8)}`
@@ -10790,6 +10806,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top selection weight',
       value: summaryTopNodeSelectionWeight.label,
       detail: summaryTopNodeSelectionWeight.count ? `${formatInt(summaryTopNodeSelectionWeight.count)} matching attempt(s) used this node weight.` : 'No node-weight evidence loaded.',
+    },
+    {
+      label: 'Submission path signal',
+      value: submissionPathValue,
+      detail: submissionPathDetail,
     },
     {
       label: 'Top submission provider',
@@ -11698,6 +11719,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
       `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
       `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
+      `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
       '',
       'Summary',
       rollups,

@@ -863,6 +863,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'skipped_count',
         'Top selection priority',
         'Top selection weight',
+        'Submission path signal',
+        'Submission path:',
         'Top submission provider',
         'Top submission host',
         'Top submission port',
