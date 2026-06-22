@@ -10464,6 +10464,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       filters: { mta_route_resolved: 'false' },
     },
     {
+      label: 'Controlled Seed Proof',
+      filters: { mta_route_resolved: 'true', mta_route_send_type: 'internal_test' },
+    },
+    {
       label: 'Resolved Rule Hits',
       filters: { mta_route_resolved: 'true', mta_routing_rule_source: 'delivery_route_rule' },
     },
@@ -10696,6 +10700,34 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     : evidenceSummaryResolved
       ? `${formatInt(evidenceSummaryResolved)} resolved attempt(s) include required route evidence.`
       : 'Load resolved delivery attempts to audit route evidence completeness.';
+  const controlledSeedProofAttempts = deliveryAttempts.filter((attempt) => {
+    const metadata = attempt.metadata_json || {};
+    const sendType = String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '');
+    return sendType === 'internal_test' || attempt.route_type === 'test_send';
+  });
+  const controlledSeedProofResolved = controlledSeedProofAttempts.filter((attempt) => attempt.metadata_json?.mta_route_resolved === true).length;
+  const controlledSeedProofRejected = controlledSeedProofAttempts.filter((attempt) => (
+    attempt.status === 'failed'
+    || attempt.status === 'dead_lettered'
+    || attempt.status === 'claim_blocked'
+    || Number(attempt.smtp_response_code || attempt.metadata_json?.smtp_response_code || 0) >= 400
+    || attempt.metadata_json?.mta_route_resolved === false
+  )).length;
+  const controlledSeedProofAccepted = controlledSeedProofAttempts.filter((attempt) => (
+    attempt.metadata_json?.mta_route_resolved === true
+    && !['failed', 'dead_lettered', 'claim_blocked'].includes(attempt.status)
+    && Number(attempt.smtp_response_code || attempt.metadata_json?.smtp_response_code || 0) < 400
+  )).length;
+  const controlledSeedProofValue = !controlledSeedProofAttempts.length
+    ? 'No proof loaded'
+    : controlledSeedProofRejected
+      ? 'Hold'
+      : controlledSeedProofAccepted
+        ? 'Expand cautiously'
+        : 'Review';
+  const controlledSeedProofDetail = !controlledSeedProofAttempts.length
+    ? 'Apply Controlled Seed Proof after processing the seed to inspect route and SMTP evidence.'
+    : `${formatInt(controlledSeedProofAccepted)} accepted, ${formatInt(controlledSeedProofResolved)} resolved, ${formatInt(controlledSeedProofRejected)} rejected out of ${formatInt(controlledSeedProofAttempts.length)} loaded seed attempt(s).`;
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
     ? `record ${selectedRecordId.slice(0, 8)}`
@@ -10715,6 +10747,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Matching evidence rows',
       value: formatInt(evidenceSummaryTotal),
       detail: `${formatInt(evidenceSummaryResolved)} resolved, ${formatInt(evidenceSummaryBlocked)} blocked route decision(s).`,
+    },
+    {
+      label: 'Controlled seed proof',
+      value: controlledSeedProofValue,
+      detail: controlledSeedProofDetail,
     },
     {
       label: 'Export scope',
@@ -11948,6 +11985,65 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const pack = buildDeliveryAttemptEvidencePack();
     await copyTextToClipboard(pack);
     setStatus(`Copied delivery attempt evidence pack with ${formatInt(deliveryAttempts.length)} loaded attempt row(s).`);
+  }
+
+  function buildManagedSmtpControlledSeedProofPack() {
+    const attempts = controlledSeedProofAttempts.slice(0, 8).map((attempt) => {
+      const metadata = attempt.metadata_json || {};
+      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+        ? metadata.mta_rule_hit_provider_preference.join(', ')
+        : String(metadata.mta_rule_hit_provider_preference || '-');
+      return [
+        `- attempt=${attempt.id}`,
+        `  status=${attempt.status}`,
+        `  record=${attempt.send_record_id}`,
+        `  smtp=${String(attempt.smtp_response_code || metadata.smtp_response_code || '-')}`,
+        `  resolved=${String(metadata.mta_route_resolved ?? '-')}`,
+        `  send_type=${String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-')}`,
+        `  sender_domain=${String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-')}`,
+        `  recipient_domain=${String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-')}`,
+        `  provider=${String(metadata.mta_provider || attempt.provider || '-')}`,
+        `  pool=${String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-')}`,
+        `  node=${String(metadata.mta_node_name || metadata.mta_node_id || '-')}`,
+        `  rule=${String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-')}`,
+        `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
+        `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
+        `  provider_preference=${providerPreference}`,
+        `  submission=${String(metadata.mta_submission_provider || '-')} ${String(metadata.mta_submission_host || '-')}:${String(metadata.mta_submission_port || '-')}`,
+        `  mta_hostname=${String(metadata.mta_hostname || '-')}`,
+        `  block=${String(metadata.mta_route_block_code || '-')}`,
+        `  error=${attempt.error_message || String(metadata.delivery_error_message || '-')}`,
+        `  timeline=${buildAttemptResolverTimeline(attempt)}`,
+      ].join('\n');
+    }).join('\n');
+    return [
+      'Managed SMTP Controlled Seed Proof Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Proof decision: ${controlledSeedProofValue}`,
+      `Proof detail: ${controlledSeedProofDetail}`,
+      `Loaded proof attempts: ${formatInt(controlledSeedProofAttempts.length)}`,
+      `Accepted: ${formatInt(controlledSeedProofAccepted)}`,
+      `Resolved: ${formatInt(controlledSeedProofResolved)}`,
+      `Rejected: ${formatInt(controlledSeedProofRejected)}`,
+      `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
+      `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
+      `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
+      `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
+      '',
+      'Decision guidance',
+      controlledSeedProofValue === 'Expand cautiously'
+        ? '- Seed proof is clean. Keep next expansion small and continue monitoring feedback, MTA logs, and attempt evidence.'
+        : '- Hold expansion. Resolve rejected/blocked proof evidence before adding volume.',
+      '',
+      'Proof attempts',
+      attempts || '- no controlled seed proof attempts loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpControlledSeedProofPack() {
+    await copyTextToClipboard(buildManagedSmtpControlledSeedProofPack());
+    setStatus(`Copied managed SMTP controlled seed proof pack: ${controlledSeedProofValue}.`);
   }
 
   function buildManagedSmtpRouteResolutionEvidencePack() {
@@ -15012,6 +15108,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
+          <button className="ghost" onClick={copyManagedSmtpControlledSeedProofPack} disabled={busy}>Copy Seed Proof Pack</button>
           <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
           <button className="ghost" onClick={clearDeliveryAttemptFilters} disabled={busy}>Clear Attempt Filters</button>
         </div>
