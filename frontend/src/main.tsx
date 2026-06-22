@@ -12886,6 +12886,36 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Drafted routing rule ${ruleName} from delivery attempt evidence; review and save it to apply.`);
   }
 
+  function draftAwsSecondaryRoutingRule() {
+    const senderDomain = selectedDomainPolicy?.domain || 'email-engine.app';
+    const ruleName = 'aws-secondary-internal-test';
+    setSelectedManagedSmtpRoutingRuleName('');
+    setManagedSmtpRoutingRuleForm({
+      name: ruleName,
+      priority: '90',
+      enabled: false,
+      send_types: 'internal_test',
+      sender_domains: senderDomain,
+      recipient_domains: '',
+      ip_pool_name: 'aws-port25-open-test',
+      preferred_providers: 'aws',
+      provider_preference_mode: 'fallback_allowed',
+    });
+    setManagedSmtpRoutingRuleDraftEvidence([
+      'source=aws-port25-open',
+      'send_type=internal_test',
+      `sender_domain=${senderDomain}`,
+      'recipient_domain=-',
+      'rule=aws-secondary-internal-test',
+      'pool=aws-port25-open-test',
+      'provider=aws',
+      'enabled=false',
+      'provider_preference_mode=fallback_allowed',
+    ].join(', '));
+    setManagedSmtpRulePreview(null);
+    setStatus('Drafted disabled AWS secondary routing rule; review, preview saved routing state, and enable only after DNS/rDNS readiness is green.');
+  }
+
   function mtaIpPoolMatchesEvidence(pool: MtaIpPoolRead, evidenceLabel: string) {
     const normalized = deliveryFilterValue(evidenceLabel).toLowerCase();
     return Boolean(normalized && normalized !== '-')
@@ -14138,6 +14168,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             Draft evidence
             <input value={managedSmtpRoutingRuleDraftEvidence || 'No evidence draft loaded'} readOnly />
           </label>
+          <button className="ghost" type="button" onClick={draftAwsSecondaryRoutingRule} disabled={busy}>Draft AWS Secondary</button>
           <button className="ghost" type="button" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id || !managedSmtpRoutingRuleDraftEvidence}>Preview Draft</button>
           <button className="ghost" type="button" onClick={copyManagedSmtpRoutingRuleDraft} disabled={busy || !managedSmtpRoutingRuleDraftEvidence}>Copy Draft Evidence</button>
         </div>
