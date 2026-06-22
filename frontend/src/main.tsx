@@ -11286,6 +11286,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: 'warn',
     },
   ];
+  const awsDnsReady = Boolean(
+    awsProviderReadiness
+    && awsProviderReadiness.provider_account.rdns_status === 'configured'
+    && awsProviderReadiness.provider_account.port25_status === 'approved',
+  );
+  const awsNextGateValue = !awsProviderReadiness
+    ? 'Apply AWS profile'
+    : !awsDnsReady
+      ? 'Complete DNS/rDNS'
+      : awsAgentSetupValue !== 'Agent reporting'
+        ? 'Set up AWS agent'
+        : 'Run controlled seed';
+  const awsNextGateDetail = !awsProviderReadiness
+    ? 'Apply aws-port25-open to create the AWS provider account, node, pool, route, and domain policy.'
+    : !awsDnsReady
+      ? 'Assign PTR/rDNS and publish A/SPF/DKIM/DMARC/bounce-MX records before logging into the host.'
+      : awsAgentSetupValue !== 'Agent reporting'
+        ? 'Log into the AWS instance, install/start email-engine-mta-agent, confirm service/timer, and reload SMTP Deployment.'
+        : 'AWS provider has DNS and agent readiness evidence; proceed to first-send readiness and controlled seed checks.';
   const latestReadinessOk = latestReadinessCheck?.status === 'ok';
   const authenticationReady = domainDashboard?.authentication_status === 'verified'
     || domainDashboard?.authentication_status === 'ok';
@@ -12405,6 +12424,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Primary next action: ${summary?.fleet_health.primary_next_action_label || '-'} - ${summary?.fleet_health.primary_next_action_summary || '-'}`,
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
+      `AWS next gate: ${awsNextGateValue} (${awsNextGateDetail})`,
       `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
@@ -12576,7 +12596,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       'ip_pool=aws-port25-open-test',
       '',
       'Next gate',
-      'After DNS/rDNS is assigned, load SMTP Deployment and follow the AWS instance setup signal.',
+      `${awsNextGateValue}: ${awsNextGateDetail}`,
     ].join('\n');
   }
 
@@ -13796,6 +13816,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <span>AWS activation signal</span>
             <strong>{awsActivationValue}</strong>
             <small>{awsActivationDetail}</small>
+          </article>
+          <article className={`managed-smtp-route-field ${awsNextGateValue === 'Run controlled seed' ? 'good' : 'warn'}`}>
+            <span>AWS next gate</span>
+            <strong>{awsNextGateValue}</strong>
+            <small>{awsNextGateDetail}</small>
           </article>
           {(managedSmtpDeploymentSummary?.provider_readiness || []).slice(0, 8).map((item) => (
             <article className={`managed-smtp-route-field ${item.tone}`} key={item.provider_account.id}>
