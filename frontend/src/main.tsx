@@ -734,6 +734,10 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_block_messages: DeliveryAttemptEvidenceCountRead[];
   top_node_candidate_counts: DeliveryAttemptEvidenceCountRead[];
   top_node_skipped_counts: DeliveryAttemptEvidenceCountRead[];
+  top_node_selection_priorities: DeliveryAttemptEvidenceCountRead[];
+  top_node_selection_weights: DeliveryAttemptEvidenceCountRead[];
+  top_submission_hosts: DeliveryAttemptEvidenceCountRead[];
+  top_submission_ports: DeliveryAttemptEvidenceCountRead[];
   top_pool_capacity_statuses: DeliveryAttemptEvidenceCountRead[];
   top_pool_available_node_counts: DeliveryAttemptEvidenceCountRead[];
   top_pool_required_node_counts: DeliveryAttemptEvidenceCountRead[];
@@ -10476,6 +10480,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
   const topAttemptNodeCandidateCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_candidate_count || '-')));
   const topAttemptNodeSkippedCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_skipped_count || '-')));
+  const topAttemptNodeSelectionPriority = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_selection_priority || '-')));
+  const topAttemptNodeSelectionWeight = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_selection_weight || '-')));
+  const topAttemptSubmissionHost = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_submission_host || '-')));
+  const topAttemptSubmissionPort = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_submission_port || '-')));
   const topAttemptPoolCapacityStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_capacity_status || '-')));
   const topAttemptPoolAvailableCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_available_node_count || '-')));
   const topAttemptPoolRequiredCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_required_available_node_count || '-')));
@@ -10497,6 +10505,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
   const summaryTopNodeCandidateCount = deliveryAttemptEvidenceSummary?.top_node_candidate_counts[0] || topAttemptNodeCandidateCount;
   const summaryTopNodeSkippedCount = deliveryAttemptEvidenceSummary?.top_node_skipped_counts[0] || topAttemptNodeSkippedCount;
+  const summaryTopNodeSelectionPriority = deliveryAttemptEvidenceSummary?.top_node_selection_priorities[0] || topAttemptNodeSelectionPriority;
+  const summaryTopNodeSelectionWeight = deliveryAttemptEvidenceSummary?.top_node_selection_weights[0] || topAttemptNodeSelectionWeight;
+  const summaryTopSubmissionHost = deliveryAttemptEvidenceSummary?.top_submission_hosts[0] || topAttemptSubmissionHost;
+  const summaryTopSubmissionPort = deliveryAttemptEvidenceSummary?.top_submission_ports[0] || topAttemptSubmissionPort;
   const summaryTopPoolCapacityStatus = deliveryAttemptEvidenceSummary?.top_pool_capacity_statuses[0] || topAttemptPoolCapacityStatus;
   const summaryTopPoolAvailableCount = deliveryAttemptEvidenceSummary?.top_pool_available_node_counts[0] || topAttemptPoolAvailableCount;
   const summaryTopPoolRequiredCount = deliveryAttemptEvidenceSummary?.top_pool_required_node_counts[0] || topAttemptPoolRequiredCount;
@@ -10612,6 +10624,26 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top skipped count',
       value: summaryTopNodeSkippedCount.label,
       detail: summaryTopNodeSkippedCount.count ? `${formatInt(summaryTopNodeSkippedCount.count)} matching attempt(s) saw this skipped-node count.` : 'No skipped-count evidence loaded.',
+    },
+    {
+      label: 'Top selection priority',
+      value: summaryTopNodeSelectionPriority.label,
+      detail: summaryTopNodeSelectionPriority.count ? `${formatInt(summaryTopNodeSelectionPriority.count)} matching attempt(s) used this node priority.` : 'No node-priority evidence loaded.',
+    },
+    {
+      label: 'Top selection weight',
+      value: summaryTopNodeSelectionWeight.label,
+      detail: summaryTopNodeSelectionWeight.count ? `${formatInt(summaryTopNodeSelectionWeight.count)} matching attempt(s) used this node weight.` : 'No node-weight evidence loaded.',
+    },
+    {
+      label: 'Top submission host',
+      value: summaryTopSubmissionHost.label,
+      detail: summaryTopSubmissionHost.count ? `${formatInt(summaryTopSubmissionHost.count)} matching attempt(s) used this submission host.` : 'No submission-host evidence loaded.',
+    },
+    {
+      label: 'Top submission port',
+      value: summaryTopSubmissionPort.label,
+      detail: summaryTopSubmissionPort.count ? `${formatInt(summaryTopSubmissionPort.count)} matching attempt(s) used this submission port.` : 'No submission-port evidence loaded.',
     },
     {
       label: 'Top capacity status',
@@ -11463,6 +11495,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  block_code=${String(metadata.mta_route_block_code || '-')}`,
         `  candidate_count=${String(metadata.mta_node_candidate_count || '-')}`,
         `  skipped_count=${String(metadata.mta_node_skipped_count || '-')}`,
+        `  selection_priority=${String(metadata.mta_node_selection_priority || '-')}`,
+        `  selection_weight=${String(metadata.mta_node_selection_weight || '-')}`,
+        `  submission_host=${String(metadata.mta_submission_host || '-')}`,
+        `  submission_port=${String(metadata.mta_submission_port || '-')}`,
         `  pool_capacity_status=${String(metadata.mta_pool_capacity_status || '-')}`,
         `  pool_available_node_count=${String(metadata.mta_pool_available_node_count || '-')}`,
         `  pool_required_node_count=${String(metadata.mta_pool_required_available_node_count || '-')}`,

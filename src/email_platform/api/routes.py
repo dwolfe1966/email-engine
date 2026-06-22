@@ -3225,6 +3225,12 @@ def summarize_delivery_attempt_evidence(
     block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
     node_candidate_count_expr = DeliveryAttempt.metadata_json['mta_node_candidate_count'].astext
     node_skipped_count_expr = DeliveryAttempt.metadata_json['mta_node_skipped_count'].astext
+    node_selection_priority_expr = DeliveryAttempt.metadata_json[
+        'mta_node_selection_priority'
+    ].astext
+    node_selection_weight_expr = DeliveryAttempt.metadata_json['mta_node_selection_weight'].astext
+    submission_host_expr = DeliveryAttempt.metadata_json['mta_submission_host'].astext
+    submission_port_expr = DeliveryAttempt.metadata_json['mta_submission_port'].astext
     pool_capacity_status_expr = DeliveryAttempt.metadata_json['mta_pool_capacity_status'].astext
     pool_available_count_expr = DeliveryAttempt.metadata_json[
         'mta_pool_available_node_count'
@@ -3283,6 +3289,18 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_node_skipped_counts': _delivery_attempt_evidence_counts(
             db, filters, node_skipped_count_expr
+        ),
+        'top_node_selection_priorities': _delivery_attempt_evidence_counts(
+            db, filters, node_selection_priority_expr
+        ),
+        'top_node_selection_weights': _delivery_attempt_evidence_counts(
+            db, filters, node_selection_weight_expr
+        ),
+        'top_submission_hosts': _delivery_attempt_evidence_counts(
+            db, filters, submission_host_expr
+        ),
+        'top_submission_ports': _delivery_attempt_evidence_counts(
+            db, filters, submission_port_expr
         ),
         'top_pool_capacity_statuses': _delivery_attempt_evidence_counts(
             db, filters, pool_capacity_status_expr
@@ -3442,6 +3460,10 @@ def export_delivery_attempt_evidence_csv(
             'provider_fallback_node',
             'block_code',
             'block_message',
+            'selection_priority',
+            'selection_weight',
+            'submission_host',
+            'submission_port',
             'pool_capacity_status',
             'pool_available_node_count',
             'pool_required_node_count',
@@ -3458,7 +3480,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 37)])
+        writer.writerow([*export_context, *([''] * 41)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3511,6 +3533,10 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_provider_preference_fallback_node_name') or '',
                 metadata.get('mta_route_block_code') or '',
                 metadata.get('mta_route_block_message') or '',
+                metadata.get('mta_node_selection_priority') or '',
+                metadata.get('mta_node_selection_weight') or '',
+                metadata.get('mta_submission_host') or '',
+                metadata.get('mta_submission_port') or '',
                 metadata.get('mta_pool_capacity_status') or '',
                 metadata.get('mta_pool_available_node_count') or '',
                 metadata.get('mta_pool_required_available_node_count') or '',
