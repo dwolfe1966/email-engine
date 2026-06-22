@@ -967,6 +967,21 @@ class MtaProviderAccountRead(MtaProviderAccountCreate):
     model_config = {'from_attributes': True}
 
 
+class MtaProviderRdnsVerificationRead(BaseModel):
+    provider_account_id: UUID
+    mta_node_id: UUID | None = None
+    hostname: str | None = None
+    public_ipv4: str | None = None
+    status: str
+    forward_status: str
+    reverse_status: str
+    observed_a: list[str] = Field(default_factory=list)
+    observed_ptr: list[str] = Field(default_factory=list)
+    expected_a: str | None = None
+    expected_ptr: str | None = None
+    message: str
+
+
 class MtaNodeCreate(BaseModel):
     provider_account_id: UUID
     name: str = Field(..., min_length=1, max_length=200)

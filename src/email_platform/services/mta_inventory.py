@@ -1,6 +1,7 @@
 import os
 from collections import Counter
 from datetime import datetime
+from ipaddress import ip_address
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -39,7 +40,9 @@ from email_platform.schemas.contracts import (
     MtaNodeUpdate,
     MtaProviderAccountCreate,
     MtaProviderAccountUpdate,
+    MtaProviderRdnsVerificationRead,
 )
+from email_platform.services.delivery_routes import DnsLookupUnavailable, SystemDnsResolver
 from email_platform.services.managed_smtp_agent import (
     ManagedSmtpAgentError,
     ManagedSmtpAgentService,
@@ -54,8 +57,9 @@ class MtaInventoryError(ValueError):
 class MtaInventoryService:
     agent_heartbeat_stale_after_seconds = 180
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, dns_resolver: SystemDnsResolver | None = None) -> None:
         self.db = db
+        self.dns_resolver = dns_resolver or SystemDnsResolver()
 
     def create_provider_account(self, payload: MtaProviderAccountCreate) -> MtaProviderAccount:
         account = MtaProviderAccount(**payload.model_dump())
@@ -107,6 +111,89 @@ class MtaInventoryService:
             return None
         account.status = status
         return self._commit_refresh(account)
+
+    def verify_provider_rdns(self, account_id: UUID) -> MtaProviderRdnsVerificationRead | None:
+        account = self.get_provider_account(account_id)
+        if not account:
+            return None
+        node = next(
+            (
+                item
+                for item in self.list_nodes(provider_account_id=account_id, limit=25)
+                if getattr(item, 'public_ipv4', None)
+            ),
+            None,
+        )
+        if not node:
+            return MtaProviderRdnsVerificationRead(
+                provider_account_id=account_id,
+                status='unchecked',
+                forward_status='unchecked',
+                reverse_status='unchecked',
+                message='No MTA node with a public IPv4 is registered for this provider account.',
+            )
+        hostname = str(node.hostname).rstrip('.').lower()
+        public_ipv4 = str(node.public_ipv4)
+        try:
+            reverse_name = ip_address(public_ipv4).reverse_pointer
+        except ValueError:
+            return MtaProviderRdnsVerificationRead(
+                provider_account_id=account_id,
+                mta_node_id=node.id,
+                hostname=node.hostname,
+                public_ipv4=public_ipv4,
+                status='unchecked',
+                forward_status='unchecked',
+                reverse_status='unchecked',
+                expected_a=public_ipv4,
+                expected_ptr=hostname,
+                message='The MTA node public IPv4 is not a valid IP address.',
+            )
+
+        observed_a, forward_status, forward_error = self._dns_lookup_status(
+            'A',
+            node.hostname,
+            expected=public_ipv4,
+        )
+        observed_ptr_raw, reverse_status, reverse_error = self._dns_lookup_status(
+            'PTR',
+            reverse_name,
+            expected=hostname,
+            normalize=True,
+        )
+        observed_ptr = [self._normalize_dns_value(value) for value in observed_ptr_raw]
+        if forward_status == 'verified' and reverse_status == 'verified':
+            status = 'verified'
+        elif 'unchecked' in {forward_status, reverse_status}:
+            status = 'unchecked'
+        else:
+            status = 'mismatch'
+        message = (
+            'Forward A and reverse PTR/rDNS match the selected MTA node.'
+            if status == 'verified'
+            else '; '.join(
+                item
+                for item in [
+                    forward_error or f'Forward A is {forward_status}.',
+                    reverse_error or f'Reverse PTR/rDNS is {reverse_status}.',
+                ]
+                if item
+            )
+        )
+        return MtaProviderRdnsVerificationRead(
+            provider_account_id=account_id,
+            mta_node_id=node.id,
+            hostname=node.hostname,
+            public_ipv4=public_ipv4,
+            status=status,
+            forward_status=forward_status,
+            reverse_status=reverse_status,
+            observed_a=observed_a,
+            observed_ptr=observed_ptr,
+            expected_a=public_ipv4,
+            expected_ptr=hostname,
+            message=message,
+        )
 
     def create_node(self, payload: MtaNodeCreate) -> MtaNode:
         self._require_provider_account(payload.provider_account_id)
@@ -1843,6 +1930,31 @@ class MtaInventoryService:
         }
         metadata['operator_control_audit_log'] = [entry, *audit_log][:25]
         data['metadata_json'] = metadata
+
+    def _dns_lookup_status(
+        self,
+        record_type: str,
+        name: str,
+        *,
+        expected: str,
+        normalize: bool = False,
+    ) -> tuple[list[str], str, str | None]:
+        try:
+            observed = self.dns_resolver.lookup(record_type, name)
+        except DnsLookupUnavailable as exc:
+            return [], 'unchecked', str(exc) or f'{record_type} lookup unavailable.'
+        expected_value = self._normalize_dns_value(expected) if normalize else expected
+        observed_values = [
+            self._normalize_dns_value(value) if normalize else value
+            for value in observed
+        ]
+        if expected_value in observed_values:
+            return observed, 'verified', None
+        return observed, 'mismatch', None
+
+    @staticmethod
+    def _normalize_dns_value(value: str) -> str:
+        return value.strip().strip('"').rstrip('.').lower()
 
     @staticmethod
     def _inventory_counts(total: int, count_by_status) -> MtaInventoryCounts:

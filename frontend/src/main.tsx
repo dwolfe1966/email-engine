@@ -923,6 +923,21 @@ type MtaProviderAccountRead = {
   updated_at: string;
 };
 
+type MtaProviderRdnsVerificationRead = {
+  provider_account_id: string;
+  mta_node_id: string | null;
+  hostname: string | null;
+  public_ipv4: string | null;
+  status: string;
+  forward_status: string;
+  reverse_status: string;
+  observed_a: string[];
+  observed_ptr: string[];
+  expected_a: string | null;
+  expected_ptr: string | null;
+  message: string;
+};
+
 type ManagedSmtpBootstrapProfileRead = {
   name: string;
   provider: string;
@@ -10241,6 +10256,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
   const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
+  const [awsRdnsVerification, setAwsRdnsVerification] = useState<MtaProviderRdnsVerificationRead | null>(null);
   const [mtaIpPools, setMtaIpPools] = useState<MtaIpPoolRead[]>([]);
   const [mtaIpPoolTotal, setMtaIpPoolTotal] = useState(0);
   const [selectedMtaIpPoolId, setSelectedMtaIpPoolId] = useState('');
@@ -11291,17 +11307,33 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     && awsProviderReadiness.provider_account.rdns_status === 'configured'
     && awsProviderReadiness.provider_account.port25_status === 'approved',
   );
+  const awsRdnsVerified = awsRdnsVerification?.status === 'verified';
+  const awsRdnsVerificationTone = !awsRdnsVerification
+    ? 'warn'
+    : awsRdnsVerified
+      ? 'good'
+      : 'warn';
+  const awsRdnsVerificationValue = awsRdnsVerification
+    ? awsRdnsVerification.status
+    : 'Not checked';
+  const awsRdnsVerificationDetail = awsRdnsVerification
+    ? `${awsRdnsVerification.message} A=${awsRdnsVerification.observed_a.join(', ') || '-'} PTR=${awsRdnsVerification.observed_ptr.join(', ') || '-'}`
+    : 'Run AWS rDNS verification after assigning the A record and PTR/rDNS in AWS.';
   const awsNextGateValue = !awsProviderReadiness
     ? 'Apply AWS profile'
-    : !awsDnsReady
+    : !awsDnsReady && !awsRdnsVerified
+      ? 'Verify DNS/rDNS'
+      : !awsDnsReady
       ? 'Complete DNS/rDNS'
       : awsAgentSetupValue !== 'Agent reporting'
         ? 'Set up AWS agent'
         : 'Run controlled seed';
   const awsNextGateDetail = !awsProviderReadiness
     ? 'Apply aws-port25-open to create the AWS provider account, node, pool, route, and domain policy.'
-    : !awsDnsReady
-      ? 'Assign PTR/rDNS and publish A/SPF/DKIM/DMARC/bounce-MX records before logging into the host.'
+    : !awsDnsReady && !awsRdnsVerified
+      ? 'Run AWS rDNS verification after assigning forward A and reverse PTR records.'
+      : !awsDnsReady
+        ? 'DNS lookup passed; mark AWS rDNS configured, then publish SPF/DKIM/DMARC/bounce-MX before logging into the host.'
       : awsAgentSetupValue !== 'Agent reporting'
         ? 'Log into the AWS instance, install/start email-engine-mta-agent, confirm service/timer, and reload SMTP Deployment.'
         : 'AWS provider has DNS and agent readiness evidence; proceed to first-send readiness and controlled seed checks.';
@@ -12425,6 +12457,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `AWS next gate: ${awsNextGateValue} (${awsNextGateDetail})`,
+      `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
       `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
@@ -12562,6 +12595,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `detail=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Install/start email-engine-mta-agent on the AWS MTA host, confirm timer/service, then reload SMTP Deployment.' : awsAgentSetupDetail}`,
       managedSmtpAgentCommands.map((command) => `  ${command}`).join('\n'),
       '',
+      'AWS rDNS verification',
+      `status=${awsRdnsVerificationValue}`,
+      `detail=${awsRdnsVerificationDetail}`,
+      '',
       'AWS DNS/rDNS checklist',
       awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
       '',
@@ -12585,6 +12622,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Generated at: ${new Date().toISOString()}`,
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
+      `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
       '',
       'DNS checklist',
       awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
@@ -12627,6 +12665,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
+      `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
       `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
       `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
@@ -13319,6 +13358,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  async function verifyAwsProviderRdns() {
+    await runDeliveryOperation('Verifying AWS provider rDNS', async () => {
+      if (!awsProviderReadiness?.provider_account.id) throw new Error('Load SMTP Deployment after applying aws-port25-open.');
+      const verification = await fetchJson<MtaProviderRdnsVerificationRead>(`/api/v1/managed-smtp/provider-accounts/${awsProviderReadiness.provider_account.id}/verify-rdns`, {
+        method: 'POST',
+      });
+      setAwsRdnsVerification(verification);
+      const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
+      setManagedSmtpDeploymentSummary(summary);
+      return `AWS rDNS verification ${verification.status}: ${verification.message}`;
+    });
+  }
+
   async function loadFirstSendEvidence() {
     await runDeliveryOperation('Loading managed SMTP first-send evidence', async () => {
       const readinessParams = new URLSearchParams({ limit: '25', offset: '0' });
@@ -13822,6 +13874,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Refresh Providers</button>
             <button className="ghost" onClick={copyManagedSmtpProviderReadinessEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Provider Pack</button>
+            <button className="ghost" onClick={verifyAwsProviderRdns} disabled={busy || !awsProviderReadiness}>Verify AWS rDNS</button>
             <button className="ghost" onClick={() => updateAwsProviderRdnsStatus('configured')} disabled={busy || !awsProviderReadiness}>Mark AWS rDNS Configured</button>
             <button className="ghost" onClick={() => updateAwsProviderRdnsStatus('pending')} disabled={busy || !awsProviderReadiness}>Reopen AWS rDNS</button>
           </div>
@@ -13836,6 +13889,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <span>AWS next gate</span>
             <strong>{awsNextGateValue}</strong>
             <small>{awsNextGateDetail}</small>
+          </article>
+          <article className={`managed-smtp-route-field ${awsRdnsVerificationTone}`}>
+            <span>AWS rDNS verification</span>
+            <strong>{awsRdnsVerificationValue}</strong>
+            <small>{awsRdnsVerificationDetail}</small>
           </article>
           {(managedSmtpDeploymentSummary?.provider_readiness || []).slice(0, 8).map((item) => (
             <article className={`managed-smtp-route-field ${item.tone}`} key={item.provider_account.id}>

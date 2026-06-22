@@ -103,6 +103,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/managed-smtp/bootstrap-profiles/list',
         '/api/v1/managed-smtp/deployment-summary',
         '/api/v1/managed-smtp/first-send-readiness',
+        '/api/v1/managed-smtp/provider-accounts/{account_id}/verify-rdns',
         '/api/v1/managed-smtp/readiness-checks/list',
         '/api/v1/managed-smtp/readiness-checks/summary',
         '/api/v1/managed-smtp/readiness-checks/trend',

@@ -49,6 +49,14 @@ class FakeDb:
         return 0
 
 
+class FakeDnsResolver:
+    def __init__(self, records: dict[tuple[str, str], list[str]]) -> None:
+        self.records = records
+
+    def lookup(self, record_type: str, name: str) -> list[str]:
+        return self.records.get((record_type, name), [])
+
+
 def test_create_provider_account_defaults_to_secret_ref_not_raw_credentials() -> None:
     db = FakeDb()
     service = MtaInventoryService(db)
@@ -69,6 +77,66 @@ def test_create_provider_account_defaults_to_secret_ref_not_raw_credentials() ->
     assert db.added == [account]
     assert db.committed
     assert db.refreshed == [account]
+
+
+def test_verify_provider_rdns_checks_forward_and_reverse_dns() -> None:
+    account_id = uuid4()
+    node_id = uuid4()
+    account = SimpleNamespace(id=account_id)
+    node = SimpleNamespace(
+        id=node_id,
+        hostname='mta-aws-001.email-engine.app',
+        public_ipv4='203.0.113.10',
+    )
+    service = MtaInventoryService(
+        FakeDb(),
+        dns_resolver=FakeDnsResolver(
+            {
+                ('A', 'mta-aws-001.email-engine.app'): ['203.0.113.10'],
+                ('PTR', '10.113.0.203.in-addr.arpa'): ['mta-aws-001.email-engine.app.'],
+            }
+        ),
+    )
+    service.get_provider_account = lambda item_id: account if item_id == account_id else None
+    service.list_nodes = lambda **kwargs: [node]
+
+    result = service.verify_provider_rdns(account_id)
+
+    assert result is not None
+    assert result.status == 'verified'
+    assert result.forward_status == 'verified'
+    assert result.reverse_status == 'verified'
+    assert result.observed_a == ['203.0.113.10']
+    assert result.observed_ptr == ['mta-aws-001.email-engine.app']
+
+
+def test_verify_provider_rdns_reports_mismatch_without_mutating_provider() -> None:
+    account_id = uuid4()
+    account = SimpleNamespace(id=account_id, rdns_status='pending')
+    node = SimpleNamespace(
+        id=uuid4(),
+        hostname='mta-aws-001.email-engine.app',
+        public_ipv4='203.0.113.10',
+    )
+    service = MtaInventoryService(
+        FakeDb(),
+        dns_resolver=FakeDnsResolver(
+            {
+                ('A', 'mta-aws-001.email-engine.app'): ['198.51.100.20'],
+                ('PTR', '10.113.0.203.in-addr.arpa'): ['wrong.example.com.'],
+            }
+        ),
+    )
+    service.get_provider_account = lambda item_id: account if item_id == account_id else None
+    service.list_nodes = lambda **kwargs: [node]
+
+    result = service.verify_provider_rdns(account_id)
+
+    assert result is not None
+    assert result.status == 'mismatch'
+    assert result.forward_status == 'mismatch'
+    assert result.reverse_status == 'mismatch'
+    assert account.rdns_status == 'pending'
 
 
 def test_create_node_requires_existing_provider_account() -> None:

@@ -192,6 +192,7 @@ from email_platform.schemas.contracts import (
     MtaProviderAccountCreate,
     MtaProviderAccountRead,
     MtaProviderAccountUpdate,
+    MtaProviderRdnsVerificationRead,
     OperatorUserCreate,
     OperatorUserPasswordUpdate,
     OperatorUserRead,
@@ -4287,6 +4288,17 @@ def update_mta_provider_account(
     if not account:
         raise HTTPException(status_code=404, detail='MTA provider account not found')
     return account
+
+
+@router.post(
+    '/managed-smtp/provider-accounts/{account_id}/verify-rdns',
+    response_model=MtaProviderRdnsVerificationRead,
+)
+def verify_mta_provider_rdns(account_id: UUID, db: DbSession) -> MtaProviderRdnsVerificationRead:
+    result = MtaInventoryService(db).verify_provider_rdns(account_id)
+    if not result:
+        raise HTTPException(status_code=404, detail='MTA provider account not found')
+    return result
 
 
 @router.post(
