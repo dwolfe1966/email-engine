@@ -895,6 +895,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Missing evidence dimension',
         'top_missing_evidence_dimensions',
         'missing_evidence_dimensions',
+        'Resolver timeline',
+        'resolver_timeline',
         'rule source',
         'pool source',
         '/api/v1/ai/delivery/analyze',

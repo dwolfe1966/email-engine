@@ -10486,6 +10486,32 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .filter(([, value]) => value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0))
       .map(([label]) => label);
   }
+  function buildAttemptResolverTimeline(attempt: DeliveryAttemptRead) {
+    const metadata = attempt.metadata_json || {};
+    const routeState = metadata.mta_route_status
+      || (metadata.mta_route_resolved === true ? 'resolved' : metadata.mta_route_resolved === false ? 'blocked' : 'not attempted');
+    const rule = String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-');
+    const pool = String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-');
+    const node = String(metadata.mta_node_name || metadata.mta_node_id || '-');
+    const provider = String(metadata.mta_provider || '-');
+    const block = metadata.mta_route_block_code
+      ? `blocked ${String(metadata.mta_route_block_code)}`
+      : '';
+    const submission = metadata.mta_submission_host
+      ? `submitted ${String(metadata.mta_submission_provider || 'managed_smtp')} ${String(metadata.mta_submission_host)}:${String(metadata.mta_submission_port || '-')}`
+      : '';
+    const outcome = attempt.completed_at
+      ? `completed ${attempt.completed_at}`
+      : `last ${attempt.status}`;
+    const decision = block || `selected rule=${rule} pool=${pool} provider=${provider} node=${node}`;
+    return [
+      `started ${attempt.started_at}`,
+      `route ${String(routeState)}`,
+      decision,
+      submission,
+      outcome,
+    ].filter(Boolean).join(' -> ');
+  }
   const topAttemptRouteStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_status || '-')));
   const topAttemptRouteResolvedState = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
     if (attempt.metadata_json?.mta_route_resolved === true) return 'resolved';
@@ -11560,13 +11586,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const rollups = deliveryAttemptEvidenceRollups
       .map((item) => `- ${item.label}: ${item.value} (${item.detail})`)
       .join('\n');
-	    const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
-	      const metadata = attempt.metadata_json || {};
-	      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
-	        ? metadata.mta_rule_hit_provider_preference.join(', ')
-	        : String(metadata.mta_preferred_providers || '-');
-	      const missingDimensions = missingAttemptEvidenceDimensions(metadata).join(', ') || '-';
-	      return [
+    const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
+      const metadata = attempt.metadata_json || {};
+      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+        ? metadata.mta_rule_hit_provider_preference.join(', ')
+        : String(metadata.mta_preferred_providers || '-');
+      const missingDimensions = missingAttemptEvidenceDimensions(metadata).join(', ') || '-';
+      const resolverTimeline = buildAttemptResolverTimeline(attempt);
+      return [
         `- attempt=${attempt.id}`,
         `  status=${attempt.status}`,
         `  record=${attempt.send_record_id}`,
@@ -11602,6 +11629,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  rate_limit_max_per_minute=${String(metadata.mta_rate_limit_max_per_minute || '-')}`,
         `  rate_limit_recent_count=${String(metadata.mta_rate_limit_recent_count || '-')}`,
         `  missing_evidence_dimensions=${missingDimensions}`,
+        `  resolver_timeline=${resolverTimeline}`,
         `  smtp=${String(attempt.smtp_response_code || metadata.smtp_response_code || '-')}`,
         `  started_at=${attempt.started_at}`,
       ].join('\n');
@@ -14453,6 +14481,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const ruleSendType = String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-');
               const senderDomain = String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-');
               const recipientDomain = String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-');
+              const resolverTimeline = buildAttemptResolverTimeline(attempt);
               const isFocusedAttempt = routeAttemptId && attempt.id === routeAttemptId;
               const attemptHasIssue = ['claim_blocked', 'dead_lettered', 'deferred', 'failed'].includes(attempt.status)
                 || Boolean(routeBlockReason || attempt.error_message)
@@ -14466,6 +14495,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     <strong>{reason}</strong>
                   </div>
                   <small>{attempt.started_at}</small>
+                  <p className="resolver-timeline"><span>Resolver timeline</span>{resolverTimeline}</p>
                   <dl>
                     <div><dt>record</dt><dd>{attempt.send_record_id.slice(0, 8)}</dd></div>
                     <div><dt>attempt</dt><dd>{attempt.id.slice(0, 8)}</dd></div>

@@ -6552,6 +6552,19 @@ th {
   font-size: 14px;
 }
 
+.delivery-audit-list .resolver-timeline {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #29405f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.delivery-audit-list .resolver-timeline span {
+  display: block;
+  margin-bottom: 2px;
+}
+
 .delivery-audit-list dl,
 .provider-feedback-list dl {
   display: grid;
