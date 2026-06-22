@@ -10752,11 +10752,26 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const controlledSeedProofDetail = !controlledSeedProofAttempts.length
     ? 'Apply Controlled Seed Proof after processing the seed to inspect route and SMTP evidence.'
     : `${formatInt(controlledSeedProofAccepted)} accepted, ${formatInt(controlledSeedProofResolved)} resolved, ${formatInt(controlledSeedProofRejected)} rejected out of ${formatInt(controlledSeedProofAttempts.length)} loaded seed attempt(s).`;
+  const expansionPoolGateReady = Boolean(
+    selectedMtaIpPoolHealth
+    && selectedMtaIpPoolHealth.provider_blocker_count === 0
+    && selectedMtaIpPoolHealth.readiness_blocker_count === 0
+    && selectedMtaIpPoolHealth.route_ready_node_count >= selectedMtaIpPoolHealth.required_available_node_count
+  );
+  const expansionPoolGateValue = selectedMtaIpPoolHealth
+    ? expansionPoolGateReady ? 'Ready' : 'Review'
+    : selectedMtaIpPool ? 'Health not scored' : 'Pool not selected';
+  const expansionPoolGateDetail = selectedMtaIpPoolHealth
+    ? `${selectedMtaIpPoolHealth.summary} ${formatInt(selectedMtaIpPoolHealth.route_ready_node_count)}/${formatInt(selectedMtaIpPoolHealth.required_available_node_count)} route-ready; drain ${selectedMtaIpPoolHealth.drain_impact?.summary || 'not loaded'}.`
+    : selectedMtaIpPool
+      ? 'Load SMTP Deployment and Pool Controls before advancing warmup volume.'
+      : 'Select the route pool before using warmup or expansion review packs.';
   const controlledExpansionReady = controlledSeedProofValue === 'Expand cautiously'
     && domainDashboard?.compliance_status !== 'hold'
     && domainDashboard?.reputation_status !== 'risk'
     && domainDashboard?.blocklist_status !== 'listed'
-    && evidenceCompletenessValue === 'Complete';
+    && evidenceCompletenessValue === 'Complete'
+    && expansionPoolGateReady;
   const controlledExpansionValue = controlledExpansionReady
     ? 'Stage next cohort'
     : controlledSeedProofAttempts.length
@@ -10765,7 +10780,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const controlledExpansionDetail = controlledExpansionReady
     ? `Use a small next cohort within throttle limits: ${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || 'no'} per minute, ${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || 'no'} concurrent.`
     : controlledSeedProofAttempts.length
-      ? 'Keep volume paused until proof, reputation, blocklist, compliance, and evidence completeness are clean.'
+      ? 'Keep volume paused until proof, reputation, blocklist, compliance, evidence completeness, and pool readiness are clean.'
       : 'Run and load controlled seed proof before selecting an expansion cohort.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
@@ -11789,6 +11804,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: controlledExpansionReady ? 'good' : 'warn',
     },
     {
+      label: 'Expansion pool gate',
+      value: expansionPoolGateValue,
+      detail: expansionPoolGateDetail,
+      tone: expansionPoolGateReady ? 'good' : 'warn',
+    },
+    {
       label: 'Domain auth verification',
       value: domainAuthVerificationValue,
       detail: domainAuthVerificationDetail,
@@ -12150,11 +12171,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function buildManagedSmtpControlledExpansionPack() {
+    const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
+    const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
     return [
       'Managed SMTP Controlled Expansion Review Pack',
       `Generated at: ${new Date().toISOString()}`,
       `Expansion decision: ${controlledExpansionValue}`,
       `Expansion detail: ${controlledExpansionDetail}`,
+      `Expansion pool gate: ${expansionPoolGateValue} (${expansionPoolGateDetail})`,
       `Controlled seed proof: ${controlledSeedProofValue} (${controlledSeedProofDetail})`,
       `Domain: ${selectedDomainPolicy?.domain || domainDashboard?.domain || '-'}`,
       `Warmup stage: ${selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || '-'}`,
@@ -12168,6 +12192,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
       `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
+      `Selected pool health: ${selectedMtaIpPoolHealth?.status_label || '-'} route_ready=${formatInt(selectedMtaIpPoolHealth?.route_ready_node_count || 0)} required=${formatInt(selectedMtaIpPoolHealth?.required_available_node_count || 0)} blockers=${formatInt((selectedMtaIpPoolHealth?.provider_blocker_count || 0) + (selectedMtaIpPoolHealth?.readiness_blocker_count || 0))}`,
+      `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
+      `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
+      `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
       '',
       'Next action',
       controlledExpansionReady
@@ -12179,6 +12208,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       '- Confirm MTA logs and queue samples do not show deferrals.',
       '- Confirm route evidence still points to the intended pool/node/provider.',
       '- Keep the domain in warmup until multiple clean cohorts are observed.',
+      '',
+      'Pool operator audit',
+      poolAuditEntries || '- no pool operator control audit entries loaded',
+      '',
+      'Membership operator audit',
+      membershipAuditEntries || '- no membership operator control audit entries loaded',
     ].join('\n');
   }
 
@@ -12191,6 +12226,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const nextDailyLimit = domainDashboard?.warmup_daily_limit
       ? Math.max(domainDashboard.warmup_daily_limit + 1, domainDashboard.warmup_daily_limit * 2)
       : 100;
+    const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
+    const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
     const auditEntries = warmupAuditLog.slice(-8).map((entry) => {
       const item = entry as Record<string, unknown>;
       return [
@@ -12224,6 +12261,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Complaint rate: ${formatPct(warmupReviewComplaintRate)} / ${formatPct(warmupReviewMaxComplaintRate)} max`,
       `Blocklist: ${domainDashboard?.blocklist_status || '-'} hits=${warmupReviewBlocklistHits.join(', ') || '-'}`,
       `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
+      `Expansion pool gate: ${expansionPoolGateValue} (${expansionPoolGateDetail})`,
+      `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
+      `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
+      `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
+      `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       '',
       'Operator guidance',
@@ -12235,6 +12277,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       '',
       'Warmup audit log',
       auditEntries || '- no warmup audit entries loaded',
+      '',
+      'Pool operator audit',
+      poolAuditEntries || '- no pool operator control audit entries loaded',
+      '',
+      'Membership operator audit',
+      membershipAuditEntries || '- no membership operator control audit entries loaded',
     ].join('\n');
   }
 
