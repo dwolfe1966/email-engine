@@ -840,6 +840,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'route_status',
         'Top route provider',
         'Top route pool',
+        'Pool pressure signal',
+        'Pool pressure:',
         'Top routing rule',
         'Top send type',
         'Top sender domain',

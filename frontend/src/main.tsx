@@ -10595,6 +10595,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopRateLimitMax = deliveryAttemptEvidenceSummary?.top_rate_limit_max_per_minute[0] || topAttemptRateLimitMax;
   const summaryTopRateLimitRecent = deliveryAttemptEvidenceSummary?.top_rate_limit_recent_counts[0] || topAttemptRateLimitRecent;
   const summaryTopMissingEvidenceDimension = deliveryAttemptEvidenceSummary?.top_missing_evidence_dimensions[0] || topAttemptMissingEvidenceDimension;
+  const poolPressureSignals = [
+    summaryTopPoolCapacityStatus.label && summaryTopPoolCapacityStatus.label !== 'ok' && summaryTopPoolCapacityStatus.label !== '-'
+      ? `capacity ${summaryTopPoolCapacityStatus.label}`
+      : '',
+    summaryTopRateLimitScope.count ? `rate gate ${summaryTopRateLimitScope.label}` : '',
+    Number(summaryTopRateLimitRecent.label || 0) > 0 ? `recent sends ${summaryTopRateLimitRecent.label}` : '',
+    Number(summaryTopNodeSkippedCount.label || 0) > 0 ? `skipped nodes ${summaryTopNodeSkippedCount.label}` : '',
+    summaryTopProviderFallback.label === 'fallback used' ? 'provider fallback used' : '',
+  ].filter(Boolean);
+  const poolPressureValue = poolPressureSignals.length ? 'Pressure detected' : 'No pressure';
+  const poolPressureDetail = poolPressureSignals.length
+    ? poolPressureSignals.join(', ')
+    : 'Loaded evidence does not show capacity, rate-limit, skipped-node, or fallback pressure.';
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10649,6 +10662,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top route pool',
       value: summaryTopPool.label,
       detail: summaryTopPool.count ? `${formatInt(summaryTopPool.count)} matching attempt(s) used this pool.` : 'No managed SMTP pool evidence loaded.',
+    },
+    {
+      label: 'Pool pressure signal',
+      value: poolPressureValue,
+      detail: poolPressureDetail,
     },
     {
       label: 'Top routing rule',
@@ -11639,6 +11657,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Generated at: ${new Date().toISOString()}`,
       `Scope: ${scope}`,
       `Active filters: ${activeFilters}`,
+      `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
       '',
       'Summary',
       rollups,
