@@ -11227,6 +11227,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       awsProviderReadiness.next_action,
     ].filter(Boolean).join('; ')
     : 'Apply aws-port25-open to register the pending AWS provider, MTA node, IP pool, route, and domain policy.';
+  const awsDeploymentNode = (managedSmtpDeploymentSummary?.recent_nodes || []).find((item) => (
+    item.provider_account?.provider === 'aws'
+    || item.provider_account?.name.toLowerCase().includes('aws')
+    || item.node.hostname.toLowerCase().includes('aws')
+  )) || null;
+  const awsAgentSetupValue = awsDeploymentNode
+    ? (awsDeploymentNode.readiness_summary.latest_success
+        ? 'Agent reporting'
+        : 'Log into AWS instance')
+    : awsProviderReadiness
+      ? 'Node not loaded'
+      : 'Bootstrap profile first';
+  const awsAgentSetupDetail = awsDeploymentNode
+    ? (awsDeploymentNode.readiness_summary.latest_success
+        ? `${awsDeploymentNode.node.hostname} has successful readiness evidence; continue DNS/rDNS and controlled seed checks.`
+        : `${awsDeploymentNode.node.hostname}: install/start email-engine-mta-agent, confirm timer/service, then reload SMTP Deployment.`)
+    : awsProviderReadiness
+      ? 'Load SMTP Deployment and Pool Controls to inspect the AWS node before SSH setup.'
+      : 'Apply aws-port25-open to create the AWS provider account, node, pool, route, and domain policy before host setup.';
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
   const rdnsConfigured = firstManagedSmtpProvider?.rdns_status === 'configured';
   const latestReadinessOk = latestReadinessCheck?.status === 'ok';
@@ -12347,6 +12366,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
       `Primary next action: ${summary?.fleet_health.primary_next_action_label || '-'} - ${summary?.fleet_health.primary_next_action_summary || '-'}`,
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
+      `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
@@ -12514,6 +12534,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Fleet status: ${summary?.fleet_health.status || '-'}`,
       `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
+      `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
       `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
@@ -13844,6 +13865,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
           <div className="provider-feedback-list">
+            <article className={awsAgentSetupValue === 'Agent reporting' ? 'good' : 'warn'}>
+              <div>
+                <span>AWS instance setup signal</span>
+                <strong>{awsAgentSetupValue}</strong>
+              </div>
+              <small>{awsAgentSetupDetail}</small>
+              <details>
+                <summary>AWS agent setup commands</summary>
+                <div className="json-preview">{managedSmtpAgentCommands.join('\n')}</div>
+              </details>
+            </article>
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
               <article className={item.operator_next_action_tone || (item.agent_operational_status === 'ok' ? 'good' : 'warn')} key={item.node.id}>
                 <div>
