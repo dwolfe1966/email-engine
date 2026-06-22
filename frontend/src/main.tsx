@@ -530,6 +530,20 @@ type DomainReputationDashboardRead = {
   recommendations: string[];
 };
 
+type DomainAuthenticationVerificationRead = {
+  domain: string;
+  verified: boolean;
+  records: Array<{
+    record_type: string;
+    name: string;
+    expected_value: string;
+    observed_values: string[];
+    status: string;
+    message: string;
+    required: boolean;
+  }>;
+};
+
 type CampaignRead = {
   id: string;
   name: string;
@@ -10315,6 +10329,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [domainPolicies, setDomainPolicies] = useState<DomainDeliveryPolicyRead[]>([]);
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
+  const [domainAuthVerification, setDomainAuthVerification] = useState<DomainAuthenticationVerificationRead | null>(null);
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
   const [managedSmtpRulePreview, setManagedSmtpRulePreview] = useState<ManagedSmtpRouteResolutionRead | null>(null);
@@ -11302,6 +11317,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: 'warn',
     },
   ];
+  const authenticationReady = domainDashboard?.authentication_status === 'verified'
+    || domainDashboard?.authentication_status === 'ok';
+  const domainAuthVerified = Boolean(domainAuthVerification?.verified);
+  const domainAuthVerificationFailures = domainAuthVerification?.records.filter((record) => (
+    record.required && record.status !== 'verified'
+  )) || [];
+  const domainAuthVerificationValue = domainAuthVerification
+    ? (domainAuthVerification.verified ? 'Verified' : 'Review')
+    : 'Not checked';
+  const domainAuthVerificationDetail = domainAuthVerification
+    ? `${formatInt(domainAuthVerification.records.length)} DNS record(s), ${formatInt(domainAuthVerificationFailures.length)} required issue(s).`
+    : 'Verify SPF, DKIM, DMARC, and bounce-MX records for the selected sending domain.';
+  const domainAuthenticationReady = domainAuthVerified || authenticationReady;
   const awsDnsReady = Boolean(
     awsProviderReadiness
     && awsProviderReadiness.provider_account.rdns_status === 'configured'
@@ -11323,8 +11351,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ? 'Apply AWS profile'
     : !awsDnsReady && !awsRdnsVerified
       ? 'Verify DNS/rDNS'
-      : !awsDnsReady
+    : !awsDnsReady
       ? 'Complete DNS/rDNS'
+      : !domainAuthenticationReady
+        ? 'Verify Domain Auth'
       : awsAgentSetupValue !== 'Agent reporting'
         ? 'Set up AWS agent'
         : 'Run controlled seed';
@@ -11334,12 +11364,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? 'Run AWS rDNS verification after assigning forward A and reverse PTR records.'
       : !awsDnsReady
         ? 'DNS lookup passed; mark AWS rDNS configured, then publish SPF/DKIM/DMARC/bounce-MX before logging into the host.'
+      : !domainAuthenticationReady
+        ? 'Verify SPF, DKIM, DMARC, and bounce-MX DNS for the selected domain before logging into the AWS instance.'
       : awsAgentSetupValue !== 'Agent reporting'
         ? 'Log into the AWS instance, install/start email-engine-mta-agent, confirm service/timer, and reload SMTP Deployment.'
         : 'AWS provider has DNS and agent readiness evidence; proceed to first-send readiness and controlled seed checks.';
   const latestReadinessOk = latestReadinessCheck?.status === 'ok';
-  const authenticationReady = domainDashboard?.authentication_status === 'verified'
-    || domainDashboard?.authentication_status === 'ok';
   const firstSendComplianceHold = selectedDomainPolicy?.metadata_json?.compliance_hold;
   const firstSendComplianceStatus = typeof firstSendComplianceHold === 'object'
     && firstSendComplianceHold !== null
@@ -11374,11 +11404,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     },
     {
       label: 'Domain auth',
-      value: domainDashboard?.authentication_status || 'Not loaded',
-      detail: authenticationReady
-        ? 'Domain authentication is verified in the reputation dashboard.'
-        : 'Load the reputation dashboard to verify SPF, DKIM, DMARC, and bounce-MX evidence.',
-      tone: authenticationReady ? 'good' : 'warn',
+      value: domainAuthVerification?.verified ? 'Verified' : domainDashboard?.authentication_status || 'Not loaded',
+      detail: domainAuthVerification
+        ? domainAuthVerificationDetail
+        : authenticationReady
+          ? 'Domain authentication is verified in the reputation dashboard.'
+          : 'Run domain authentication verification to check SPF, DKIM, DMARC, and bounce-MX evidence.',
+      tone: domainAuthVerified || authenticationReady ? 'good' : 'warn',
     },
     {
       label: 'MTA smoke',
@@ -11585,6 +11617,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       value: domainDashboard?.throttle_status || 'Not loaded',
       detail: selectedDomainPolicy ? `${selectedDomainPolicy.max_per_minute || 'no'} per-minute / ${selectedDomainPolicy.max_concurrent || 'no'} concurrent` : 'Select a domain policy',
       tone: domainDashboard?.throttle_status === 'paused' ? 'warn' : 'good',
+    },
+    {
+      label: 'Domain auth verification',
+      value: domainAuthVerificationValue,
+      detail: domainAuthVerificationDetail,
+      tone: domainAuthVerified ? 'good' : 'warn',
     },
     {
       label: 'Compliance audit',
@@ -12458,6 +12496,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `AWS next gate: ${awsNextGateValue} (${awsNextGateDetail})`,
       `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
+      `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
@@ -12599,6 +12638,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `status=${awsRdnsVerificationValue}`,
       `detail=${awsRdnsVerificationDetail}`,
       '',
+      'Domain authentication verification',
+      `status=${domainAuthVerificationValue}`,
+      `detail=${domainAuthVerificationDetail}`,
+      '',
       'AWS DNS/rDNS checklist',
       awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
       '',
@@ -12623,6 +12666,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
+      `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       '',
       'DNS checklist',
       awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
@@ -12666,6 +12710,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
       `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
+      `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
       `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
@@ -12739,6 +12784,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const activeHold = activeComplianceHold && typeof activeComplianceHold === 'object'
       ? activeComplianceHold as Record<string, unknown>
       : null;
+    const authRecords = (domainAuthVerification?.records || []).map((record) => [
+      `- ${record.record_type} ${record.name}`,
+      `  status=${record.status}`,
+      `  required=${record.required}`,
+      `  observed=${record.observed_values.join(' | ') || '-'}`,
+      `  message=${record.message}`,
+    ].join('\n')).join('\n');
     return [
       'Managed SMTP Domain Compliance Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -12758,9 +12810,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Complaint rate: ${domainDashboard ? formatPct(domainDashboard.complaint_rate) : '-'}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       `Authentication: ${domainDashboard?.authentication_status || '-'}`,
+      `Authentication verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       `IP pool: ${domainDashboard?.ip_pool || '-'}`,
       `Send records: ${formatInt(domainDashboard?.send_record_count || 0)}`,
       `Audit entries: ${formatInt(complianceAuditLog.length)}`,
+      '',
+      'Authentication DNS records',
+      authRecords || '- no authentication verification loaded',
       '',
       'Recommendations',
       (domainDashboard?.recommendations || []).map((item) => `- ${item}`).join('\n') || '- no recommendations loaded',
@@ -13440,6 +13496,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const data = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
       setDomainDashboard(data);
       return `Loaded ${data.domain} reputation dashboard: ${data.reputation_status}, compliance ${data.compliance_status}.`;
+    });
+  }
+
+  async function verifySelectedDomainAuthentication() {
+    await runDeliveryOperation('Verifying domain authentication DNS', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const verification = await fetchJson<DomainAuthenticationVerificationRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/verify-authentication`, {
+        method: 'POST',
+      });
+      setDomainAuthVerification(verification);
+      const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
+      setDomainDashboard(dashboard);
+      const requiredIssues = verification.records.filter((record) => record.required && record.status !== 'verified').length;
+      return `Domain authentication ${verification.verified ? 'verified' : 'needs review'} for ${verification.domain}: ${formatInt(requiredIssues)} required issue(s).`;
     });
   }
 
@@ -14292,6 +14362,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
           <div className="button-row">
             <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
+            <button className="ghost" onClick={verifySelectedDomainAuthentication} disabled={busy || !selectedDomainPolicyId}>Verify Domain Auth</button>
             <button className="ghost" onClick={copyManagedSmtpDomainComplianceEvidencePack} disabled={busy || (!selectedDomainPolicy && !domainDashboard)}>Copy Compliance Pack</button>
           </div>
         </div>
@@ -14301,6 +14372,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <select value={selectedDomainPolicyId} onChange={(event) => {
               setSelectedDomainPolicyId(event.target.value);
               setDomainDashboard(null);
+              setDomainAuthVerification(null);
               setManagedSmtpRouteResolution(null);
               setManagedSmtpRulePreview(null);
               setManagedSmtpRouteMatrix(null);
