@@ -11706,6 +11706,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const complianceAuditLog = Array.isArray(selectedDomainPolicy?.metadata_json?.compliance_audit_log)
     ? selectedDomainPolicy.metadata_json.compliance_audit_log
     : [];
+  const warmupAuditLog = Array.isArray(selectedDomainPolicy?.metadata_json?.warmup_audit_log)
+    ? selectedDomainPolicy.metadata_json.warmup_audit_log
+    : [];
+  const latestWarmupAudit = warmupAuditLog[warmupAuditLog.length - 1] as Record<string, unknown> | undefined;
+  const warmupLastEvaluatedAt = String(selectedDomainPolicy?.metadata_json?.warmup_last_evaluated_at || latestWarmupAudit?.evaluated_at || '-');
+  const warmupHoldReason = String(selectedDomainPolicy?.metadata_json?.warmup_hold_reason || latestWarmupAudit?.reason || '-');
   const activeComplianceHold = selectedDomainPolicy?.metadata_json?.compliance_hold;
   const complianceHoldStatus = typeof activeComplianceHold === 'object' && activeComplianceHold !== null && 'status' in activeComplianceHold
     ? String((activeComplianceHold as Record<string, unknown>).status)
@@ -11769,6 +11775,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       value: warmupProgression ? `${warmupProgression.action} / ${warmupProgression.status}` : 'Not run',
       detail: warmupProgression?.reason || 'Evaluate or advance warmup after reviewing proof and reputation evidence.',
       tone: warmupProgression?.action === 'advance' || warmupProgression?.action === 'keep' ? 'good' : 'warn',
+    },
+    {
+      label: 'Warmup audit',
+      value: formatInt(warmupAuditLog.length),
+      detail: warmupAuditLog.length ? `latest ${String(latestWarmupAudit?.action || '-')} / ${String(latestWarmupAudit?.status || '-')} at ${warmupLastEvaluatedAt}` : 'No warmup progression audit entries loaded',
+      tone: warmupAuditLog.length ? 'good' : 'warn',
     },
     {
       label: 'Controlled expansion',
@@ -12179,6 +12191,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const nextDailyLimit = domainDashboard?.warmup_daily_limit
       ? Math.max(domainDashboard.warmup_daily_limit + 1, domainDashboard.warmup_daily_limit * 2)
       : 100;
+    const auditEntries = warmupAuditLog.slice(-8).map((entry) => {
+      const item = entry as Record<string, unknown>;
+      return [
+        `- action=${String(item.action || '-')}`,
+        `  status=${String(item.status || '-')}`,
+        `  reason=${String(item.reason || '-')}`,
+        `  operator=${String(item.operator || '-')}`,
+        `  evaluated_at=${String(item.evaluated_at || '-')}`,
+        `  stage=${String(item.previous_stage || '-')} -> ${String(item.current_stage || '-')}`,
+        `  daily_limit=${String(item.previous_daily_limit || '-')} -> ${String(item.current_daily_limit || '-')}`,
+      ].join('\n');
+    }).join('\n');
     return [
       'Managed SMTP Warmup Review Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -12192,6 +12216,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Latest progression action: ${warmupProgression?.action || '-'}`,
       `Latest progression status: ${warmupProgression?.status || '-'}`,
       `Latest progression reason: ${warmupProgression?.reason || '-'}`,
+      `Warmup audit entries: ${formatInt(warmupAuditLog.length)}`,
+      `Warmup last evaluated: ${warmupLastEvaluatedAt}`,
+      `Warmup hold reason: ${warmupHoldReason}`,
       `Sent count: ${formatInt(warmupReviewSentCount)} / ${formatInt(warmupReviewMinSentCount)} minimum`,
       `Bounce rate: ${formatPct(warmupReviewBounceRate)} / ${formatPct(warmupReviewMaxBounceRate)} max`,
       `Complaint rate: ${formatPct(warmupReviewComplaintRate)} / ${formatPct(warmupReviewMaxComplaintRate)} max`,
@@ -12205,6 +12232,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         : '- Do not advance warmup. Resolve the listed condition and refresh dashboard/proof evidence.',
       '- This pack is read-only and does not call warmup-progress.',
       '- Use warmup-progress only after confirming proof, feedback, reputation, and compliance evidence.',
+      '',
+      'Warmup audit log',
+      auditEntries || '- no warmup audit entries loaded',
     ].join('\n');
   }
 
@@ -13166,6 +13196,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  observed=${record.observed_values.join(' | ') || '-'}`,
       `  message=${record.message}`,
     ].join('\n')).join('\n');
+    const warmupAuditEntries = warmupAuditLog.slice(-8).map((entry) => {
+      const item = entry as Record<string, unknown>;
+      return `- ${String(item.action || '-')} / ${String(item.status || '-')} at ${String(item.evaluated_at || '-')} (${String(item.reason || '-')})`;
+    }).join('\n');
     return [
       'Managed SMTP Domain Compliance Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13187,6 +13221,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Warmup daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
       `Warmup review: ${warmupReviewValue} (${warmupReviewDetail})`,
       `Warmup progression: ${warmupProgression ? `${warmupProgression.action} / ${warmupProgression.status} (${warmupProgression.reason})` : '-'}`,
+      `Warmup audit entries: ${formatInt(warmupAuditLog.length)}`,
+      `Warmup last evaluated: ${warmupLastEvaluatedAt}`,
+      `Warmup hold reason: ${warmupHoldReason}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
       `Authentication: ${domainDashboard?.authentication_status || '-'}`,
@@ -13197,6 +13234,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       '',
       'Authentication DNS records',
       authRecords || '- no authentication verification loaded',
+      '',
+      'Warmup audit log',
+      warmupAuditEntries || '- no warmup audit entries loaded',
       '',
       'Recommendations',
       (domainDashboard?.recommendations || []).map((item) => `- ${item}`).join('\n') || '- no recommendations loaded',
