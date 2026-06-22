@@ -11248,6 +11248,44 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       : 'Apply aws-port25-open to create the AWS provider account, node, pool, route, and domain policy before host setup.';
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
   const rdnsConfigured = firstManagedSmtpProvider?.rdns_status === 'configured';
+  const awsDnsActivationItems = [
+    {
+      label: 'PTR/rDNS',
+      value: awsProviderReadiness?.provider_account.rdns_status || 'pending',
+      detail: 'Set reverse DNS for the AWS Elastic IP to mta-aws-001.email-engine.app.',
+      tone: awsProviderReadiness?.provider_account.rdns_status === 'configured' ? 'good' : 'warn',
+    },
+    {
+      label: 'A record',
+      value: 'mta-aws-001',
+      detail: 'Point mta-aws-001.email-engine.app at the AWS MTA public IPv4.',
+      tone: awsProviderReadiness ? 'warn' : 'warn',
+    },
+    {
+      label: 'SPF',
+      value: 'email-engine.app',
+      detail: 'Authorize the AWS MTA IP or include path before first seed traffic.',
+      tone: 'warn',
+    },
+    {
+      label: 'DKIM',
+      value: 'ee-aws1',
+      detail: 'Publish the ee-aws1 DKIM public key and mount the matching private key on the AWS MTA.',
+      tone: 'warn',
+    },
+    {
+      label: 'DMARC',
+      value: '_dmarc',
+      detail: 'Confirm DMARC policy alignment for the AWS-managed sending domain.',
+      tone: 'warn',
+    },
+    {
+      label: 'Bounce MX',
+      value: 'returns-aws',
+      detail: 'Route returns-aws.email-engine.app MX to the AWS/managed bounce ingestion path.',
+      tone: 'warn',
+    },
+  ];
   const latestReadinessOk = latestReadinessCheck?.status === 'ok';
   const authenticationReady = domainDashboard?.authentication_status === 'verified'
     || domainDashboard?.authentication_status === 'ok';
@@ -12504,6 +12542,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `detail=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Install/start email-engine-mta-agent on the AWS MTA host, confirm timer/service, then reload SMTP Deployment.' : awsAgentSetupDetail}`,
       managedSmtpAgentCommands.map((command) => `  ${command}`).join('\n'),
       '',
+      'AWS DNS/rDNS checklist',
+      awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
+      '',
       'Next steps',
       bootstrap?.next_steps.map((item) => `- ${item}`).join('\n') || '- no next steps returned',
     ].filter((line) => line !== null).join('\n');
@@ -13676,6 +13717,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                 <details>
                   <summary>Next evidence checks</summary>
                   <div className="json-preview">{lastManagedSmtpBootstrap.next_steps.join('\n')}</div>
+                </details>
+              ) : null}
+              {lastManagedSmtpBootstrap.provider_account.provider === 'aws' ? (
+                <details open>
+                  <summary>AWS DNS/rDNS checklist</summary>
+                  <div className="managed-smtp-route-inspector">
+                    {awsDnsActivationItems.map((item) => (
+                      <article className={`managed-smtp-route-field ${item.tone}`} key={item.label}>
+                        <span>{item.label}</span>
+                        <strong>{item.value}</strong>
+                        <small>{item.detail}</small>
+                      </article>
+                    ))}
+                  </div>
                 </details>
               ) : null}
             </article>
