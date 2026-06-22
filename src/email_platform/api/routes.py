@@ -3223,6 +3223,8 @@ def summarize_delivery_attempt_evidence(
     )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
+    node_candidate_count_expr = DeliveryAttempt.metadata_json['mta_node_candidate_count'].astext
+    node_skipped_count_expr = DeliveryAttempt.metadata_json['mta_node_skipped_count'].astext
     pool_capacity_status_expr = DeliveryAttempt.metadata_json['mta_pool_capacity_status'].astext
     pool_available_count_expr = DeliveryAttempt.metadata_json[
         'mta_pool_available_node_count'
@@ -3276,6 +3278,12 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
         'top_block_messages': _delivery_attempt_evidence_counts(db, filters, block_message_expr),
+        'top_node_candidate_counts': _delivery_attempt_evidence_counts(
+            db, filters, node_candidate_count_expr
+        ),
+        'top_node_skipped_counts': _delivery_attempt_evidence_counts(
+            db, filters, node_skipped_count_expr
+        ),
         'top_pool_capacity_statuses': _delivery_attempt_evidence_counts(
             db, filters, pool_capacity_status_expr
         ),

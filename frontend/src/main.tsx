@@ -732,6 +732,8 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
   top_block_messages: DeliveryAttemptEvidenceCountRead[];
+  top_node_candidate_counts: DeliveryAttemptEvidenceCountRead[];
+  top_node_skipped_counts: DeliveryAttemptEvidenceCountRead[];
   top_pool_capacity_statuses: DeliveryAttemptEvidenceCountRead[];
   top_pool_available_node_counts: DeliveryAttemptEvidenceCountRead[];
   top_pool_required_node_counts: DeliveryAttemptEvidenceCountRead[];
@@ -10472,6 +10474,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
+  const topAttemptNodeCandidateCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_candidate_count || '-')));
+  const topAttemptNodeSkippedCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_skipped_count || '-')));
   const topAttemptPoolCapacityStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_capacity_status || '-')));
   const topAttemptPoolAvailableCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_available_node_count || '-')));
   const topAttemptPoolRequiredCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_required_available_node_count || '-')));
@@ -10491,6 +10495,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
+  const summaryTopNodeCandidateCount = deliveryAttemptEvidenceSummary?.top_node_candidate_counts[0] || topAttemptNodeCandidateCount;
+  const summaryTopNodeSkippedCount = deliveryAttemptEvidenceSummary?.top_node_skipped_counts[0] || topAttemptNodeSkippedCount;
   const summaryTopPoolCapacityStatus = deliveryAttemptEvidenceSummary?.top_pool_capacity_statuses[0] || topAttemptPoolCapacityStatus;
   const summaryTopPoolAvailableCount = deliveryAttemptEvidenceSummary?.top_pool_available_node_counts[0] || topAttemptPoolAvailableCount;
   const summaryTopPoolRequiredCount = deliveryAttemptEvidenceSummary?.top_pool_required_node_counts[0] || topAttemptPoolRequiredCount;
@@ -10596,6 +10602,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top block message',
       value: summaryTopBlockMessage.label,
       detail: summaryTopBlockMessage.count ? `${formatInt(summaryTopBlockMessage.count)} matching attempt(s) returned this resolver explanation.` : 'No route block message evidence loaded.',
+    },
+    {
+      label: 'Top candidate count',
+      value: summaryTopNodeCandidateCount.label,
+      detail: summaryTopNodeCandidateCount.count ? `${formatInt(summaryTopNodeCandidateCount.count)} matching attempt(s) saw this resolver candidate count.` : 'No candidate-count evidence loaded.',
+    },
+    {
+      label: 'Top skipped count',
+      value: summaryTopNodeSkippedCount.label,
+      detail: summaryTopNodeSkippedCount.count ? `${formatInt(summaryTopNodeSkippedCount.count)} matching attempt(s) saw this skipped-node count.` : 'No skipped-count evidence loaded.',
     },
     {
       label: 'Top capacity status',
@@ -11445,6 +11461,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
         `  provider_preference=${providerPreference}`,
         `  block_code=${String(metadata.mta_route_block_code || '-')}`,
+        `  candidate_count=${String(metadata.mta_node_candidate_count || '-')}`,
+        `  skipped_count=${String(metadata.mta_node_skipped_count || '-')}`,
         `  pool_capacity_status=${String(metadata.mta_pool_capacity_status || '-')}`,
         `  pool_available_node_count=${String(metadata.mta_pool_available_node_count || '-')}`,
         `  pool_required_node_count=${String(metadata.mta_pool_required_available_node_count || '-')}`,

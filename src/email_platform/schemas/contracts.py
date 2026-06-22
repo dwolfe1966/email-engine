@@ -672,6 +672,8 @@ class DeliveryAttemptEvidenceSummaryRead(BaseModel):
     top_provider_fallbacks: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_block_codes: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_block_messages: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_node_candidate_counts: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_node_skipped_counts: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_pool_capacity_statuses: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_pool_available_node_counts: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_pool_required_node_counts: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)

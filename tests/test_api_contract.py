@@ -316,6 +316,8 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_provider_fallbacks',
         'top_block_codes',
         'top_block_messages',
+        'top_node_candidate_counts',
+        'top_node_skipped_counts',
         'top_pool_capacity_statuses',
         'top_pool_available_node_counts',
         'top_pool_required_node_counts',
