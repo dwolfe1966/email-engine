@@ -13306,6 +13306,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  async function updateAwsProviderRdnsStatus(rdnsStatus: 'configured' | 'pending') {
+    await runDeliveryOperation(`Updating AWS rDNS status to ${rdnsStatus}`, async () => {
+      if (!awsProviderReadiness?.provider_account.id) throw new Error('Load SMTP Deployment after applying aws-port25-open.');
+      await fetchJson<MtaProviderAccountRead>(`/api/v1/managed-smtp/provider-accounts/${awsProviderReadiness.provider_account.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ rdns_status: rdnsStatus }),
+      });
+      const summary = await fetchJson<ManagedSmtpDeploymentSummaryRead>('/api/v1/managed-smtp/deployment-summary?limit=8');
+      setManagedSmtpDeploymentSummary(summary);
+      return `Updated AWS provider rDNS status to ${rdnsStatus}; reloaded deployment summary.`;
+    });
+  }
+
   async function loadFirstSendEvidence() {
     await runDeliveryOperation('Loading managed SMTP first-send evidence', async () => {
       const readinessParams = new URLSearchParams({ limit: '25', offset: '0' });
@@ -13809,6 +13822,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Refresh Providers</button>
             <button className="ghost" onClick={copyManagedSmtpProviderReadinessEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Provider Pack</button>
+            <button className="ghost" onClick={() => updateAwsProviderRdnsStatus('configured')} disabled={busy || !awsProviderReadiness}>Mark AWS rDNS Configured</button>
+            <button className="ghost" onClick={() => updateAwsProviderRdnsStatus('pending')} disabled={busy || !awsProviderReadiness}>Reopen AWS rDNS</button>
           </div>
         </div>
         <div className="managed-smtp-route-inspector">
