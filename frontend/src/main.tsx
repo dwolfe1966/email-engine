@@ -491,6 +491,23 @@ type DomainDeliveryPolicyRead = {
   metadata_json: Record<string, unknown>;
 };
 
+type DomainWarmupProgressionRead = {
+  domain: string;
+  previous_stage: string | null;
+  current_stage: string | null;
+  previous_daily_limit: number | null;
+  current_daily_limit: number | null;
+  previous_stage_order: number | null;
+  current_stage_order: number | null;
+  action: string;
+  status: string;
+  reason: string;
+  evaluated_at: string;
+  sent_count: number;
+  bounce_rate: number;
+  complaint_rate: number;
+};
+
 type DeliveryRouteRead = {
   id: string;
   name: string;
@@ -10336,6 +10353,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [domainAuthVerification, setDomainAuthVerification] = useState<DomainAuthenticationVerificationRead | null>(null);
+  const [warmupProgression, setWarmupProgression] = useState<DomainWarmupProgressionRead | null>(null);
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
   const [managedSmtpRulePreview, setManagedSmtpRulePreview] = useState<ManagedSmtpRouteResolutionRead | null>(null);
@@ -11747,6 +11765,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: warmupReviewValue === 'Advance ready' ? 'good' : 'warn',
     },
     {
+      label: 'Warmup progression',
+      value: warmupProgression ? `${warmupProgression.action} / ${warmupProgression.status}` : 'Not run',
+      detail: warmupProgression?.reason || 'Evaluate or advance warmup after reviewing proof and reputation evidence.',
+      tone: warmupProgression?.action === 'advance' || warmupProgression?.action === 'keep' ? 'good' : 'warn',
+    },
+    {
       label: 'Controlled expansion',
       value: controlledExpansionValue,
       detail: controlledExpansionDetail,
@@ -12165,6 +12189,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Stage order: ${domainDashboard?.warmup_stage_order || '-'}`,
       `Current daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
       `Suggested next daily limit: ${warmupReviewValue === 'Advance ready' ? nextDailyLimit : '-'}`,
+      `Latest progression action: ${warmupProgression?.action || '-'}`,
+      `Latest progression status: ${warmupProgression?.status || '-'}`,
+      `Latest progression reason: ${warmupProgression?.reason || '-'}`,
       `Sent count: ${formatInt(warmupReviewSentCount)} / ${formatInt(warmupReviewMinSentCount)} minimum`,
       `Bounce rate: ${formatPct(warmupReviewBounceRate)} / ${formatPct(warmupReviewMaxBounceRate)} max`,
       `Complaint rate: ${formatPct(warmupReviewComplaintRate)} / ${formatPct(warmupReviewMaxComplaintRate)} max`,
@@ -13159,6 +13186,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Warmup status: ${domainDashboard?.warmup_status || '-'}`,
       `Warmup daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
       `Warmup review: ${warmupReviewValue} (${warmupReviewDetail})`,
+      `Warmup progression: ${warmupProgression ? `${warmupProgression.action} / ${warmupProgression.status} (${warmupProgression.reason})` : '-'}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
       `Authentication: ${domainDashboard?.authentication_status || '-'}`,
@@ -14066,6 +14094,54 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  async function evaluateDomainWarmupProgression() {
+    await runDeliveryOperation('Evaluating domain warmup progression', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const result = await fetchJson<DomainWarmupProgressionRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/warmup-progress`, {
+        method: 'POST',
+        body: JSON.stringify({
+          advance: false,
+          operator: 'esp_admin_review',
+        }),
+      });
+      setWarmupProgression(result);
+      const dashboard = await fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`);
+      setDomainDashboard(dashboard);
+      return `Evaluated warmup for ${result.domain}: ${result.action} / ${result.status} - ${result.reason}`;
+    });
+  }
+
+  async function advanceDomainWarmupProgression() {
+    if (warmupReviewValue !== 'Advance ready') {
+      setStatus('Warmup review is not advance-ready; copy the warmup review pack and resolve blockers first.');
+      return;
+    }
+    const domain = selectedDomainPolicy?.domain || domainDashboard?.domain || 'selected domain';
+    if (!window.confirm(`Advance warmup for ${domain}? This writes warmup progression metadata.`)) return;
+    await runDeliveryOperation('Advancing domain warmup progression', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      const nextDailyLimit = domainDashboard?.warmup_daily_limit
+        ? Math.max(domainDashboard.warmup_daily_limit + 1, domainDashboard.warmup_daily_limit * 2)
+        : 100;
+      const result = await fetchJson<DomainWarmupProgressionRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/warmup-progress`, {
+        method: 'POST',
+        body: JSON.stringify({
+          advance: true,
+          next_daily_limit: nextDailyLimit,
+          operator: 'esp_admin_approved',
+        }),
+      });
+      setWarmupProgression(result);
+      const [policies, dashboard] = await Promise.all([
+        fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
+        fetchJson<DomainReputationDashboardRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/reputation-dashboard`),
+      ]);
+      setDomainPolicies(policies.items || []);
+      setDomainDashboard(dashboard);
+      return `Advanced warmup for ${result.domain}: ${result.previous_stage || '-'} -> ${result.current_stage || '-'}, daily limit ${result.current_daily_limit || '-'}.`;
+    });
+  }
+
   async function resolveManagedSmtpRoute() {
     await runDeliveryOperation('Resolving managed SMTP route', async () => {
       if (!selectedDomainPolicy) throw new Error('Select a domain policy.');
@@ -14723,6 +14799,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
             <button className="ghost" onClick={verifySelectedDomainAuthentication} disabled={busy || !selectedDomainPolicyId}>Verify Domain Auth</button>
             <button className="ghost" onClick={copyManagedSmtpWarmupReviewPack} disabled={busy || !selectedDomainPolicyId}>Copy Warmup Review</button>
+            <button className="ghost" onClick={evaluateDomainWarmupProgression} disabled={busy || !selectedDomainPolicyId}>Evaluate Warmup</button>
+            <button className="ghost" onClick={advanceDomainWarmupProgression} disabled={busy || !selectedDomainPolicyId || warmupReviewValue !== 'Advance ready'}>Advance Warmup</button>
             <button className="ghost" onClick={copyManagedSmtpDomainComplianceEvidencePack} disabled={busy || (!selectedDomainPolicy && !domainDashboard)}>Copy Compliance Pack</button>
           </div>
         </div>
@@ -14733,6 +14811,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               setSelectedDomainPolicyId(event.target.value);
               setDomainDashboard(null);
               setDomainAuthVerification(null);
+              setWarmupProgression(null);
               setManagedSmtpRouteResolution(null);
               setManagedSmtpRulePreview(null);
               setManagedSmtpRouteMatrix(null);
