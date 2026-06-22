@@ -13138,6 +13138,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const pool = selectedMtaIpPool;
     const membership = selectedMtaIpPoolNode;
     const health = selectedMtaIpPoolHealth;
+    const poolAuditEntries = formatMtaControlAuditEvidence(pool?.metadata_json);
+    const membershipAuditEntries = formatMtaControlAuditEvidence(membership?.metadata_json);
     return [
       'Managed SMTP Pool Controls Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13153,6 +13155,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `max_per_minute=${mtaIpPoolForm.max_per_minute || pool?.max_per_minute || '-'}`,
       `min_available_nodes=${mtaIpPoolForm.min_available_nodes || pool?.min_available_nodes || '-'}`,
       `audit=${pool ? latestMtaControlAuditLabel(pool.metadata_json) : '-'}`,
+      `operator_audit_entries=${formatInt(mtaControlAuditEntries(pool?.metadata_json).length)}`,
+      '',
+      'Selected pool operator audit',
+      poolAuditEntries || '- no pool operator control audit entries loaded',
       '',
       'Pool health',
       `status=${health?.status_label || '-'}`,
@@ -13173,6 +13179,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `weight=${mtaIpPoolNodeForm.weight || membership?.weight || '-'}`,
       `max_per_minute=${mtaIpPoolNodeForm.max_per_minute || membership?.max_per_minute || '-'}`,
       `audit=${membership ? latestMtaControlAuditLabel(membership.metadata_json) : '-'}`,
+      `operator_audit_entries=${formatInt(mtaControlAuditEntries(membership?.metadata_json).length)}`,
+      '',
+      'Selected membership operator audit',
+      membershipAuditEntries || '- no membership operator control audit entries loaded',
     ].join('\n');
   }
 
@@ -13355,15 +13365,37 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function latestMtaControlAuditLabel(metadata: Record<string, unknown> | null | undefined): string {
-    const auditLog = metadata?.operator_control_audit_log;
-    if (!Array.isArray(auditLog) || !auditLog.length) return 'No operator control audit recorded.';
-    const latest = auditLog[0];
-    if (!latest || typeof latest !== 'object') return 'No operator control audit recorded.';
+    const latest = mtaControlAuditEntries(metadata)[0];
+    if (!latest) return 'No operator control audit recorded.';
     const entry = latest as Record<string, unknown>;
     const changed = entry.changed && typeof entry.changed === 'object'
       ? Object.keys(entry.changed as Record<string, unknown>).join(', ')
       : 'controls';
     return `${String(entry.operator || 'system')} changed ${changed || 'controls'} at ${String(entry.at || 'unknown time')}.`;
+  }
+
+  function mtaControlAuditEntries(metadata: Record<string, unknown> | null | undefined): Record<string, unknown>[] {
+    const auditLog = metadata?.operator_control_audit_log;
+    if (!Array.isArray(auditLog)) return [];
+    return auditLog.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object');
+  }
+
+  function formatMtaControlAuditChanged(changed: unknown): string {
+    if (!changed || typeof changed !== 'object') return 'controls';
+    return Object.entries(changed as Record<string, unknown>).map(([key, value]) => {
+      const diff = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+      return `${key}: ${String(diff.previous ?? '-')} -> ${String(diff.new ?? '-')}`;
+    }).join('; ') || 'controls';
+  }
+
+  function formatMtaControlAuditEvidence(metadata: Record<string, unknown> | null | undefined): string {
+    return mtaControlAuditEntries(metadata).slice(0, 8).map((entry) => [
+      `- operator=${String(entry.operator || 'system')}`,
+      `  at=${String(entry.at || '-')}`,
+      `  entity_type=${String(entry.entity_type || '-')}`,
+      `  entity_id=${String(entry.entity_id || '-')}`,
+      `  changed=${formatMtaControlAuditChanged(entry.changed)}`,
+    ].join('\n')).join('\n');
   }
 
   function updateManagedSmtpRoutingRuleForm(name: keyof typeof managedSmtpRoutingRuleForm, value: string | boolean) {
@@ -14578,12 +14610,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <article className={mtaIpPoolTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Pools loaded</span>
             <strong>{formatInt(mtaIpPools.length)} / {formatInt(mtaIpPoolTotal)}</strong>
-            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPoolHealth ? `${formatInt(selectedMtaIpPoolHealth.route_ready_node_count)}/${formatInt(selectedMtaIpPoolHealth.required_available_node_count)} route-ready` : 'health not scored'}, ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}. ${selectedMtaIpPoolHealth?.drain_impact ? `Drain affects ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_route_count)} route(s), ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_domain_policy_count)} policy row(s). ` : ''}${latestMtaControlAuditLabel(selectedMtaIpPool.metadata_json)}` : 'Load pool controls to inspect resolver gates.'}</small>
+            <small>{selectedMtaIpPool ? `${selectedMtaIpPool.name}: ${selectedMtaIpPoolHealth ? `${formatInt(selectedMtaIpPoolHealth.route_ready_node_count)}/${formatInt(selectedMtaIpPoolHealth.required_available_node_count)} route-ready` : 'health not scored'}, ${selectedMtaIpPool.max_per_minute ? `${formatInt(selectedMtaIpPool.max_per_minute)}/min` : 'no rate gate'}, ${selectedMtaIpPool.min_available_nodes ? `${formatInt(selectedMtaIpPool.min_available_nodes)} required node(s)` : 'default capacity'}. Operator audit entries ${formatInt(mtaControlAuditEntries(selectedMtaIpPool.metadata_json).length)}. ${selectedMtaIpPoolHealth?.drain_impact ? `Drain affects ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_route_count)} route(s), ${formatInt(selectedMtaIpPoolHealth.drain_impact.affected_domain_policy_count)} policy row(s). ` : ''}${latestMtaControlAuditLabel(selectedMtaIpPool.metadata_json)}` : 'Load pool controls to inspect resolver gates.'}</small>
           </article>
           <article className={mtaIpPoolNodeTotal ? 'managed-smtp-route-field good' : 'managed-smtp-route-field warn'}>
             <span>Memberships loaded</span>
             <strong>{formatInt(mtaIpPoolNodes.length)} / {formatInt(mtaIpPoolNodeTotal)}</strong>
-            <small>{selectedMtaIpPoolNode ? `${mtaNodeNameForPoolMembership(selectedMtaIpPoolNode)}: priority ${formatInt(selectedMtaIpPoolNode.priority)}, weight ${formatInt(selectedMtaIpPoolNode.weight)}, ${selectedMtaIpPoolNode.max_per_minute ? `${formatInt(selectedMtaIpPoolNode.max_per_minute)}/min` : 'no node rate gate'}. ${latestMtaControlAuditLabel(selectedMtaIpPoolNode.metadata_json)}` : 'Select a pool membership to edit node-level controls.'}</small>
+            <small>{selectedMtaIpPoolNode ? `${mtaNodeNameForPoolMembership(selectedMtaIpPoolNode)}: priority ${formatInt(selectedMtaIpPoolNode.priority)}, weight ${formatInt(selectedMtaIpPoolNode.weight)}, ${selectedMtaIpPoolNode.max_per_minute ? `${formatInt(selectedMtaIpPoolNode.max_per_minute)}/min` : 'no node rate gate'}. Operator audit entries ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode.metadata_json).length)}. ${latestMtaControlAuditLabel(selectedMtaIpPoolNode.metadata_json)}` : 'Select a pool membership to edit node-level controls.'}</small>
           </article>
         </div>
         {managedSmtpDeploymentSummary?.recent_nodes.length ? (
