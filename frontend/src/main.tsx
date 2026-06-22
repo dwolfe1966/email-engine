@@ -13380,6 +13380,37 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  async function previewAwsSecondaryRouteMatrix() {
+    await runDeliveryOperation('Previewing AWS secondary resolver matrix', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const awsPool = mtaIpPools.find((pool) => pool.name === 'aws-port25-open-test');
+      if (!awsPool) throw new Error('Load pool controls or apply aws-port25-open before running the AWS secondary matrix.');
+      const senderDomain = selectedDomainPolicy.domain || 'email-engine.app';
+      const cases = ['gmail.com', 'outlook.com', 'yahoo.com'].map((recipientDomain) => ({
+        label: `AWS secondary rehearsal ${senderDomain} -> ${recipientDomain}`,
+        request: {
+          send_type: 'internal_test',
+          from_domain: senderDomain,
+          recipient_domain: recipientDomain,
+          route_id: selectedDomainPolicy.route_id,
+          ip_pool_id: awsPool.id,
+        },
+      }));
+      const data = await fetchJson<ManagedSmtpRouteMatrixRead>('/api/v1/managed-smtp/resolve-route-matrix', {
+        method: 'POST',
+        body: JSON.stringify({ cases }),
+      });
+      setManagedSmtpRouteMatrix(data);
+      setManagedSmtpRouteMatrixInput(cases.map((item) => [
+        item.request.send_type,
+        item.request.from_domain,
+        item.request.recipient_domain,
+        item.label,
+      ].join(',')).join('\n'));
+      return `Previewed AWS secondary matrix against ${awsPool.name}: ${formatInt(data.ok_count)} ready, ${formatInt(data.blocked_count)} blocked.`;
+    });
+  }
+
   async function previewEvidenceRouteMatrix() {
     const sendType = summaryTopSendType.label !== '-' ? summaryTopSendType.label : 'internal_test';
     const senderDomain = summaryTopSenderDomain.label !== '-' ? summaryTopSenderDomain.label : selectedDomainPolicy?.domain || '';
@@ -14229,6 +14260,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
           <div className="button-row">
             <button className="link-button" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
+            <button className="ghost" onClick={previewAwsSecondaryRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run AWS Matrix</button>
             <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
             <button className="ghost" onClick={exportManagedSmtpRouteMatrixCsv} disabled={busy || !managedSmtpRouteMatrix}>Export Matrix CSV</button>
           </div>
@@ -14261,6 +14293,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={copyManagedSmtpRouteResolutionEvidencePack} disabled={busy || !managedSmtpRouteResolution}>Copy Route Pack</button>
           <button className="ghost" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Rule</button>
           <button className="ghost" onClick={() => previewManagedSmtpRouteMatrix()} disabled={busy || !selectedDomainPolicy?.route_id}>Run Matrix</button>
+          <button className="ghost" onClick={previewAwsSecondaryRouteMatrix} disabled={busy || !selectedDomainPolicy?.route_id}>Run AWS Matrix</button>
           <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
           <button className="ghost" onClick={exportManagedSmtpRouteMatrixCsv} disabled={busy || !managedSmtpRouteMatrix}>Export Matrix CSV</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
