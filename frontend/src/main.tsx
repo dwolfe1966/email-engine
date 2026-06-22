@@ -12559,6 +12559,32 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP bootstrap profile evidence pack for ${lastManagedSmtpBootstrap.node.hostname}.`);
   }
 
+  function buildAwsDnsActivationEvidencePack() {
+    return [
+      'AWS DNS Activation Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
+      `AWS agent setup: ${awsAgentSetupValue} (${awsAgentSetupDetail})`,
+      '',
+      'DNS checklist',
+      awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
+      '',
+      'Expected host',
+      'hostname=mta-aws-001.email-engine.app',
+      'bounce_domain=returns-aws.email-engine.app',
+      'dkim_selector=ee-aws1',
+      'ip_pool=aws-port25-open-test',
+      '',
+      'Next gate',
+      'After DNS/rDNS is assigned, load SMTP Deployment and follow the AWS instance setup signal.',
+    ].join('\n');
+  }
+
+  async function copyAwsDnsActivationEvidencePack() {
+    await copyTextToClipboard(buildAwsDnsActivationEvidencePack());
+    setStatus('Copied AWS DNS activation evidence pack for mta-aws-001.email-engine.app.');
+  }
+
   function buildManagedSmtpProviderReadinessEvidencePack() {
     const summary = managedSmtpDeploymentSummary;
     const providers = (summary?.provider_readiness || []).map((item) => [
@@ -13664,6 +13690,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
             <button className="ghost" onClick={copyManagedSmtpFleetHealthEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Fleet Pack</button>
             <button className="ghost" onClick={copyManagedSmtpBootstrapProfileEvidencePack} disabled={busy || !lastManagedSmtpBootstrap}>Copy Bootstrap Pack</button>
+            <button className="ghost" onClick={copyAwsDnsActivationEvidencePack} disabled={busy}>Copy AWS DNS Pack</button>
           </div>
         </div>
         <div className="form-grid">
