@@ -3223,6 +3223,13 @@ def summarize_delivery_attempt_evidence(
     )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
+    pool_capacity_status_expr = DeliveryAttempt.metadata_json['mta_pool_capacity_status'].astext
+    pool_available_count_expr = DeliveryAttempt.metadata_json[
+        'mta_pool_available_node_count'
+    ].astext
+    pool_required_count_expr = DeliveryAttempt.metadata_json[
+        'mta_pool_required_available_node_count'
+    ].astext
     rate_limit_scope_expr = DeliveryAttempt.metadata_json['mta_rate_limit_scope'].astext
     rate_limit_max_expr = DeliveryAttempt.metadata_json['mta_rate_limit_max_per_minute'].astext
     rate_limit_recent_expr = DeliveryAttempt.metadata_json['mta_rate_limit_recent_count'].astext
@@ -3269,6 +3276,15 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
         'top_block_messages': _delivery_attempt_evidence_counts(db, filters, block_message_expr),
+        'top_pool_capacity_statuses': _delivery_attempt_evidence_counts(
+            db, filters, pool_capacity_status_expr
+        ),
+        'top_pool_available_node_counts': _delivery_attempt_evidence_counts(
+            db, filters, pool_available_count_expr
+        ),
+        'top_pool_required_node_counts': _delivery_attempt_evidence_counts(
+            db, filters, pool_required_count_expr
+        ),
         'top_rate_limit_scopes': _delivery_attempt_evidence_counts(
             db, filters, rate_limit_scope_expr
         ),
@@ -3418,6 +3434,9 @@ def export_delivery_attempt_evidence_csv(
             'provider_fallback_node',
             'block_code',
             'block_message',
+            'pool_capacity_status',
+            'pool_available_node_count',
+            'pool_required_node_count',
             'rate_limit_scope',
             'rate_limit_window_seconds',
             'rate_limit_max_per_minute',
@@ -3431,7 +3450,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 34)])
+        writer.writerow([*export_context, *([''] * 37)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3484,6 +3503,9 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_provider_preference_fallback_node_name') or '',
                 metadata.get('mta_route_block_code') or '',
                 metadata.get('mta_route_block_message') or '',
+                metadata.get('mta_pool_capacity_status') or '',
+                metadata.get('mta_pool_available_node_count') or '',
+                metadata.get('mta_pool_required_available_node_count') or '',
                 metadata.get('mta_rate_limit_scope') or '',
                 metadata.get('mta_rate_limit_window_seconds') or '',
                 metadata.get('mta_rate_limit_max_per_minute') or '',

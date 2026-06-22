@@ -732,6 +732,9 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
   top_block_messages: DeliveryAttemptEvidenceCountRead[];
+  top_pool_capacity_statuses: DeliveryAttemptEvidenceCountRead[];
+  top_pool_available_node_counts: DeliveryAttemptEvidenceCountRead[];
+  top_pool_required_node_counts: DeliveryAttemptEvidenceCountRead[];
   top_rate_limit_scopes: DeliveryAttemptEvidenceCountRead[];
   top_rate_limit_max_per_minute: DeliveryAttemptEvidenceCountRead[];
   top_rate_limit_recent_counts: DeliveryAttemptEvidenceCountRead[];
@@ -10469,6 +10472,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
+  const topAttemptPoolCapacityStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_capacity_status || '-')));
+  const topAttemptPoolAvailableCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_available_node_count || '-')));
+  const topAttemptPoolRequiredCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_pool_required_available_node_count || '-')));
   const topAttemptRateLimitScope = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_scope || '-')));
   const topAttemptRateLimitMax = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_max_per_minute || '-')));
   const topAttemptRateLimitRecent = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_recent_count || '-')));
@@ -10485,6 +10491,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
+  const summaryTopPoolCapacityStatus = deliveryAttemptEvidenceSummary?.top_pool_capacity_statuses[0] || topAttemptPoolCapacityStatus;
+  const summaryTopPoolAvailableCount = deliveryAttemptEvidenceSummary?.top_pool_available_node_counts[0] || topAttemptPoolAvailableCount;
+  const summaryTopPoolRequiredCount = deliveryAttemptEvidenceSummary?.top_pool_required_node_counts[0] || topAttemptPoolRequiredCount;
   const summaryTopRateLimitScope = deliveryAttemptEvidenceSummary?.top_rate_limit_scopes[0] || topAttemptRateLimitScope;
   const summaryTopRateLimitMax = deliveryAttemptEvidenceSummary?.top_rate_limit_max_per_minute[0] || topAttemptRateLimitMax;
   const summaryTopRateLimitRecent = deliveryAttemptEvidenceSummary?.top_rate_limit_recent_counts[0] || topAttemptRateLimitRecent;
@@ -10587,6 +10596,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top block message',
       value: summaryTopBlockMessage.label,
       detail: summaryTopBlockMessage.count ? `${formatInt(summaryTopBlockMessage.count)} matching attempt(s) returned this resolver explanation.` : 'No route block message evidence loaded.',
+    },
+    {
+      label: 'Top capacity status',
+      value: summaryTopPoolCapacityStatus.label,
+      detail: summaryTopPoolCapacityStatus.count ? `${formatInt(summaryTopPoolCapacityStatus.count)} matching attempt(s) reported this pool capacity status.` : 'No pool capacity status evidence loaded.',
+    },
+    {
+      label: 'Top available nodes',
+      value: summaryTopPoolAvailableCount.label,
+      detail: summaryTopPoolAvailableCount.count ? `${formatInt(summaryTopPoolAvailableCount.count)} matching attempt(s) shared this available node count.` : 'No available-node evidence loaded.',
+    },
+    {
+      label: 'Top required nodes',
+      value: summaryTopPoolRequiredCount.label,
+      detail: summaryTopPoolRequiredCount.count ? `${formatInt(summaryTopPoolRequiredCount.count)} matching attempt(s) shared this required node count.` : 'No required-node evidence loaded.',
     },
     {
       label: 'Top rate-limit scope',
@@ -11421,6 +11445,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
         `  provider_preference=${providerPreference}`,
         `  block_code=${String(metadata.mta_route_block_code || '-')}`,
+        `  pool_capacity_status=${String(metadata.mta_pool_capacity_status || '-')}`,
+        `  pool_available_node_count=${String(metadata.mta_pool_available_node_count || '-')}`,
+        `  pool_required_node_count=${String(metadata.mta_pool_required_available_node_count || '-')}`,
         `  rate_limit_scope=${String(metadata.mta_rate_limit_scope || '-')}`,
         `  rate_limit_window_seconds=${String(metadata.mta_rate_limit_window_seconds || '-')}`,
         `  rate_limit_max_per_minute=${String(metadata.mta_rate_limit_max_per_minute || '-')}`,
