@@ -71,6 +71,28 @@ def run_maintenance(base_url: str, cookie: str | None, args) -> dict[str, Any]:
     )
 
 
+def summarize_maintenance_result(result: dict[str, Any]) -> dict[str, Any]:
+    rows = result.get('results') if isinstance(result, dict) else None
+    policy_rows = rows if isinstance(rows, list) else []
+    warmup_gate_evidence = [
+        {
+            'domain': row.get('domain'),
+            'warmup_action': row.get('warmup_action'),
+            'warmup_status': row.get('warmup_status'),
+            'warmup_gate_evidence_key': row.get('warmup_gate_evidence_key') or '-',
+        }
+        for row in policy_rows
+        if isinstance(row, dict) and row.get('warmup_action')
+    ]
+    return {
+        'processed_count': result.get('processed_count', 0),
+        'blocklist_scan_count': result.get('blocklist_scan_count', 0),
+        'warmup_progression_count': result.get('warmup_progression_count', 0),
+        'skipped_count': result.get('skipped_count', 0),
+        'warmup_gate_evidence': warmup_gate_evidence,
+    }
+
+
 def run_dsn_ingestion(
     base_url: str,
     dsn_path: str,
@@ -139,6 +161,7 @@ def main() -> int:
     try:
         if not args.skip_maintenance:
             results['maintenance'] = run_maintenance(args.base_url, args.cookie, args)
+            results['maintenance_summary'] = summarize_maintenance_result(results['maintenance'])
         if not args.skip_dsn and args.dsn_path:
             results['dsn_ingestion'] = run_dsn_ingestion(
                 args.base_url,

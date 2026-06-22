@@ -901,6 +901,9 @@ def test_managed_smtp_maintenance_runbook_sequences_maintenance_and_dsn_ingestio
         'archive-maildir',
         'quarantine-maildir',
         'managed_smtp_maintenance_runbook',
+        'maintenance_summary',
+        'summarize_maintenance_result',
+        'warmup_gate_evidence_key',
     ]
     for token in expected_tokens:
         assert token in source
