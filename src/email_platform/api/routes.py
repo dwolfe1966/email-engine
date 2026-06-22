@@ -11,7 +11,7 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from email_platform.api.deps import require_user
@@ -3058,6 +3058,29 @@ def _delivery_attempt_evidence_counts(
     return items
 
 
+def _delivery_attempt_missing_evidence_counts(
+    db: DbSession,
+    filters: list[object],
+    route_resolved: object,
+    expressions: Mapping[str, object],
+) -> list[dict[str, object]]:
+    items = []
+    for label, expression in expressions.items():
+        count = int(
+            db.scalar(
+                select(func.count())
+                .select_from(DeliveryAttempt)
+                .where(*filters)
+                .where(route_resolved == 'true')
+                .where(or_(expression.is_(None), expression == ''))
+            )
+            or 0
+        )
+        if count:
+            items.append({'label': label, 'count': count})
+    return sorted(items, key=lambda item: int(item['count']), reverse=True)[:5]
+
+
 @router.get('/delivery-attempts/list', response_model=ListResponse[DeliveryAttemptRead])
 def list_delivery_attempts(
     db: DbSession,
@@ -3273,6 +3296,24 @@ def summarize_delivery_attempt_evidence(
     rate_limit_scope_expr = DeliveryAttempt.metadata_json['mta_rate_limit_scope'].astext
     rate_limit_max_expr = DeliveryAttempt.metadata_json['mta_rate_limit_max_per_minute'].astext
     rate_limit_recent_expr = DeliveryAttempt.metadata_json['mta_rate_limit_recent_count'].astext
+    missing_evidence_expressions = {
+        'route status': route_status_expr,
+        'send type': send_type_expr,
+        'sender domain': sender_domain_expr,
+        'recipient domain': recipient_domain_expr,
+        'routing rule': rule_expr,
+        'rule source': rule_source_expr,
+        'pool source': pool_source_expr,
+        'provider preference': provider_preference_expr,
+        'route provider': provider_expr,
+        'route pool': pool_expr,
+        'route node': func.coalesce(
+            DeliveryAttempt.metadata_json['mta_node_name'].astext,
+            DeliveryAttempt.metadata_json['mta_node_id'].astext,
+        ),
+        'submission host': submission_host_expr,
+        'submission provider': submission_provider_expr,
+    }
     return {
         'total': int(
             db.scalar(select(func.count()).select_from(DeliveryAttempt).where(*filters)) or 0
@@ -3365,6 +3406,9 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_rate_limit_recent_counts': _delivery_attempt_evidence_counts(
             db, filters, rate_limit_recent_expr
+        ),
+        'top_missing_evidence_dimensions': _delivery_attempt_missing_evidence_counts(
+            db, filters, route_resolved, missing_evidence_expressions
         ),
     }
 
@@ -3526,12 +3570,13 @@ def export_delivery_attempt_evidence_csv(
             'skipped_count',
             'skipped_reasons',
             'skipped_nodes_json',
+            'missing_evidence_dimensions',
             'smtp_response_code',
             'started_at',
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 46)])
+        writer.writerow([*export_context, *([''] * 47)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3547,6 +3592,34 @@ def export_delivery_attempt_evidence_csv(
             if isinstance(item, dict) and item.get('reason')
         )
         skipped_nodes_json = json.dumps(skipped_node_items, separators=(',', ':')) if skipped_node_items else ''
+        missing_dimensions = []
+        if metadata.get('mta_route_resolved') is True:
+            missing_dimension_values = {
+                'route status': metadata.get('mta_route_status'),
+                'send type': metadata.get('mta_rule_hit_send_type')
+                or metadata.get('mta_route_send_type'),
+                'sender domain': metadata.get('mta_rule_hit_sender_domain')
+                or metadata.get('mta_route_sender_domain'),
+                'recipient domain': metadata.get('mta_rule_hit_recipient_domain')
+                or metadata.get('mta_route_recipient_domain'),
+                'routing rule': metadata.get('mta_rule_hit_name')
+                or metadata.get('mta_routing_rule_name'),
+                'rule source': metadata.get('mta_rule_hit_source')
+                or metadata.get('mta_routing_rule_source'),
+                'pool source': metadata.get('mta_rule_hit_pool_source')
+                or metadata.get('mta_ip_pool_selection_source'),
+                'provider preference': metadata.get('mta_rule_hit_provider_preference'),
+                'route provider': metadata.get('mta_provider'),
+                'route pool': metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id'),
+                'route node': metadata.get('mta_node_name') or metadata.get('mta_node_id'),
+                'submission host': metadata.get('mta_submission_host'),
+                'submission provider': metadata.get('mta_submission_provider'),
+            }
+            missing_dimensions = [
+                label
+                for label, value in missing_dimension_values.items()
+                if value in (None, '', [])
+            ]
         writer.writerow(
             [
                 *export_context,
@@ -3608,6 +3681,7 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_node_skipped_count') or '',
                 skipped_reasons,
                 skipped_nodes_json,
+                ';'.join(missing_dimensions),
                 attempt.smtp_response_code or metadata.get('smtp_response_code') or '',
                 attempt.started_at.isoformat() if attempt.started_at else '',
             ]

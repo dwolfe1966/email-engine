@@ -690,6 +690,7 @@ class DeliveryAttemptEvidenceSummaryRead(BaseModel):
     top_rate_limit_scopes: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_rate_limit_max_per_minute: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_rate_limit_recent_counts: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_missing_evidence_dimensions: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
 
 
 class DeliveryRouteCreate(BaseModel):

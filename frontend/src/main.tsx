@@ -750,6 +750,7 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_rate_limit_scopes: DeliveryAttemptEvidenceCountRead[];
   top_rate_limit_max_per_minute: DeliveryAttemptEvidenceCountRead[];
   top_rate_limit_recent_counts: DeliveryAttemptEvidenceCountRead[];
+  top_missing_evidence_dimensions: DeliveryAttemptEvidenceCountRead[];
 };
 
 type ProviderFeedbackEventRead = {
@@ -10464,6 +10465,27 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const [label, count] = Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0] || ['-', 0];
     return { label, count };
   };
+  function missingAttemptEvidenceDimensions(metadata: DeliveryAttemptRead['metadata_json']) {
+    if (metadata?.mta_route_resolved !== true) return [];
+    const dimensions: [string, unknown][] = [
+      ['route status', metadata.mta_route_status],
+      ['send type', metadata.mta_rule_hit_send_type || metadata.mta_route_send_type],
+      ['sender domain', metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain],
+      ['recipient domain', metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain],
+      ['routing rule', metadata.mta_rule_hit_name || metadata.mta_routing_rule_name],
+      ['rule source', metadata.mta_rule_hit_source || metadata.mta_routing_rule_source],
+      ['pool source', metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source],
+      ['provider preference', metadata.mta_rule_hit_provider_preference],
+      ['route provider', metadata.mta_provider],
+      ['route pool', metadata.mta_ip_pool_name || metadata.mta_ip_pool_id],
+      ['route node', metadata.mta_node_name || metadata.mta_node_id],
+      ['submission host', metadata.mta_submission_host],
+      ['submission provider', metadata.mta_submission_provider],
+    ];
+    return dimensions
+      .filter(([, value]) => value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0))
+      .map(([label]) => label);
+  }
   const topAttemptRouteStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_status || '-')));
   const topAttemptRouteResolvedState = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
     if (attempt.metadata_json?.mta_route_resolved === true) return 'resolved';
@@ -10514,6 +10536,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptRateLimitScope = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_scope || '-')));
   const topAttemptRateLimitMax = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_max_per_minute || '-')));
   const topAttemptRateLimitRecent = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_recent_count || '-')));
+  const topAttemptMissingEvidenceDimension = summarizeAttemptEvidence(deliveryAttempts.flatMap((attempt) => missingAttemptEvidenceDimensions(attempt.metadata_json || {})));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
   const summaryTopRouteStatus = deliveryAttemptEvidenceSummary?.top_route_statuses[0] || topAttemptRouteStatus;
   const summaryTopRouteResolvedState = deliveryAttemptEvidenceSummary?.top_route_resolved_states[0] || topAttemptRouteResolvedState;
@@ -10545,6 +10568,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopRateLimitScope = deliveryAttemptEvidenceSummary?.top_rate_limit_scopes[0] || topAttemptRateLimitScope;
   const summaryTopRateLimitMax = deliveryAttemptEvidenceSummary?.top_rate_limit_max_per_minute[0] || topAttemptRateLimitMax;
   const summaryTopRateLimitRecent = deliveryAttemptEvidenceSummary?.top_rate_limit_recent_counts[0] || topAttemptRateLimitRecent;
+  const summaryTopMissingEvidenceDimension = deliveryAttemptEvidenceSummary?.top_missing_evidence_dimensions[0] || topAttemptMissingEvidenceDimension;
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10734,6 +10758,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top recent rate count',
       value: summaryTopRateLimitRecent.label,
       detail: summaryTopRateLimitRecent.count ? `${formatInt(summaryTopRateLimitRecent.count)} matching attempt(s) shared this recent send count.` : 'No recent rate-count evidence loaded.',
+    },
+    {
+      label: 'Missing evidence dimension',
+      value: summaryTopMissingEvidenceDimension.label,
+      detail: summaryTopMissingEvidenceDimension.count ? `${formatInt(summaryTopMissingEvidenceDimension.count)} resolved attempt(s) missed this resolver evidence field.` : 'Resolved attempts have complete route evidence in the loaded scope.',
     },
   ];
   const deliveryAttemptEvidenceFollowUps = [
@@ -11531,12 +11560,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const rollups = deliveryAttemptEvidenceRollups
       .map((item) => `- ${item.label}: ${item.value} (${item.detail})`)
       .join('\n');
-    const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
-      const metadata = attempt.metadata_json || {};
-      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
-        ? metadata.mta_rule_hit_provider_preference.join(', ')
-        : String(metadata.mta_preferred_providers || '-');
-      return [
+	    const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
+	      const metadata = attempt.metadata_json || {};
+	      const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
+	        ? metadata.mta_rule_hit_provider_preference.join(', ')
+	        : String(metadata.mta_preferred_providers || '-');
+	      const missingDimensions = missingAttemptEvidenceDimensions(metadata).join(', ') || '-';
+	      return [
         `- attempt=${attempt.id}`,
         `  status=${attempt.status}`,
         `  record=${attempt.send_record_id}`,
@@ -11571,6 +11601,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  rate_limit_window_seconds=${String(metadata.mta_rate_limit_window_seconds || '-')}`,
         `  rate_limit_max_per_minute=${String(metadata.mta_rate_limit_max_per_minute || '-')}`,
         `  rate_limit_recent_count=${String(metadata.mta_rate_limit_recent_count || '-')}`,
+        `  missing_evidence_dimensions=${missingDimensions}`,
         `  smtp=${String(attempt.smtp_response_code || metadata.smtp_response_code || '-')}`,
         `  started_at=${attempt.started_at}`,
       ].join('\n');

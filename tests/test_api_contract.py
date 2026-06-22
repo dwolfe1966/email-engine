@@ -334,6 +334,7 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_rate_limit_scopes',
         'top_rate_limit_max_per_minute',
         'top_rate_limit_recent_counts',
+        'top_missing_evidence_dimensions',
     }.issubset(schema['properties'].keys())
 
 
@@ -377,6 +378,7 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "'skipped_count'",
         "'skipped_reasons'",
         "'skipped_nodes_json'",
+        "'missing_evidence_dimensions'",
         "metadata.get('mta_rule_hit_provider_preference_mode')",
         "metadata.get('mta_provider_preference_fallback_used')",
         "metadata.get('mta_provider_preference_fallback_provider')",
