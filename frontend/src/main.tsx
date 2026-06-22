@@ -10655,6 +10655,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     : evidenceSummaryBlocked
       ? `${formatInt(evidenceSummaryBlocked)} blocked route decision(s) did not reach SMTP submission.`
       : 'Resolved attempts should include provider, host, port, or MTA hostname evidence.';
+  const evidenceCompletenessValue = summaryTopMissingEvidenceDimension.count
+    ? 'Incomplete'
+    : evidenceSummaryResolved
+      ? 'Complete'
+      : 'No resolved evidence';
+  const evidenceCompletenessDetail = summaryTopMissingEvidenceDimension.count
+    ? `${formatInt(summaryTopMissingEvidenceDimension.count)} resolved attempt(s) missed ${summaryTopMissingEvidenceDimension.label}.`
+    : evidenceSummaryResolved
+      ? `${formatInt(evidenceSummaryResolved)} resolved attempt(s) include required route evidence.`
+      : 'Load resolved delivery attempts to audit route evidence completeness.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
     ? `record ${selectedRecordId.slice(0, 8)}`
@@ -10866,6 +10876,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Missing evidence dimension',
       value: summaryTopMissingEvidenceDimension.label,
       detail: summaryTopMissingEvidenceDimension.count ? `${formatInt(summaryTopMissingEvidenceDimension.count)} resolved attempt(s) missed this resolver evidence field.` : 'Resolved attempts have complete route evidence in the loaded scope.',
+    },
+    {
+      label: 'Evidence completeness signal',
+      value: evidenceCompletenessValue,
+      detail: evidenceCompletenessDetail,
     },
   ];
   const deliveryAttemptEvidenceFollowUps = [
@@ -11720,6 +11735,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
       `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
       `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
+      `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
       '',
       'Summary',
       rollups,

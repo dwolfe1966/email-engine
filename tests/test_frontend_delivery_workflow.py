@@ -901,6 +901,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'rate_limit_max_per_minute',
         'rate_limit_recent_count',
         'Missing evidence dimension',
+        'Evidence completeness signal',
+        'Evidence completeness:',
         'top_missing_evidence_dimensions',
         'missing_evidence_dimensions',
         'Resolver timeline',
