@@ -3173,6 +3173,12 @@ def summarize_delivery_attempt_evidence(
         mta_route_block_code=mta_route_block_code,
     )
     route_resolved = DeliveryAttempt.metadata_json['mta_route_resolved'].astext
+    route_resolved_state_expr = case(
+        (route_resolved == 'true', 'resolved'),
+        (route_resolved == 'false', 'blocked'),
+        else_='not resolved',
+    )
+    route_status_expr = DeliveryAttempt.metadata_json['mta_route_status'].astext
     provider_expr = DeliveryAttempt.metadata_json['mta_provider'].astext
     pool_expr = func.coalesce(
         DeliveryAttempt.metadata_json['mta_ip_pool_name'].astext,
@@ -3286,6 +3292,10 @@ def summarize_delivery_attempt_evidence(
                 .where(route_resolved == 'false')
             )
             or 0
+        ),
+        'top_route_statuses': _delivery_attempt_evidence_counts(db, filters, route_status_expr),
+        'top_route_resolved_states': _delivery_attempt_evidence_counts(
+            db, filters, route_resolved_state_expr
         ),
         'top_providers': _delivery_attempt_evidence_counts(db, filters, provider_expr),
         'top_pools': _delivery_attempt_evidence_counts(db, filters, pool_expr),
@@ -3474,6 +3484,7 @@ def export_delivery_attempt_evidence_csv(
             'route_type',
             'route_key',
             'route_resolved',
+            'route_status',
             'send_type',
             'sender_domain',
             'recipient_domain',
@@ -3512,7 +3523,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 43)])
+        writer.writerow([*export_context, *([''] * 44)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3539,6 +3550,7 @@ def export_delivery_attempt_evidence_csv(
                 attempt.route_type or '',
                 attempt.route_key or '',
                 metadata.get('mta_route_resolved', ''),
+                metadata.get('mta_route_status') or '',
                 metadata.get('mta_rule_hit_send_type')
                 or metadata.get('mta_route_send_type')
                 or '',

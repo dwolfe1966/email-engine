@@ -719,6 +719,8 @@ type DeliveryAttemptEvidenceSummaryRead = {
   total: number;
   resolved_count: number;
   blocked_count: number;
+  top_route_statuses: DeliveryAttemptEvidenceCountRead[];
+  top_route_resolved_states: DeliveryAttemptEvidenceCountRead[];
   top_providers: DeliveryAttemptEvidenceCountRead[];
   top_pools: DeliveryAttemptEvidenceCountRead[];
   top_rules: DeliveryAttemptEvidenceCountRead[];
@@ -10460,6 +10462,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const [label, count] = Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0] || ['-', 0];
     return { label, count };
   };
+  const topAttemptRouteStatus = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_status || '-')));
+  const topAttemptRouteResolvedState = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
+    if (attempt.metadata_json?.mta_route_resolved === true) return 'resolved';
+    if (attempt.metadata_json?.mta_route_resolved === false) return 'blocked';
+    return 'not resolved';
+  }));
   const topAttemptProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_provider || '-')));
   const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.mta_ip_pool_id || '-')));
   const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
@@ -10503,6 +10511,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptRateLimitMax = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_max_per_minute || '-')));
   const topAttemptRateLimitRecent = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rate_limit_recent_count || '-')));
   const summaryTopProvider = deliveryAttemptEvidenceSummary?.top_providers[0] || topAttemptProvider;
+  const summaryTopRouteStatus = deliveryAttemptEvidenceSummary?.top_route_statuses[0] || topAttemptRouteStatus;
+  const summaryTopRouteResolvedState = deliveryAttemptEvidenceSummary?.top_route_resolved_states[0] || topAttemptRouteResolvedState;
   const summaryTopPool = deliveryAttemptEvidenceSummary?.top_pools[0] || topAttemptPool;
   const summaryTopRule = deliveryAttemptEvidenceSummary?.top_rules[0] || topAttemptRule;
   const summaryTopSendType = deliveryAttemptEvidenceSummary?.top_send_types[0] || topAttemptSendType;
@@ -10563,6 +10573,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       detail: evidenceSummaryTotal > deliveryAttemptExportLimit
         ? `${formatInt(evidenceSummaryTotal - deliveryAttemptExportLimit)} matching row(s) exceed the CSV cap.`
         : 'Full matching set fits within the CSV export cap.',
+    },
+    {
+      label: 'Top route status',
+      value: summaryTopRouteStatus.label,
+      detail: summaryTopRouteStatus.count ? `${formatInt(summaryTopRouteStatus.count)} matching attempt(s) reported this route status.` : 'No route status evidence loaded.',
+    },
+    {
+      label: 'Top resolved state',
+      value: summaryTopRouteResolvedState.label,
+      detail: summaryTopRouteResolvedState.count ? `${formatInt(summaryTopRouteResolvedState.count)} matching attempt(s) shared this route resolved state.` : 'No route resolved-state evidence loaded.',
     },
     {
       label: 'Top route provider',
@@ -11506,6 +11526,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  record=${attempt.send_record_id}`,
         `  route=${attempt.route_type || '-'}:${attempt.route_key || '-'}`,
         `  resolved=${String(metadata.mta_route_resolved ?? '-')}`,
+        `  route_status=${String(metadata.mta_route_status || '-')}`,
         `  send_type=${String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-')}`,
         `  sender_domain=${String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-')}`,
         `  recipient_domain=${String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-')}`,

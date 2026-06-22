@@ -659,6 +659,8 @@ class DeliveryAttemptEvidenceSummaryRead(BaseModel):
     total: int
     resolved_count: int
     blocked_count: int
+    top_route_statuses: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
+    top_route_resolved_states: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_providers: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_pools: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
     top_rules: list[DeliveryAttemptEvidenceCountRead] = Field(default_factory=list)
