@@ -2246,7 +2246,7 @@ function OverviewPage({ dashboard, metrics, campaigns }: {
         ? {
           tone: 'warn',
           title: 'Review managed SMTP rollout',
-          detail: 'Managed SMTP is now multi-provider: Scaleway is the live path and AWS remains pending as a secondary provider.',
+          detail: 'Managed SMTP is now multi-provider: Scaleway is live and AWS port 25 is open for secondary-provider activation.',
           actionLabel: 'Open Integrations',
           href: '#integrations',
         }
@@ -11221,7 +11221,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       value: firstManagedSmtpProvider?.port25_status || 'Pending',
       detail: port25Approved
         ? 'Outbound direct-MX delivery is approved for the selected provider account.'
-        : 'Load or apply a live provider profile; AWS can remain pending while Scaleway handles seed sends.',
+        : 'Load Scaleway or apply the AWS port-25-open profile; AWS still needs DNS/rDNS before activation.',
       tone: port25Approved ? 'good' : 'warn',
     },
     {
@@ -13525,6 +13525,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               ))}
               {!managedSmtpBootstrapProfiles.find((profile) => profile.name === 'scaleway-poc') ? (
                 <option value="scaleway-poc">scaleway | mta-002.email-engine.app | email-engine.app</option>
+              ) : null}
+              {!managedSmtpBootstrapProfiles.find((profile) => profile.name === 'aws-port25-open') ? (
+                <option value="aws-port25-open">aws | mta-aws-001.email-engine.app | email-engine.app</option>
               ) : null}
             </select>
           </label>
@@ -19274,7 +19277,7 @@ function DocsPage({ diagnostics }: { diagnostics: SystemDiagnostics | null }) {
     {
       area: 'Managed SMTP',
       status: smtpReady ? 'Configured' : 'Control plane',
-      guidance: smtpReady ? 'Managed SMTP adapter is configured.' : 'Scaleway is the live MTA path; AWS remains pending and future providers should be managed through the same inventory model.',
+      guidance: smtpReady ? 'Managed SMTP adapter is configured.' : 'Scaleway is the live MTA path; AWS port 25 is open and should move through DNS/rDNS activation in the same inventory model.',
     },
     {
       area: 'Deliverability feedback',

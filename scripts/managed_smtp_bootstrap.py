@@ -15,6 +15,38 @@ class ApiError(RuntimeError):
 
 
 BOOTSTRAP_PROFILES: dict[str, dict[str, Any]] = {
+    'aws-port25-open': {
+        'provider_account_name': 'aws-port25-open',
+        'provider': 'aws',
+        'provider_account_ref': 'aws-managed-smtp',
+        'region': 'us-east-1',
+        'port25_status': 'approved',
+        'rdns_status': 'pending',
+        'node_name': 'mta-aws-001',
+        'hostname': 'mta-aws-001.email-engine.app',
+        'submission_host': 'mta-aws-001.email-engine.app',
+        'submission_port': 587,
+        'auth_secret_ref': 'secret/mta/aws/mta-aws-001/submission',
+        'ip_pool_name': 'aws-port25-open-test',
+        'ip_pool_type': 'internal_test',
+        'route_name': 'managed-smtp-aws-secondary',
+        'domain': 'email-engine.app',
+        'bounce_domain': 'returns-aws.email-engine.app',
+        'dkim_selector': 'ee-aws1',
+        'dkim_key_ref': 'mta://mta-aws-001.email-engine.app/email-engine.app/ee-aws1',
+        'warmup_stage': 'stage_1',
+        'max_per_minute': 10,
+        'max_concurrent': 2,
+        'activate_inventory': False,
+        'mark_domain_verified': False,
+        'metadata_json': {
+            'bootstrap_profile': 'aws-port25-open',
+            'provider_project': 'aws-managed-smtp',
+            'port25_open_confirmed': True,
+            'port25_open_confirmed_at': '2026-06-22',
+            'activation_mode': 'pending_dns_and_rdns_verification',
+        },
+    },
     'scaleway-poc': {
         'provider_account_name': 'scaleway-poc',
         'provider': 'scaleway',

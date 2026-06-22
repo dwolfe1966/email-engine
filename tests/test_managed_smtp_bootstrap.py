@@ -244,3 +244,24 @@ def test_managed_smtp_bootstrap_profiles_expose_scaleway_poc() -> None:
     assert payload.provider == 'scaleway'
     assert payload.route_name == 'managed-smtp-scaleway-primary'
     assert bootstrap_profile_payload('missing-profile') is None
+
+
+def test_managed_smtp_bootstrap_profiles_expose_aws_port25_open() -> None:
+    profiles = list_bootstrap_profiles()
+
+    aws = next(profile for profile in profiles if profile.name == 'aws-port25-open')
+    payload = bootstrap_profile_payload('aws-port25-open')
+
+    assert aws.provider == 'aws'
+    assert aws.provider_account_name == 'aws-port25-open'
+    assert aws.hostname == 'mta-aws-001.email-engine.app'
+    assert aws.domain == 'email-engine.app'
+    assert aws.port25_status == 'approved'
+    assert aws.rdns_status == 'pending'
+    assert aws.activate_inventory is False
+    assert aws.mark_domain_verified is False
+    assert aws.metadata_json['port25_open_confirmed'] is True
+    assert payload is not None
+    assert payload.provider == 'aws'
+    assert payload.route_name == 'managed-smtp-aws-secondary'
+    assert payload.bounce_domain == 'returns-aws.email-engine.app'

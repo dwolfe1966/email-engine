@@ -1228,6 +1228,58 @@ def test_managed_smtp_bootstrap_script_builds_scaleway_profile_payload() -> None
     assert payload['metadata_json']['first_seed_delivered'] is True
 
 
+def test_managed_smtp_bootstrap_script_builds_aws_port25_profile_payload() -> None:
+    module = load_script_module(BOOTSTRAP_SCRIPT)
+    payload = module.bootstrap_payload(
+        SimpleNamespace(
+            profile='aws-port25-open',
+            provider_account_name=None,
+            provider=None,
+            provider_account_ref=None,
+            region=None,
+            abuse_contact_email=None,
+            support_case_ref=None,
+            port25_status=None,
+            rdns_status=None,
+            provider_secret_ref=None,
+            node_name=None,
+            hostname=None,
+            public_ipv4=None,
+            submission_host=None,
+            submission_port=None,
+            auth_secret_ref=None,
+            ip_pool_name=None,
+            ip_pool_type=None,
+            route_name=None,
+            domain=None,
+            bounce_domain=None,
+            dkim_selector=None,
+            dkim_key_ref=None,
+            warmup_stage=None,
+            max_per_minute=None,
+            max_concurrent=None,
+            activate_inventory=False,
+            mark_domain_verified=False,
+        )
+    )
+
+    assert payload['provider_account_name'] == 'aws-port25-open'
+    assert payload['provider'] == 'aws'
+    assert payload['provider_account_ref'] == 'aws-managed-smtp'
+    assert payload['region'] == 'us-east-1'
+    assert payload['port25_status'] == 'approved'
+    assert payload['rdns_status'] == 'pending'
+    assert payload['node_name'] == 'mta-aws-001'
+    assert payload['hostname'] == 'mta-aws-001.email-engine.app'
+    assert payload['auth_secret_ref'] == 'secret/mta/aws/mta-aws-001/submission'
+    assert payload['ip_pool_name'] == 'aws-port25-open-test'
+    assert payload['route_name'] == 'managed-smtp-aws-secondary'
+    assert payload['bounce_domain'] == 'returns-aws.email-engine.app'
+    assert payload['activate_inventory'] is False
+    assert payload['mark_domain_verified'] is False
+    assert payload['metadata_json']['port25_open_confirmed'] is True
+
+
 def test_secret_and_pii_policy_covers_managed_smtp_local_artifacts() -> None:
     policy = SECRET_POLICY.read_text()
     gitignore = GITIGNORE.read_text()
