@@ -3221,6 +3221,30 @@ def summarize_delivery_attempt_evidence(
         ),
         else_=None,
     )
+    provider_preference_blocked_expr = case(
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_blocked'].astext == 'true',
+            'preference blocked',
+        ),
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_blocked'].astext == 'false',
+            'preference available',
+        ),
+        else_=None,
+    )
+    provider_fallback_available_expr = case(
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_fallback_available'].astext
+            == 'true',
+            'fallback available',
+        ),
+        (
+            DeliveryAttempt.metadata_json['mta_provider_preference_fallback_available'].astext
+            == 'false',
+            'fallback unavailable',
+        ),
+        else_=None,
+    )
     block_code_expr = DeliveryAttempt.metadata_json['mta_route_block_code'].astext
     block_message_expr = DeliveryAttempt.metadata_json['mta_route_block_message'].astext
     node_candidate_count_expr = DeliveryAttempt.metadata_json['mta_node_candidate_count'].astext
@@ -3281,6 +3305,12 @@ def summarize_delivery_attempt_evidence(
         ),
         'top_provider_fallbacks': _delivery_attempt_evidence_counts(
             db, filters, provider_fallback_expr
+        ),
+        'top_provider_preference_blocks': _delivery_attempt_evidence_counts(
+            db, filters, provider_preference_blocked_expr
+        ),
+        'top_provider_fallback_availability': _delivery_attempt_evidence_counts(
+            db, filters, provider_fallback_available_expr
         ),
         'top_block_codes': _delivery_attempt_evidence_counts(db, filters, block_code_expr),
         'top_block_messages': _delivery_attempt_evidence_counts(db, filters, block_message_expr),
@@ -3458,6 +3488,8 @@ def export_delivery_attempt_evidence_csv(
             'provider_fallback_used',
             'provider_fallback_provider',
             'provider_fallback_node',
+            'provider_preference_blocked',
+            'provider_fallback_available',
             'block_code',
             'block_message',
             'selection_priority',
@@ -3480,7 +3512,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 41)])
+        writer.writerow([*export_context, *([''] * 43)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -3531,6 +3563,12 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_provider_preference_fallback_used') or '',
                 metadata.get('mta_provider_preference_fallback_provider') or '',
                 metadata.get('mta_provider_preference_fallback_node_name') or '',
+                metadata.get('mta_provider_preference_blocked')
+                if metadata.get('mta_provider_preference_blocked') is not None
+                else '',
+                metadata.get('mta_provider_preference_fallback_available')
+                if metadata.get('mta_provider_preference_fallback_available') is not None
+                else '',
                 metadata.get('mta_route_block_code') or '',
                 metadata.get('mta_route_block_message') or '',
                 metadata.get('mta_node_selection_priority') or '',

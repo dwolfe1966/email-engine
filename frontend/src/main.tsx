@@ -730,6 +730,8 @@ type DeliveryAttemptEvidenceSummaryRead = {
   top_provider_preferences: DeliveryAttemptEvidenceCountRead[];
   top_provider_preference_modes: DeliveryAttemptEvidenceCountRead[];
   top_provider_fallbacks: DeliveryAttemptEvidenceCountRead[];
+  top_provider_preference_blocks: DeliveryAttemptEvidenceCountRead[];
+  top_provider_fallback_availability: DeliveryAttemptEvidenceCountRead[];
   top_block_codes: DeliveryAttemptEvidenceCountRead[];
   top_block_messages: DeliveryAttemptEvidenceCountRead[];
   top_node_candidate_counts: DeliveryAttemptEvidenceCountRead[];
@@ -10476,6 +10478,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     if (attempt.metadata_json?.mta_provider_preference_fallback_used === false) return 'preferred provider used';
     return '-';
   }));
+  const topAttemptProviderPreferenceBlock = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
+    if (attempt.metadata_json?.mta_provider_preference_blocked === true) return 'preference blocked';
+    if (attempt.metadata_json?.mta_provider_preference_blocked === false) return 'preference available';
+    return '-';
+  }));
+  const topAttemptProviderFallbackAvailability = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => {
+    if (attempt.metadata_json?.mta_provider_preference_fallback_available === true) return 'fallback available';
+    if (attempt.metadata_json?.mta_provider_preference_fallback_available === false) return 'fallback unavailable';
+    return '-';
+  }));
   const topAttemptBlockCode = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_code || '-')));
   const topAttemptBlockMessage = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_route_block_message || '-')));
   const topAttemptNodeCandidateCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_candidate_count || '-')));
@@ -10501,6 +10513,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const summaryTopProviderPreference = deliveryAttemptEvidenceSummary?.top_provider_preferences[0] || topAttemptProviderPreference;
   const summaryTopProviderPreferenceMode = deliveryAttemptEvidenceSummary?.top_provider_preference_modes[0] || topAttemptProviderPreferenceMode;
   const summaryTopProviderFallback = deliveryAttemptEvidenceSummary?.top_provider_fallbacks[0] || topAttemptProviderFallback;
+  const summaryTopProviderPreferenceBlock = deliveryAttemptEvidenceSummary?.top_provider_preference_blocks[0] || topAttemptProviderPreferenceBlock;
+  const summaryTopProviderFallbackAvailability = deliveryAttemptEvidenceSummary?.top_provider_fallback_availability[0] || topAttemptProviderFallbackAvailability;
   const summaryTopBlockCode = deliveryAttemptEvidenceSummary?.top_block_codes[0] || topAttemptBlockCode;
   const summaryTopBlockMessage = deliveryAttemptEvidenceSummary?.top_block_messages[0] || topAttemptBlockMessage;
   const summaryTopNodeCandidateCount = deliveryAttemptEvidenceSummary?.top_node_candidate_counts[0] || topAttemptNodeCandidateCount;
@@ -10604,6 +10618,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Fallback usage',
       value: summaryTopProviderFallback.label,
       detail: summaryTopProviderFallback.count ? `${formatInt(summaryTopProviderFallback.count)} matching attempt(s) reported this fallback state.` : 'No provider fallback evidence loaded.',
+    },
+    {
+      label: 'Preference block state',
+      value: summaryTopProviderPreferenceBlock.label,
+      detail: summaryTopProviderPreferenceBlock.count ? `${formatInt(summaryTopProviderPreferenceBlock.count)} matching attempt(s) reported this provider preference block state.` : 'No provider preference block evidence loaded.',
+    },
+    {
+      label: 'Fallback availability',
+      value: summaryTopProviderFallbackAvailability.label,
+      detail: summaryTopProviderFallbackAvailability.count ? `${formatInt(summaryTopProviderFallbackAvailability.count)} matching attempt(s) reported this fallback availability state.` : 'No fallback availability evidence loaded.',
     },
     {
       label: 'Top block code',
@@ -11492,6 +11516,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
         `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
         `  provider_preference=${providerPreference}`,
+        `  provider_preference_blocked=${String(metadata.mta_provider_preference_blocked ?? '-')}`,
+        `  provider_fallback_available=${String(metadata.mta_provider_preference_fallback_available ?? '-')}`,
         `  block_code=${String(metadata.mta_route_block_code || '-')}`,
         `  candidate_count=${String(metadata.mta_node_candidate_count || '-')}`,
         `  skipped_count=${String(metadata.mta_node_skipped_count || '-')}`,
