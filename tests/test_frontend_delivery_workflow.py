@@ -908,6 +908,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Controlled seed proof',
         'Controlled expansion',
         'Expansion pool gate',
+        'Feedback gate',
+        'Load retained provider feedback before advancing warmup volume.',
         'Warmup review',
         'Managed SMTP Warmup Review Pack',
         'Copied managed SMTP warmup review pack',

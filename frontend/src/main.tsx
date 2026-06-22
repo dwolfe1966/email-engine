@@ -10752,6 +10752,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const controlledSeedProofDetail = !controlledSeedProofAttempts.length
     ? 'Apply Controlled Seed Proof after processing the seed to inspect route and SMTP evidence.'
     : `${formatInt(controlledSeedProofAccepted)} accepted, ${formatInt(controlledSeedProofResolved)} resolved, ${formatInt(controlledSeedProofRejected)} rejected out of ${formatInt(controlledSeedProofAttempts.length)} loaded seed attempt(s).`;
+  const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
+  const feedbackGateReady = Boolean(providerFeedbackEvents.length && providerFeedbackWarningCount === 0);
+  const feedbackGateValue = providerFeedbackEvents.length
+    ? providerFeedbackWarningCount ? 'Review' : 'Quiet'
+    : 'Not loaded';
+  const feedbackGateDetail = providerFeedbackEvents.length
+    ? `${formatInt(providerFeedbackWarningCount)} warning signal(s) across ${formatInt(providerFeedbackEvents.length)} retained feedback event(s).`
+    : 'Load retained provider feedback before advancing warmup volume.';
   const expansionPoolGateReady = Boolean(
     selectedMtaIpPoolHealth
     && selectedMtaIpPoolHealth.provider_blocker_count === 0
@@ -10771,7 +10779,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     && domainDashboard?.reputation_status !== 'risk'
     && domainDashboard?.blocklist_status !== 'listed'
     && evidenceCompletenessValue === 'Complete'
-    && expansionPoolGateReady;
+    && expansionPoolGateReady
+    && feedbackGateReady;
   const controlledExpansionValue = controlledExpansionReady
     ? 'Stage next cohort'
     : controlledSeedProofAttempts.length
@@ -10780,7 +10789,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const controlledExpansionDetail = controlledExpansionReady
     ? `Use a small next cohort within throttle limits: ${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || 'no'} per minute, ${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || 'no'} concurrent.`
     : controlledSeedProofAttempts.length
-      ? 'Keep volume paused until proof, reputation, blocklist, compliance, evidence completeness, and pool readiness are clean.'
+      ? 'Keep volume paused until proof, reputation, blocklist, compliance, evidence completeness, pool readiness, and feedback are clean.'
       : 'Run and load controlled seed proof before selecting an expansion cohort.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
@@ -11090,7 +11099,6 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     },
   ];
   const providerFootprint = Array.from(new Set(sendRecords.map((record) => providerLabel(record.provider)).filter(Boolean)));
-  const providerFeedbackWarningCount = providerFeedbackEvents.filter((event) => ['dsn_bounce', 'bounce', 'complaint', 'tempfail', 'deferred'].includes(event.event_name)).length;
   const readinessWarningCount = readinessSummary
     ? readinessSummary.warning_count + readinessSummary.failed_count
     : readinessChecks.filter((check) => check.status !== 'ok').length;
@@ -11812,6 +11820,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: expansionPoolGateReady ? 'good' : 'warn',
     },
     {
+      label: 'Feedback gate',
+      value: feedbackGateValue,
+      detail: feedbackGateDetail,
+      tone: feedbackGateReady ? 'good' : 'warn',
+    },
+    {
       label: 'Domain auth verification',
       value: domainAuthVerificationValue,
       detail: domainAuthVerificationDetail,
@@ -12154,6 +12168,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
       `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      `Feedback gate: ${feedbackGateValue} (${feedbackGateDetail})`,
       `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
       `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
       '',
@@ -12194,6 +12209,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
       `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      `Feedback gate: ${feedbackGateValue} (${feedbackGateDetail})`,
       `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
       `Selected pool health: ${selectedMtaIpPoolHealth?.status_label || '-'} route_ready=${formatInt(selectedMtaIpPoolHealth?.route_ready_node_count || 0)} required=${formatInt(selectedMtaIpPoolHealth?.required_available_node_count || 0)} blockers=${formatInt((selectedMtaIpPoolHealth?.provider_blocker_count || 0) + (selectedMtaIpPoolHealth?.readiness_blocker_count || 0))}`,
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
@@ -12264,6 +12280,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Blocklist: ${domainDashboard?.blocklist_status || '-'} hits=${warmupReviewBlocklistHits.join(', ') || '-'}`,
       `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
       `Expansion pool gate: ${expansionPoolGateValue} (${expansionPoolGateDetail})`,
+      `Feedback gate: ${feedbackGateValue} (${feedbackGateDetail})`,
       `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
       `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
