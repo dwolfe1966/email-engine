@@ -515,10 +515,16 @@ type DomainReputationDashboardRead = {
   route_name: string | null;
   route_type: string | null;
   warmup_stage: string | null;
+  warmup_status: string;
+  warmup_daily_limit: number | null;
+  warmup_stage_order: number | null;
   ip_pool: string | null;
+  blocklist_status: string;
+  blocklist_hits: string[];
   max_per_minute: number | null;
   max_concurrent: number | null;
   paused_until: string | null;
+  authentication_verified: boolean;
   authentication_status: string;
   reputation_status: string;
   throttle_status: string;
@@ -10728,6 +10734,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const controlledSeedProofDetail = !controlledSeedProofAttempts.length
     ? 'Apply Controlled Seed Proof after processing the seed to inspect route and SMTP evidence.'
     : `${formatInt(controlledSeedProofAccepted)} accepted, ${formatInt(controlledSeedProofResolved)} resolved, ${formatInt(controlledSeedProofRejected)} rejected out of ${formatInt(controlledSeedProofAttempts.length)} loaded seed attempt(s).`;
+  const controlledExpansionReady = controlledSeedProofValue === 'Expand cautiously'
+    && domainDashboard?.compliance_status !== 'hold'
+    && domainDashboard?.reputation_status !== 'risk'
+    && domainDashboard?.blocklist_status !== 'listed'
+    && evidenceCompletenessValue === 'Complete';
+  const controlledExpansionValue = controlledExpansionReady
+    ? 'Stage next cohort'
+    : controlledSeedProofAttempts.length
+      ? 'Hold expansion'
+      : 'Seed proof first';
+  const controlledExpansionDetail = controlledExpansionReady
+    ? `Use a small next cohort within throttle limits: ${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || 'no'} per minute, ${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || 'no'} concurrent.`
+    : controlledSeedProofAttempts.length
+      ? 'Keep volume paused until proof, reputation, blocklist, compliance, and evidence completeness are clean.'
+      : 'Run and load controlled seed proof before selecting an expansion cohort.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
     ? `record ${selectedRecordId.slice(0, 8)}`
@@ -10752,6 +10773,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Controlled seed proof',
       value: controlledSeedProofValue,
       detail: controlledSeedProofDetail,
+    },
+    {
+      label: 'Controlled expansion',
+      value: controlledExpansionValue,
+      detail: controlledExpansionDetail,
     },
     {
       label: 'Export scope',
@@ -11686,6 +11712,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       tone: domainDashboard?.throttle_status === 'paused' ? 'warn' : 'good',
     },
     {
+      label: 'Controlled expansion',
+      value: controlledExpansionValue,
+      detail: controlledExpansionDetail,
+      tone: controlledExpansionReady ? 'good' : 'warn',
+    },
+    {
       label: 'Domain auth verification',
       value: domainAuthVerificationValue,
       detail: domainAuthVerificationDetail,
@@ -12044,6 +12076,44 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function copyManagedSmtpControlledSeedProofPack() {
     await copyTextToClipboard(buildManagedSmtpControlledSeedProofPack());
     setStatus(`Copied managed SMTP controlled seed proof pack: ${controlledSeedProofValue}.`);
+  }
+
+  function buildManagedSmtpControlledExpansionPack() {
+    return [
+      'Managed SMTP Controlled Expansion Review Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Expansion decision: ${controlledExpansionValue}`,
+      `Expansion detail: ${controlledExpansionDetail}`,
+      `Controlled seed proof: ${controlledSeedProofValue} (${controlledSeedProofDetail})`,
+      `Domain: ${selectedDomainPolicy?.domain || domainDashboard?.domain || '-'}`,
+      `Warmup stage: ${selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || '-'}`,
+      `Warmup status: ${domainDashboard?.warmup_status || '-'}`,
+      `Warmup daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
+      `Warmup stage order: ${domainDashboard?.warmup_stage_order || '-'}`,
+      `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
+      `Reputation: ${domainDashboard?.reputation_status || '-'} bounce=${domainDashboard ? formatPct(domainDashboard.bounce_rate) : '-'} complaint=${domainDashboard ? formatPct(domainDashboard.complaint_rate) : '-'}`,
+      `Blocklist: ${domainDashboard?.blocklist_status || '-'} hits=${domainDashboard?.blocklist_hits?.join(', ') || '-'}`,
+      `Compliance: ${domainDashboard?.compliance_status || firstSendComplianceStatus}`,
+      `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
+      `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
+      `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
+      '',
+      'Next action',
+      controlledExpansionReady
+        ? '- Stage only the next small cohort. Keep current throttle limits and reload delivery evidence before any further increase.'
+        : '- Hold expansion. Resolve the listed blockers, rerun seed proof, and refresh reputation/dashboard evidence.',
+      '',
+      'Operator checks',
+      '- Confirm provider feedback has no bounce/complaint/tempfail pattern.',
+      '- Confirm MTA logs and queue samples do not show deferrals.',
+      '- Confirm route evidence still points to the intended pool/node/provider.',
+      '- Keep the domain in warmup until multiple clean cohorts are observed.',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpControlledExpansionPack() {
+    await copyTextToClipboard(buildManagedSmtpControlledExpansionPack());
+    setStatus(`Copied managed SMTP controlled expansion pack: ${controlledExpansionValue}.`);
   }
 
   function buildManagedSmtpRouteResolutionEvidencePack() {
@@ -13016,7 +13086,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Reputation: ${domainDashboard?.reputation_status || '-'}`,
       `Bounce rate: ${domainDashboard ? formatPct(domainDashboard.bounce_rate) : '-'}`,
       `Complaint rate: ${domainDashboard ? formatPct(domainDashboard.complaint_rate) : '-'}`,
+      `Warmup status: ${domainDashboard?.warmup_status || '-'}`,
+      `Warmup daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
+      `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
       `Authentication: ${domainDashboard?.authentication_status || '-'}`,
       `Authentication verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       `IP pool: ${domainDashboard?.ip_pool || '-'}`,
@@ -15109,6 +15182,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
           <button className="ghost" onClick={copyManagedSmtpControlledSeedProofPack} disabled={busy}>Copy Seed Proof Pack</button>
+          <button className="ghost" onClick={copyManagedSmtpControlledExpansionPack} disabled={busy}>Copy Expansion Pack</button>
           <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
           <button className="ghost" onClick={clearDeliveryAttemptFilters} disabled={busy}>Clear Attempt Filters</button>
         </div>
