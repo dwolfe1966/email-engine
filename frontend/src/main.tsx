@@ -11692,6 +11692,35 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const complianceHoldStatus = typeof activeComplianceHold === 'object' && activeComplianceHold !== null && 'status' in activeComplianceHold
     ? String((activeComplianceHold as Record<string, unknown>).status)
     : 'clear';
+  const warmupReviewSentCount = domainDashboard?.sent_count || 0;
+  const warmupReviewBounceRate = domainDashboard?.bounce_rate || 0;
+  const warmupReviewComplaintRate = domainDashboard?.complaint_rate || 0;
+  const warmupReviewMinSentCount = 25;
+  const warmupReviewMaxBounceRate = 0.02;
+  const warmupReviewMaxComplaintRate = 0.001;
+  const warmupReviewBlocklistHits = domainDashboard?.blocklist_hits || [];
+  const warmupReviewValue = warmupReviewBlocklistHits.length
+    ? 'Hold'
+    : warmupReviewComplaintRate >= warmupReviewMaxComplaintRate
+      ? 'Hold'
+      : warmupReviewBounceRate >= warmupReviewMaxBounceRate
+        ? 'Hold'
+        : warmupReviewSentCount < warmupReviewMinSentCount
+          ? 'Wait'
+          : controlledExpansionReady
+            ? 'Advance ready'
+            : 'Review';
+  const warmupReviewDetail = warmupReviewBlocklistHits.length
+    ? `Blocklist hits must be cleared: ${warmupReviewBlocklistHits.join(', ')}.`
+    : warmupReviewComplaintRate >= warmupReviewMaxComplaintRate
+      ? `Complaint rate ${formatPct(warmupReviewComplaintRate)} exceeds ${formatPct(warmupReviewMaxComplaintRate)}.`
+      : warmupReviewBounceRate >= warmupReviewMaxBounceRate
+        ? `Bounce rate ${formatPct(warmupReviewBounceRate)} exceeds ${formatPct(warmupReviewMaxBounceRate)}.`
+        : warmupReviewSentCount < warmupReviewMinSentCount
+          ? `${formatInt(warmupReviewSentCount)} sent; need ${formatInt(warmupReviewMinSentCount)} to evaluate progression.`
+          : controlledExpansionReady
+            ? 'Warmup metrics and controlled expansion evidence are clean; operator can consider the next small stage.'
+            : 'Warmup metrics are acceptable, but expansion proof/compliance evidence still needs review.';
   const domainComplianceItems = [
     {
       label: 'Compliance hold',
@@ -11710,6 +11739,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       value: domainDashboard?.throttle_status || 'Not loaded',
       detail: selectedDomainPolicy ? `${selectedDomainPolicy.max_per_minute || 'no'} per-minute / ${selectedDomainPolicy.max_concurrent || 'no'} concurrent` : 'Select a domain policy',
       tone: domainDashboard?.throttle_status === 'paused' ? 'warn' : 'good',
+    },
+    {
+      label: 'Warmup review',
+      value: warmupReviewValue,
+      detail: warmupReviewDetail,
+      tone: warmupReviewValue === 'Advance ready' ? 'good' : 'warn',
     },
     {
       label: 'Controlled expansion',
@@ -12114,6 +12149,41 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function copyManagedSmtpControlledExpansionPack() {
     await copyTextToClipboard(buildManagedSmtpControlledExpansionPack());
     setStatus(`Copied managed SMTP controlled expansion pack: ${controlledExpansionValue}.`);
+  }
+
+  function buildManagedSmtpWarmupReviewPack() {
+    const nextDailyLimit = domainDashboard?.warmup_daily_limit
+      ? Math.max(domainDashboard.warmup_daily_limit + 1, domainDashboard.warmup_daily_limit * 2)
+      : 100;
+    return [
+      'Managed SMTP Warmup Review Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Warmup decision: ${warmupReviewValue}`,
+      `Warmup detail: ${warmupReviewDetail}`,
+      `Domain: ${selectedDomainPolicy?.domain || domainDashboard?.domain || '-'}`,
+      `Stage: ${selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || '-'}`,
+      `Stage order: ${domainDashboard?.warmup_stage_order || '-'}`,
+      `Current daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
+      `Suggested next daily limit: ${warmupReviewValue === 'Advance ready' ? nextDailyLimit : '-'}`,
+      `Sent count: ${formatInt(warmupReviewSentCount)} / ${formatInt(warmupReviewMinSentCount)} minimum`,
+      `Bounce rate: ${formatPct(warmupReviewBounceRate)} / ${formatPct(warmupReviewMaxBounceRate)} max`,
+      `Complaint rate: ${formatPct(warmupReviewComplaintRate)} / ${formatPct(warmupReviewMaxComplaintRate)} max`,
+      `Blocklist: ${domainDashboard?.blocklist_status || '-'} hits=${warmupReviewBlocklistHits.join(', ') || '-'}`,
+      `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
+      `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
+      '',
+      'Operator guidance',
+      warmupReviewValue === 'Advance ready'
+        ? '- Warmup can advance only after operator review. Keep the next cohort small and do not remove throttle limits.'
+        : '- Do not advance warmup. Resolve the listed condition and refresh dashboard/proof evidence.',
+      '- This pack is read-only and does not call warmup-progress.',
+      '- Use warmup-progress only after confirming proof, feedback, reputation, and compliance evidence.',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpWarmupReviewPack() {
+    await copyTextToClipboard(buildManagedSmtpWarmupReviewPack());
+    setStatus(`Copied managed SMTP warmup review pack: ${warmupReviewValue}.`);
   }
 
   function buildManagedSmtpRouteResolutionEvidencePack() {
@@ -13088,6 +13158,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Complaint rate: ${domainDashboard ? formatPct(domainDashboard.complaint_rate) : '-'}`,
       `Warmup status: ${domainDashboard?.warmup_status || '-'}`,
       `Warmup daily limit: ${domainDashboard?.warmup_daily_limit || '-'}`,
+      `Warmup review: ${warmupReviewValue} (${warmupReviewDetail})`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
       `Controlled expansion: ${controlledExpansionValue} (${controlledExpansionDetail})`,
       `Authentication: ${domainDashboard?.authentication_status || '-'}`,
@@ -14651,6 +14722,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadDomainPolicies} disabled={busy}>Load Domain Policies</button>
             <button className="ghost" onClick={verifySelectedDomainAuthentication} disabled={busy || !selectedDomainPolicyId}>Verify Domain Auth</button>
+            <button className="ghost" onClick={copyManagedSmtpWarmupReviewPack} disabled={busy || !selectedDomainPolicyId}>Copy Warmup Review</button>
             <button className="ghost" onClick={copyManagedSmtpDomainComplianceEvidencePack} disabled={busy || (!selectedDomainPolicy && !domainDashboard)}>Copy Compliance Pack</button>
           </div>
         </div>
