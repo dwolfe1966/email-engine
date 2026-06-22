@@ -10617,6 +10617,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const providerFailoverDetail = providerFailoverSignals.length
     ? providerFailoverSignals.join(', ')
     : 'Loaded evidence shows preferred providers available without fallback pressure.';
+  const rulePerformanceSignals = [
+    summaryTopRule.count ? `${formatInt(summaryTopRule.count)} matching attempt(s)` : '',
+    summaryTopBlockCode.count ? `block ${summaryTopBlockCode.label}` : '',
+    summaryTopProviderFallback.label === 'fallback used' ? 'provider fallback used' : '',
+    Number(summaryTopNodeSkippedCount.label || 0) > 0 ? `skipped nodes ${summaryTopNodeSkippedCount.label}` : '',
+    summaryTopMissingEvidenceDimension.count ? `missing ${summaryTopMissingEvidenceDimension.label}` : '',
+  ].filter(Boolean);
+  const rulePerformanceNeedsReview = Boolean(
+    summaryTopBlockCode.count ||
+    summaryTopProviderFallback.label === 'fallback used' ||
+    Number(summaryTopNodeSkippedCount.label || 0) > 0 ||
+    summaryTopMissingEvidenceDimension.count,
+  );
+  const rulePerformanceValue = summaryTopRule.count
+    ? (rulePerformanceNeedsReview ? 'Needs review' : 'Healthy')
+    : 'No rule evidence';
+  const rulePerformanceDetail = rulePerformanceSignals.length
+    ? rulePerformanceSignals.join(', ')
+    : 'Load route evidence to evaluate routing rule performance.';
   const evidenceSummaryTotal = deliveryAttemptEvidenceSummary?.total ?? deliveryAttempts.length;
   const evidenceSummaryResolved = deliveryAttemptEvidenceSummary?.resolved_count ?? resolvedRouteAttempts;
   const evidenceSummaryBlocked = deliveryAttemptEvidenceSummary?.blocked_count ?? blockedRouteAttempts;
@@ -10681,6 +10700,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Top routing rule',
       value: summaryTopRule.label,
       detail: summaryTopRule.count ? `${formatInt(summaryTopRule.count)} matching attempt(s) matched this rule.` : 'No routing rule evidence loaded.',
+    },
+    {
+      label: 'Rule performance signal',
+      value: rulePerformanceValue,
+      detail: rulePerformanceDetail,
     },
     {
       label: 'Top send type',
@@ -11673,6 +11697,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Active filters: ${activeFilters}`,
       `Pool pressure: ${poolPressureValue} (${poolPressureDetail})`,
       `Provider failover: ${providerFailoverValue} (${providerFailoverDetail})`,
+      `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
       '',
       'Summary',
       rollups,

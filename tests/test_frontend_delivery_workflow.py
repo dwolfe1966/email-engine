@@ -854,6 +854,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Provider failover signal',
         'Provider failover:',
         'Top candidate count',
+        'Rule performance signal',
+        'Rule performance:',
         'Top skipped count',
         'top_node_candidate_counts',
         'top_node_skipped_counts',
