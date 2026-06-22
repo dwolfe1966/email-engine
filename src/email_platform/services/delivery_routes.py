@@ -842,6 +842,15 @@ class DeliveryRouteService:
 
             warmup: DomainWarmupProgressionRead | None = None
             if payload.progress_warmup:
+                deliverability = deliverability_by_domain.get(policy.domain.lower())
+                gate_evidence = self._maintenance_warmup_gate_evidence(
+                    payload=payload,
+                    policy=policy,
+                    route_type=route_type,
+                    deliverability=deliverability,
+                    blocklist_status=blocklist_status,
+                    blocklist_hits=blocklist_hits,
+                )
                 warmup = self.progress_domain_warmup(
                     policy.id,
                     DomainWarmupProgressionRequest(
@@ -850,8 +859,9 @@ class DeliveryRouteService:
                         max_complaint_rate=payload.max_complaint_rate,
                         min_sent_count=payload.min_sent_count,
                         operator=payload.operator,
+                        gate_evidence=gate_evidence,
                     ),
-                    deliverability=deliverability_by_domain.get(policy.domain.lower()),
+                    deliverability=deliverability,
                 )
                 if warmup:
                     warmup_progression_count += 1
@@ -868,6 +878,7 @@ class DeliveryRouteService:
                     warmup_status=warmup.status if warmup else None,
                     warmup_stage=policy.warmup_stage,
                     warmup_daily_limit=self._metadata_int(metadata, 'warmup_daily_limit'),
+                    warmup_gate_evidence_key=self._latest_warmup_gate_evidence_key(metadata),
                 )
             )
 
@@ -878,6 +889,62 @@ class DeliveryRouteService:
             skipped_count=skipped_count,
             results=results,
         )
+
+    def _maintenance_warmup_gate_evidence(
+        self,
+        *,
+        payload: ManagedSmtpMaintenanceRequest,
+        policy: DomainDeliveryPolicy,
+        route_type: DeliveryRouteType | None,
+        deliverability: DomainDeliverabilityRead | None,
+        blocklist_status: str | None,
+        blocklist_hits: list[str],
+    ) -> dict[str, object]:
+        sent_count = deliverability.sent_count if deliverability else 0
+        bounce_rate = deliverability.bounce_rate if deliverability else 0.0
+        complaint_rate = self._rate(
+            deliverability.complained_count if deliverability else 0,
+            max(sent_count, deliverability.send_record_count if deliverability else 0),
+        )
+        gates = {
+            'maintenance': {
+                'operator': payload.operator or 'managed_smtp_maintenance',
+                'advance_warmup': payload.advance_warmup,
+                'route_type': route_type.value if route_type else None,
+                'policy_id': str(policy.id),
+            },
+            'domain_metrics': {
+                'sent_count': sent_count,
+                'min_sent_count': payload.min_sent_count,
+                'bounce_rate': bounce_rate,
+                'max_bounce_rate': payload.max_bounce_rate,
+                'complaint_rate': complaint_rate,
+                'max_complaint_rate': payload.max_complaint_rate,
+                'ready': (
+                    sent_count >= payload.min_sent_count
+                    and bounce_rate < payload.max_bounce_rate
+                    and complaint_rate < payload.max_complaint_rate
+                ),
+            },
+            'blocklist_gate': {
+                'status': blocklist_status or 'not_scanned',
+                'hits': blocklist_hits,
+                'ready': not blocklist_hits,
+            },
+        }
+        return gates
+
+    def _latest_warmup_gate_evidence_key(self, metadata: dict[str, object]) -> str | None:
+        raw_audit_log = metadata.get('warmup_audit_log')
+        if not isinstance(raw_audit_log, list) or not raw_audit_log:
+            return None
+        latest = raw_audit_log[-1]
+        if not isinstance(latest, dict):
+            return None
+        gate_evidence = latest.get('gate_evidence')
+        if not isinstance(gate_evidence, dict) or not gate_evidence:
+            return None
+        return ','.join(sorted(str(key) for key in gate_evidence))
 
     def domain_reputation_dashboard(
         self,

@@ -900,6 +900,7 @@ class ManagedSmtpMaintenancePolicyRead(BaseModel):
     warmup_status: str | None = None
     warmup_stage: str | None = None
     warmup_daily_limit: int | None = None
+    warmup_gate_evidence_key: str | None = None
 
 
 class ManagedSmtpMaintenanceRead(BaseModel):

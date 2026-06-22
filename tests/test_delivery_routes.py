@@ -1124,8 +1124,13 @@ def test_managed_smtp_maintenance_scans_and_advances_warmup() -> None:
     assert result.results[0].blocklist_status == 'clear'
     assert result.results[0].warmup_action == 'advance'
     assert result.results[0].warmup_stage == 'stage_2'
+    assert result.results[0].warmup_gate_evidence_key == 'blocklist_gate,domain_metrics,maintenance'
     assert policy.metadata_json['blocklist_status'] == 'clear'
     assert policy.metadata_json['warmup_stage_order'] == 2
+    audit_entry = policy.metadata_json['warmup_audit_log'][-1]
+    assert audit_entry['gate_evidence']['maintenance']['operator'] == 'managed_smtp_maintenance'
+    assert audit_entry['gate_evidence']['domain_metrics']['ready'] is True
+    assert audit_entry['gate_evidence']['blocklist_gate']['status'] == 'clear'
 
 
 def test_managed_smtp_maintenance_skips_non_managed_smtp_routes() -> None:
