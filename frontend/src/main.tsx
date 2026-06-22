@@ -11568,17 +11568,19 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? `${firstSendControlProgress}; ${formatInt(firstSendReadiness.blockers.length)} blocker(s): ${firstSendReadiness.blockers.join(', ')}.`
       : `${firstSendControlProgress}.`
     : 'Load First Send Evidence to check provider, MTA, auth, DNS, smoke, and compliance gates.';
-  const controlledSeedReady = Boolean(firstSendReadiness?.ok && awsNextGateValue === 'Run controlled seed');
+  const controlledSeedReady = Boolean(firstSendReadiness?.ok && awsNextGateValue === 'Run controlled seed' && expansionPoolGateReady);
   const controlledSeedValue = controlledSeedReady
     ? 'Ready'
     : firstSendReadiness
       ? 'Blocked'
       : 'Not checked';
   const controlledSeedDetail = controlledSeedReady
-    ? 'All loaded first-send gates are ready; run one small seed through the owned MTA path and inspect delivery evidence.'
+    ? 'All loaded first-send and pool gates are ready; run one small seed through the owned MTA path and inspect delivery evidence.'
     : firstSendReadiness?.blockers.length
       ? `Clear blockers before seed traffic: ${firstSendReadiness.blockers.join(', ')}.`
-      : 'Load First Send Evidence and complete AWS activation gates before controlled seed traffic.';
+      : firstSendReadiness?.ok && !expansionPoolGateReady
+        ? `Resolve the selected pool gate before seed traffic: ${expansionPoolGateValue}.`
+        : 'Load First Send Evidence and complete AWS activation gates before controlled seed traffic.';
   const deliveryTriageAction = failedRecords
     ? {
       tone: 'warn',
@@ -12698,6 +12700,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function buildManagedSmtpFirstSendEvidencePack() {
+    const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
+    const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
     const items = firstSendReadiness
       ? firstSendReadiness.items.map((item) => [
           `- ${item.key}`,
@@ -12730,9 +12734,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `MTA node: ${node ? `${node.name} ${node.hostname}` : '-'}`,
       `Latest readiness: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.created_at}` : '-'}`,
       `Compliance: ${domainDashboard?.compliance_status || firstSendComplianceStatus}`,
+      `Seed pool gate: ${expansionPoolGateValue} (${expansionPoolGateDetail})`,
+      `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
+      `Selected pool health: ${selectedMtaIpPoolHealth?.status_label || '-'} route_ready=${formatInt(selectedMtaIpPoolHealth?.route_ready_node_count || 0)} required=${formatInt(selectedMtaIpPoolHealth?.required_available_node_count || 0)} blockers=${formatInt((selectedMtaIpPoolHealth?.provider_blocker_count || 0) + (selectedMtaIpPoolHealth?.readiness_blocker_count || 0))}`,
+      `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
+      `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
+      `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
       '',
       'Checklist',
       items || '- no first-send checklist loaded',
+      '',
+      'Pool operator audit',
+      poolAuditEntries || '- no pool operator control audit entries loaded',
+      '',
+      'Membership operator audit',
+      membershipAuditEntries || '- no membership operator control audit entries loaded',
     ].join('\n');
   }
 
@@ -12742,6 +12758,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function buildManagedSmtpControlledSeedEvidencePack() {
+    const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
+    const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
     const checklist = firstSendReadinessItems.map((item) => [
       `- ${item.label}`,
       `  status=${item.tone === 'good' ? 'ready' : 'review'}`,
@@ -12764,10 +12782,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Latest readiness: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.host || latestReadinessCheck.domain || '-'} ${latestReadinessCheck.created_at}` : '-'}`,
       `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
       `Compliance: ${domainDashboard?.compliance_status || firstSendComplianceStatus}`,
+      `Seed pool gate: ${expansionPoolGateValue} (${expansionPoolGateDetail})`,
+      `Selected pool: ${selectedMtaIpPool?.name || '-'} status=${selectedMtaIpPool?.status || '-'} max_per_minute=${selectedMtaIpPool?.max_per_minute || '-'} min_available_nodes=${selectedMtaIpPool?.min_available_nodes || '-'}`,
+      `Selected pool health: ${selectedMtaIpPoolHealth?.status_label || '-'} route_ready=${formatInt(selectedMtaIpPoolHealth?.route_ready_node_count || 0)} required=${formatInt(selectedMtaIpPoolHealth?.required_available_node_count || 0)} blockers=${formatInt((selectedMtaIpPoolHealth?.provider_blocker_count || 0) + (selectedMtaIpPoolHealth?.readiness_blocker_count || 0))}`,
+      `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
+      `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
+      `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
       '',
       'Runbook',
       '- Load First Send Evidence immediately before the seed.',
       '- Confirm Controlled seed is Ready.',
+      '- Confirm Seed pool gate is Ready.',
       '- Send one internal seed recipient only.',
       '- Click Process Queued once if the seed creates a queued delivery record.',
       '- Reload Delivery Attempts and copy route/send proof evidence.',
@@ -12775,6 +12800,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       '',
       'Checklist',
       checklist || '- no first-send checklist loaded',
+      '',
+      'Pool operator audit',
+      poolAuditEntries || '- no pool operator control audit entries loaded',
+      '',
+      'Membership operator audit',
+      membershipAuditEntries || '- no membership operator control audit entries loaded',
     ].join('\n');
   }
 
@@ -14899,6 +14930,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <span>Controlled seed</span>
             <strong>{controlledSeedValue}</strong>
             <small>{controlledSeedDetail}</small>
+          </article>
+          <article className={`first-send-summary-card ${expansionPoolGateReady ? 'good' : 'warn'}`}>
+            <span>Seed pool gate</span>
+            <strong>{expansionPoolGateValue}</strong>
+            <small>{expansionPoolGateDetail}</small>
           </article>
           {firstSendReadinessItems.map((item) => (
             <article className={`first-send-check ${item.tone}`} key={item.label}>
