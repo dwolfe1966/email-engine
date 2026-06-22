@@ -11204,6 +11204,29 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   ];
   const firstManagedSmtpNode = managedSmtpDeploymentSummary?.recent_nodes?.[0] || null;
   const firstManagedSmtpProvider = firstManagedSmtpNode?.provider_account || null;
+  const awsProviderReadiness = (managedSmtpDeploymentSummary?.provider_readiness || []).find((item) => (
+    item.provider_account.provider === 'aws'
+    || item.provider_account.name.toLowerCase().includes('aws')
+  )) || null;
+  const awsProviderBlockers = awsProviderReadiness?.blocker_labels.length
+    ? awsProviderReadiness.blocker_labels
+    : (awsProviderReadiness?.blockers || []).map(formatManagedSmtpProviderBlocker);
+  const awsActivationValue = awsProviderReadiness
+    ? (awsProviderReadiness.status === 'ok'
+        ? 'Ready'
+        : awsProviderReadiness.provider_account.port25_status === 'approved'
+          ? 'DNS/rDNS pending'
+          : 'Port 25 pending')
+    : 'Not bootstrapped';
+  const awsActivationDetail = awsProviderReadiness
+    ? [
+      `port25=${awsProviderReadiness.port25_status_label}`,
+      `rdns=${awsProviderReadiness.rdns_status_label}`,
+      `${formatInt(awsProviderReadiness.active_node_count)} active node(s)`,
+      awsProviderBlockers.length ? `blockers ${awsProviderBlockers.join(', ')}` : 'no provider blockers',
+      awsProviderReadiness.next_action,
+    ].filter(Boolean).join('; ')
+    : 'Apply aws-port25-open to register the pending AWS provider, MTA node, IP pool, route, and domain policy.';
   const port25Approved = firstManagedSmtpProvider?.port25_status === 'approved';
   const rdnsConfigured = firstManagedSmtpProvider?.rdns_status === 'configured';
   const latestReadinessOk = latestReadinessCheck?.status === 'ok';
@@ -12323,6 +12346,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Fleet status: ${summary?.fleet_health.status || '-'}`,
       `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
       `Primary next action: ${summary?.fleet_health.primary_next_action_label || '-'} - ${summary?.fleet_health.primary_next_action_summary || '-'}`,
+      `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `Inventory: ${formatInt(summary?.provider_accounts.total || 0)} provider(s), ${formatInt(summary?.nodes.total || 0)} node(s), ${formatInt(summary?.ip_pools.total || 0)} pool(s), ${formatInt(summary?.managed_smtp_route_count || 0)} route(s), ${formatInt(summary?.managed_smtp_domain_policy_count || 0)} domain policy mapping(s)`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
@@ -12489,6 +12513,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Generated at: ${new Date().toISOString()}`,
       `Fleet status: ${summary?.fleet_health.status || '-'}`,
       `Fleet summary: ${summary?.fleet_health.summary || '-'}`,
+      `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
       `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
       `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
@@ -13598,6 +13623,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           </div>
         </div>
         <div className="managed-smtp-route-inspector">
+          <article className={`managed-smtp-route-field ${awsProviderReadiness?.tone || 'warn'}`}>
+            <span>AWS activation signal</span>
+            <strong>{awsActivationValue}</strong>
+            <small>{awsActivationDetail}</small>
+          </article>
           {(managedSmtpDeploymentSummary?.provider_readiness || []).slice(0, 8).map((item) => (
             <article className={`managed-smtp-route-field ${item.tone}`} key={item.provider_account.id}>
               <span>{item.provider_account.provider} / {item.provider_account.name}</span>
