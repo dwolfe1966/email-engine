@@ -85,6 +85,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'copyManagedSmtpBootstrapProfileEvidencePack',
         'Managed SMTP Bootstrap Profile Evidence Pack',
         'Copied managed SMTP bootstrap profile evidence pack',
+        'AWS host setup',
+        'Install/start email-engine-mta-agent on the AWS MTA host',
         'buildManagedSmtpProviderReadinessEvidencePack',
         'copyManagedSmtpProviderReadinessEvidencePack',
         'Managed SMTP Provider Readiness Evidence Pack',

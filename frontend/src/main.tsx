@@ -12499,6 +12499,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       route ? `provider=${route.provider}` : null,
       route ? `submission=${route.submission_host}:${route.submission_port}` : null,
       '',
+      'AWS host setup',
+      `signal=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Log into AWS instance after DNS/rDNS values are assigned.' : awsAgentSetupValue}`,
+      `detail=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Install/start email-engine-mta-agent on the AWS MTA host, confirm timer/service, then reload SMTP Deployment.' : awsAgentSetupDetail}`,
+      managedSmtpAgentCommands.map((command) => `  ${command}`).join('\n'),
+      '',
       'Next steps',
       bootstrap?.next_steps.map((item) => `- ${item}`).join('\n') || '- no next steps returned',
     ].filter((line) => line !== null).join('\n');
