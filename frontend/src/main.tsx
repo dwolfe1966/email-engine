@@ -11263,6 +11263,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     || item.provider_account?.name.toLowerCase().includes('aws')
     || item.node.hostname.toLowerCase().includes('aws')
   )) || null;
+  const awsAgentNodeId = awsDeploymentNode?.node.id || lastManagedSmtpBootstrap?.node.id || '<node-id>';
+  const awsAgentHostname = awsDeploymentNode?.node.hostname || lastManagedSmtpBootstrap?.node.hostname || 'mta-aws-001.email-engine.app';
+  const awsAgentPublicIp = awsDeploymentNode?.node.public_ipv4 || lastManagedSmtpBootstrap?.node.public_ipv4 || '<aws-public-ip>';
+  const awsAgentInstallCommands = [
+    'cd /root/apps/email-engine',
+    'git pull --ff-only',
+    'python3 -m py_compile scripts/managed_smtp_mta_agent.py',
+    `export BASE_URL=https://email-engine.app`,
+    `export MANAGED_SMTP_MTA_NODE_ID=${awsAgentNodeId}`,
+    `export MANAGED_SMTP_FEEDBACK_SECRET='<paste-managed-smtp-feedback-secret>'`,
+    'export MANAGED_SMTP_MTA_AGENT_STATE=/var/lib/email-engine-mta-agent/state.json',
+    'python3 scripts/managed_smtp_mta_agent.py --post-config-event --json',
+    'sudo systemctl daemon-reload',
+    'sudo systemctl enable --now email-engine-mta-agent.timer',
+    'sudo systemctl start email-engine-mta-agent.service',
+    'sudo systemctl status email-engine-mta-agent.service --no-pager',
+    'sudo journalctl -u email-engine-mta-agent.service -n 80 --no-pager',
+    '# Then click Load SMTP Deployment and confirm AWS agent setup changes to Agent reporting.',
+  ];
   const awsAgentSetupValue = awsDeploymentNode
     ? (awsDeploymentNode.readiness_summary.latest_success
         ? 'Agent reporting'
@@ -12522,6 +12541,46 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP deployment evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node(s).`);
   }
 
+  function buildAwsAgentSetupEvidencePack() {
+    const node = awsDeploymentNode;
+    return [
+      'AWS MTA Agent Setup Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `AWS next gate: ${awsNextGateValue} (${awsNextGateDetail})`,
+      `AWS activation: ${awsActivationValue} (${awsActivationDetail})`,
+      `AWS rDNS verification: ${awsRdnsVerificationValue} (${awsRdnsVerificationDetail})`,
+      `Domain auth verification: ${domainAuthVerificationValue} (${domainAuthVerificationDetail})`,
+      '',
+      'AWS node',
+      `node_id=${awsAgentNodeId}`,
+      `hostname=${awsAgentHostname}`,
+      `public_ipv4=${awsAgentPublicIp}`,
+      `provider=${node?.provider_account?.name || awsProviderReadiness?.provider_account.name || 'aws'}`,
+      `agent_status=${node?.agent_operational_status_label || node?.agent_operational_status || awsAgentSetupValue}`,
+      `heartbeat=${node?.agent_heartbeat_status_label || '-'}`,
+      `runtime_config=${node?.agent_config_sync_label || '-'}`,
+      `host_update=${node ? `${node.agent_host_update_status_label || node.agent_host_update_status}${node.agent_host_update_required ? ' required' : ''}` : '-'}`,
+      '',
+      'Run on AWS instance',
+      awsAgentInstallCommands.join('\n'),
+      '',
+      'Expected verification',
+      '- Load SMTP Deployment after running the service.',
+      '- Confirm AWS agent setup changes to Agent reporting.',
+      '- Confirm runtime config is synced and host update is not required.',
+      '- Confirm latest readiness evidence is passing before controlled seed.',
+    ].join('\n');
+  }
+
+  async function copyAwsAgentSetupEvidencePack() {
+    if (!awsProviderReadiness && !awsDeploymentNode && !lastManagedSmtpBootstrap) {
+      setStatus('Load or apply the AWS managed SMTP profile before copying an AWS agent setup pack.');
+      return;
+    }
+    await copyTextToClipboard(buildAwsAgentSetupEvidencePack());
+    setStatus(`Copied AWS MTA agent setup pack for ${awsAgentHostname}.`);
+  }
+
   function buildManagedSmtpFleetHealthEvidencePack() {
     const summary = managedSmtpDeploymentSummary;
     const fleet = summary?.fleet_health;
@@ -12632,7 +12691,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       'AWS host setup',
       `signal=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Log into AWS instance after DNS/rDNS values are assigned.' : awsAgentSetupValue}`,
       `detail=${selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? 'Install/start email-engine-mta-agent on the AWS MTA host, confirm timer/service, then reload SMTP Deployment.' : awsAgentSetupDetail}`,
-      managedSmtpAgentCommands.map((command) => `  ${command}`).join('\n'),
+      (selectedManagedSmtpBootstrapProfile === 'aws-port25-open' ? awsAgentInstallCommands : managedSmtpAgentCommands).map((command) => `  ${command}`).join('\n'),
       '',
       'AWS rDNS verification',
       `status=${awsRdnsVerificationValue}`,
@@ -14126,9 +14185,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                 <strong>{awsAgentSetupValue}</strong>
               </div>
               <small>{awsAgentSetupDetail}</small>
+              <button className="ghost" onClick={copyAwsAgentSetupEvidencePack} disabled={busy || (!awsProviderReadiness && !awsDeploymentNode && !lastManagedSmtpBootstrap)}>Copy AWS Agent Pack</button>
               <details>
                 <summary>AWS agent setup commands</summary>
-                <div className="json-preview">{managedSmtpAgentCommands.join('\n')}</div>
+                <div className="json-preview">{awsAgentInstallCommands.join('\n')}</div>
               </details>
             </article>
             {managedSmtpDeploymentSummary.recent_nodes.map((item) => (
