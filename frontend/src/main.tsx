@@ -1214,6 +1214,28 @@ type ManagedSmtpDeploymentSummaryRead = {
   recent_nodes: ManagedSmtpDeploymentNodeSummary[];
 };
 
+type ManagedSmtpMaintenancePolicyRead = {
+  policy_id: string;
+  domain: string;
+  route_type: string | null;
+  skipped_reason: string | null;
+  blocklist_status: string | null;
+  blocklist_hits: string[];
+  warmup_action: string | null;
+  warmup_status: string | null;
+  warmup_stage: string | null;
+  warmup_daily_limit: number | null;
+  warmup_gate_evidence_key: string | null;
+};
+
+type ManagedSmtpMaintenanceRead = {
+  processed_count: number;
+  blocklist_scan_count: number;
+  warmup_progression_count: number;
+  skipped_count: number;
+  results: ManagedSmtpMaintenancePolicyRead[];
+};
+
 type ManagedSmtpBootstrapRead = {
   provider_account: MtaProviderAccountRead;
   node: MtaNodeRead;
@@ -10293,6 +10315,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [selectedManagedSmtpBootstrapProfile, setSelectedManagedSmtpBootstrapProfile] = useState('scaleway-poc');
   const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
+  const [managedSmtpMaintenance, setManagedSmtpMaintenance] = useState<ManagedSmtpMaintenanceRead | null>(null);
   const [awsRdnsVerification, setAwsRdnsVerification] = useState<MtaProviderRdnsVerificationRead | null>(null);
   const [mtaIpPools, setMtaIpPools] = useState<MtaIpPoolRead[]>([]);
   const [mtaIpPoolTotal, setMtaIpPoolTotal] = useState(0);
@@ -11259,6 +11282,40 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         ? `${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_port25_blocked_count)} port 25, ${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_rdns_blocked_count)} rDNS, ${formatInt(managedSmtpDeploymentSummary.fleet_health.provider_inactive_count)} inactive`
         : 'Load deployment summary for provider blockers.',
       tone: managedSmtpDeploymentSummary?.fleet_health.blocked_provider_count ? 'warn' : 'good',
+    },
+  ];
+  const maintenanceWarmupRows = (managedSmtpMaintenance?.results || []).filter((item) => item.warmup_action);
+  const maintenanceGateEvidenceRows = maintenanceWarmupRows.filter((item) => item.warmup_gate_evidence_key);
+  const managedSmtpMaintenanceItems = [
+    {
+      label: 'Maintenance processed',
+      value: managedSmtpMaintenance ? formatInt(managedSmtpMaintenance.processed_count) : 'Not run',
+      detail: managedSmtpMaintenance
+        ? `${formatInt(managedSmtpMaintenance.skipped_count)} skipped policy row(s).`
+        : 'Run managed SMTP maintenance to scan blocklists and evaluate warmup progression.',
+      tone: managedSmtpMaintenance ? 'good' : 'warn',
+    },
+    {
+      label: 'Blocklist scans',
+      value: managedSmtpMaintenance ? formatInt(managedSmtpMaintenance.blocklist_scan_count) : '-',
+      detail: managedSmtpMaintenance
+        ? `${formatInt((managedSmtpMaintenance.results || []).filter((item) => item.blocklist_hits.length).length)} policy row(s) reported blocklist hits.`
+        : 'Maintenance blocklist scan results are not loaded.',
+      tone: managedSmtpMaintenance?.results?.some((item) => item.blocklist_hits.length) ? 'warn' : 'good',
+    },
+    {
+      label: 'Warmup automation',
+      value: managedSmtpMaintenance ? formatInt(managedSmtpMaintenance.warmup_progression_count) : '-',
+      detail: managedSmtpMaintenance
+        ? `${formatInt(maintenanceWarmupRows.filter((item) => item.warmup_action === 'advance').length)} advance, ${formatInt(maintenanceWarmupRows.filter((item) => item.warmup_action === 'hold').length)} hold, ${formatInt(maintenanceWarmupRows.filter((item) => item.warmup_action === 'keep').length)} keep.`
+        : 'Maintenance warmup progression has not been run.',
+      tone: maintenanceWarmupRows.some((item) => item.warmup_action === 'hold') ? 'warn' : 'good',
+    },
+    {
+      label: 'Gate evidence keys',
+      value: managedSmtpMaintenance ? `${formatInt(maintenanceGateEvidenceRows.length)} / ${formatInt(maintenanceWarmupRows.length)}` : '-',
+      detail: maintenanceGateEvidenceRows[0]?.warmup_gate_evidence_key || 'No maintenance warmup gate evidence keys loaded.',
+      tone: managedSmtpMaintenance && maintenanceWarmupRows.length === maintenanceGateEvidenceRows.length ? 'good' : 'warn',
     },
   ];
   const managedSmtpNodeNextAction = (item: ManagedSmtpDeploymentNodeSummary) => {
@@ -13840,6 +13897,24 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  async function runManagedSmtpMaintenance() {
+    await runDeliveryOperation('Running managed SMTP maintenance', async () => {
+      const result = await fetchJson<ManagedSmtpMaintenanceRead>('/api/v1/domain-delivery-policies/managed-smtp-maintenance', {
+        method: 'POST',
+        body: JSON.stringify({
+          scan_blocklists: true,
+          progress_warmup: true,
+          advance_warmup: false,
+          operator: 'esp_admin_ui_maintenance',
+        }),
+      });
+      setManagedSmtpMaintenance(result);
+      const policies = await fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0');
+      setDomainPolicies(policies.items || []);
+      return `Ran maintenance: ${formatInt(result.processed_count)} processed, ${formatInt(result.blocklist_scan_count)} blocklist scan(s), ${formatInt(result.warmup_progression_count)} warmup evaluation(s).`;
+    });
+  }
+
   async function loadManagedSmtpPoolControls() {
     await runDeliveryOperation('Loading managed SMTP pool controls', async () => {
       const [poolData, membershipData, summary] = await Promise.all([
@@ -14516,6 +14591,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="ghost" onClick={loadManagedSmtpBootstrapProfiles} disabled={busy}>Load Profiles</button>
             <button className="link-button" onClick={loadManagedSmtpDeploymentSummary} disabled={busy}>Load SMTP Deployment</button>
+            <button className="ghost" onClick={runManagedSmtpMaintenance} disabled={busy}>Run Maintenance</button>
             <button className="ghost" onClick={loadManagedSmtpPoolControls} disabled={busy}>Load Pool Controls</button>
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
@@ -14605,6 +14681,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         <div className="delivery-score-strip" aria-label="Managed SMTP fleet health strip">
           {managedSmtpFleetItems.map((item) => (
+            <div className={`delivery-score-item ${item.tone}`} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
+        <div className="delivery-score-strip" aria-label="Managed SMTP maintenance strip">
+          {managedSmtpMaintenanceItems.map((item) => (
             <div className={`delivery-score-item ${item.tone}`} key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
