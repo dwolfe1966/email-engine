@@ -918,6 +918,8 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Advance Warmup',
         'Warmup progression',
         'Warmup audit',
+        'Warmup gate evidence',
+        'Evaluate or advance warmup to store proof, pool, feedback, and automation gate evidence.',
         'Warmup audit log',
         'Warmup audit entries',
         'Warmup last evaluated',

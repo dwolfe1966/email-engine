@@ -11735,6 +11735,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ? selectedDomainPolicy.metadata_json.warmup_audit_log
     : [];
   const latestWarmupAudit = warmupAuditLog[warmupAuditLog.length - 1] as Record<string, unknown> | undefined;
+  const latestWarmupGateEvidence = latestWarmupAudit?.gate_evidence && typeof latestWarmupAudit.gate_evidence === 'object'
+    ? latestWarmupAudit.gate_evidence as Record<string, unknown>
+    : {};
   const warmupLastEvaluatedAt = String(selectedDomainPolicy?.metadata_json?.warmup_last_evaluated_at || latestWarmupAudit?.evaluated_at || '-');
   const warmupHoldReason = String(selectedDomainPolicy?.metadata_json?.warmup_hold_reason || latestWarmupAudit?.reason || '-');
   const activeComplianceHold = selectedDomainPolicy?.metadata_json?.compliance_hold;
@@ -11806,6 +11809,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       value: formatInt(warmupAuditLog.length),
       detail: warmupAuditLog.length ? `latest ${String(latestWarmupAudit?.action || '-')} / ${String(latestWarmupAudit?.status || '-')} at ${warmupLastEvaluatedAt}` : 'No warmup progression audit entries loaded',
       tone: warmupAuditLog.length ? 'good' : 'warn',
+    },
+    {
+      label: 'Warmup gate evidence',
+      value: Object.keys(latestWarmupGateEvidence).length ? 'Stored' : 'Missing',
+      detail: Object.keys(latestWarmupGateEvidence).length ? formatWarmupGateEvidenceSummary(latestWarmupGateEvidence) : 'Evaluate or advance warmup to store proof, pool, feedback, and automation gate evidence.',
+      tone: Object.keys(latestWarmupGateEvidence).length ? 'good' : 'warn',
     },
     {
       label: 'Controlled expansion',
