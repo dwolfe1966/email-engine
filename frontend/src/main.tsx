@@ -11306,6 +11306,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     { label: 'Missing Gate', value: 'missing_gate', count: maintenanceResults.filter((item) => item.warmup_action && !item.warmup_gate_evidence_key).length },
   ] as const;
   const maintenanceSelectedFilter = maintenanceFilterOptions.find((option) => option.value === managedSmtpMaintenanceFilter) || maintenanceFilterOptions[0];
+  const maintenanceFilterSummary = managedSmtpMaintenance
+    ? `Showing ${formatInt(maintenanceFilteredResults.length)} of ${formatInt(maintenanceResults.length)} policy row(s) for ${maintenanceSelectedFilter.label}.`
+    : 'Run maintenance to populate filterable policy result rows.';
   const managedSmtpMaintenanceItems = [
     {
       label: 'Maintenance processed',
@@ -14820,6 +14823,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               {option.label} ({formatInt(option.count)})
             </button>
           ))}
+          <span className="muted">{maintenanceFilterSummary}</span>
         </div>
         <div className="provider-feedback-list compact-list" aria-label="Latest managed SMTP maintenance results">
           {maintenanceFilteredResults.slice(0, 8).map((item) => {
