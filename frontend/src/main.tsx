@@ -13136,7 +13136,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
 
   function buildManagedSmtpMaintenanceEvidencePack() {
-    const rows = (managedSmtpMaintenance?.results || []).slice(0, 12).map((item) => [
+    const formatMaintenanceRows = (items: ManagedSmtpMaintenancePolicyRead[]) => items.slice(0, 12).map((item) => [
       `- domain=${item.domain}`,
       `  route_type=${item.route_type || '-'}`,
       `  skipped=${item.skipped_reason || '-'}`,
@@ -13145,6 +13145,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  stage=${item.warmup_stage || '-'} daily_limit=${item.warmup_daily_limit || '-'}`,
       `  gate_evidence=${item.warmup_gate_evidence_key || '-'}`,
     ].join('\n')).join('\n');
+    const rows = formatMaintenanceRows(maintenanceResults);
+    const filteredRows = formatMaintenanceRows(maintenanceFilteredResults);
     return [
       'Managed SMTP Maintenance Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13155,6 +13157,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Gate evidence rows: ${formatInt(maintenanceGateEvidenceRows.length)} / ${formatInt(maintenanceWarmupRows.length)}`,
       `Visible filter: ${maintenanceSelectedFilter.label} (${formatInt(maintenanceFilteredResults.length)} / ${formatInt(maintenanceResults.length)} row(s))`,
       'Export scope: Full maintenance run; visible filter is included for operator context only',
+      '',
+      `Filtered policy results (${maintenanceSelectedFilter.label})`,
+      filteredRows || '- no policy rows match the selected maintenance filter',
       '',
       'Policy results',
       rows || '- no maintenance result rows loaded',
