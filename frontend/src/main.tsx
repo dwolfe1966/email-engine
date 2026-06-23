@@ -11305,6 +11305,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     { label: 'Skipped', value: 'skipped', count: maintenanceResults.filter((item) => item.skipped_reason).length },
     { label: 'Missing Gate', value: 'missing_gate', count: maintenanceResults.filter((item) => item.warmup_action && !item.warmup_gate_evidence_key).length },
   ] as const;
+  const maintenanceSelectedFilter = maintenanceFilterOptions.find((option) => option.value === managedSmtpMaintenanceFilter) || maintenanceFilterOptions[0];
   const managedSmtpMaintenanceItems = [
     {
       label: 'Maintenance processed',
@@ -13180,6 +13181,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Blocklist scans', managedSmtpMaintenance.blocklist_scan_count],
       ['Warmup progressions', managedSmtpMaintenance.warmup_progression_count],
       ['Gate evidence rows', maintenanceGateEvidenceRows.length, 'Warmup rows', maintenanceWarmupRows.length],
+      ['Visible filter', maintenanceSelectedFilter.label, 'Filtered rows', maintenanceFilteredResults.length, 'Total rows', maintenanceResults.length],
+      ['Export scope', 'Full maintenance run', 'Visible filter is included for operator context only'],
       [],
       ['policy_id', 'domain', 'route_type', 'skipped_reason', 'blocklist_status', 'blocklist_hits', 'warmup_action', 'warmup_status', 'warmup_stage', 'warmup_daily_limit', 'warmup_gate_evidence_key'],
       ...managedSmtpMaintenance.results.map((item) => [
@@ -13204,7 +13207,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     link.download = `managed-smtp-maintenance-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    setStatus(`Downloaded managed SMTP maintenance CSV with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s).`);
+    setStatus(`Downloaded managed SMTP maintenance CSV with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s); visible filter ${maintenanceSelectedFilter.label} matched ${formatInt(maintenanceFilteredResults.length)} row(s).`);
   }
 
   function buildAwsAgentSetupEvidencePack() {
