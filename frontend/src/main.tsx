@@ -13180,6 +13180,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       setStatus('Run managed SMTP maintenance before exporting maintenance CSV.');
       return;
     }
+    const maintenanceCsvRow = (item: ManagedSmtpMaintenancePolicyRead) => [
+      item.policy_id,
+      item.domain,
+      item.route_type || '',
+      item.skipped_reason || '',
+      item.blocklist_status || '',
+      maintenanceBlocklistHits(item).join(', '),
+      item.warmup_action || '',
+      item.warmup_status || '',
+      item.warmup_stage || '',
+      item.warmup_daily_limit ?? '',
+      item.warmup_gate_evidence_key || '',
+    ];
+    const maintenanceCsvHeader = ['policy_id', 'domain', 'route_type', 'skipped_reason', 'blocklist_status', 'blocklist_hits', 'warmup_action', 'warmup_status', 'warmup_stage', 'warmup_daily_limit', 'warmup_gate_evidence_key'];
     const rows = [
       ['Managed SMTP Maintenance Export'],
       ['Generated at', new Date().toISOString()],
@@ -13191,20 +13205,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Visible filter', maintenanceSelectedFilter.label, 'Filtered rows', maintenanceFilteredResults.length, 'Total rows', maintenanceResults.length],
       ['Export scope', 'Full maintenance run', 'Visible filter is included for operator context only'],
       [],
-      ['policy_id', 'domain', 'route_type', 'skipped_reason', 'blocklist_status', 'blocklist_hits', 'warmup_action', 'warmup_status', 'warmup_stage', 'warmup_daily_limit', 'warmup_gate_evidence_key'],
-      ...managedSmtpMaintenance.results.map((item) => [
-        item.policy_id,
-        item.domain,
-        item.route_type || '',
-        item.skipped_reason || '',
-        item.blocklist_status || '',
-        maintenanceBlocklistHits(item).join(', '),
-        item.warmup_action || '',
-        item.warmup_status || '',
-        item.warmup_stage || '',
-        item.warmup_daily_limit ?? '',
-        item.warmup_gate_evidence_key || '',
-      ]),
+      [`Filtered policy results (${maintenanceSelectedFilter.label})`],
+      maintenanceFilteredResults.length ? maintenanceCsvHeader : ['no policy rows match the selected maintenance filter'],
+      ...maintenanceFilteredResults.map(maintenanceCsvRow),
+      [],
+      ['Full maintenance run policy results'],
+      maintenanceCsvHeader,
+      ...maintenanceResults.map(maintenanceCsvRow),
     ];
     const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
