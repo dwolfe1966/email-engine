@@ -11286,6 +11286,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   ];
   const maintenanceWarmupRows = (managedSmtpMaintenance?.results || []).filter((item) => item.warmup_action);
   const maintenanceGateEvidenceRows = maintenanceWarmupRows.filter((item) => item.warmup_gate_evidence_key);
+  const maintenanceBlocklistHits = (item: ManagedSmtpMaintenancePolicyRead) => (
+    Array.isArray(item.blocklist_hits) ? item.blocklist_hits : []
+  );
   const managedSmtpMaintenanceItems = [
     {
       label: 'Maintenance processed',
@@ -11299,9 +11302,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Blocklist scans',
       value: managedSmtpMaintenance ? formatInt(managedSmtpMaintenance.blocklist_scan_count) : '-',
       detail: managedSmtpMaintenance
-        ? `${formatInt((managedSmtpMaintenance.results || []).filter((item) => item.blocklist_hits.length).length)} policy row(s) reported blocklist hits.`
+        ? `${formatInt((managedSmtpMaintenance.results || []).filter((item) => maintenanceBlocklistHits(item).length).length)} policy row(s) reported blocklist hits.`
         : 'Maintenance blocklist scan results are not loaded.',
-      tone: managedSmtpMaintenance?.results?.some((item) => item.blocklist_hits.length) ? 'warn' : 'good',
+      tone: managedSmtpMaintenance?.results?.some((item) => maintenanceBlocklistHits(item).length) ? 'warn' : 'good',
     },
     {
       label: 'Warmup automation',
@@ -13120,7 +13123,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `- domain=${item.domain}`,
       `  route_type=${item.route_type || '-'}`,
       `  skipped=${item.skipped_reason || '-'}`,
-      `  blocklist=${item.blocklist_status || '-'} hits=${item.blocklist_hits.join(', ') || '-'}`,
+      `  blocklist=${item.blocklist_status || '-'} hits=${maintenanceBlocklistHits(item).join(', ') || '-'}`,
       `  warmup=${item.warmup_action || '-'} / ${item.warmup_status || '-'}`,
       `  stage=${item.warmup_stage || '-'} daily_limit=${item.warmup_daily_limit || '-'}`,
       `  gate_evidence=${item.warmup_gate_evidence_key || '-'}`,
@@ -13169,7 +13172,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         item.route_type || '',
         item.skipped_reason || '',
         item.blocklist_status || '',
-        item.blocklist_hits.join(', '),
+        maintenanceBlocklistHits(item).join(', '),
         item.warmup_action || '',
         item.warmup_status || '',
         item.warmup_stage || '',
@@ -14771,6 +14774,36 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{item.detail}</small>
             </div>
           ))}
+        </div>
+        <div className="provider-feedback-list compact-list" aria-label="Latest managed SMTP maintenance results">
+          {(managedSmtpMaintenance?.results || []).slice(0, 8).map((item) => {
+            const hits = maintenanceBlocklistHits(item);
+            const tone = item.skipped_reason || hits.length || item.warmup_action === 'hold' ? 'warn' : 'good';
+            return (
+              <article className={tone} key={item.policy_id}>
+                <div>
+                  <span>{item.domain}</span>
+                  <strong>{item.warmup_action || 'No warmup action'}</strong>
+                  <small>{item.skipped_reason || `${item.route_type || 'managed route'} maintenance row`}</small>
+                </div>
+                <dl>
+                  <div><dt>blocklist</dt><dd>{item.blocklist_status || 'not scanned'}{hits.length ? `: ${hits.join(', ')}` : ''}</dd></div>
+                  <div><dt>warmup</dt><dd>{item.warmup_status || '-'} / {item.warmup_stage || '-'}</dd></div>
+                  <div><dt>daily limit</dt><dd>{item.warmup_daily_limit ?? '-'}</dd></div>
+                  <div><dt>gate evidence</dt><dd>{item.warmup_gate_evidence_key || '-'}</dd></div>
+                </dl>
+              </article>
+            );
+          })}
+          {!managedSmtpMaintenance?.results?.length ? (
+            <article className="warn">
+              <div>
+                <span>Latest maintenance results</span>
+                <strong>Not run</strong>
+                <small>Run managed SMTP maintenance to inspect policy-level blocklist, warmup, and gate evidence outcomes.</small>
+              </div>
+            </article>
+          ) : null}
         </div>
         <div className="panel-head compact-head">
           <div>
