@@ -10316,6 +10316,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [lastManagedSmtpBootstrap, setLastManagedSmtpBootstrap] = useState<ManagedSmtpBootstrapRead | null>(null);
   const [managedSmtpDeploymentSummary, setManagedSmtpDeploymentSummary] = useState<ManagedSmtpDeploymentSummaryRead | null>(null);
   const [managedSmtpMaintenance, setManagedSmtpMaintenance] = useState<ManagedSmtpMaintenanceRead | null>(null);
+  const [managedSmtpMaintenanceFilter, setManagedSmtpMaintenanceFilter] = useState<'all' | 'holds' | 'blocklists' | 'skipped' | 'missing_gate'>('all');
   const [awsRdnsVerification, setAwsRdnsVerification] = useState<MtaProviderRdnsVerificationRead | null>(null);
   const [mtaIpPools, setMtaIpPools] = useState<MtaIpPoolRead[]>([]);
   const [mtaIpPoolTotal, setMtaIpPoolTotal] = useState(0);
@@ -11289,6 +11290,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const maintenanceBlocklistHits = (item: ManagedSmtpMaintenancePolicyRead) => (
     Array.isArray(item.blocklist_hits) ? item.blocklist_hits : []
   );
+  const maintenanceResults = managedSmtpMaintenance?.results || [];
+  const maintenanceFilteredResults = maintenanceResults.filter((item) => {
+    if (managedSmtpMaintenanceFilter === 'holds') return item.warmup_action === 'hold';
+    if (managedSmtpMaintenanceFilter === 'blocklists') return maintenanceBlocklistHits(item).length > 0;
+    if (managedSmtpMaintenanceFilter === 'skipped') return Boolean(item.skipped_reason);
+    if (managedSmtpMaintenanceFilter === 'missing_gate') return Boolean(item.warmup_action) && !item.warmup_gate_evidence_key;
+    return true;
+  });
+  const maintenanceFilterOptions = [
+    { label: 'All', value: 'all', count: maintenanceResults.length },
+    { label: 'Holds', value: 'holds', count: maintenanceResults.filter((item) => item.warmup_action === 'hold').length },
+    { label: 'Blocklists', value: 'blocklists', count: maintenanceResults.filter((item) => maintenanceBlocklistHits(item).length).length },
+    { label: 'Skipped', value: 'skipped', count: maintenanceResults.filter((item) => item.skipped_reason).length },
+    { label: 'Missing Gate', value: 'missing_gate', count: maintenanceResults.filter((item) => item.warmup_action && !item.warmup_gate_evidence_key).length },
+  ] as const;
   const managedSmtpMaintenanceItems = [
     {
       label: 'Maintenance processed',
@@ -11302,9 +11318,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Blocklist scans',
       value: managedSmtpMaintenance ? formatInt(managedSmtpMaintenance.blocklist_scan_count) : '-',
       detail: managedSmtpMaintenance
-        ? `${formatInt((managedSmtpMaintenance.results || []).filter((item) => maintenanceBlocklistHits(item).length).length)} policy row(s) reported blocklist hits.`
+        ? `${formatInt(maintenanceResults.filter((item) => maintenanceBlocklistHits(item).length).length)} policy row(s) reported blocklist hits.`
         : 'Maintenance blocklist scan results are not loaded.',
-      tone: managedSmtpMaintenance?.results?.some((item) => maintenanceBlocklistHits(item).length) ? 'warn' : 'good',
+      tone: maintenanceResults.some((item) => maintenanceBlocklistHits(item).length) ? 'warn' : 'good',
     },
     {
       label: 'Warmup automation',
@@ -14775,8 +14791,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             </div>
           ))}
         </div>
+        <div className="button-row" aria-label="Managed SMTP maintenance result filters">
+          {maintenanceFilterOptions.map((option) => (
+            <button
+              className={managedSmtpMaintenanceFilter === option.value ? 'link-button' : 'ghost'}
+              disabled={busy || !managedSmtpMaintenance}
+              key={option.value}
+              onClick={() => setManagedSmtpMaintenanceFilter(option.value)}
+              type="button"
+            >
+              {option.label} ({formatInt(option.count)})
+            </button>
+          ))}
+        </div>
         <div className="provider-feedback-list compact-list" aria-label="Latest managed SMTP maintenance results">
-          {(managedSmtpMaintenance?.results || []).slice(0, 8).map((item) => {
+          {maintenanceFilteredResults.slice(0, 8).map((item) => {
             const hits = maintenanceBlocklistHits(item);
             const tone = item.skipped_reason || hits.length || item.warmup_action === 'hold' ? 'warn' : 'good';
             return (
@@ -14795,7 +14824,16 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               </article>
             );
           })}
-          {!managedSmtpMaintenance?.results?.length ? (
+          {managedSmtpMaintenance && maintenanceResults.length > 0 && !maintenanceFilteredResults.length ? (
+            <article className="good">
+              <div>
+                <span>Maintenance filter</span>
+                <strong>No matching rows</strong>
+                <small>The selected maintenance result filter has no policy rows in the latest run.</small>
+              </div>
+            </article>
+          ) : null}
+          {!maintenanceResults.length ? (
             <article className="warn">
               <div>
                 <span>Latest maintenance results</span>
