@@ -13153,6 +13153,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Blocklist scans: ${formatInt(managedSmtpMaintenance?.blocklist_scan_count || 0)}`,
       `Warmup progressions: ${formatInt(managedSmtpMaintenance?.warmup_progression_count || 0)}`,
       `Gate evidence rows: ${formatInt(maintenanceGateEvidenceRows.length)} / ${formatInt(maintenanceWarmupRows.length)}`,
+      `Visible filter: ${maintenanceSelectedFilter.label} (${formatInt(maintenanceFilteredResults.length)} / ${formatInt(maintenanceResults.length)} row(s))`,
+      'Export scope: Full maintenance run; visible filter is included for operator context only',
       '',
       'Policy results',
       rows || '- no maintenance result rows loaded',
@@ -13165,7 +13167,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       return;
     }
     await copyTextToClipboard(buildManagedSmtpMaintenanceEvidencePack());
-    setStatus(`Copied managed SMTP maintenance evidence pack with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s).`);
+    setStatus(`Copied managed SMTP maintenance evidence pack with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s); visible filter ${maintenanceSelectedFilter.label} matched ${formatInt(maintenanceFilteredResults.length)} row(s).`);
   }
 
   function exportManagedSmtpMaintenanceCsv() {
