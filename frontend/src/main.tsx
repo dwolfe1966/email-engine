@@ -13148,6 +13148,46 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP maintenance evidence pack with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s).`);
   }
 
+  function exportManagedSmtpMaintenanceCsv() {
+    if (!managedSmtpMaintenance) {
+      setStatus('Run managed SMTP maintenance before exporting maintenance CSV.');
+      return;
+    }
+    const rows = [
+      ['Managed SMTP Maintenance Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Processed', managedSmtpMaintenance.processed_count],
+      ['Skipped', managedSmtpMaintenance.skipped_count],
+      ['Blocklist scans', managedSmtpMaintenance.blocklist_scan_count],
+      ['Warmup progressions', managedSmtpMaintenance.warmup_progression_count],
+      ['Gate evidence rows', maintenanceGateEvidenceRows.length, 'Warmup rows', maintenanceWarmupRows.length],
+      [],
+      ['policy_id', 'domain', 'route_type', 'skipped_reason', 'blocklist_status', 'blocklist_hits', 'warmup_action', 'warmup_status', 'warmup_stage', 'warmup_daily_limit', 'warmup_gate_evidence_key'],
+      ...managedSmtpMaintenance.results.map((item) => [
+        item.policy_id,
+        item.domain,
+        item.route_type || '',
+        item.skipped_reason || '',
+        item.blocklist_status || '',
+        item.blocklist_hits.join(', '),
+        item.warmup_action || '',
+        item.warmup_status || '',
+        item.warmup_stage || '',
+        item.warmup_daily_limit ?? '',
+        item.warmup_gate_evidence_key || '',
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `managed-smtp-maintenance-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded managed SMTP maintenance CSV with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s).`);
+  }
+
   function buildAwsAgentSetupEvidencePack() {
     const node = awsDeploymentNode;
     return [
@@ -14629,6 +14669,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
             <button className="ghost" onClick={copyManagedSmtpMaintenanceEvidencePack} disabled={busy || !managedSmtpMaintenance}>Copy Maintenance Pack</button>
+            <button className="ghost" onClick={exportManagedSmtpMaintenanceCsv} disabled={busy || !managedSmtpMaintenance}>Export Maintenance CSV</button>
             <button className="ghost" onClick={copyManagedSmtpFleetHealthEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Fleet Pack</button>
             <button className="ghost" onClick={copyManagedSmtpBootstrapProfileEvidencePack} disabled={busy || !lastManagedSmtpBootstrap}>Copy Bootstrap Pack</button>
             <button className="ghost" onClick={copyAwsDnsActivationEvidencePack} disabled={busy}>Copy AWS DNS Pack</button>
