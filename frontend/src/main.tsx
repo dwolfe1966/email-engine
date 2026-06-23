@@ -12261,6 +12261,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  stage=${String(item.previous_stage || '-')} -> ${String(item.current_stage || '-')}`,
         `  daily_limit=${String(item.previous_daily_limit || '-')} -> ${String(item.current_daily_limit || '-')}`,
         `  gate_evidence_keys=${Object.keys(storedGateEvidence).join(', ') || '-'}`,
+        `  gate_evidence_summary=${formatWarmupGateEvidenceSummary(storedGateEvidence)}`,
       ].join('\n');
     }).join('\n');
     return [
@@ -12351,6 +12352,28 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         detail: evidenceCompletenessDetail,
       },
     };
+  }
+
+  function warmupGateEvidenceValue(gateEvidence: Record<string, unknown>, key: string, field: string): string {
+    const section = gateEvidence[key];
+    if (!section || typeof section !== 'object') return '-';
+    const value = (section as Record<string, unknown>)[field];
+    if (value === null || value === undefined || value === '') return '-';
+    return String(value);
+  }
+
+  function formatWarmupGateEvidenceSummary(gateEvidence: Record<string, unknown>): string {
+    if (!Object.keys(gateEvidence).length) return '-';
+    const summary = [
+      `seed=${warmupGateEvidenceValue(gateEvidence, 'controlled_seed_proof', 'value')}`,
+      `expansion=${warmupGateEvidenceValue(gateEvidence, 'controlled_expansion', 'value')}`,
+      `pool=${warmupGateEvidenceValue(gateEvidence, 'expansion_pool_gate', 'value')}`,
+      `feedback=${warmupGateEvidenceValue(gateEvidence, 'feedback_gate', 'value')}`,
+      `metrics_ready=${warmupGateEvidenceValue(gateEvidence, 'domain_metrics', 'ready')}`,
+      `blocklist=${warmupGateEvidenceValue(gateEvidence, 'blocklist_gate', 'status')}`,
+      `operator=${warmupGateEvidenceValue(gateEvidence, 'maintenance', 'operator')}`,
+    ];
+    return summary.join('; ');
   }
 
   function buildManagedSmtpRouteResolutionEvidencePack() {
@@ -13347,7 +13370,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ].join('\n')).join('\n');
     const warmupAuditEntries = warmupAuditLog.slice(-8).map((entry) => {
       const item = entry as Record<string, unknown>;
-      return `- ${String(item.action || '-')} / ${String(item.status || '-')} at ${String(item.evaluated_at || '-')} (${String(item.reason || '-')})`;
+      const storedGateEvidence = item.gate_evidence && typeof item.gate_evidence === 'object'
+        ? item.gate_evidence as Record<string, unknown>
+        : {};
+      return `- ${String(item.action || '-')} / ${String(item.status || '-')} at ${String(item.evaluated_at || '-')} (${String(item.reason || '-')}); gates=${formatWarmupGateEvidenceSummary(storedGateEvidence)}`;
     }).join('\n');
     return [
       'Managed SMTP Domain Compliance Evidence Pack',
