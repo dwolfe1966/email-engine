@@ -13115,6 +13115,39 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP deployment evidence pack with ${formatInt(managedSmtpDeploymentSummary.recent_nodes.length)} node(s).`);
   }
 
+  function buildManagedSmtpMaintenanceEvidencePack() {
+    const rows = (managedSmtpMaintenance?.results || []).slice(0, 12).map((item) => [
+      `- domain=${item.domain}`,
+      `  route_type=${item.route_type || '-'}`,
+      `  skipped=${item.skipped_reason || '-'}`,
+      `  blocklist=${item.blocklist_status || '-'} hits=${item.blocklist_hits.join(', ') || '-'}`,
+      `  warmup=${item.warmup_action || '-'} / ${item.warmup_status || '-'}`,
+      `  stage=${item.warmup_stage || '-'} daily_limit=${item.warmup_daily_limit || '-'}`,
+      `  gate_evidence=${item.warmup_gate_evidence_key || '-'}`,
+    ].join('\n')).join('\n');
+    return [
+      'Managed SMTP Maintenance Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Processed: ${formatInt(managedSmtpMaintenance?.processed_count || 0)}`,
+      `Skipped: ${formatInt(managedSmtpMaintenance?.skipped_count || 0)}`,
+      `Blocklist scans: ${formatInt(managedSmtpMaintenance?.blocklist_scan_count || 0)}`,
+      `Warmup progressions: ${formatInt(managedSmtpMaintenance?.warmup_progression_count || 0)}`,
+      `Gate evidence rows: ${formatInt(maintenanceGateEvidenceRows.length)} / ${formatInt(maintenanceWarmupRows.length)}`,
+      '',
+      'Policy results',
+      rows || '- no maintenance result rows loaded',
+    ].join('\n');
+  }
+
+  async function copyManagedSmtpMaintenanceEvidencePack() {
+    if (!managedSmtpMaintenance) {
+      setStatus('Run managed SMTP maintenance before copying a maintenance pack.');
+      return;
+    }
+    await copyTextToClipboard(buildManagedSmtpMaintenanceEvidencePack());
+    setStatus(`Copied managed SMTP maintenance evidence pack with ${formatInt(managedSmtpMaintenance.results.length)} policy row(s).`);
+  }
+
   function buildAwsAgentSetupEvidencePack() {
     const node = awsDeploymentNode;
     return [
@@ -14595,6 +14628,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="ghost" onClick={loadManagedSmtpPoolControls} disabled={busy}>Load Pool Controls</button>
             <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyManagedSmtpDeploymentEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Deployment Pack</button>
+            <button className="ghost" onClick={copyManagedSmtpMaintenanceEvidencePack} disabled={busy || !managedSmtpMaintenance}>Copy Maintenance Pack</button>
             <button className="ghost" onClick={copyManagedSmtpFleetHealthEvidencePack} disabled={busy || !managedSmtpDeploymentSummary}>Copy Fleet Pack</button>
             <button className="ghost" onClick={copyManagedSmtpBootstrapProfileEvidencePack} disabled={busy || !lastManagedSmtpBootstrap}>Copy Bootstrap Pack</button>
             <button className="ghost" onClick={copyAwsDnsActivationEvidencePack} disabled={busy}>Copy AWS DNS Pack</button>
