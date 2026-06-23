@@ -11299,11 +11299,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return true;
   });
   const maintenanceFilterOptions = [
-    { label: 'All', value: 'all', count: maintenanceResults.length },
-    { label: 'Holds', value: 'holds', count: maintenanceResults.filter((item) => item.warmup_action === 'hold').length },
-    { label: 'Blocklists', value: 'blocklists', count: maintenanceResults.filter((item) => maintenanceBlocklistHits(item).length).length },
-    { label: 'Skipped', value: 'skipped', count: maintenanceResults.filter((item) => item.skipped_reason).length },
-    { label: 'Missing Gate', value: 'missing_gate', count: maintenanceResults.filter((item) => item.warmup_action && !item.warmup_gate_evidence_key).length },
+    { label: 'All', value: 'all', count: maintenanceResults.length, detail: 'Show every policy row from the latest maintenance run.' },
+    { label: 'Holds', value: 'holds', count: maintenanceResults.filter((item) => item.warmup_action === 'hold').length, detail: 'Show policy rows where warmup automation held volume.' },
+    { label: 'Blocklists', value: 'blocklists', count: maintenanceResults.filter((item) => maintenanceBlocklistHits(item).length).length, detail: 'Show policy rows with one or more blocklist hits.' },
+    { label: 'Skipped', value: 'skipped', count: maintenanceResults.filter((item) => item.skipped_reason).length, detail: 'Show policy rows skipped by maintenance automation.' },
+    { label: 'Missing Gate', value: 'missing_gate', count: maintenanceResults.filter((item) => item.warmup_action && !item.warmup_gate_evidence_key).length, detail: 'Show warmup rows missing stored gate evidence keys.' },
   ] as const;
   const maintenanceSelectedFilter = maintenanceFilterOptions.find((option) => option.value === managedSmtpMaintenanceFilter) || maintenanceFilterOptions[0];
   const maintenanceFilterSummary = managedSmtpMaintenance
@@ -14818,6 +14818,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               disabled={busy || !managedSmtpMaintenance}
               key={option.value}
               onClick={() => setManagedSmtpMaintenanceFilter(option.value)}
+              title={option.detail}
               type="button"
             >
               {option.label} ({formatInt(option.count)})
