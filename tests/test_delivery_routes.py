@@ -2,7 +2,11 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
-from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
+from email_platform.models.entities import (
+    DeliveryRouteStatus,
+    DeliveryRouteType,
+    MtaOperationalStatus,
+)
 from email_platform.schemas.contracts import (
     ControlledExpansionApprovalRequest,
     DomainAuthenticationPlanRequest,
@@ -13,6 +17,7 @@ from email_platform.schemas.contracts import (
     DomainDkimKeyCreateRequest,
     DomainWarmupProgressionRequest,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpRoutingRulePromotionRequest,
     ManagedSmtpRoutingRuleUpsert,
 )
 from email_platform.services.delivery_routes import DeliveryRouteService, DnsLookupUnavailable
@@ -278,6 +283,118 @@ def test_managed_smtp_routing_rules_ignores_disabled_or_lower_priority_overlap()
 
     assert result is not None
     assert result.conflicts == []
+
+
+def test_routing_rule_promotion_preview_blocks_missing_pool() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(id=route_id, name='managed-smtp-primary', config={})
+    service = DeliveryRouteService(FakeDb(get_result=route))
+
+    result = service.preview_managed_smtp_routing_rule_promotion(
+        route_id,
+        ManagedSmtpRoutingRulePromotionRequest(
+            rules=[
+                ManagedSmtpRoutingRuleUpsert(
+                    name='gmail-scaleway',
+                    send_types=['campaign'],
+                    recipient_domains=['gmail.com'],
+                    ip_pool_name='missing-pool',
+                )
+            ],
+            operator='ops@example.com',
+            reason='preview missing pool',
+        ),
+    )
+
+    assert result is not None
+    assert result.status == 'blocked'
+    assert result.blocking_issue_count == 1
+    assert result.issues[0]['code'] == 'POOL_NOT_FOUND'
+
+
+def test_routing_rule_promotion_draft_and_activate_writes_audit_metadata() -> None:
+    route_id = uuid4()
+    pool_id = uuid4()
+    pool = SimpleNamespace(
+        id=pool_id,
+        name='scaleway-internal-test',
+        status=MtaOperationalStatus.active,
+    )
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [
+                {'name': 'old-rule', 'priority': 50, 'enabled': True, 'ip_pool_name': 'old'}
+            ]
+        },
+    )
+
+    class PromotionDb(FakeDb):
+        def get(self, model, item_id):
+            if item_id == route_id:
+                return route
+            if item_id == pool_id:
+                return pool
+            return None
+
+    db = PromotionDb()
+    service = DeliveryRouteService(db)
+    payload = ManagedSmtpRoutingRulePromotionRequest(
+        rules=[
+            ManagedSmtpRoutingRuleUpsert(
+                name='gmail-scaleway',
+                priority=10,
+                send_types=['campaign'],
+                recipient_domains=['gmail.com'],
+                mta_ip_pool_id=pool_id,
+                preferred_providers=['scaleway'],
+            )
+        ],
+        operator='ops@example.com',
+        reason='promote scaleway gmail traffic',
+    )
+
+    draft = service.draft_managed_smtp_routing_rule_promotion(route_id, payload)
+    assert draft is not None
+    assert draft.status == 'ready'
+    assert route.config['routing_rules_draft']['rules'][0]['name'] == 'gmail-scaleway'
+
+    activated = service.activate_managed_smtp_routing_rule_draft(route_id)
+
+    assert activated is not None
+    assert activated.status == 'activated'
+    assert route.config['routing_rules'][0]['name'] == 'gmail-scaleway'
+    assert route.config['routing_rules_previous']['rules'][0]['name'] == 'old-rule'
+    assert route.config['routing_rules_audit_log'][-1]['action'] == 'activate'
+    assert db.committed
+
+
+def test_routing_rule_promotion_rollback_restores_previous_rules() -> None:
+    route_id = uuid4()
+    route = SimpleNamespace(
+        id=route_id,
+        name='managed-smtp-primary',
+        config={
+            'routing_rules': [{'name': 'new-rule', 'priority': 10, 'enabled': True}],
+            'routing_rules_previous': {
+                'rules': [{'name': 'old-rule', 'priority': 50, 'enabled': True}]
+            },
+        },
+    )
+    service = DeliveryRouteService(FakeDb(get_result=route))
+
+    result = service.rollback_managed_smtp_routing_rules(
+        route_id,
+        operator='ops@example.com',
+        reason='bad routing signal',
+    )
+
+    assert result is not None
+    assert result.status == 'rolled_back'
+    assert route.config['routing_rules'][0]['name'] == 'old-rule'
+    assert route.config['routing_rules_previous']['rules'][0]['name'] == 'new-rule'
+    assert route.config['routing_rules_audit_log'][-1]['action'] == 'rollback'
 
 
 def test_delivery_route_selector_prefers_active_matching_route() -> None:

@@ -739,6 +739,24 @@ class ManagedSmtpRoutingRulesRead(BaseModel):
     conflicts: list[JsonObject] = Field(default_factory=list)
 
 
+class ManagedSmtpRoutingRulePromotionRequest(BaseModel):
+    rules: list[ManagedSmtpRoutingRuleUpsert] = Field(default_factory=list)
+    operator: str | None = Field(default=None, max_length=200)
+    reason: str = Field(default='routing_rule_change', min_length=1, max_length=500)
+
+
+class ManagedSmtpRoutingRulePromotionRead(ManagedSmtpRoutingRulesRead):
+    status: str
+    blocking_issue_count: int = 0
+    warnings_count: int = 0
+    issues: list[JsonObject] = Field(default_factory=list)
+    draft_rules: list[JsonObject] = Field(default_factory=list)
+    activated_at: str | None = None
+    rolled_back_at: str | None = None
+    operator: str | None = None
+    reason: str | None = None
+
+
 class DomainDeliveryPolicyCreate(BaseModel):
     domain: str
     route_id: UUID | None = None

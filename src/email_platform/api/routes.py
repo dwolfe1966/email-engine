@@ -175,6 +175,8 @@ from email_platform.schemas.contracts import (
     ManagedSmtpRouteMatrixResult,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
+    ManagedSmtpRoutingRulePromotionRead,
+    ManagedSmtpRoutingRulePromotionRequest,
     ManagedSmtpRoutingRulesRead,
     ManagedSmtpRoutingRuleUpsert,
     MtaIpPoolCreate,
@@ -3794,6 +3796,82 @@ def upsert_managed_smtp_routing_rule(
     result = DeliveryRouteService(db).upsert_managed_smtp_routing_rule(route_id, payload)
     if not result:
         raise HTTPException(status_code=404, detail='Delivery route not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/promotion/preview',
+    response_model=ManagedSmtpRoutingRulePromotionRead,
+)
+def preview_managed_smtp_routing_rule_promotion(
+    route_id: UUID,
+    payload: ManagedSmtpRoutingRulePromotionRequest,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulePromotionRead:
+    result = DeliveryRouteService(db).preview_managed_smtp_routing_rule_promotion(
+        route_id,
+        payload,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/promotion/draft',
+    response_model=ManagedSmtpRoutingRulePromotionRead,
+)
+def draft_managed_smtp_routing_rule_promotion(
+    route_id: UUID,
+    payload: ManagedSmtpRoutingRulePromotionRequest,
+    db: DbSession,
+) -> ManagedSmtpRoutingRulePromotionRead:
+    result = DeliveryRouteService(db).draft_managed_smtp_routing_rule_promotion(
+        route_id,
+        payload,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/promotion/activate',
+    response_model=ManagedSmtpRoutingRulePromotionRead,
+)
+def activate_managed_smtp_routing_rule_draft(
+    route_id: UUID,
+    db: DbSession,
+    operator: str | None = None,
+    reason: str = 'activate_routing_rule_draft',
+) -> ManagedSmtpRoutingRulePromotionRead:
+    result = DeliveryRouteService(db).activate_managed_smtp_routing_rule_draft(
+        route_id,
+        operator=operator,
+        reason=reason,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route or routing draft not found')
+    return result
+
+
+@router.post(
+    '/delivery-routes/{route_id}/managed-smtp/routing-rules/promotion/rollback',
+    response_model=ManagedSmtpRoutingRulePromotionRead,
+)
+def rollback_managed_smtp_routing_rules(
+    route_id: UUID,
+    db: DbSession,
+    operator: str | None = None,
+    reason: str = 'rollback_routing_rules',
+) -> ManagedSmtpRoutingRulePromotionRead:
+    result = DeliveryRouteService(db).rollback_managed_smtp_routing_rules(
+        route_id,
+        operator=operator,
+        reason=reason,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail='Delivery route or rollback snapshot not found')
     return result
 
 

@@ -15,6 +15,8 @@ from email_platform.models.entities import (
     DeliveryRouteType,
     DomainDeliveryPolicy,
     EmailSendRecord,
+    MtaIpPool,
+    MtaOperationalStatus,
 )
 from email_platform.schemas.contracts import (
     ControlledExpansionApprovalRead,
@@ -42,6 +44,8 @@ from email_platform.schemas.contracts import (
     ManagedSmtpMaintenancePolicyRead,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpRoutingRulePromotionRead,
+    ManagedSmtpRoutingRulePromotionRequest,
     ManagedSmtpRoutingRulesRead,
     ManagedSmtpRoutingRuleUpsert,
 )
@@ -278,6 +282,166 @@ class DeliveryRouteService:
             return None
         return self._write_routing_rules(route, next_rules)
 
+    def preview_managed_smtp_routing_rule_promotion(
+        self,
+        route_id: UUID,
+        payload: ManagedSmtpRoutingRulePromotionRequest,
+    ) -> ManagedSmtpRoutingRulePromotionRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        draft_rules = self._normalized_routing_rule_set(payload.rules)
+        issues = self._routing_rule_promotion_issues(draft_rules)
+        conflicts = self._routing_rule_conflicts(draft_rules)
+        blocking_count = self._issue_count(issues, 'error')
+        warnings_count = self._issue_count(issues, 'warning') + len(conflicts)
+        return ManagedSmtpRoutingRulePromotionRead(
+            delivery_route_id=route.id,
+            delivery_route_name=route.name,
+            rules=self._routing_rules_from_route(route),
+            conflicts=conflicts,
+            status='blocked' if blocking_count else 'ready',
+            blocking_issue_count=blocking_count,
+            warnings_count=warnings_count,
+            issues=issues,
+            draft_rules=draft_rules,
+            operator=payload.operator,
+            reason=payload.reason,
+        )
+
+    def draft_managed_smtp_routing_rule_promotion(
+        self,
+        route_id: UUID,
+        payload: ManagedSmtpRoutingRulePromotionRequest,
+    ) -> ManagedSmtpRoutingRulePromotionRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        preview = self.preview_managed_smtp_routing_rule_promotion(route_id, payload)
+        if not preview:
+            return None
+        config = dict(route.config or {})
+        config['routing_rules_draft'] = {
+            'rules': preview.draft_rules,
+            'operator': payload.operator,
+            'reason': payload.reason,
+            'drafted_at': datetime.utcnow().isoformat(),
+            'status': preview.status,
+            'issues': preview.issues,
+        }
+        route.config = config
+        self.db.commit()
+        self.db.refresh(route)
+        return preview
+
+    def activate_managed_smtp_routing_rule_draft(
+        self,
+        route_id: UUID,
+        *,
+        operator: str | None = None,
+        reason: str = 'activate_routing_rule_draft',
+    ) -> ManagedSmtpRoutingRulePromotionRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        config = dict(route.config or {})
+        draft = config.get('routing_rules_draft')
+        draft_rules = draft.get('rules') if isinstance(draft, dict) else None
+        if not isinstance(draft_rules, list):
+            return None
+        payload = ManagedSmtpRoutingRulePromotionRequest(
+            rules=[ManagedSmtpRoutingRuleUpsert(**rule) for rule in draft_rules],
+            operator=operator or self._metadata_string(draft, 'operator')
+            if isinstance(draft, dict)
+            else operator,
+            reason=reason,
+        )
+        preview = self.preview_managed_smtp_routing_rule_promotion(route_id, payload)
+        if not preview or preview.blocking_issue_count:
+            return preview
+        activated_at = datetime.utcnow().isoformat()
+        previous_rules = self._routing_rules_from_route(route)
+        config['routing_rules_previous'] = {
+            'rules': previous_rules,
+            'replaced_at': activated_at,
+            'operator': payload.operator,
+            'reason': payload.reason,
+        }
+        config['routing_rules'] = preview.draft_rules
+        config.pop('routing_rules_draft', None)
+        audit_log = list(config.get('routing_rules_audit_log') or [])
+        audit_log.append(
+            {
+                'action': 'activate',
+                'operator': payload.operator,
+                'reason': payload.reason,
+                'activated_at': activated_at,
+                'previous_count': len(previous_rules),
+                'next_count': len(preview.draft_rules),
+            }
+        )
+        config['routing_rules_audit_log'] = audit_log[-50:]
+        route.config = config
+        self.db.commit()
+        self.db.refresh(route)
+        return preview.model_copy(
+            update={
+                'status': 'activated',
+                'rules': preview.draft_rules,
+                'activated_at': activated_at,
+            }
+        )
+
+    def rollback_managed_smtp_routing_rules(
+        self,
+        route_id: UUID,
+        *,
+        operator: str | None = None,
+        reason: str = 'rollback_routing_rules',
+    ) -> ManagedSmtpRoutingRulePromotionRead | None:
+        route = self.get(route_id)
+        if not route:
+            return None
+        config = dict(route.config or {})
+        previous = config.get('routing_rules_previous')
+        previous_rules = previous.get('rules') if isinstance(previous, dict) else None
+        if not isinstance(previous_rules, list):
+            return None
+        rolled_back_at = datetime.utcnow().isoformat()
+        current_rules = self._routing_rules_from_route(route)
+        config['routing_rules'] = previous_rules
+        config['routing_rules_previous'] = {
+            'rules': current_rules,
+            'replaced_at': rolled_back_at,
+            'operator': operator,
+            'reason': reason,
+        }
+        audit_log = list(config.get('routing_rules_audit_log') or [])
+        audit_log.append(
+            {
+                'action': 'rollback',
+                'operator': operator,
+                'reason': reason,
+                'rolled_back_at': rolled_back_at,
+                'restored_count': len(previous_rules),
+            }
+        )
+        config['routing_rules_audit_log'] = audit_log[-50:]
+        route.config = config
+        self.db.commit()
+        self.db.refresh(route)
+        return ManagedSmtpRoutingRulePromotionRead(
+            delivery_route_id=route.id,
+            delivery_route_name=route.name,
+            rules=previous_rules,
+            conflicts=self._routing_rule_conflicts(previous_rules),
+            status='rolled_back',
+            draft_rules=previous_rules,
+            rolled_back_at=rolled_back_at,
+            operator=operator,
+            reason=reason,
+        )
+
     def delete(self, route_id: UUID) -> bool:
         route = self.get(route_id)
         if not route:
@@ -293,6 +457,13 @@ class DeliveryRouteService:
             return []
         normalized_rules = [dict(rule) for rule in rules if isinstance(rule, dict)]
         return sorted(normalized_rules, key=lambda rule: int(rule.get('priority') or 100))
+
+    def _normalized_routing_rule_set(
+        self,
+        rules: list[ManagedSmtpRoutingRuleUpsert],
+    ) -> list[dict[str, object]]:
+        normalized = [self._normalized_routing_rule(rule) for rule in rules]
+        return sorted(normalized, key=lambda rule: int(rule.get('priority') or 100))
 
     def _write_routing_rules(
         self,
@@ -375,6 +546,67 @@ class DeliveryRouteService:
                     }
                 )
         return conflicts
+
+    def _routing_rule_promotion_issues(
+        self,
+        rules: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        issues: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for rule in rules:
+            name = str(rule.get('name') or 'unnamed')
+            if name in seen:
+                issues.append(
+                    {
+                        'severity': 'error',
+                        'code': 'DUPLICATE_RULE_NAME',
+                        'rule_name': name,
+                        'message': 'Routing rule names must be unique before activation.',
+                    }
+                )
+            seen.add(name)
+            if rule.get('enabled') is False:
+                continue
+            pool = self._pool_for_routing_rule(rule)
+            if not pool:
+                issues.append(
+                    {
+                        'severity': 'error',
+                        'code': 'POOL_NOT_FOUND',
+                        'rule_name': name,
+                        'message': 'Enabled routing rule must reference an existing MTA IP pool.',
+                    }
+                )
+                continue
+            if pool.status != MtaOperationalStatus.active:
+                issues.append(
+                    {
+                        'severity': 'error',
+                        'code': 'POOL_NOT_ACTIVE',
+                        'rule_name': name,
+                        'ip_pool_id': str(pool.id),
+                        'ip_pool_name': pool.name,
+                        'pool_status': pool.status.value,
+                        'message': 'Enabled routing rule points to a non-active MTA IP pool.',
+                    }
+                )
+        return issues
+
+    def _pool_for_routing_rule(self, rule: dict[str, object]) -> MtaIpPool | None:
+        pool_id = rule.get('mta_ip_pool_id') or rule.get('ip_pool_id')
+        if pool_id:
+            try:
+                return self.db.get(MtaIpPool, UUID(str(pool_id)))
+            except ValueError:
+                return None
+        pool_name = rule.get('ip_pool_name') or rule.get('ip_pool')
+        if not pool_name:
+            return None
+        return self.db.scalar(select(MtaIpPool).where(MtaIpPool.name == str(pool_name)).limit(1))
+
+    @staticmethod
+    def _issue_count(issues: list[dict[str, object]], severity: str) -> int:
+        return sum(1 for issue in issues if issue.get('severity') == severity)
 
     def _routing_rule_dimension_overlaps(
         self,
