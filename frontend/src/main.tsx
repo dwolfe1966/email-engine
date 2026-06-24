@@ -508,6 +508,18 @@ type DomainWarmupProgressionRead = {
   complaint_rate: number;
 };
 
+type ControlledExpansionApprovalRead = {
+  domain: string;
+  status: string;
+  approved_daily_limit: number;
+  send_types: string[];
+  approved_at: string;
+  expires_at: string;
+  operator: string | null;
+  reason: string;
+  evidence: Record<string, unknown>;
+};
+
 type DeliveryRouteRead = {
   id: string;
   name: string;
@@ -10390,6 +10402,12 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [domainAuthVerification, setDomainAuthVerification] = useState<DomainAuthenticationVerificationRead | null>(null);
   const [warmupProgression, setWarmupProgression] = useState<DomainWarmupProgressionRead | null>(null);
+  const [controlledExpansionApproval, setControlledExpansionApproval] = useState<ControlledExpansionApprovalRead | null>(null);
+  const [controlledExpansionApprovalForm, setControlledExpansionApprovalForm] = useState({
+    approved_daily_limit: '25',
+    send_types: 'campaign',
+    expires_hours: '24',
+  });
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
   const [managedSmtpRoutingRulePromotion, setManagedSmtpRoutingRulePromotion] = useState<ManagedSmtpRoutingRulePromotionRead | null>(null);
@@ -10828,6 +10846,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     : controlledSeedProofAttempts.length
       ? 'Keep volume paused until proof, reputation, blocklist, compliance, evidence completeness, pool readiness, and feedback are clean.'
       : 'Run and load controlled seed proof before selecting an expansion cohort.';
+  const activeControlledExpansionApproval = selectedDomainPolicy?.metadata_json?.controlled_expansion as Record<string, unknown> | undefined;
+  const activeControlledExpansionApprovalValue = activeControlledExpansionApproval?.status === 'active'
+    ? `${formatInt(Number(activeControlledExpansionApproval.approved_daily_limit || 0))} / day`
+    : 'Not approved';
+  const activeControlledExpansionApprovalDetail = activeControlledExpansionApproval?.status === 'active'
+    ? `Expires ${String(activeControlledExpansionApproval.expires_at || '-')}; send types ${(Array.isArray(activeControlledExpansionApproval.send_types) ? activeControlledExpansionApproval.send_types : []).join(', ') || '-'}.`
+    : 'Approve controlled expansion before campaign traffic can claim managed SMTP send records.';
   const deliveryAttemptExportLimit = 5000;
   const deliveryAttemptExportScope = selectedRecordId
     ? `record ${selectedRecordId.slice(0, 8)}`
@@ -10857,6 +10882,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       label: 'Controlled expansion',
       value: controlledExpansionValue,
       detail: controlledExpansionDetail,
+    },
+    {
+      label: 'Expansion approval',
+      value: controlledExpansionApproval?.status === 'active'
+        ? `${formatInt(controlledExpansionApproval.approved_daily_limit)} / day`
+        : activeControlledExpansionApprovalValue,
+      detail: controlledExpansionApproval?.status === 'active'
+        ? `Approved until ${controlledExpansionApproval.expires_at}; send types ${controlledExpansionApproval.send_types.join(', ') || '-'}.`
+        : activeControlledExpansionApprovalDetail,
     },
     {
       label: 'Export scope',
@@ -12342,6 +12376,74 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied managed SMTP controlled expansion pack: ${controlledExpansionValue}.`);
   }
 
+  function buildControlledExpansionApprovalEvidence() {
+    return {
+      expansion_decision: controlledExpansionValue,
+      expansion_detail: controlledExpansionDetail,
+      expansion_ready: controlledExpansionReady,
+      controlled_seed_proof: {
+        value: controlledSeedProofValue,
+        detail: controlledSeedProofDetail,
+      },
+      expansion_pool_gate: {
+        value: expansionPoolGateValue,
+        detail: expansionPoolGateDetail,
+        ready: expansionPoolGateReady,
+      },
+      feedback_gate: {
+        value: feedbackGateValue,
+        detail: feedbackGateDetail,
+        ready: feedbackGateReady,
+      },
+      evidence_completeness: {
+        value: evidenceCompletenessValue,
+        detail: evidenceCompletenessDetail,
+      },
+      domain: selectedDomainPolicy?.domain || domainDashboard?.domain || null,
+      warmup_stage: selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || null,
+      warmup_status: domainDashboard?.warmup_status || null,
+      reputation_status: domainDashboard?.reputation_status || null,
+      blocklist_status: domainDashboard?.blocklist_status || null,
+      compliance_status: domainDashboard?.compliance_status || firstSendComplianceStatus,
+      selected_pool: selectedMtaIpPool ? {
+        id: selectedMtaIpPool.id,
+        name: selectedMtaIpPool.name,
+        status: selectedMtaIpPool.status,
+      } : null,
+      selected_pool_health: selectedMtaIpPoolHealth ? {
+        status: selectedMtaIpPoolHealth.status,
+        route_ready_node_count: selectedMtaIpPoolHealth.route_ready_node_count,
+        required_available_node_count: selectedMtaIpPoolHealth.required_available_node_count,
+        provider_blocker_count: selectedMtaIpPoolHealth.provider_blocker_count,
+        readiness_blocker_count: selectedMtaIpPoolHealth.readiness_blocker_count,
+      } : null,
+    };
+  }
+
+  async function approveControlledExpansion() {
+    await runDeliveryOperation('Approving managed SMTP controlled expansion', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy before approving controlled expansion.');
+      const approvedDailyLimit = optionalPositiveInt(controlledExpansionApprovalForm.approved_daily_limit, 'Approved daily limit');
+      const expiresHours = optionalPositiveInt(controlledExpansionApprovalForm.expires_hours, 'Expiration hours');
+      if (!approvedDailyLimit || !expiresHours) throw new Error('Approved daily limit and expiration hours are required.');
+      const approval = await fetchJson<ControlledExpansionApprovalRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/controlled-expansion/approve`, {
+        method: 'POST',
+        body: JSON.stringify({
+          approved_daily_limit: approvedDailyLimit,
+          send_types: splitRoutingRuleList(controlledExpansionApprovalForm.send_types),
+          expires_hours: expiresHours,
+          operator: 'esp_admin',
+          reason: 'controlled_expansion_approved_from_delivery_review',
+          evidence: buildControlledExpansionApprovalEvidence(),
+        }),
+      });
+      const policies = await fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0');
+      setControlledExpansionApproval(approval);
+      setDomainPolicies(policies.items || []);
+      return `Approved controlled expansion for ${approval.domain}: ${formatInt(approval.approved_daily_limit)} per day until ${approval.expires_at}.`;
+    });
+  }
+
   function buildManagedSmtpWarmupReviewPack() {
     const nextDailyLimit = domainDashboard?.warmup_daily_limit
       ? Math.max(domainDashboard.warmup_daily_limit + 1, domainDashboard.warmup_daily_limit * 2)
@@ -13695,6 +13797,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function updateMtaIpPoolNodeForm(name: keyof typeof mtaIpPoolNodeForm, value: string) {
     setMtaIpPoolNodeForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateControlledExpansionApprovalForm(name: keyof typeof controlledExpansionApprovalForm, value: string) {
+    setControlledExpansionApprovalForm((current) => ({ ...current, [name]: value }));
   }
 
   function optionalPositiveInt(value: string, label: string): number | null {
@@ -15946,12 +16052,25 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             Block code
             <input value={deliveryAttemptFilters.mta_route_block_code} onChange={(event) => updateDeliveryAttemptFilter('mta_route_block_code', event.target.value)} placeholder="NO_HEALTHY_MTA_NODE" />
           </label>
+          <label>
+            Expansion daily limit
+            <input value={controlledExpansionApprovalForm.approved_daily_limit} onChange={(event) => updateControlledExpansionApprovalForm('approved_daily_limit', event.target.value)} placeholder="25" inputMode="numeric" />
+          </label>
+          <label>
+            Expansion send types
+            <input value={controlledExpansionApprovalForm.send_types} onChange={(event) => updateControlledExpansionApprovalForm('send_types', event.target.value)} placeholder="campaign" />
+          </label>
+          <label>
+            Expansion expires hours
+            <input value={controlledExpansionApprovalForm.expires_hours} onChange={(event) => updateControlledExpansionApprovalForm('expires_hours', event.target.value)} placeholder="24" inputMode="numeric" />
+          </label>
         </div>
         <div className="button-row">
           <button className="ghost" onClick={loadDeliveryAttempts} disabled={busy}>Apply Attempt Filters</button>
           <button className="ghost" onClick={copyDeliveryAttemptEvidencePack} disabled={busy}>Copy Evidence Pack</button>
           <button className="ghost" onClick={copyManagedSmtpControlledSeedProofPack} disabled={busy}>Copy Seed Proof Pack</button>
           <button className="ghost" onClick={copyManagedSmtpControlledExpansionPack} disabled={busy}>Copy Expansion Pack</button>
+          <button className="ghost" onClick={approveControlledExpansion} disabled={busy || !selectedDomainPolicyId || !controlledExpansionReady}>Approve Expansion</button>
           <button className="ghost" onClick={exportDeliveryAttemptEvidenceCsv} disabled={busy}>Export Evidence CSV</button>
           <button className="ghost" onClick={clearDeliveryAttemptFilters} disabled={busy}>Clear Attempt Filters</button>
         </div>
@@ -15971,6 +16090,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <small>{item.detail}</small>
             </div>
           ))}
+          {controlledExpansionApproval ? (
+            <div aria-label="Managed SMTP controlled expansion approval">
+              <span>Approval result</span>
+              <strong>{controlledExpansionApproval.status}</strong>
+              <small>{`${formatInt(controlledExpansionApproval.approved_daily_limit)} per day for ${controlledExpansionApproval.send_types.join(', ') || '-'} until ${controlledExpansionApproval.expires_at}.`}</small>
+            </div>
+          ) : null}
         </div>
         <div className="delivery-evidence-followup" aria-label="Delivery attempt evidence follow-up">
           <div className="panel-head compact-head">
