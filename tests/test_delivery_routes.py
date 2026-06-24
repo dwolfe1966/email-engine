@@ -14,6 +14,7 @@ from email_platform.schemas.contracts import (
     DomainComplianceHoldRequest,
     DomainComplianceReleaseRequest,
     DomainDeliverabilityRead,
+    DomainDeliveryRouteModeRequest,
     DomainDkimKeyCreateRequest,
     DomainWarmupProgressionRequest,
     ManagedSmtpMaintenanceRequest,
@@ -651,6 +652,128 @@ def test_approve_controlled_expansion_writes_policy_metadata_and_audit_log() -> 
     assert policy.metadata_json['controlled_expansion_audit_log'][-1]['action'] == 'approve'
     assert db.committed
     assert db.refreshed == [policy]
+
+
+def test_set_domain_policy_route_mode_switches_to_scaleway_direct() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=None,
+        metadata_json={'existing': 'value'},
+    )
+    route = SimpleNamespace(
+        id=uuid4(),
+        name='managed-smtp-primary',
+        route_type=DeliveryRouteType.managed_smtp,
+    )
+
+    class RouteModeDb(FakeDb):
+        def get(self, model, item_id):
+            if item_id == policy.id:
+                return policy
+            if item_id == route.id:
+                return route
+            return None
+
+    db = RouteModeDb()
+    service = DeliveryRouteService(db)
+
+    result = service.set_domain_policy_route_mode(
+        policy.id,
+        DomainDeliveryRouteModeRequest(
+            mode='managed_smtp_direct',
+            route_id=route.id,
+            provider='scaleway',
+            ip_pool_name='scaleway-internal-test',
+            operator='ops@example.com',
+            reason='switch to scaleway mta',
+        ),
+    )
+
+    assert result is policy
+    assert policy.route_id == route.id
+    route_mode = policy.metadata_json['delivery_route_mode']
+    assert route_mode['mode'] == 'managed_smtp_direct'
+    assert route_mode['provider'] == 'scaleway'
+    assert route_mode['ip_pool_name'] == 'scaleway-internal-test'
+    assert policy.metadata_json['ip_pool'] == 'scaleway-internal-test'
+    assert policy.metadata_json['delivery_route_mode_audit_log'][-1]['action'] == 'switch'
+    assert db.committed
+
+
+def test_set_domain_policy_route_mode_rejects_managed_mode_for_sendgrid_route() -> None:
+    policy = SimpleNamespace(id=uuid4(), domain='email-engine.app', route_id=None, metadata_json={})
+    route = SimpleNamespace(
+        id=uuid4(),
+        name='sendgrid-primary',
+        route_type=DeliveryRouteType.sendgrid,
+    )
+
+    class RouteModeDb(FakeDb):
+        def get(self, model, item_id):
+            if item_id == policy.id:
+                return policy
+            if item_id == route.id:
+                return route
+            return None
+
+    service = DeliveryRouteService(RouteModeDb())
+
+    try:
+        service.set_domain_policy_route_mode(
+            policy.id,
+            DomainDeliveryRouteModeRequest(
+                mode='managed_smtp_pool',
+                route_id=route.id,
+                ip_pool_name='scaleway-internal-test',
+            ),
+        )
+    except ValueError as exc:
+        assert 'managed_smtp delivery route' in str(exc)
+    else:
+        raise AssertionError('Expected managed mode route validation to fail')
+
+
+def test_set_domain_policy_route_mode_switches_to_sendgrid_and_clears_pool() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=uuid4(),
+        metadata_json={'ip_pool': 'scaleway-internal-test', 'mta_ip_pool_id': str(uuid4())},
+    )
+    route = SimpleNamespace(
+        id=uuid4(),
+        name='sendgrid-primary',
+        route_type=DeliveryRouteType.sendgrid,
+    )
+
+    class RouteModeDb(FakeDb):
+        def get(self, model, item_id):
+            if item_id == policy.id:
+                return policy
+            if item_id == route.id:
+                return route
+            return None
+
+    service = DeliveryRouteService(RouteModeDb())
+
+    result = service.set_domain_policy_route_mode(
+        policy.id,
+        DomainDeliveryRouteModeRequest(
+            mode='third_party_provider',
+            route_id=route.id,
+            provider='sendgrid',
+            operator='ops@example.com',
+        ),
+    )
+
+    assert result is policy
+    assert policy.route_id == route.id
+    route_mode = policy.metadata_json['delivery_route_mode']
+    assert route_mode['mode'] == 'third_party_provider'
+    assert route_mode['provider'] == 'sendgrid'
+    assert 'ip_pool' not in policy.metadata_json
+    assert 'mta_ip_pool_id' not in policy.metadata_json
 
 
 def test_domain_compliance_hold_pauses_policy_and_writes_audit_metadata() -> None:

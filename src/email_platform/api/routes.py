@@ -132,6 +132,7 @@ from email_platform.schemas.contracts import (
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyRead,
     DomainDeliveryPolicyUpdate,
+    DomainDeliveryRouteModeRequest,
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
     DomainReputationDashboardRead,
@@ -3992,6 +3993,24 @@ def update_domain_delivery_policy(
     db: DbSession,
 ) -> DomainDeliveryPolicy:
     policy = DeliveryRouteService(db).update_domain_policy(policy_id, payload)
+    if not policy:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return policy
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/route-mode',
+    response_model=DomainDeliveryPolicyRead,
+)
+def set_domain_delivery_policy_route_mode(
+    policy_id: UUID,
+    payload: DomainDeliveryRouteModeRequest,
+    db: DbSession,
+) -> DomainDeliveryPolicy:
+    try:
+        policy = DeliveryRouteService(db).set_domain_policy_route_mode(policy_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not policy:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return policy

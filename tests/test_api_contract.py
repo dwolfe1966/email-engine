@@ -101,6 +101,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/delivery-routes/{route_id}/managed-smtp/routing-rules/promotion/rollback',
         '/api/v1/delivery-routes/{route_id}/pause',
         '/api/v1/delivery-routes/{route_id}/resume',
+        '/api/v1/domain-delivery-policies/{policy_id}/route-mode',
         '/api/v1/provider-feedback-events/list',
         '/api/v1/managed-smtp/node-events/list',
         '/api/v1/mta-agent/nodes/{node_id}/events',

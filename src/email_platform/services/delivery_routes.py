@@ -36,6 +36,7 @@ from email_platform.schemas.contracts import (
     DomainDeliverabilityRead,
     DomainDeliveryPolicyCreate,
     DomainDeliveryPolicyUpdate,
+    DomainDeliveryRouteModeRequest,
     DomainDkimKeyCreateRead,
     DomainDkimKeyCreateRequest,
     DomainReputationDashboardRead,
@@ -699,6 +700,72 @@ class DeliveryRouteService:
         self.db.commit()
         self.db.refresh(policy)
         return policy
+
+    def set_domain_policy_route_mode(
+        self,
+        policy_id: UUID,
+        payload: DomainDeliveryRouteModeRequest,
+    ) -> DomainDeliveryPolicy | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        route = self.get(payload.route_id)
+        if not route:
+            raise ValueError('Delivery route not found')
+        if payload.mode in {'managed_smtp_pool', 'managed_smtp_direct'}:
+            if route.route_type != DeliveryRouteType.managed_smtp:
+                raise ValueError('Managed SMTP route mode requires a managed_smtp delivery route')
+        elif route.route_type == DeliveryRouteType.managed_smtp:
+            raise ValueError('Third-party route mode requires a non-managed SMTP delivery route')
+
+        metadata = dict(policy.metadata_json or {})
+        previous_mode = metadata.get('delivery_route_mode')
+        route_mode = {
+            'mode': payload.mode,
+            'route_id': str(route.id),
+            'route_name': route.name,
+            'route_type': route.route_type.value,
+            'provider': (
+                payload.provider or self._default_provider_for_route_mode(payload.mode, route)
+            ).strip().lower(),
+            'ip_pool_name': payload.ip_pool_name.strip() if payload.ip_pool_name else None,
+            'mta_ip_pool_id': str(payload.mta_ip_pool_id) if payload.mta_ip_pool_id else None,
+            'operator': payload.operator,
+            'reason': payload.reason,
+            'updated_at': datetime.utcnow().isoformat(),
+        }
+        metadata['delivery_route_mode'] = route_mode
+        audit_log = list(metadata.get('delivery_route_mode_audit_log') or [])
+        audit_log.append(
+            {
+                'action': 'switch',
+                'previous': previous_mode,
+                **route_mode,
+            }
+        )
+        metadata['delivery_route_mode_audit_log'] = audit_log[-50:]
+        if payload.mode in {'managed_smtp_pool', 'managed_smtp_direct'}:
+            if payload.ip_pool_name:
+                metadata['ip_pool'] = payload.ip_pool_name.strip()
+            if payload.mta_ip_pool_id:
+                metadata['mta_ip_pool_id'] = str(payload.mta_ip_pool_id)
+        else:
+            metadata.pop('ip_pool', None)
+            metadata.pop('mta_ip_pool_id', None)
+
+        policy.route_id = route.id
+        policy.metadata_json = metadata
+        self.db.commit()
+        self.db.refresh(policy)
+        return policy
+
+    @staticmethod
+    def _default_provider_for_route_mode(mode: str, route: DeliveryRoute) -> str:
+        if mode == 'managed_smtp_direct':
+            return 'scaleway'
+        if mode == 'managed_smtp_pool':
+            return 'managed_smtp'
+        return route.route_type.value
 
     def pause_domain_policy(
         self,

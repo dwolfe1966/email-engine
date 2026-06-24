@@ -777,6 +777,19 @@ class DomainDeliveryPolicyUpdate(BaseModel):
     metadata_json: JsonObject | None = None
 
 
+DomainRouteMode = Literal['managed_smtp_pool', 'managed_smtp_direct', 'third_party_provider']
+
+
+class DomainDeliveryRouteModeRequest(BaseModel):
+    mode: DomainRouteMode
+    route_id: UUID
+    provider: str | None = Field(default=None, max_length=100)
+    ip_pool_name: str | None = Field(default=None, max_length=200)
+    mta_ip_pool_id: UUID | None = None
+    operator: str | None = Field(default=None, max_length=200)
+    reason: str = Field(default='operator_route_mode_switch', min_length=1, max_length=500)
+
+
 class DomainComplianceHoldRequest(BaseModel):
     reason: str = Field(..., min_length=1, max_length=500)
     abuse_type: str = Field(default='manual_review', min_length=1, max_length=100)

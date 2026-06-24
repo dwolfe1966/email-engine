@@ -10398,7 +10398,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     provider_message_id: '',
   });
   const [domainPolicies, setDomainPolicies] = useState<DomainDeliveryPolicyRead[]>([]);
+  const [deliveryRoutes, setDeliveryRoutes] = useState<DeliveryRouteRead[]>([]);
   const [selectedDomainPolicyId, setSelectedDomainPolicyId] = useState('');
+  const [domainRouteModeForm, setDomainRouteModeForm] = useState({
+    mode: 'managed_smtp_pool',
+    route_id: '',
+    provider: 'scaleway',
+    ip_pool_name: 'scaleway-internal-test',
+  });
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [domainAuthVerification, setDomainAuthVerification] = useState<DomainAuthenticationVerificationRead | null>(null);
   const [warmupProgression, setWarmupProgression] = useState<DomainWarmupProgressionRead | null>(null);
@@ -10493,11 +10500,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   useEffect(() => {
     let active = true;
-    fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0')
-      .then((data) => {
+    Promise.all([
+      fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
+      fetchJson<ListResponse<DeliveryRouteRead>>('/api/v1/delivery-routes/list?status=active&limit=100&offset=0'),
+    ])
+      .then(([data, routes]) => {
         if (!active) return;
         const items = data.items || [];
         setDomainPolicies(items);
+        setDeliveryRoutes(routes.items || []);
         if (!selectedDomainPolicyId && items.length) setSelectedDomainPolicyId(items[0].id);
       })
       .catch(() => undefined);
@@ -10514,6 +10525,26 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
+  const selectedDomainRouteMode = selectedDomainPolicy?.metadata_json?.delivery_route_mode as Record<string, unknown> | undefined;
+  const selectedDeliveryRoute = deliveryRoutes.find((routeItem) => routeItem.id === selectedDomainPolicy?.route_id);
+  const routeModeOptions = [
+    { value: 'managed_smtp_pool', label: 'MTA Pool' },
+    { value: 'managed_smtp_direct', label: 'Scaleway MTA' },
+    { value: 'third_party_provider', label: '3rd Party Provider' },
+  ];
+
+  useEffect(() => {
+    if (!selectedDomainPolicy) return;
+    const routeMode = selectedDomainPolicy.metadata_json?.delivery_route_mode as Record<string, unknown> | undefined;
+    const mode = String(routeMode?.mode || 'managed_smtp_pool');
+    setDomainRouteModeForm({
+      mode,
+      route_id: String(routeMode?.route_id || selectedDomainPolicy.route_id || ''),
+      provider: String(routeMode?.provider || (mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp')),
+      ip_pool_name: String(routeMode?.ip_pool_name || selectedDomainPolicy.metadata_json?.ip_pool || ''),
+    });
+  }, [selectedDomainPolicyId, selectedDomainPolicy?.metadata_json, selectedDomainPolicy?.route_id]);
+
   const selectedMtaIpPool = mtaIpPools.find((pool) => pool.id === selectedMtaIpPoolId) || null;
   const selectedMtaIpPoolNode = mtaIpPoolNodes.find((membership) => membership.id === selectedMtaIpPoolNodeId) || null;
   const selectedMtaIpPoolHealth = managedSmtpDeploymentSummary?.pool_health.find((item) => item.ip_pool.id === selectedMtaIpPoolId) || null;
@@ -13898,6 +13929,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setControlledExpansionApprovalForm((current) => ({ ...current, [name]: value }));
   }
 
+  function updateDomainRouteModeForm(name: keyof typeof domainRouteModeForm, value: string) {
+    setDomainRouteModeForm((current) => ({ ...current, [name]: value }));
+  }
+
   function optionalPositiveInt(value: string, label: string): number | null {
     const trimmed = deliveryFilterValue(value);
     if (!trimmed) return null;
@@ -14568,11 +14603,38 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   async function loadDomainPolicies() {
     await runDeliveryOperation('Loading domain delivery policies', async () => {
-      const data = await fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0');
+      const [data, routes] = await Promise.all([
+        fetchJson<ListResponse<DomainDeliveryPolicyRead>>('/api/v1/domain-delivery-policies/list?limit=100&offset=0'),
+        fetchJson<ListResponse<DeliveryRouteRead>>('/api/v1/delivery-routes/list?status=active&limit=100&offset=0'),
+      ]);
       const items = data.items || [];
       setDomainPolicies(items);
+      setDeliveryRoutes(routes.items || []);
       if (!selectedDomainPolicyId && items.length) setSelectedDomainPolicyId(items[0].id);
       return `Loaded ${formatInt(items.length)} domain delivery policy row(s).`;
+    });
+  }
+
+  async function saveDomainRouteMode() {
+    await runDeliveryOperation('Saving domain route mode', async () => {
+      if (!selectedDomainPolicyId) throw new Error('Select a domain policy.');
+      if (!domainRouteModeForm.route_id) throw new Error('Select a delivery route.');
+      const policy = await fetchJson<DomainDeliveryPolicyRead>(`/api/v1/domain-delivery-policies/${selectedDomainPolicyId}/route-mode`, {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: domainRouteModeForm.mode,
+          route_id: domainRouteModeForm.route_id,
+          provider: deliveryFilterValue(domainRouteModeForm.provider) || null,
+          ip_pool_name: domainRouteModeForm.mode === 'third_party_provider' ? null : deliveryFilterValue(domainRouteModeForm.ip_pool_name) || null,
+          operator: 'esp_admin',
+          reason: `switch_to_${domainRouteModeForm.mode}`,
+        }),
+      });
+      setDomainPolicies((items) => items.map((item) => item.id === policy.id ? policy : item));
+      setSelectedDomainPolicyId(policy.id);
+      setManagedSmtpRouteResolution(null);
+      setManagedSmtpRoutingRules(null);
+      return `Saved route mode ${domainRouteModeForm.mode} for ${policy.domain}.`;
     });
   }
 
@@ -15677,10 +15739,51 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             Route
             <input value={selectedDomainPolicy?.route_id?.slice(0, 8) || 'No route'} readOnly />
           </label>
+          <label>
+            Route mode
+            <select value={domainRouteModeForm.mode} onChange={(event) => {
+              const mode = event.target.value;
+              updateDomainRouteModeForm('mode', mode);
+              updateDomainRouteModeForm('provider', mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp');
+            }}>
+              {routeModeOptions.map((option) => (
+                <option value={option.value} key={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Delivery route
+            <select value={domainRouteModeForm.route_id} onChange={(event) => updateDomainRouteModeForm('route_id', event.target.value)}>
+              <option value="">Select route</option>
+              {deliveryRoutes
+                .filter((routeItem) => domainRouteModeForm.mode === 'third_party_provider' ? routeItem.route_type !== 'managed_smtp' : routeItem.route_type === 'managed_smtp')
+                .map((routeItem) => (
+                  <option value={routeItem.id} key={routeItem.id}>
+                    {routeItem.name} | {routeItem.route_type}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Provider
+            <input value={domainRouteModeForm.provider} onChange={(event) => updateDomainRouteModeForm('provider', event.target.value)} placeholder="scaleway or sendgrid" />
+          </label>
+          <label>
+            IP pool
+            <input value={domainRouteModeForm.ip_pool_name} onChange={(event) => updateDomainRouteModeForm('ip_pool_name', event.target.value)} placeholder="scaleway-internal-test" disabled={domainRouteModeForm.mode === 'third_party_provider'} />
+          </label>
           <label className="wide-field">
             Latest recommendation
             <input value={domainDashboard?.recommendations?.[0] || 'Load the reputation dashboard for domain-specific guidance.'} readOnly />
           </label>
+          <button className="ghost" type="button" onClick={saveDomainRouteMode} disabled={busy || !selectedDomainPolicyId || !domainRouteModeForm.route_id}>Save Route Mode</button>
+        </div>
+        <div className="delivery-ai-summary" aria-label="Domain route mode switcher">
+          <span>Route switch</span>
+          <span>{routeModeOptions.find((option) => option.value === (selectedDomainRouteMode?.mode || domainRouteModeForm.mode))?.label || 'MTA Pool'}</span>
+          <span>{selectedDeliveryRoute ? `${selectedDeliveryRoute.name} / ${selectedDeliveryRoute.route_type}` : 'No active route selected'}</span>
+          <span>{String(selectedDomainRouteMode?.provider || domainRouteModeForm.provider || '-')}</span>
+          <span>{String(selectedDomainRouteMode?.ip_pool_name || selectedDomainPolicy?.metadata_json?.ip_pool || 'no pool')}</span>
         </div>
         <div className="domain-compliance-strip" aria-label="Managed SMTP domain compliance strip">
           {domainComplianceItems.map((item) => (
