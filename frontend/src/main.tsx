@@ -526,6 +526,18 @@ type ManagedSmtpRoutingRulesRead = {
   conflicts: Record<string, unknown>[];
 };
 
+type ManagedSmtpRoutingRulePromotionRead = ManagedSmtpRoutingRulesRead & {
+  status: string;
+  blocking_issue_count: number;
+  warnings_count: number;
+  issues: Record<string, unknown>[];
+  draft_rules: Record<string, unknown>[];
+  activated_at: string | null;
+  rolled_back_at: string | null;
+  operator: string | null;
+  reason: string | null;
+};
+
 type DomainReputationDashboardRead = {
   domain: string;
   route_id: string | null;
@@ -10380,6 +10392,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const [warmupProgression, setWarmupProgression] = useState<DomainWarmupProgressionRead | null>(null);
   const [managedSmtpRouteResolution, setManagedSmtpRouteResolution] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRoutingRules, setManagedSmtpRoutingRules] = useState<ManagedSmtpRoutingRulesRead | null>(null);
+  const [managedSmtpRoutingRulePromotion, setManagedSmtpRoutingRulePromotion] = useState<ManagedSmtpRoutingRulePromotionRead | null>(null);
   const [managedSmtpRulePreview, setManagedSmtpRulePreview] = useState<ManagedSmtpRouteResolutionRead | null>(null);
   const [managedSmtpRouteMatrix, setManagedSmtpRouteMatrix] = useState<ManagedSmtpRouteMatrixRead | null>(null);
   const [managedSmtpRouteMatrixInput, setManagedSmtpRouteMatrixInput] = useState('internal_test,email-engine.app,gmail.com\ntransactional,email-engine.app,outlook.com\ninternal_test,email-engine.app,yahoo.com');
@@ -13752,6 +13765,27 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .filter(Boolean);
   }
 
+  function currentManagedSmtpRoutingRulePayload() {
+    return {
+      name: deliveryFilterValue(managedSmtpRoutingRuleForm.name),
+      priority: Number(managedSmtpRoutingRuleForm.priority || 100),
+      enabled: managedSmtpRoutingRuleForm.enabled,
+      send_types: splitRoutingRuleList(managedSmtpRoutingRuleForm.send_types),
+      sender_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.sender_domains),
+      recipient_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.recipient_domains),
+      ip_pool_name: deliveryFilterValue(managedSmtpRoutingRuleForm.ip_pool_name) || null,
+      preferred_providers: splitRoutingRuleList(managedSmtpRoutingRuleForm.preferred_providers),
+      provider_preference_mode: managedSmtpRoutingRuleForm.provider_preference_mode,
+    };
+  }
+
+  function proposedManagedSmtpRoutingRuleSet() {
+    const payload = currentManagedSmtpRoutingRulePayload();
+    if (!payload.name) throw new Error('Rule name is required.');
+    const rules = (managedSmtpRoutingRules?.rules || []).filter((rule) => String(rule.name || '') !== payload.name);
+    return [...rules, payload].sort((a, b) => Number(a.priority ?? 100) - Number(b.priority ?? 100));
+  }
+
   function firstRoutingRuleValue(value: string) {
     return splitRoutingRuleList(value)[0] || '';
   }
@@ -14353,17 +14387,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   async function saveManagedSmtpRoutingRule() {
     await runDeliveryOperation('Saving managed SMTP routing rule', async () => {
       if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
-      const payload = {
-        name: deliveryFilterValue(managedSmtpRoutingRuleForm.name),
-        priority: Number(managedSmtpRoutingRuleForm.priority || 100),
-        enabled: managedSmtpRoutingRuleForm.enabled,
-        send_types: splitRoutingRuleList(managedSmtpRoutingRuleForm.send_types),
-        sender_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.sender_domains),
-        recipient_domains: splitRoutingRuleList(managedSmtpRoutingRuleForm.recipient_domains),
-        ip_pool_name: deliveryFilterValue(managedSmtpRoutingRuleForm.ip_pool_name) || null,
-        preferred_providers: splitRoutingRuleList(managedSmtpRoutingRuleForm.preferred_providers),
-        provider_preference_mode: managedSmtpRoutingRuleForm.provider_preference_mode,
-      };
+      const payload = currentManagedSmtpRoutingRulePayload();
       if (!payload.name) throw new Error('Rule name is required.');
       const data = await fetchJson<ManagedSmtpRoutingRulesRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules`, {
         method: 'POST',
@@ -14371,7 +14395,66 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       });
       setManagedSmtpRoutingRules(data);
       setSelectedManagedSmtpRoutingRuleName(payload.name);
+      setManagedSmtpRoutingRulePromotion(null);
       return `Saved ${payload.name}; ${formatInt(data.rules.length)} managed SMTP routing rule(s) configured.`;
+    });
+  }
+
+  async function previewManagedSmtpRoutingRulePromotion() {
+    await runDeliveryOperation('Previewing managed SMTP routing rule promotion', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const data = await fetchJson<ManagedSmtpRoutingRulePromotionRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/promotion/preview`, {
+        method: 'POST',
+        body: JSON.stringify({
+          rules: proposedManagedSmtpRoutingRuleSet(),
+          operator: 'esp_admin',
+          reason: 'preview_routing_rule_promotion',
+        }),
+      });
+      setManagedSmtpRoutingRulePromotion(data);
+      return `Promotion preview ${data.status}: ${formatInt(data.draft_rules.length)} draft rule(s), ${formatInt(data.blocking_issue_count)} blocker(s), ${formatInt(data.warnings_count)} warning(s).`;
+    });
+  }
+
+  async function draftManagedSmtpRoutingRulePromotion() {
+    await runDeliveryOperation('Drafting managed SMTP routing rule promotion', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const data = await fetchJson<ManagedSmtpRoutingRulePromotionRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/promotion/draft`, {
+        method: 'POST',
+        body: JSON.stringify({
+          rules: proposedManagedSmtpRoutingRuleSet(),
+          operator: 'esp_admin',
+          reason: 'draft_routing_rule_promotion',
+        }),
+      });
+      setManagedSmtpRoutingRulePromotion(data);
+      return `Promotion draft ${data.status}: ${formatInt(data.draft_rules.length)} draft rule(s), ${formatInt(data.blocking_issue_count)} blocker(s), ${formatInt(data.warnings_count)} warning(s).`;
+    });
+  }
+
+  async function activateManagedSmtpRoutingRuleDraft() {
+    await runDeliveryOperation('Activating managed SMTP routing rule draft', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const params = new URLSearchParams({ operator: 'esp_admin', reason: 'activate_routing_rule_draft' });
+      const data = await fetchJson<ManagedSmtpRoutingRulePromotionRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/promotion/activate?${params.toString()}`, {
+        method: 'POST',
+      });
+      setManagedSmtpRoutingRulePromotion(data);
+      setManagedSmtpRoutingRules(data);
+      return `Activated routing rule draft: ${formatInt(data.rules.length)} live rule(s), ${formatInt(data.warnings_count)} warning(s).`;
+    });
+  }
+
+  async function rollbackManagedSmtpRoutingRules() {
+    await runDeliveryOperation('Rolling back managed SMTP routing rules', async () => {
+      if (!selectedDomainPolicy?.route_id) throw new Error('Select a domain policy with a delivery route.');
+      const params = new URLSearchParams({ operator: 'esp_admin', reason: 'rollback_routing_rules' });
+      const data = await fetchJson<ManagedSmtpRoutingRulePromotionRead>(`/api/v1/delivery-routes/${selectedDomainPolicy.route_id}/managed-smtp/routing-rules/promotion/rollback?${params.toString()}`, {
+        method: 'POST',
+      });
+      setManagedSmtpRoutingRulePromotion(data);
+      setManagedSmtpRoutingRules(data);
+      return `Rolled back routing rules: ${formatInt(data.rules.length)} live rule(s), previous set retained for audit.`;
     });
   }
 
@@ -15436,6 +15519,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" type="button" onClick={draftAwsSecondaryRoutingRule} disabled={busy}>Draft AWS Secondary</button>
           <button className="ghost" type="button" onClick={previewManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id || !managedSmtpRoutingRuleDraftEvidence}>Preview Draft</button>
           <button className="ghost" type="button" onClick={copyManagedSmtpRoutingRuleDraft} disabled={busy || !managedSmtpRoutingRuleDraftEvidence}>Copy Draft Evidence</button>
+          <button className="ghost" type="button" onClick={previewManagedSmtpRoutingRulePromotion} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Promotion</button>
+          <button className="ghost" type="button" onClick={draftManagedSmtpRoutingRulePromotion} disabled={busy || !selectedDomainPolicy?.route_id}>Draft Promotion</button>
+          <button className="ghost" type="button" onClick={activateManagedSmtpRoutingRuleDraft} disabled={busy || !selectedDomainPolicy?.route_id}>Activate Draft</button>
+          <button className="ghost" type="button" onClick={rollbackManagedSmtpRoutingRules} disabled={busy || !selectedDomainPolicy?.route_id}>Rollback Rules</button>
         </div>
         <div className="managed-smtp-route-inspector">
           {managedSmtpRoutingRuleDraftEvidence ? (() => {
@@ -15459,6 +15546,27 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <span>Preview</span>
               <strong>{managedSmtpRulePreview.reason.code}</strong>
               <small>{managedSmtpRulePreview.reason.message}</small>
+            </article>
+          ) : null}
+          {managedSmtpRoutingRulePromotion ? (
+            <article className={`managed-smtp-route-field ${managedSmtpRoutingRulePromotion.blocking_issue_count ? 'warn' : 'good'}`} aria-label="Managed SMTP routing rule promotion review">
+              <span>Promotion status</span>
+              <strong>{managedSmtpRoutingRulePromotion.status}</strong>
+              <small>{`${formatInt(managedSmtpRoutingRulePromotion.draft_rules.length)} draft rule(s), ${formatInt(managedSmtpRoutingRulePromotion.blocking_issue_count)} blocker(s), ${formatInt(managedSmtpRoutingRulePromotion.warnings_count)} warning(s).`}</small>
+            </article>
+          ) : null}
+          {(managedSmtpRoutingRulePromotion?.issues || []).map((issue, index) => (
+            <article className={`managed-smtp-route-field ${String(issue.severity || 'warning') === 'error' ? 'warn' : 'good'}`} key={`${String(issue.code || 'promotion-issue')}-${index}`}>
+              <span>{String(issue.severity || 'warning') === 'error' ? 'Blocking issue' : 'Promotion warning'}</span>
+              <strong>{String(issue.code || 'Review')}</strong>
+              <small>{String(issue.message || JSON.stringify(issue))}</small>
+            </article>
+          ))}
+          {managedSmtpRoutingRulePromotion?.draft_rules?.length ? (
+            <article className="managed-smtp-route-field good">
+              <span>Draft rules</span>
+              <strong>{formatInt(managedSmtpRoutingRulePromotion.draft_rules.length)}</strong>
+              <small>{managedSmtpRoutingRulePromotion.draft_rules.map((rule) => String(rule.name || 'unnamed')).join(', ')}</small>
             </article>
           ) : null}
           {(managedSmtpRoutingRules?.conflicts || []).map((conflict) => (
@@ -15531,6 +15639,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <button className="ghost" onClick={copyManagedSmtpRouteMatrix} disabled={busy || !managedSmtpRouteMatrix}>Copy Matrix</button>
           <button className="ghost" onClick={exportManagedSmtpRouteMatrixCsv} disabled={busy || !managedSmtpRouteMatrix}>Export Matrix CSV</button>
           <button className="ghost" onClick={saveManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Save Routing Rule</button>
+          <button className="ghost" onClick={previewManagedSmtpRoutingRulePromotion} disabled={busy || !selectedDomainPolicy?.route_id}>Preview Promotion</button>
+          <button className="ghost" onClick={draftManagedSmtpRoutingRulePromotion} disabled={busy || !selectedDomainPolicy?.route_id}>Draft Promotion</button>
+          <button className="ghost" onClick={activateManagedSmtpRoutingRuleDraft} disabled={busy || !selectedDomainPolicy?.route_id}>Activate Draft</button>
+          <button className="ghost" onClick={rollbackManagedSmtpRoutingRules} disabled={busy || !selectedDomainPolicy?.route_id}>Rollback Rules</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(false)} disabled={busy || !selectedDomainPolicy?.route_id}>Disable Rule</button>
           <button className="ghost" onClick={() => setSelectedManagedSmtpRoutingRuleEnabled(true)} disabled={busy || !selectedDomainPolicy?.route_id}>Enable Rule</button>
           <button className="ghost" onClick={deleteSelectedManagedSmtpRoutingRule} disabled={busy || !selectedDomainPolicy?.route_id}>Delete Rule</button>
