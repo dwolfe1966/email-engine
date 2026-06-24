@@ -14305,10 +14305,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
-  async function loadMtaNodeEvents() {
+  async function loadMtaNodeEvents(filterOverride: typeof mtaNodeEventFilters = mtaNodeEventFilters) {
     await runDeliveryOperation('Loading MTA agent events', async () => {
       const params = new URLSearchParams({ limit: '50', offset: '0' });
-      Object.entries(mtaNodeEventFilters).forEach(([key, value]) => {
+      Object.entries(filterOverride).forEach(([key, value]) => {
         const trimmed = deliveryFilterValue(value);
         if (trimmed) params.set(key, trimmed);
       });
@@ -14318,6 +14318,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const warningCount = (data.items || []).filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
       return `Loaded ${formatInt(data.items?.length || 0)} MTA agent event(s), ${formatInt(warningCount)} requiring review.`;
     });
+  }
+
+  async function inspectRuntimeConfigApplyEvents(node: MtaNodeRead) {
+    const nextFilters = {
+      mta_node_id: node.id,
+      event_type: 'runtime_config_applied',
+      severity: '',
+    };
+    setMtaNodeEventFilters(nextFilters);
+    await loadMtaNodeEvents(nextFilters);
+    setStatus(`Loaded runtime config apply telemetry for ${node.name}.`);
   }
 
   async function setManagedSmtpNodeOperationalStatus(node: MtaNodeRead, action: 'pause' | 'resume') {
@@ -15380,6 +15391,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                   <div className="json-preview">{managedSmtpHostUpdateCommands.join('\n')}</div>
                 </details>
                 <div className="button-row">
+                  <button className="ghost" type="button" onClick={() => inspectRuntimeConfigApplyEvents(item.node)} disabled={busy}>Inspect Runtime Apply</button>
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'pause')} disabled={busy || item.node.status === 'paused'}>Pause MTA Node</button>
                   <button className="ghost" type="button" onClick={() => setManagedSmtpNodeOperationalStatus(item.node, 'resume')} disabled={busy || item.node.status === 'active'}>Resume MTA Node</button>
                 </div>
@@ -15435,7 +15447,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         </div>
         <div className="button-row">
           <button className="ghost" onClick={loadMtaNodeEvents} disabled={busy}>Apply MTA Event Filters</button>
-          <button className="ghost" onClick={() => setMtaNodeEventFilters({ mta_node_id: '', event_type: '', severity: '' })} disabled={busy}>Clear MTA Event Filters</button>
+          <button className="ghost" onClick={() => {
+            const nextFilters = { mta_node_id: '', event_type: '', severity: '' };
+            setMtaNodeEventFilters(nextFilters);
+            void loadMtaNodeEvents(nextFilters);
+          }} disabled={busy}>Clear MTA Event Filters</button>
           <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
           <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
         </div>
