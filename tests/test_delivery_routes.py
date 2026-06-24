@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from email_platform.models.entities import DeliveryRouteStatus, DeliveryRouteType
 from email_platform.schemas.contracts import (
+    ControlledExpansionApprovalRequest,
     DomainAuthenticationPlanRequest,
     DomainBlocklistScanRequest,
     DomainComplianceHoldRequest,
@@ -414,6 +415,125 @@ def test_delivery_claim_decision_blocks_paused_domain_policy() -> None:
     assert decision.reason == 'domain_policy_paused'
     assert decision.domain == 'gmail.com'
     assert decision.domain_policy_id == policy.id
+
+
+def test_delivery_claim_decision_blocks_campaign_without_controlled_expansion() -> None:
+    route = SimpleNamespace(id=uuid4(), route_type=DeliveryRouteType.managed_smtp)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=route.id,
+        paused_until=None,
+        max_per_minute=None,
+        max_concurrent=None,
+        metadata_json={},
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
+
+    decision = service.claim_decision(
+        SimpleNamespace(to_email='recipient@gmail.com', campaign_id=uuid4()),
+        sender_domain='email-engine.app',
+    )
+
+    assert not decision.can_claim
+    assert decision.reason == 'controlled_expansion_not_approved'
+    assert decision.domain == 'email-engine.app'
+    assert decision.domain_policy_id == policy.id
+
+
+def test_delivery_claim_decision_allows_campaign_with_controlled_expansion() -> None:
+    route = SimpleNamespace(id=uuid4(), route_type=DeliveryRouteType.managed_smtp)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=route.id,
+        paused_until=None,
+        max_per_minute=None,
+        max_concurrent=None,
+        metadata_json={
+            'controlled_expansion': {
+                'status': 'active',
+                'approved_daily_limit': 5,
+                'send_types': ['campaign'],
+                'expires_at': (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            }
+        },
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, 2], get_result=route))
+
+    decision = service.claim_decision(
+        SimpleNamespace(to_email='recipient@gmail.com', campaign_id=uuid4()),
+        sender_domain='email-engine.app',
+    )
+
+    assert decision.can_claim
+    assert decision.domain == 'email-engine.app'
+    assert decision.domain_policy_id == policy.id
+
+
+def test_delivery_claim_decision_blocks_controlled_expansion_daily_limit() -> None:
+    route = SimpleNamespace(id=uuid4(), route_type=DeliveryRouteType.managed_smtp)
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        route_id=route.id,
+        paused_until=None,
+        max_per_minute=None,
+        max_concurrent=None,
+        metadata_json={
+            'controlled_expansion': {
+                'status': 'active',
+                'approved_daily_limit': 2,
+                'send_types': ['campaign'],
+                'expires_at': (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            }
+        },
+    )
+    service = DeliveryRouteService(FakeDb(scalar_results=[policy, 2], get_result=route))
+
+    decision = service.claim_decision(
+        SimpleNamespace(to_email='recipient@gmail.com', campaign_id=uuid4()),
+        sender_domain='email-engine.app',
+    )
+
+    assert not decision.can_claim
+    assert decision.reason == 'controlled_expansion_daily_limit'
+
+
+def test_approve_controlled_expansion_writes_policy_metadata_and_audit_log() -> None:
+    policy = SimpleNamespace(
+        id=uuid4(),
+        domain='email-engine.app',
+        metadata_json={'existing': 'value'},
+    )
+    db = FakeDb(get_result=policy)
+    service = DeliveryRouteService(db)
+
+    result = service.approve_controlled_expansion(
+        policy.id,
+        ControlledExpansionApprovalRequest(
+            approved_daily_limit=25,
+            send_types=['Campaign'],
+            expires_hours=12,
+            operator='ops@example.com',
+            reason='seed metrics clean',
+            evidence={'pool': 'scaleway-internal-test'},
+        ),
+    )
+
+    assert result is not None
+    assert result.domain == 'email-engine.app'
+    assert result.status == 'active'
+    assert result.approved_daily_limit == 25
+    assert result.send_types == ['campaign']
+    assert result.operator == 'ops@example.com'
+    assert policy.metadata_json['existing'] == 'value'
+    approval = policy.metadata_json['controlled_expansion']
+    assert approval['status'] == 'active'
+    assert approval['evidence']['pool'] == 'scaleway-internal-test'
+    assert policy.metadata_json['controlled_expansion_audit_log'][-1]['action'] == 'approve'
+    assert db.committed
+    assert db.refreshed == [policy]
 
 
 def test_domain_compliance_hold_pauses_policy_and_writes_audit_metadata() -> None:

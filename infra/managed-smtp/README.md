@@ -197,6 +197,7 @@ export MANAGED_SMTP_FEEDBACK_SECRET=<same-secret-as-email-engine>
 export MANAGED_SMTP_MTA_AGENT_STATE=/srv/email-engine/mta-agent/state.json
 export MANAGED_SMTP_ENV_FILE=/root/apps/email-engine/infra/managed-smtp/production.env
 export MANAGED_SMTP_COMPOSE_FILE=/root/apps/email-engine/infra/managed-smtp/docker-compose.production.yml
+export MANAGED_SMTP_GENERATED_CONFIG_DIR=/srv/email-engine/mta-agent/generated
 ```
 
 Then run one heartbeat cycle:
@@ -207,9 +208,27 @@ python3 scripts/managed_smtp_mta_agent.py --post-config-event --json
 ```
 
 For cron, run the same command every minute. For systemd, use the same environment values and a
-timer. The agent does not mutate Postfix config yet; this first slice establishes the control plane
-contract and confirms that every MTA node can fetch the config it should be running and report
-queue/readiness state back to Email Engine.
+timer.
+
+With `MANAGED_SMTP_GENERATED_CONFIG_DIR` set, the agent renders runtime config and reports a
+`config_apply` dry-run result with changed files and unified diffs. To write generated files, set:
+
+```bash
+export MANAGED_SMTP_APPLY_CONFIG=true
+```
+
+The generated files are:
+
+- `opendkim/KeyTable`
+- `opendkim/SigningTable`
+- `opendkim/TrustedHosts`
+- `postfix/managed_sender_domains`
+- `postfix/managed_bounce_domains`
+- `runtime-config.json`
+
+Existing files are backed up under `.backups/` before replacement. Reloads remain explicit: set
+`MANAGED_SMTP_RELOAD_AFTER_APPLY=true` and pass `--reload-command ...` only after verifying the
+generated directory is mounted or copied into the live Postfix/OpenDKIM paths.
 
 ## Bounce Routing Boundary
 

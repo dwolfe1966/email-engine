@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import difflib
 import hashlib
 import hmac
 import json
@@ -21,6 +22,7 @@ QUEUE_ENTRY_PATTERN = re.compile(
 QUEUE_SAMPLE_LIMIT = 10
 LOG_SAMPLE_LIMIT = 20
 DEFAULT_POSTFIX_LOG_PATH = '/srv/email-engine/postfix/log/mail.log'
+DEFAULT_OPENDKIM_KEY_ROOT = '/etc/opendkim/keys'
 
 
 class MtaAgentError(RuntimeError):
@@ -334,6 +336,229 @@ def collect_postfix_logs(path: str | None, *, max_lines: int = LOG_SAMPLE_LIMIT)
     }
 
 
+def normalized_domain(value: object) -> str | None:
+    if not value:
+        return None
+    domain = str(value).strip().lower()
+    if '@' in domain:
+        domain = domain.rsplit('@', 1)[-1]
+    return domain or None
+
+
+def dkim_private_key_path(domain: str, selector: str, key_ref: object, key_root: str) -> str:
+    if key_ref:
+        value = str(key_ref)
+        parts = [part for part in value.split('/') if part]
+        if len(parts) >= 2:
+            ref_domain = normalized_domain(parts[-2])
+            ref_selector = parts[-1]
+            if ref_domain and ref_selector:
+                return f'{key_root.rstrip("/")}/{ref_domain}/{ref_selector}.private'
+    return f'{key_root.rstrip("/")}/{domain}/{selector}.private'
+
+
+def render_runtime_config_files(
+    runtime_config: dict[str, Any],
+    *,
+    opendkim_key_root: str = DEFAULT_OPENDKIM_KEY_ROOT,
+) -> dict[str, str]:
+    domains = sorted(
+        runtime_config.get('domains') or [],
+        key=lambda item: str(item.get('domain') or ''),
+    )
+    node = runtime_config.get('node') or {}
+    key_table: list[str] = []
+    signing_table: list[str] = []
+    sender_domains: list[str] = []
+    bounce_domains: list[str] = []
+    runtime_domains: list[dict[str, Any]] = []
+
+    for item in domains:
+        domain = normalized_domain(item.get('domain'))
+        if not domain:
+            continue
+        sender_domains.append(f'{domain} OK')
+        bounce_domain = normalized_domain(item.get('bounce_domain'))
+        if bounce_domain:
+            bounce_domains.append(f'{bounce_domain} OK')
+        selector = str(item.get('dkim_selector') or '').strip()
+        if selector:
+            key_path = dkim_private_key_path(
+                domain,
+                selector,
+                item.get('dkim_key_ref'),
+                opendkim_key_root,
+            )
+            key_name = f'{selector}._domainkey.{domain}'
+            key_table.append(f'{key_name} {domain}:{selector}:{key_path}')
+            signing_table.append(f'*@{domain} {key_name}')
+        runtime_domains.append(
+            {
+                'domain': domain,
+                'bounce_domain': bounce_domain,
+                'dkim_selector': selector or None,
+                'verified': bool(item.get('verified')),
+                'warmup_stage': item.get('warmup_stage'),
+                'max_per_minute': item.get('max_per_minute'),
+                'max_concurrent': item.get('max_concurrent'),
+            }
+        )
+
+    trusted_hosts = [
+        '127.0.0.1',
+        'localhost',
+    ]
+    hostname = normalized_domain(node.get('hostname'))
+    if hostname:
+        trusted_hosts.append(hostname)
+
+    metadata = {
+        'config_version': runtime_config.get('config_version'),
+        'node_id': node.get('id'),
+        'hostname': node.get('hostname'),
+        'provider': (runtime_config.get('provider_account') or {}).get('provider'),
+        'generated_from': 'managed_smtp_mta_agent',
+        'domain_count': len(runtime_domains),
+        'pool_count': len(runtime_config.get('pools') or []),
+        'domains': runtime_domains,
+    }
+
+    def lines(values: list[str]) -> str:
+        return '\n'.join(values) + ('\n' if values else '')
+
+    return {
+        'opendkim/KeyTable': lines(key_table),
+        'opendkim/SigningTable': lines(signing_table),
+        'opendkim/TrustedHosts': lines(trusted_hosts),
+        'postfix/managed_sender_domains': lines(sender_domains),
+        'postfix/managed_bounce_domains': lines(bounce_domains),
+        'runtime-config.json': json.dumps(metadata, indent=2, sort_keys=True) + '\n',
+    }
+
+
+def rendered_config_hash(files: dict[str, str]) -> str:
+    digest = hashlib.sha256()
+    for name in sorted(files):
+        digest.update(name.encode('utf-8'))
+        digest.update(b'\0')
+        digest.update(files[name].encode('utf-8'))
+        digest.update(b'\0')
+    return digest.hexdigest()
+
+
+def diff_rendered_file(path: Path, new_content: str, *, max_chars: int = 8000) -> str:
+    old_content = path.read_text() if path.exists() else ''
+    if old_content == new_content:
+        return ''
+    diff = ''.join(
+        difflib.unified_diff(
+            old_content.splitlines(keepends=True),
+            new_content.splitlines(keepends=True),
+            fromfile=str(path),
+            tofile=f'{path} (generated)',
+        )
+    )
+    return diff[-max_chars:]
+
+
+def backup_existing_file(path: Path, backup_root: Path) -> str | None:
+    if not path.exists():
+        return None
+    relative = path.name
+    backup_root.mkdir(parents=True, exist_ok=True)
+    backup_path = backup_root / relative
+    backup_path.write_text(path.read_text())
+    return str(backup_path)
+
+
+def apply_runtime_config(runtime_config: dict[str, Any], args) -> dict[str, Any]:
+    files = render_runtime_config_files(
+        runtime_config,
+        opendkim_key_root=args.opendkim_key_root,
+    )
+    config_hash = rendered_config_hash(files)
+    result: dict[str, Any] = {
+        'enabled': bool(args.config_dir),
+        'applied': False,
+        'dry_run': not bool(args.apply_config),
+        'config_version': runtime_config.get('config_version'),
+        'rendered_config_hash': config_hash,
+        'file_count': len(files),
+        'changed_files': [],
+        'diffs': {},
+        'backups': {},
+        'reload': {'attempted': False},
+    }
+    if not args.config_dir:
+        result.update({'status': 'disabled', 'summary': 'Runtime config rendering is disabled.'})
+        return result
+
+    config_dir = Path(args.config_dir)
+    changed_files: list[str] = []
+    diffs: dict[str, str] = {}
+    for name, content in files.items():
+        path = config_dir / name
+        diff = diff_rendered_file(path, content)
+        if diff:
+            changed_files.append(name)
+            diffs[name] = diff
+    result['changed_files'] = changed_files
+    result['diffs'] = diffs
+
+    if not args.apply_config:
+        result.update(
+            {
+                'status': 'dry_run_changed' if changed_files else 'dry_run_unchanged',
+                'summary': f'Runtime config dry-run found {len(changed_files)} changed file(s).',
+            }
+        )
+        return result
+
+    backup_root = config_dir / '.backups' / str(int(time.time()))
+    backups: dict[str, str] = {}
+    for name, content in files.items():
+        path = config_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.read_text() == content:
+            continue
+        backup_path = backup_existing_file(path, backup_root)
+        if backup_path:
+            backups[name] = backup_path
+        path.write_text(content)
+    result['backups'] = backups
+    result['applied'] = True
+    result['status'] = 'applied_changed' if changed_files else 'applied_unchanged'
+    result['summary'] = f'Runtime config applied with {len(changed_files)} changed file(s).'
+
+    if args.reload_after_apply:
+        reload_result = run_reload_command(args.reload_command, timeout=args.timeout)
+        result['reload'] = reload_result
+    return result
+
+
+def run_reload_command(command: list[str] | None, *, timeout: float = 20) -> dict[str, Any]:
+    if not command:
+        return {'attempted': False, 'ok': False, 'error': 'reload command not configured'}
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {'attempted': True, 'ok': False, 'command': command, 'error': str(exc)}
+    output = completed.stdout + completed.stderr
+    return {
+        'attempted': True,
+        'ok': completed.returncode == 0,
+        'command': command,
+        'returncode': completed.returncode,
+        'output_tail': output[-2000:],
+    }
+
+
 def read_state(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
@@ -359,15 +584,20 @@ def build_heartbeat_payload(
     queue: dict[str, Any],
     *,
     previous_config_version: str | None = None,
+    config_apply: dict[str, Any] | None = None,
     systemd: dict[str, Any] | None = None,
     revision: dict[str, Any] | None = None,
     logs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     config_version = str(runtime_config.get('config_version') or '')
+    config_applied = bool((config_apply or {}).get('applied'))
+    applied_config_version = config_version if config_applied else previous_config_version
     queue_ok = bool(queue.get('ok'))
     status = 'ok' if queue_ok else 'warning'
     summary = 'MTA agent heartbeat ok' if queue_ok else 'MTA agent heartbeat warning'
-    if previous_config_version and previous_config_version != config_version:
+    if config_apply and config_apply.get('status') not in {None, 'disabled'}:
+        summary = f'{summary}; {config_apply.get("summary")}'
+    elif previous_config_version and previous_config_version != config_version:
         summary = 'MTA agent heartbeat ok; runtime config changed'
     return {
         'status': status,
@@ -376,7 +606,7 @@ def build_heartbeat_payload(
         'deferred_count': queue.get('deferred_count'),
         'active_count': queue.get('active_count'),
         'config_version': config_version,
-        'applied_config_version': config_version,
+        'applied_config_version': applied_config_version,
         'payload_json': {
             'source': 'managed_smtp_mta_agent',
             'queue_ok': queue_ok,
@@ -390,6 +620,7 @@ def build_heartbeat_payload(
             'systemd': systemd or {},
             'revision': revision or {},
             'logs': logs or {},
+            'config_apply': config_apply or {'status': 'not_run'},
         },
     }
 
@@ -397,9 +628,12 @@ def build_heartbeat_payload(
 def build_config_event(
     runtime_config: dict[str, Any],
     previous_config_version: str | None,
+    config_apply: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     config_version = str(runtime_config.get('config_version') or '')
     if not config_version or previous_config_version == config_version:
+        return None
+    if config_apply and not config_apply.get('applied'):
         return None
     hostname = (runtime_config.get('node') or {}).get('hostname')
     return {
@@ -412,6 +646,9 @@ def build_config_event(
             'config_version': config_version,
             'pool_count': len(runtime_config.get('pools') or []),
             'domain_count': len(runtime_config.get('domains') or []),
+            'rendered_config_hash': (config_apply or {}).get('rendered_config_hash'),
+            'changed_files': (config_apply or {}).get('changed_files') or [],
+            'reload': (config_apply or {}).get('reload') or {},
         },
     }
 
@@ -425,6 +662,7 @@ def run_once(args) -> dict[str, Any]:
         timeout=args.timeout,
     )
     previous_config_version = state.get('applied_config_version')
+    config_apply = apply_runtime_config(runtime_config, args)
     queue = collect_mailq(default_mailq_command(args), timeout=args.timeout)
     systemd = collect_systemd_status(args)
     revision = collect_git_revision(args.repo_path, timeout=args.timeout)
@@ -433,6 +671,7 @@ def run_once(args) -> dict[str, Any]:
         runtime_config,
         queue,
         previous_config_version=previous_config_version,
+        config_apply=config_apply,
         systemd=systemd,
         revision=revision,
         logs=logs,
@@ -445,7 +684,7 @@ def run_once(args) -> dict[str, Any]:
         timeout=args.timeout,
     )
     event_response = None
-    config_event = build_config_event(runtime_config, previous_config_version)
+    config_event = build_config_event(runtime_config, previous_config_version, config_apply)
     if config_event and args.post_config_event:
         event_response = post_event(
             args.base_url,
@@ -474,6 +713,7 @@ def run_once(args) -> dict[str, Any]:
         'systemd': systemd,
         'revision': revision,
         'logs': logs,
+        'config_apply': config_apply,
         'heartbeat': heartbeat,
         'event': event_response,
     }
@@ -524,6 +764,24 @@ def main() -> int:
         type=int,
         default=int(os.environ.get('MANAGED_SMTP_LOG_SAMPLE_LINES', str(LOG_SAMPLE_LIMIT))),
     )
+    parser.add_argument('--config-dir', default=os.environ.get('MANAGED_SMTP_GENERATED_CONFIG_DIR'))
+    parser.add_argument(
+        '--opendkim-key-root',
+        default=os.environ.get('MANAGED_SMTP_OPENDKIM_KEY_ROOT', DEFAULT_OPENDKIM_KEY_ROOT),
+    )
+    parser.add_argument(
+        '--apply-config',
+        action='store_true',
+        default=os.environ.get('MANAGED_SMTP_APPLY_CONFIG', '').lower()
+        in {'1', 'true', 'yes', 'on'},
+    )
+    parser.add_argument(
+        '--reload-after-apply',
+        action='store_true',
+        default=os.environ.get('MANAGED_SMTP_RELOAD_AFTER_APPLY', '').lower()
+        in {'1', 'true', 'yes', 'on'},
+    )
+    parser.add_argument('--reload-command', nargs='+')
     parser.add_argument('--post-config-event', action='store_true')
     parser.add_argument('--json', action='store_true')
     args = parser.parse_args()

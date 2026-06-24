@@ -12,7 +12,6 @@ from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateVal
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -116,6 +115,7 @@ def test_openapi_exposes_gui_integration_paths() -> None:
         '/api/v1/domain-delivery-policies/{policy_id}/authentication-plan',
         '/api/v1/domain-delivery-policies/{policy_id}/blocklist-scan',
         '/api/v1/domain-delivery-policies/{policy_id}/compliance-hold',
+        '/api/v1/domain-delivery-policies/{policy_id}/controlled-expansion/approve',
         '/api/v1/domain-delivery-policies/{policy_id}/dkim-key',
         '/api/v1/domain-delivery-policies/{policy_id}/pause',
         '/api/v1/domain-delivery-policies/{policy_id}/release-compliance-hold',

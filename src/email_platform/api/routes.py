@@ -86,8 +86,8 @@ from email_platform.schemas.contracts import (
     CampaignLaunchRequest,
     CampaignListSummaryRead,
     CampaignPerformanceRead,
-    CampaignProofRouteRead,
     CampaignProcessDueRead,
+    CampaignProofRouteRead,
     CampaignRead,
     CampaignSendJobProgressRead,
     CampaignSendJobRead,
@@ -102,6 +102,8 @@ from email_platform.schemas.contracts import (
     ContactRead,
     ContactUpdate,
     ContactUpsert,
+    ControlledExpansionApprovalRead,
+    ControlledExpansionApprovalRequest,
     DataSourceCreate,
     DataSourceImportJobRead,
     DataSourceIngestRequest,
@@ -173,8 +175,8 @@ from email_platform.schemas.contracts import (
     ManagedSmtpRouteMatrixResult,
     ManagedSmtpRouteResolutionRead,
     ManagedSmtpRouteResolveRequest,
-    ManagedSmtpRoutingRuleUpsert,
     ManagedSmtpRoutingRulesRead,
+    ManagedSmtpRoutingRuleUpsert,
     MtaIpPoolCreate,
     MtaIpPoolNodeCreate,
     MtaIpPoolNodeRead,
@@ -4050,6 +4052,21 @@ def progress_domain_delivery_warmup(
         payload,
         deliverability=deliverability,
     )
+    if not result:
+        raise HTTPException(status_code=404, detail='Domain delivery policy not found')
+    return result
+
+
+@router.post(
+    '/domain-delivery-policies/{policy_id}/controlled-expansion/approve',
+    response_model=ControlledExpansionApprovalRead,
+)
+def approve_domain_controlled_expansion(
+    policy_id: UUID,
+    payload: ControlledExpansionApprovalRequest,
+    db: DbSession,
+) -> ControlledExpansionApprovalRead:
+    result = DeliveryRouteService(db).approve_controlled_expansion(policy_id, payload)
     if not result:
         raise HTTPException(status_code=404, detail='Domain delivery policy not found')
     return result

@@ -17,6 +17,8 @@ from email_platform.models.entities import (
     EmailSendRecord,
 )
 from email_platform.schemas.contracts import (
+    ControlledExpansionApprovalRead,
+    ControlledExpansionApprovalRequest,
     DeliveryRouteCreate,
     DeliveryRouteUpdate,
     DomainAuthenticationDnsRecord,
@@ -37,11 +39,11 @@ from email_platform.schemas.contracts import (
     DomainReputationDashboardRead,
     DomainWarmupProgressionRead,
     DomainWarmupProgressionRequest,
-    ManagedSmtpRoutingRuleUpsert,
-    ManagedSmtpRoutingRulesRead,
     ManagedSmtpMaintenancePolicyRead,
     ManagedSmtpMaintenanceRead,
     ManagedSmtpMaintenanceRequest,
+    ManagedSmtpRoutingRulesRead,
+    ManagedSmtpRoutingRuleUpsert,
 )
 
 
@@ -1107,12 +1109,11 @@ class DeliveryRouteService:
         self,
         record: EmailSendRecord,
         reserved_count: int = 0,
+        sender_domain: str | None = None,
     ) -> DeliveryClaimDecision:
-        domain = self._domain_for_record(record)
+        domain, policy = self._claim_policy(record, sender_domain=sender_domain)
         if not domain:
             return DeliveryClaimDecision(can_claim=True)
-
-        policy = self._domain_policy(domain)
         if not policy:
             return DeliveryClaimDecision(can_claim=True, domain=domain)
         if policy.paused_until and policy.paused_until > datetime.utcnow():
@@ -1122,6 +1123,26 @@ class DeliveryRouteService:
                 domain=domain,
                 domain_policy_id=policy.id,
             )
+        managed_smtp_route = self._managed_smtp_route_for_policy(policy)
+        if managed_smtp_route and getattr(record, 'campaign_id', None):
+            expansion = self._active_controlled_expansion(policy, send_type='campaign')
+            if not expansion:
+                return DeliveryClaimDecision(
+                    can_claim=False,
+                    reason='controlled_expansion_not_approved',
+                    domain=domain,
+                    domain_policy_id=policy.id,
+                )
+            daily_limit = self._metadata_int(expansion, 'approved_daily_limit')
+            if daily_limit is not None:
+                recent_count = self._recent_domain_attempt_count(domain, seconds=24 * 60 * 60)
+                if recent_count + reserved_count >= daily_limit:
+                    return DeliveryClaimDecision(
+                        can_claim=False,
+                        reason='controlled_expansion_daily_limit',
+                        domain=domain,
+                        domain_policy_id=policy.id,
+                    )
         if policy.max_per_minute is not None:
             recent_count = self._recent_domain_attempt_count(domain, seconds=60)
             if recent_count + reserved_count >= policy.max_per_minute:
@@ -1146,12 +1167,91 @@ class DeliveryRouteService:
             domain_policy_id=policy.id,
         )
 
+    def approve_controlled_expansion(
+        self,
+        policy_id: UUID,
+        payload: ControlledExpansionApprovalRequest,
+    ) -> ControlledExpansionApprovalRead | None:
+        policy = self.get_domain_policy(policy_id)
+        if not policy:
+            return None
+        approved_at = datetime.utcnow()
+        expires_at = approved_at + timedelta(hours=payload.expires_hours)
+        send_types = self._clean_list(payload.send_types) or ['campaign']
+        approval = {
+            'status': 'active',
+            'approved_daily_limit': payload.approved_daily_limit,
+            'send_types': send_types,
+            'approved_at': approved_at.isoformat(),
+            'expires_at': expires_at.isoformat(),
+            'operator': payload.operator,
+            'reason': payload.reason,
+            'evidence': payload.evidence,
+        }
+        metadata = dict(policy.metadata_json or {})
+        audit_log = list(metadata.get('controlled_expansion_audit_log') or [])
+        audit_log.append({'action': 'approve', **approval})
+        metadata['controlled_expansion'] = approval
+        metadata['controlled_expansion_audit_log'] = audit_log[-50:]
+        policy.metadata_json = metadata
+        self.db.commit()
+        self.db.refresh(policy)
+        return ControlledExpansionApprovalRead(domain=policy.domain, **approval)
+
     def _domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
         return self.db.scalar(
             select(DomainDeliveryPolicy)
             .where(DomainDeliveryPolicy.domain == domain)
             .limit(1)
         )
+
+    def _claim_policy(
+        self,
+        record: EmailSendRecord,
+        sender_domain: str | None = None,
+    ) -> tuple[str | None, DomainDeliveryPolicy | None]:
+        normalized_sender = self._normalized_domain(sender_domain)
+        if normalized_sender:
+            sender_policy = self._domain_policy(normalized_sender)
+            if sender_policy:
+                return normalized_sender, sender_policy
+        recipient_domain = self._domain_for_record(record)
+        if not recipient_domain:
+            return None, None
+        return recipient_domain, self._domain_policy(recipient_domain)
+
+    def _managed_smtp_route_for_policy(self, policy: DomainDeliveryPolicy) -> DeliveryRoute | None:
+        route_id = getattr(policy, 'route_id', None)
+        if not route_id:
+            return None
+        route = self.db.get(DeliveryRoute, route_id)
+        if route and route.route_type == DeliveryRouteType.managed_smtp:
+            return route
+        return None
+
+    def _active_controlled_expansion(
+        self,
+        policy: DomainDeliveryPolicy,
+        *,
+        send_type: str,
+    ) -> dict[str, object] | None:
+        metadata = policy.metadata_json or {}
+        approval = metadata.get('controlled_expansion')
+        if not isinstance(approval, dict):
+            return None
+        if approval.get('status') != 'active':
+            return None
+        send_types = self._clean_list(self._list_from_value(approval.get('send_types')))
+        if send_types and send_type.lower() not in send_types and '*' not in send_types:
+            return None
+        expires_at = self._metadata_string(approval, 'expires_at')
+        if expires_at:
+            try:
+                if datetime.fromisoformat(expires_at) <= datetime.utcnow():
+                    return None
+            except ValueError:
+                return None
+        return approval
 
     def _active_domain_policy(self, domain: str) -> DomainDeliveryPolicy | None:
         policy = self._domain_policy(domain)

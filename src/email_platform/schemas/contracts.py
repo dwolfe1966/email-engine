@@ -870,6 +870,27 @@ class DomainWarmupProgressionRead(BaseModel):
     complaint_rate: float = 0.0
 
 
+class ControlledExpansionApprovalRequest(BaseModel):
+    approved_daily_limit: int = Field(default=25, ge=1, le=100_000)
+    send_types: list[str] = Field(default_factory=lambda: ['campaign'])
+    expires_hours: int = Field(default=24, ge=1, le=24 * 30)
+    operator: str | None = Field(default=None, max_length=200)
+    reason: str = Field(default='controlled_expansion_approved', min_length=1, max_length=500)
+    evidence: JsonObject = Field(default_factory=dict)
+
+
+class ControlledExpansionApprovalRead(BaseModel):
+    domain: str
+    status: str
+    approved_daily_limit: int
+    send_types: list[str] = Field(default_factory=list)
+    approved_at: str
+    expires_at: str
+    operator: str | None = None
+    reason: str
+    evidence: JsonObject = Field(default_factory=dict)
+
+
 class ManagedSmtpMaintenanceRequest(BaseModel):
     scan_blocklists: bool = True
     progress_warmup: bool = True

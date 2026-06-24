@@ -54,7 +54,9 @@ ABC123DEF*      441 Thu Jun 18 22:17:01  mta-smoke@email-engine.app
         'active': False,
         'sender': 'mta-smoke@email-engine.app',
         'recipients': ['davidtesterwex@gmail.com'],
-        'deferred_reason': 'Host or domain name not found. Name service error for name=gmail.com type=MX',
+        'deferred_reason': (
+            'Host or domain name not found. Name service error for name=gmail.com type=MX'
+        ),
     }
     assert result['queue_samples'][1] == {
         'queue_id': 'ABC123DEF',
@@ -125,6 +127,12 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
             'queue_samples': [{'queue_id': 'ABC123DEF', 'sender': 'sender@example.com'}],
         },
         previous_config_version='old-version',
+        config_apply={
+            'status': 'applied_changed',
+            'applied': True,
+            'summary': 'Runtime config applied with 1 changed file(s).',
+            'rendered_config_hash': 'hash-value',
+        },
         systemd={
             'service': {'active_state': 'inactive', 'sub_state': 'dead'},
             'timer': {'active_state': 'active', 'sub_state': 'waiting'},
@@ -137,7 +145,7 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
     )
 
     assert payload['status'] == 'ok'
-    assert payload['summary'] == 'MTA agent heartbeat ok; runtime config changed'
+    assert 'Runtime config applied with 1 changed file(s).' in payload['summary']
     assert payload['queue_depth'] == 3
     assert payload['deferred_count'] == 2
     assert payload['active_count'] == 1
@@ -155,6 +163,104 @@ def test_mta_agent_builds_heartbeat_payload_from_runtime_config() -> None:
         {'queue_id': 'ABC123DEF', 'sender': 'sender@example.com'}
     ]
     assert payload['payload_json']['logs']['entries'][0]['severity'] == 'deferred'
+    assert payload['payload_json']['config_apply']['rendered_config_hash'] == 'hash-value'
+
+
+def test_mta_agent_renders_runtime_config_files() -> None:
+    module = load_agent_module()
+
+    files = module.render_runtime_config_files(
+        {
+            'config_version': 'version-1',
+            'node': {'id': 'node-id', 'hostname': 'mta-002.email-engine.app'},
+            'provider_account': {'provider': 'scaleway'},
+            'pools': [{'name': 'scaleway-internal-test'}],
+            'domains': [
+                {
+                    'domain': 'email-engine.app',
+                    'bounce_domain': 'returns-scaleway.email-engine.app',
+                    'dkim_selector': 'ee2',
+                    'dkim_key_ref': 'mta://mta-002.email-engine.app/email-engine.app/ee2',
+                    'verified': True,
+                }
+            ],
+        }
+    )
+
+    assert files['opendkim/KeyTable'] == (
+        'ee2._domainkey.email-engine.app '
+        'email-engine.app:ee2:/etc/opendkim/keys/email-engine.app/ee2.private\n'
+    )
+    assert files['opendkim/SigningTable'] == (
+        '*@email-engine.app ee2._domainkey.email-engine.app\n'
+    )
+    assert 'mta-002.email-engine.app\n' in files['opendkim/TrustedHosts']
+    assert files['postfix/managed_sender_domains'] == 'email-engine.app OK\n'
+    assert files['postfix/managed_bounce_domains'] == 'returns-scaleway.email-engine.app OK\n'
+    assert '"config_version": "version-1"' in files['runtime-config.json']
+
+
+def test_mta_agent_dry_run_reports_config_diffs(tmp_path) -> None:
+    module = load_agent_module()
+    config_dir = tmp_path / 'generated'
+    (config_dir / 'opendkim').mkdir(parents=True)
+    (config_dir / 'opendkim' / 'SigningTable').write_text('old\n')
+
+    result = module.apply_runtime_config(
+        {
+            'config_version': 'version-1',
+            'node': {'hostname': 'mta-002.email-engine.app'},
+            'provider_account': {'provider': 'scaleway'},
+            'domains': [{'domain': 'email-engine.app', 'dkim_selector': 'ee2'}],
+        },
+        SimpleNamespace(
+            config_dir=str(config_dir),
+            apply_config=False,
+            opendkim_key_root='/etc/opendkim/keys',
+            reload_after_apply=False,
+            reload_command=None,
+            timeout=5,
+        ),
+    )
+
+    assert result['status'] == 'dry_run_changed'
+    assert result['applied'] is False
+    assert 'opendkim/SigningTable' in result['changed_files']
+    assert 'old' in result['diffs']['opendkim/SigningTable']
+    assert (config_dir / 'opendkim' / 'SigningTable').read_text() == 'old\n'
+
+
+def test_mta_agent_apply_writes_files_and_backs_up_existing(tmp_path) -> None:
+    module = load_agent_module()
+    config_dir = tmp_path / 'generated'
+    (config_dir / 'postfix').mkdir(parents=True)
+    sender_path = config_dir / 'postfix' / 'managed_sender_domains'
+    sender_path.write_text('old.example OK\n')
+
+    result = module.apply_runtime_config(
+        {
+            'config_version': 'version-1',
+            'node': {'hostname': 'mta-002.email-engine.app'},
+            'provider_account': {'provider': 'scaleway'},
+            'domains': [{'domain': 'email-engine.app'}],
+        },
+        SimpleNamespace(
+            config_dir=str(config_dir),
+            apply_config=True,
+            opendkim_key_root='/etc/opendkim/keys',
+            reload_after_apply=False,
+            reload_command=None,
+            timeout=5,
+        ),
+    )
+
+    assert result['status'] == 'applied_changed'
+    assert result['applied'] is True
+    assert sender_path.read_text() == 'email-engine.app OK\n'
+    assert 'postfix/managed_sender_domains' in result['backups']
+    assert Path(result['backups']['postfix/managed_sender_domains']).read_text() == (
+        'old.example OK\n'
+    )
 
 
 def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch, tmp_path) -> None:
@@ -233,6 +339,11 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
         systemd_timer='email-engine-mta-agent.timer',
         postfix_log_path='/srv/email-engine/postfix/log/mail.log',
         log_sample_lines=20,
+        config_dir=str(tmp_path / 'generated-config'),
+        apply_config=True,
+        opendkim_key_root='/etc/opendkim/keys',
+        reload_after_apply=False,
+        reload_command=None,
         post_config_event=True,
     )
 
@@ -250,3 +361,5 @@ def test_mta_agent_run_once_fetches_config_posts_heartbeat_and_event(monkeypatch
     assert calls[2][4]['payload_json']['revision']['revision'] == 'newrev123456'
     assert calls[3][0] == 'event'
     assert calls[3][4]['event_type'] == 'runtime_config_applied'
+    assert calls[3][4]['payload_json']['changed_files']
+    assert result['config_apply']['applied'] is True

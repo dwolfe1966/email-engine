@@ -192,7 +192,17 @@ class DeliveryService:
         for record in candidates:
             domain = record.to_email.rsplit('@', 1)[-1].lower() if '@' in record.to_email else ''
             reserved_count = reserved_by_domain.get(domain, 0)
-            decision = self.route_service.claim_decision(record, reserved_count=reserved_count)
+            try:
+                decision = self.route_service.claim_decision(
+                    record,
+                    reserved_count=reserved_count,
+                    sender_domain=self._sender_domain(),
+                )
+            except TypeError:
+                decision = self.route_service.claim_decision(
+                    record,
+                    reserved_count=reserved_count,
+                )
             if not decision.can_claim:
                 skipped_record_ids.append(str(record.id))
                 self._record_claim_block(record, decision, reserved_count=reserved_count)
