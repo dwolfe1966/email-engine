@@ -13186,6 +13186,51 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied runtime config apply evidence pack with ${formatInt(applyEventCount)} apply event(s).`);
   }
 
+  function exportRuntimeConfigApplyEvidenceCsv() {
+    const applyEvents = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event));
+    if (!applyEvents.length) {
+      setStatus('Load runtime_config_applied MTA events before exporting runtime config apply CSV.');
+      return;
+    }
+    const activeFilters = Object.entries(mtaNodeEventFilters)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
+      .join(', ') || 'none';
+    const rows = [
+      ['Runtime Config Apply Evidence Export'],
+      ['Generated at', new Date().toISOString()],
+      ['Active filters', activeFilters],
+      ['Loaded apply rows', applyEvents.length, 'Loaded MTA event rows', mtaNodeEvents.length],
+      [],
+      ['id', 'mta_node_id', 'node_name', 'node_hostname', 'severity', 'observed_at', 'received_at', 'runtime_config_apply', 'runtime_config_detail', 'config_apply_json'],
+      ...applyEvents.map((event) => {
+        const deploymentNode = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+        const configApply = mtaNodeEventConfigApply(event);
+        return [
+          event.id,
+          event.mta_node_id,
+          deploymentNode?.name || '',
+          deploymentNode?.hostname || '',
+          event.severity,
+          event.observed_at || '',
+          event.received_at,
+          formatRuntimeConfigApplySummary(configApply),
+          formatRuntimeConfigApplyDetail(configApply),
+          JSON.stringify(configApply || {}),
+        ];
+      }),
+    ];
+    const csv = rows.map((row) => row.map(deliveryCsvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `runtime-config-apply-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setStatus(`Downloaded runtime config apply CSV with ${formatInt(applyEvents.length)} apply event row(s).`);
+  }
+
   function exportMtaNodeEventEvidenceCsv() {
     if (!mtaNodeEvents.length) {
       setStatus('Load MTA agent telemetry before exporting event CSV.');
@@ -15455,6 +15500,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
             <button className="ghost" onClick={copyRuntimeConfigApplyEvidencePack} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Copy Runtime Apply Pack</button>
+            <button className="ghost" onClick={exportRuntimeConfigApplyEvidenceCsv} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Export Runtime Apply CSV</button>
             <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
           </div>
         </div>
@@ -15495,6 +15541,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           }} disabled={busy}>Clear MTA Event Filters</button>
           <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
           <button className="ghost" onClick={copyRuntimeConfigApplyEvidencePack} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Copy Runtime Apply Pack</button>
+          <button className="ghost" onClick={exportRuntimeConfigApplyEvidenceCsv} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Export Runtime Apply CSV</button>
           <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
         </div>
         {mtaNodeEvents.length ? (
