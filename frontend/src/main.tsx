@@ -11307,7 +11307,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   ] as const;
   const maintenanceSelectedFilter = maintenanceFilterOptions.find((option) => option.value === managedSmtpMaintenanceFilter) || maintenanceFilterOptions[0];
   const maintenanceFilterSummary = managedSmtpMaintenance
-    ? `Showing ${formatInt(maintenanceFilteredResults.length)} of ${formatInt(maintenanceResults.length)} policy row(s) for ${maintenanceSelectedFilter.label}.`
+    ? `Showing ${formatInt(maintenanceFilteredResults.length)} of ${formatInt(maintenanceResults.length)} policy row(s) for ${maintenanceSelectedFilter.label}. ${maintenanceSelectedFilter.detail}`
     : 'Run maintenance to populate filterable policy result rows.';
   const managedSmtpMaintenanceItems = [
     {

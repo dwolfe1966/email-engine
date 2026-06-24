@@ -356,7 +356,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'maintenanceFilteredResults',
         'maintenanceSelectedFilter',
         'maintenanceFilterSummary',
-        'Showing ${formatInt(maintenanceFilteredResults.length)} of ${formatInt(maintenanceResults.length)} policy row(s) for ${maintenanceSelectedFilter.label}.',
+        'Showing ${formatInt(maintenanceFilteredResults.length)} of ${formatInt(maintenanceResults.length)} policy row(s) for ${maintenanceSelectedFilter.label}. ${maintenanceSelectedFilter.detail}',
         'Run maintenance to populate filterable policy result rows.',
         'Show every policy row from the latest maintenance run.',
         'Show policy rows where warmup automation held volume.',
