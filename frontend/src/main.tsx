@@ -13146,6 +13146,46 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     setStatus(`Copied MTA agent telemetry evidence pack with ${formatInt(mtaNodeEvents.length)} loaded event(s).`);
   }
 
+  function buildRuntimeConfigApplyEvidencePack() {
+    const activeFilters = Object.entries(mtaNodeEventFilters)
+      .filter(([, value]) => deliveryFilterValue(value))
+      .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
+      .join(', ') || 'none';
+    const applyEvents = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event));
+    const events = applyEvents.slice(0, 12).map((event) => {
+      const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+      const configApply = mtaNodeEventConfigApply(event);
+      return [
+        `- event=${event.id}`,
+        `  node=${node ? `${node.name} ${node.hostname}` : event.mta_node_id}`,
+        `  severity=${event.severity}`,
+        `  observed_at=${event.observed_at || '-'}`,
+        `  received_at=${event.received_at}`,
+        `  runtime_config_apply=${formatRuntimeConfigApplySummary(configApply)}`,
+        `  runtime_config_detail=${formatRuntimeConfigApplyDetail(configApply)}`,
+      ].join('\n');
+    }).join('\n');
+    return [
+      'Runtime Config Apply Evidence Pack',
+      `Generated at: ${new Date().toISOString()}`,
+      `Active filters: ${activeFilters}`,
+      `Loaded apply events: ${formatInt(applyEvents.length)} / ${formatInt(mtaNodeEvents.length)} loaded MTA event(s)`,
+      '',
+      'Apply events',
+      events || '- no runtime config apply events loaded',
+    ].join('\n');
+  }
+
+  async function copyRuntimeConfigApplyEvidencePack() {
+    const applyEventCount = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event)).length;
+    if (!applyEventCount) {
+      setStatus('Load runtime_config_applied MTA events before copying runtime config apply evidence.');
+      return;
+    }
+    await copyTextToClipboard(buildRuntimeConfigApplyEvidencePack());
+    setStatus(`Copied runtime config apply evidence pack with ${formatInt(applyEventCount)} apply event(s).`);
+  }
+
   function exportMtaNodeEventEvidenceCsv() {
     if (!mtaNodeEvents.length) {
       setStatus('Load MTA agent telemetry before exporting event CSV.');
@@ -15414,6 +15454,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <div className="button-row">
             <button className="link-button" onClick={loadMtaNodeEvents} disabled={busy}>Load MTA Events</button>
             <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
+            <button className="ghost" onClick={copyRuntimeConfigApplyEvidencePack} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Copy Runtime Apply Pack</button>
             <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
           </div>
         </div>
@@ -15453,6 +15494,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             void loadMtaNodeEvents(nextFilters);
           }} disabled={busy}>Clear MTA Event Filters</button>
           <button className="ghost" onClick={copyMtaNodeEventEvidencePack} disabled={busy || !mtaNodeEvents.length}>Copy MTA Events</button>
+          <button className="ghost" onClick={copyRuntimeConfigApplyEvidencePack} disabled={busy || !mtaNodeEvents.some((event) => mtaNodeEventConfigApply(event))}>Copy Runtime Apply Pack</button>
           <button className="ghost" onClick={exportMtaNodeEventEvidenceCsv} disabled={busy || !mtaNodeEvents.length}>Export MTA Events CSV</button>
         </div>
         {mtaNodeEvents.length ? (
