@@ -13107,8 +13107,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const warningCount = mtaNodeEvents.filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
+    const runtimeApplyEvents = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event));
     const events = mtaNodeEvents.slice(0, 12).map((event) => {
       const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+      const configApply = mtaNodeEventConfigApply(event);
       return [
         `- event=${event.id}`,
         `  node=${node ? `${node.name} ${node.hostname}` : event.mta_node_id}`,
@@ -13117,8 +13119,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  summary=${event.summary || '-'}`,
         `  observed_at=${event.observed_at || '-'}`,
         `  received_at=${event.received_at}`,
+        configApply ? `  runtime_config_apply=${formatRuntimeConfigApplySummary(configApply)}` : null,
+        configApply ? `  runtime_config_detail=${formatRuntimeConfigApplyDetail(configApply)}` : null,
         `  payload_keys=${Object.keys(event.payload_json || {}).join(', ') || '-'}`,
-      ].join('\n');
+      ].filter(Boolean).join('\n');
     }).join('\n');
     return [
       'MTA Agent Telemetry Evidence Pack',
@@ -13126,6 +13130,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Active filters: ${activeFilters}`,
       `Loaded events: ${formatInt(mtaNodeEvents.length)} / ${formatInt(mtaNodeEventTotal)}`,
       `Review signals: ${formatInt(warningCount)}`,
+      `Runtime config apply events: ${formatInt(runtimeApplyEvents.length)}`,
       '',
       'Events',
       events || '- no MTA node events loaded',
@@ -13156,9 +13161,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Active filters', activeFilters],
       ['Loaded rows', mtaNodeEvents.length, 'Total matching rows', mtaNodeEventTotal],
       [],
-      ['id', 'mta_node_id', 'node_name', 'node_hostname', 'event_type', 'severity', 'summary', 'observed_at', 'received_at', 'payload_json'],
+      ['id', 'mta_node_id', 'node_name', 'node_hostname', 'event_type', 'severity', 'summary', 'observed_at', 'received_at', 'runtime_config_apply', 'runtime_config_detail', 'payload_json'],
       ...mtaNodeEvents.map((event) => {
         const deploymentNode = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
+        const configApply = mtaNodeEventConfigApply(event);
         return [
           event.id,
           event.mta_node_id,
@@ -13169,6 +13175,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           event.summary || '',
           event.observed_at || '',
           event.received_at,
+          formatRuntimeConfigApplySummary(configApply),
+          formatRuntimeConfigApplyDetail(configApply),
           JSON.stringify(event.payload_json || {}),
         ];
       }),
@@ -13215,6 +13223,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  service=${item.agent_service_state_label || '-'}`,
       `  timer=${item.agent_timer_state_label || '-'}`,
       `  host_update=${item.agent_host_update_status_label || item.agent_host_update_status}`,
+      `  runtime_config_apply=${formatRuntimeConfigApplySummary(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}`,
+      `  runtime_config_detail=${formatRuntimeConfigApplyDetail(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}`,
       `  queue=${formatInt(item.agent_queue_depth)} total / ${formatInt(item.agent_deferred_count)} deferred`,
     ].join('\n')).join('\n');
     return [
@@ -13824,6 +13834,33 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function mtaNodeNameForPoolMembership(membership: MtaIpPoolNodeRead): string {
     const deploymentNode = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === membership.mta_node_id);
     return deploymentNode?.node.name || membership.mta_node_id.slice(0, 8);
+  }
+
+  function mtaNodeEventConfigApply(event: MtaNodeEventRead | null | undefined): Record<string, unknown> | null {
+    const configApply = event?.payload_json?.config_apply;
+    return configApply && typeof configApply === 'object' ? configApply as Record<string, unknown> : null;
+  }
+
+  function formatRuntimeConfigApplySummary(configApply: Record<string, unknown> | null) {
+    if (!configApply) return 'No runtime config apply result loaded';
+    const changedFiles = Array.isArray(configApply.changed_files) ? configApply.changed_files.length : Number(configApply.changed_file_count || 0);
+    const applied = configApply.applied === true ? 'applied' : configApply.applied === false ? 'not applied' : 'reported';
+    const reloaded = configApply.reloaded === true ? 'reload ok' : configApply.reloaded === false ? 'reload skipped' : 'reload unknown';
+    return `${applied}; ${formatInt(changedFiles)} changed file(s); ${reloaded}`;
+  }
+
+  function formatRuntimeConfigApplyDetail(configApply: Record<string, unknown> | null) {
+    if (!configApply) return 'Load runtime_config_applied MTA events to inspect generated file and reload evidence.';
+    return [
+      String(configApply.summary || formatRuntimeConfigApplySummary(configApply)),
+      configApply.rendered_config_hash ? `hash=${String(configApply.rendered_config_hash)}` : null,
+      configApply.reload_command ? `reload=${String(configApply.reload_command)}` : null,
+      configApply.error ? `error=${String(configApply.error)}` : null,
+    ].filter(Boolean).join('; ');
+  }
+
+  function latestRuntimeConfigApplyEventForNode(nodeId: string) {
+    return mtaNodeEvents.find((event) => event.mta_node_id === nodeId && (event.event_type === 'runtime_config_applied' || mtaNodeEventConfigApply(event)));
   }
 
   function latestMtaControlAuditLabel(metadata: Record<string, unknown> | null | undefined): string {
@@ -15270,6 +15307,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                   <div><dt>node status</dt><dd>{item.agent_operational_status_label || item.agent_operational_status}</dd></div>
                   <div><dt>agent heartbeat</dt><dd>{item.agent_heartbeat_status_label || item.agent_heartbeat_status} / {item.agent_heartbeat_age_seconds === null ? '-' : `${formatInt(item.agent_heartbeat_age_seconds)}s`}</dd></div>
                   <div><dt>runtime config</dt><dd>{item.agent_config_sync_label || (item.agent_config_in_sync ? 'Synced' : 'Drift')} / {item.agent_applied_config_version || '-'}</dd></div>
+                  <div><dt>runtime apply</dt><dd>{formatRuntimeConfigApplySummary(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}</dd></div>
                   <div><dt>host update status</dt><dd>{item.agent_host_update_required ? 'Required' : 'Not required'} / {item.agent_host_update_status_label || item.agent_host_update_status}</dd></div>
                   <div><dt>agent service</dt><dd>{item.agent_service_state_label || `${item.agent_service_active_state || '-'} / ${item.agent_service_sub_state || '-'}`}</dd></div>
                   <div><dt>agent timer</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
@@ -15284,6 +15322,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                     <div><dt>platform version</dt><dd>{item.platform_config_version || '-'}</dd></div>
                     <div><dt>agent reported</dt><dd>{item.agent_config_version || '-'}</dd></div>
                     <div><dt>agent applied</dt><dd>{item.agent_applied_config_version || '-'}</dd></div>
+                    <div><dt>apply result</dt><dd>{formatRuntimeConfigApplySummary(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}</dd></div>
+                    <div><dt>apply detail</dt><dd>{formatRuntimeConfigApplyDetail(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}</dd></div>
                     <div><dt>last heartbeat</dt><dd>{item.agent_last_heartbeat_label || '-'}</dd></div>
                     <div><dt>service state</dt><dd>{item.agent_service_state_label || `${item.agent_service_active_state || '-'} / ${item.agent_service_sub_state || '-'}`}</dd></div>
                     <div><dt>timer state</dt><dd>{item.agent_timer_state_label || `${item.agent_timer_active_state || '-'} / ${item.agent_timer_sub_state || '-'}`}</dd></div>
@@ -15417,6 +15457,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               {mtaNodeEvents.slice(0, 8).map((event) => {
                 const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
                 const tone = ['warning', 'error', 'critical'].includes(event.severity) ? 'warn' : 'good';
+                const configApply = mtaNodeEventConfigApply(event);
                 return (
                   <article className={tone} key={event.id}>
                     <div>
@@ -15429,6 +15470,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                       <div><dt>observed</dt><dd>{event.observed_at || '-'}</dd></div>
                       <div><dt>event</dt><dd>{event.id.slice(0, 8)}</dd></div>
                       <div><dt>severity</dt><dd>{event.severity}</dd></div>
+                      {configApply ? <div><dt>runtime apply</dt><dd>{formatRuntimeConfigApplySummary(configApply)}</dd></div> : null}
+                      {configApply ? <div><dt>apply detail</dt><dd>{formatRuntimeConfigApplyDetail(configApply)}</dd></div> : null}
                     </dl>
                     <details>
                       <summary>MTA event payload</summary>
