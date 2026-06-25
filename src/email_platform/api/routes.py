@@ -1251,12 +1251,15 @@ def _deterministic_campaign_analysis(
     payload: AICampaignAnalysisRequest,
 ) -> AICampaignAnalysisRead:
     context = payload.campaign_context or {}
+    workflow_status = _mapping(context.get('workflow_status'))
     campaign = _mapping(context.get('campaign'))
     template = _mapping(context.get('template'))
     validation = _mapping(context.get('validation'))
-    audience = _mapping(context.get('audience_preview'))
-    analytics = _mapping(context.get('analytics'))
-    latest_send_record = _mapping(context.get('latest_send_record'))
+    audience = _mapping(context.get('audience_preview') or context.get('audience'))
+    analytics = _mapping(context.get('analytics') or context.get('performance'))
+    latest_send_record = _mapping(
+        context.get('latest_send_record') or workflow_status.get('latest_send_record')
+    )
     proof_route = _mapping(
         context.get('latest_proof_route_evidence') or context.get('latest_proof_route')
     )

@@ -665,6 +665,56 @@ def test_ai_campaign_analysis_contract() -> None:
     assert 'triage_delivery_risk' in codes
 
 
+def test_ai_campaign_analysis_accepts_campaign_manager_context_shape() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/campaigns/analyze',
+        json={
+            'campaign_context': {
+                'campaign': {'id': 'campaign-a', 'name': 'Launch test', 'status': 'draft'},
+                'template': {'id': 'template-a', 'name': 'Trial template'},
+                'validation': {'ok': True, 'errors': [], 'warnings': []},
+                'audience': {'id': 'audience-a', 'name': 'Warm leads', 'estimated_count': 250},
+                'performance': {
+                    'sent_count': 100,
+                    'opened_count': 32,
+                    'clicked_count': 9,
+                    'failed_count': 0,
+                    'open_rate': 0.32,
+                    'click_rate': 0.09,
+                    'bounce_rate': 0,
+                },
+                'workflow_status': {
+                    'latest_send_record': {
+                        'id': 'record-a',
+                        'status': 'sent',
+                        'provider': 'sendgrid',
+                    },
+                },
+                'latest_proof_route_evidence': {
+                    'status': 'resolved',
+                    'route_type': 'sendgrid',
+                    'route_mode': 'third_party_provider',
+                    'submission_provider': 'sendgrid',
+                },
+            },
+            'goals': ['Assess launch readiness'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert 'Audience matched contacts: 250.' in data['summary']
+    assert any(
+        'Proof route: resolved / third_party_provider / sendgrid.' == item
+        for item in data['summary']
+    )
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'repair_audience_targeting' not in codes
+    assert 'send_test_email' not in codes
+    assert 'resolve_campaign_route' not in codes
+
+
 def test_ai_audience_analysis_contract() -> None:
     client = TestClient(app)
     response = client.post(
