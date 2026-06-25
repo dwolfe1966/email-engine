@@ -459,6 +459,17 @@ type CampaignWorkflowStatus = {
     mta_provider_preference_fallback_available: boolean | null;
     mta_provider_preference_fallback_provider: string | null;
     mta_provider_preference_fallback_node_name: string | null;
+    mta_node_name: string | null;
+    mta_node_candidate_count: number | null;
+    mta_node_skipped_count: number | null;
+    mta_node_selection_priority: number | null;
+    mta_node_selection_weight: number | null;
+    mta_pool_available_node_count: number | null;
+    mta_pool_required_available_node_count: number | null;
+    mta_pool_capacity_status: string | null;
+    mta_rate_limit_scope: string | null;
+    mta_rate_limit_max_per_minute: number | null;
+    mta_rate_limit_recent_count: number | null;
     mta_submission_host: string | null;
     mta_hostname: string | null;
     smtp_response_code: number | null;
@@ -2772,6 +2783,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.mta_rule_hit_provider_preference_mode || '',
       latestProofRoute.mta_provider_preference_fallback_used === true ? 'fallback used' : '',
       latestProofRoute.mta_provider_preference_fallback_provider ? `fallback ${latestProofRoute.mta_provider_preference_fallback_provider}` : '',
+      latestProofRoute.mta_node_name ? `node ${latestProofRoute.mta_node_name}` : '',
+      latestProofRoute.mta_pool_capacity_status ? `capacity ${latestProofRoute.mta_pool_capacity_status}` : '',
+      latestProofRoute.mta_rate_limit_scope ? `rate ${latestProofRoute.mta_rate_limit_recent_count ?? 0}/${latestProofRoute.mta_rate_limit_max_per_minute ?? '-'} ${latestProofRoute.mta_rate_limit_scope}` : '',
       latestProofRoute.mta_submission_host || latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')

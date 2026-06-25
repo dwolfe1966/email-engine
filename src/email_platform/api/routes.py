@@ -2476,6 +2476,19 @@ def get_campaign_workflow_status(
                     return False
             return None
 
+        def proof_metadata_int(key: str) -> int | None:
+            value = proof_metadata.get(key)
+            if isinstance(value, bool):
+                return None
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str):
+                try:
+                    return int(value.strip())
+                except ValueError:
+                    return None
+            return None
+
         latest_proof_route = CampaignProofRouteRead(
             delivery_attempt_id=latest_proof_attempt.id,
             send_record_id=latest_proof_attempt.send_record_id,
@@ -2577,6 +2590,31 @@ def get_campaign_workflow_status(
                 if proof_metadata.get('mta_provider_preference_fallback_node_name') is not None
                 else None
             ),
+            mta_node_name=(
+                str(proof_metadata.get('mta_node_name'))
+                if proof_metadata.get('mta_node_name') is not None
+                else None
+            ),
+            mta_node_candidate_count=proof_metadata_int('mta_node_candidate_count'),
+            mta_node_skipped_count=proof_metadata_int('mta_node_skipped_count'),
+            mta_node_selection_priority=proof_metadata_int('mta_node_selection_priority'),
+            mta_node_selection_weight=proof_metadata_int('mta_node_selection_weight'),
+            mta_pool_available_node_count=proof_metadata_int('mta_pool_available_node_count'),
+            mta_pool_required_available_node_count=proof_metadata_int(
+                'mta_pool_required_available_node_count'
+            ),
+            mta_pool_capacity_status=(
+                str(proof_metadata.get('mta_pool_capacity_status'))
+                if proof_metadata.get('mta_pool_capacity_status') is not None
+                else None
+            ),
+            mta_rate_limit_scope=(
+                str(proof_metadata.get('mta_rate_limit_scope'))
+                if proof_metadata.get('mta_rate_limit_scope') is not None
+                else None
+            ),
+            mta_rate_limit_max_per_minute=proof_metadata_int('mta_rate_limit_max_per_minute'),
+            mta_rate_limit_recent_count=proof_metadata_int('mta_rate_limit_recent_count'),
             mta_submission_host=(
                 str(proof_metadata.get('mta_submission_host'))
                 if proof_metadata.get('mta_submission_host') is not None

@@ -2109,6 +2109,17 @@ class CampaignProofRouteRead(BaseModel):
     mta_provider_preference_fallback_available: bool | None = None
     mta_provider_preference_fallback_provider: str | None = None
     mta_provider_preference_fallback_node_name: str | None = None
+    mta_node_name: str | None = None
+    mta_node_candidate_count: int | None = None
+    mta_node_skipped_count: int | None = None
+    mta_node_selection_priority: int | None = None
+    mta_node_selection_weight: int | None = None
+    mta_pool_available_node_count: int | None = None
+    mta_pool_required_available_node_count: int | None = None
+    mta_pool_capacity_status: str | None = None
+    mta_rate_limit_scope: str | None = None
+    mta_rate_limit_max_per_minute: int | None = None
+    mta_rate_limit_recent_count: int | None = None
     mta_submission_host: str | None = None
     mta_hostname: str | None = None
     smtp_response_code: int | None = None
