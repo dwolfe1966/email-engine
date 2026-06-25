@@ -10612,6 +10612,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   };
   function missingAttemptEvidenceDimensions(metadata: DeliveryAttemptRead['metadata_json']) {
     if (metadata?.mta_route_resolved !== true) return [];
+    const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
     const dimensions: [string, unknown][] = [
       ['route status', metadata.mta_route_status],
       ['send type', metadata.mta_rule_hit_send_type || metadata.mta_route_send_type],
@@ -10625,7 +10626,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['route pool', metadata.mta_ip_pool_name || metadata.mta_ip_pool_id],
       ['route node', metadata.mta_node_name || metadata.mta_node_id],
       ['submission host', metadata.mta_submission_host],
-      ['submission provider', metadata.mta_submission_provider],
+      ['submission provider', submissionProvider],
     ];
     return dimensions
       .filter(([, value]) => value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0))
@@ -10633,6 +10634,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   }
   function buildAttemptResolverTimeline(attempt: DeliveryAttemptRead) {
     const metadata = attempt.metadata_json || {};
+    const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
     const routeState = metadata.mta_route_status
       || (metadata.mta_route_resolved === true ? 'resolved' : metadata.mta_route_resolved === false ? 'blocked' : 'not attempted');
     const rule = String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-');
@@ -10643,8 +10645,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ? `blocked ${String(metadata.mta_route_block_code)}`
       : '';
     const submission = metadata.mta_submission_host
-      ? `submitted ${String(metadata.mta_submission_provider || 'managed_smtp')} ${String(metadata.mta_submission_host)}:${String(metadata.mta_submission_port || '-')}`
-      : '';
+      ? `submitted ${String(submissionProvider || 'managed_smtp')} ${String(metadata.mta_submission_host)}:${String(metadata.mta_submission_port || '-')}`
+      : submissionProvider
+        ? `submitted ${String(submissionProvider)}`
+        : '';
     const outcome = attempt.completed_at
       ? `completed ${attempt.completed_at}`
       : `last ${attempt.status}`;
@@ -10697,7 +10701,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const topAttemptNodeSkippedCount = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_skipped_count || '-')));
   const topAttemptNodeSelectionPriority = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_selection_priority || '-')));
   const topAttemptNodeSelectionWeight = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_node_selection_weight || '-')));
-  const topAttemptSubmissionProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_submission_provider || '-')));
+  const topAttemptSubmissionProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.submission_provider || attempt.metadata_json?.mta_submission_provider || '-')));
   const topAttemptSubmissionHost = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_submission_host || '-')));
   const topAttemptSubmissionPort = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_submission_port || '-')));
   const topAttemptMtaHostname = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_hostname || '-')));
@@ -12223,6 +12227,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .join('\n');
     const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
       const metadata = attempt.metadata_json || {};
+      const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
       const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
         ? metadata.mta_rule_hit_provider_preference.join(', ')
         : String(metadata.mta_preferred_providers || '-');
@@ -12233,6 +12238,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  status=${attempt.status}`,
         `  record=${attempt.send_record_id}`,
         `  route=${attempt.route_type || '-'}:${attempt.route_key || '-'}`,
+        `  delivery_route_mode=${String(metadata.delivery_route_mode || '-')}`,
+        `  route_mode_provider=${String(metadata.route_mode_provider || '-')}`,
+        `  route_mode_pool=${String(metadata.route_mode_ip_pool_name || metadata.route_mode_mta_ip_pool_id || '-')}`,
         `  resolved=${String(metadata.mta_route_resolved ?? '-')}`,
         `  route_status=${String(metadata.mta_route_status || '-')}`,
         `  send_type=${String(metadata.mta_rule_hit_send_type || metadata.mta_route_send_type || '-')}`,
@@ -12252,7 +12260,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  skipped_count=${String(metadata.mta_node_skipped_count || '-')}`,
         `  selection_priority=${String(metadata.mta_node_selection_priority || '-')}`,
         `  selection_weight=${String(metadata.mta_node_selection_weight || '-')}`,
-        `  submission_provider=${String(metadata.mta_submission_provider || '-')}`,
+        `  submission_provider=${String(submissionProvider || '-')}`,
         `  submission_host=${String(metadata.mta_submission_host || '-')}`,
         `  submission_port=${String(metadata.mta_submission_port || '-')}`,
         `  mta_hostname=${String(metadata.mta_hostname || '-')}`,
