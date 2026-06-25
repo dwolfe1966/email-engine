@@ -2733,6 +2733,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
     ].filter(Boolean).join(' | ')
     : '';
+  const latestProofRoute = workflowStatus?.latest_proof_route || null;
   const latestProofRouteOk = workflowStatus?.latest_proof_route
     ? (
       workflowStatus.latest_proof_route.route_type !== 'managed_smtp'
@@ -2751,13 +2752,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       sendRecordId: lastTestSendResult.send_record_id,
       deliveryAttemptId: lastTestSendResult.delivery_attempt_id || '',
     }
-    : workflowStatus?.latest_proof_route
+    : latestProofRoute
       ? {
-        sendRecordId: workflowStatus.latest_proof_route.send_record_id,
-        deliveryAttemptId: workflowStatus.latest_proof_route.delivery_attempt_id,
+        sendRecordId: latestProofRoute.send_record_id,
+        deliveryAttemptId: latestProofRoute.delivery_attempt_id,
       }
       : null;
-  const latestProofRoute = workflowStatus?.latest_proof_route || null;
   const latestProofRouteDetail = latestProofRoute
     ? [
       latestProofRoute.route_type || 'proof route',
@@ -2767,6 +2767,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')
     : 'Refresh readiness after proof send to load persisted route evidence.';
+  const proofRouteAvailable = Boolean(lastTestSendResult || latestProofRoute);
+  const activeProofRouteDetail = lastTestSendResult ? proofSendSummary : latestProofRouteDetail;
   const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
   const campaignTriageAction = !selectedCampaignId
     ? {
@@ -2813,7 +2815,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               run: validateCampaign,
               disabled: operationBusy,
             }
-            : !lastTestSendResult
+            : !proofRouteAvailable
               ? {
                 tone: 'warn',
                 title: 'Send proof email',
@@ -2826,7 +2828,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
                 ? {
                   tone: 'warn',
                   title: 'Resolve proof routing',
-                  detail: proofSendSummary || 'Proof send did not complete with a clean delivery handoff.',
+                  detail: activeProofRouteDetail || 'Proof send did not complete with a clean delivery handoff.',
                   actionLabel: 'Open Delivery',
                   run: () => {
                     if (proofAuditTarget) {
@@ -2888,8 +2890,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     },
     {
       label: 'Proof and launch',
-      value: lastLaunchResult ? 'Dry-run' : lastTestSendResult ? (proofSendOk ? 'Proof sent' : 'Proof blocked') : 'Pending',
-      detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : lastTestSendResult ? proofSendSummary : 'Send proof, then dry-run launch',
+      value: lastLaunchResult ? 'Dry-run' : proofRouteAvailable ? (proofSendOk ? 'Proof sent' : 'Proof blocked') : 'Pending',
+      detail: lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in last result` : proofRouteAvailable ? activeProofRouteDetail : 'Send proof, then dry-run launch',
       tone: lastLaunchResult || proofSendOk ? 'good' : 'warn',
     },
   ];
