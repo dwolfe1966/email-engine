@@ -446,7 +446,12 @@ type CampaignWorkflowStatus = {
     mta_route_status: 'resolved' | 'blocked' | 'attempted' | 'not_attempted';
     mta_provider: string | null;
     mta_ip_pool_name: string | null;
+    mta_ip_pool_selection_source: string | null;
     mta_route_send_type: string | null;
+    mta_route_decision_basis: string | null;
+    mta_routing_rule_name: string | null;
+    mta_routing_rule_source: string | null;
+    mta_preferred_providers: string[] | null;
     mta_rule_hit_send_type: string | null;
     mta_rule_hit_sender_domain: string | null;
     mta_rule_hit_recipient_domain: string | null;
@@ -2785,7 +2790,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.route_type || 'proof route',
       latestProofRoute.submission_provider || latestProofRoute.route_mode_provider || '',
       latestProofRoute.delivery_route_mode || '',
+      latestProofRoute.mta_route_decision_basis ? latestProofRoute.mta_route_decision_basis.replace(/_/g, ' ') : '',
+      latestProofRoute.mta_rule_hit_name || latestProofRoute.mta_routing_rule_name || '',
+      latestProofRoute.mta_rule_hit_source || latestProofRoute.mta_routing_rule_source || '',
+      latestProofRoute.mta_ip_pool_selection_source ? `pool source ${latestProofRoute.mta_ip_pool_selection_source}` : '',
       latestProofRoute.mta_rule_hit_provider_preference_mode || '',
+      latestProofRoute.mta_rule_hit_provider_preference?.length ? `providers ${latestProofRoute.mta_rule_hit_provider_preference.join(', ')}` : latestProofRoute.mta_preferred_providers?.length ? `providers ${latestProofRoute.mta_preferred_providers.join(', ')}` : '',
       latestProofRoute.mta_provider_preference_fallback_used === true ? 'fallback used' : '',
       latestProofRoute.mta_provider_preference_fallback_provider ? `fallback ${latestProofRoute.mta_provider_preference_fallback_provider}` : '',
       latestProofRoute.mta_node_name ? `node ${latestProofRoute.mta_node_name}` : '',

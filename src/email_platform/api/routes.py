@@ -2531,9 +2531,34 @@ def get_campaign_workflow_status(
                 if proof_metadata.get('mta_ip_pool_name') is not None
                 else None
             ),
+            mta_ip_pool_selection_source=(
+                str(proof_metadata.get('mta_ip_pool_selection_source'))
+                if proof_metadata.get('mta_ip_pool_selection_source') is not None
+                else None
+            ),
             mta_route_send_type=(
                 str(proof_metadata.get('mta_route_send_type'))
                 if proof_metadata.get('mta_route_send_type') is not None
+                else None
+            ),
+            mta_route_decision_basis=(
+                str(proof_metadata.get('mta_route_decision_basis'))
+                if proof_metadata.get('mta_route_decision_basis') is not None
+                else None
+            ),
+            mta_routing_rule_name=(
+                str(proof_metadata.get('mta_routing_rule_name'))
+                if proof_metadata.get('mta_routing_rule_name') is not None
+                else None
+            ),
+            mta_routing_rule_source=(
+                str(proof_metadata.get('mta_routing_rule_source'))
+                if proof_metadata.get('mta_routing_rule_source') is not None
+                else None
+            ),
+            mta_preferred_providers=(
+                list(proof_metadata.get('mta_preferred_providers'))
+                if isinstance(proof_metadata.get('mta_preferred_providers'), list)
                 else None
             ),
             mta_rule_hit_send_type=(

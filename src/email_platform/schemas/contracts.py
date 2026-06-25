@@ -2096,7 +2096,12 @@ class CampaignProofRouteRead(BaseModel):
     mta_route_status: MtaRouteStatus
     mta_provider: str | None = None
     mta_ip_pool_name: str | None = None
+    mta_ip_pool_selection_source: str | None = None
     mta_route_send_type: str | None = None
+    mta_route_decision_basis: str | None = None
+    mta_routing_rule_name: str | None = None
+    mta_routing_rule_source: str | None = None
+    mta_preferred_providers: list[str] | None = None
     mta_rule_hit_send_type: str | None = None
     mta_rule_hit_sender_domain: str | None = None
     mta_rule_hit_recipient_domain: str | None = None
