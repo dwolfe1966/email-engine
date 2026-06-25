@@ -2103,6 +2103,12 @@ class CampaignProofRouteRead(BaseModel):
     mta_rule_hit_source: str | None = None
     mta_rule_hit_pool_source: str | None = None
     mta_rule_hit_provider_preference: list[str] | None = None
+    mta_rule_hit_provider_preference_mode: str | None = None
+    mta_provider_preference_fallback_used: bool | None = None
+    mta_provider_preference_blocked: bool | None = None
+    mta_provider_preference_fallback_available: bool | None = None
+    mta_provider_preference_fallback_provider: str | None = None
+    mta_provider_preference_fallback_node_name: str | None = None
     mta_submission_host: str | None = None
     mta_hostname: str | None = None
     smtp_response_code: int | None = None

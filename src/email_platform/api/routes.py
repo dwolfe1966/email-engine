@@ -2463,6 +2463,19 @@ def get_campaign_workflow_status(
         proof_submission_provider = proof_metadata.get('submission_provider') or proof_metadata.get(
             'mta_submission_provider'
         )
+
+        def proof_metadata_bool(key: str) -> bool | None:
+            value = proof_metadata.get(key)
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                normalized = value.strip().lower()
+                if normalized in {'true', '1', 'yes'}:
+                    return True
+                if normalized in {'false', '0', 'no'}:
+                    return False
+            return None
+
         latest_proof_route = CampaignProofRouteRead(
             delivery_attempt_id=latest_proof_attempt.id,
             send_record_id=latest_proof_attempt.send_record_id,
@@ -2538,6 +2551,30 @@ def get_campaign_workflow_status(
             mta_rule_hit_provider_preference=(
                 list(proof_metadata.get('mta_rule_hit_provider_preference'))
                 if isinstance(proof_metadata.get('mta_rule_hit_provider_preference'), list)
+                else None
+            ),
+            mta_rule_hit_provider_preference_mode=(
+                str(proof_metadata.get('mta_rule_hit_provider_preference_mode'))
+                if proof_metadata.get('mta_rule_hit_provider_preference_mode') is not None
+                else None
+            ),
+            mta_provider_preference_fallback_used=(
+                proof_metadata_bool('mta_provider_preference_fallback_used')
+            ),
+            mta_provider_preference_blocked=(
+                proof_metadata_bool('mta_provider_preference_blocked')
+            ),
+            mta_provider_preference_fallback_available=(
+                proof_metadata_bool('mta_provider_preference_fallback_available')
+            ),
+            mta_provider_preference_fallback_provider=(
+                str(proof_metadata.get('mta_provider_preference_fallback_provider'))
+                if proof_metadata.get('mta_provider_preference_fallback_provider') is not None
+                else None
+            ),
+            mta_provider_preference_fallback_node_name=(
+                str(proof_metadata.get('mta_provider_preference_fallback_node_name'))
+                if proof_metadata.get('mta_provider_preference_fallback_node_name') is not None
                 else None
             ),
             mta_submission_host=(

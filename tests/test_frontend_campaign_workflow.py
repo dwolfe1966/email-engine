@@ -85,6 +85,8 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'delivery_route_mode',
         'route_mode_provider',
         'submission_provider',
+        'fallback used',
+        'fallback ${latestProofRoute.mta_provider_preference_fallback_provider}',
         'Mode',
         'Refresh readiness after proof send to load persisted route evidence.',
         'setLastTestSendResult({ ...data, to_email: formText(testEmail) })',

@@ -445,6 +445,12 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
         'mta_rule_hit_name',
         'mta_rule_hit_pool_source',
         'mta_rule_hit_provider_preference',
+        'mta_rule_hit_provider_preference_mode',
+        'mta_provider_preference_fallback_used',
+        'mta_provider_preference_blocked',
+        'mta_provider_preference_fallback_available',
+        'mta_provider_preference_fallback_provider',
+        'mta_provider_preference_fallback_node_name',
         'mta_submission_host',
         'smtp_response_code',
     }.issubset(proof_route_properties.keys())

@@ -453,6 +453,12 @@ type CampaignWorkflowStatus = {
     mta_rule_hit_source: string | null;
     mta_rule_hit_pool_source: string | null;
     mta_rule_hit_provider_preference: string[] | null;
+    mta_rule_hit_provider_preference_mode: string | null;
+    mta_provider_preference_fallback_used: boolean | null;
+    mta_provider_preference_blocked: boolean | null;
+    mta_provider_preference_fallback_available: boolean | null;
+    mta_provider_preference_fallback_provider: string | null;
+    mta_provider_preference_fallback_node_name: string | null;
     mta_submission_host: string | null;
     mta_hostname: string | null;
     smtp_response_code: number | null;
@@ -2763,6 +2769,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.route_type || 'proof route',
       latestProofRoute.submission_provider || latestProofRoute.route_mode_provider || '',
       latestProofRoute.delivery_route_mode || '',
+      latestProofRoute.mta_rule_hit_provider_preference_mode || '',
+      latestProofRoute.mta_provider_preference_fallback_used === true ? 'fallback used' : '',
+      latestProofRoute.mta_provider_preference_fallback_provider ? `fallback ${latestProofRoute.mta_provider_preference_fallback_provider}` : '',
       latestProofRoute.mta_submission_host || latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')
