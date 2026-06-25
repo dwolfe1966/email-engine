@@ -72,6 +72,13 @@ def test_campaign_launch_proof_gate_rejects_blocked_managed_smtp_route() -> None
         service._assert_latest_proof_route_ok(uuid4())
 
 
+def test_campaign_launch_proof_gate_rejects_unresolved_managed_smtp_route() -> None:
+    service = service_with_latest_attempt(proof_attempt(route_resolved=None))
+
+    with pytest.raises(ValueError, match='Resolve proof routing'):
+        service._assert_latest_proof_route_ok(uuid4())
+
+
 def test_campaign_launch_proof_gate_rejects_failed_smtp_response() -> None:
     service = service_with_latest_attempt(proof_attempt(smtp_response_code=451))
 
