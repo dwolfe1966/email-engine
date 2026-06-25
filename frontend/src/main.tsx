@@ -12305,6 +12305,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function buildManagedSmtpControlledSeedProofPack() {
     const attempts = controlledSeedProofAttempts.slice(0, 8).map((attempt) => {
       const metadata = attempt.metadata_json || {};
+      const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
       const providerPreference = Array.isArray(metadata.mta_rule_hit_provider_preference)
         ? metadata.mta_rule_hit_provider_preference.join(', ')
         : String(metadata.mta_rule_hit_provider_preference || '-');
@@ -12324,7 +12325,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
         `  pool_source=${String(metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source || '-')}`,
         `  provider_preference=${providerPreference}`,
-        `  submission=${String(metadata.mta_submission_provider || '-')} ${String(metadata.mta_submission_host || '-')}:${String(metadata.mta_submission_port || '-')}`,
+        `  submission=${String(submissionProvider || '-')} ${String(metadata.mta_submission_host || '-')}:${String(metadata.mta_submission_port || '-')}`,
         `  mta_hostname=${String(metadata.mta_hostname || '-')}`,
         `  block=${String(metadata.mta_route_block_code || '-')}`,
         `  error=${attempt.error_message || String(metadata.delivery_error_message || '-')}`,
@@ -16393,7 +16394,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const domain = String(metadata.to_domain || '-');
               const policy = String(metadata.domain_delivery_policy_id || '-');
               const mtaHost = String(metadata.mta_submission_host || metadata.mta_hostname || '-');
-              const submissionProvider = String(metadata.mta_submission_provider || '-');
+              const submissionProvider = String(metadata.submission_provider || metadata.mta_submission_provider || '-');
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
               const mtaProvider = String(metadata.mta_provider || '-');
