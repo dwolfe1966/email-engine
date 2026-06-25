@@ -124,6 +124,21 @@ class CaptureManagedSmtpProvider:
         )
 
 
+class CaptureSendGridProvider:
+    calls = []
+
+    def __init__(self, api_key) -> None:
+        self.api_key = api_key
+        self.__class__.calls.append(self)
+
+    def send(self, message):
+        return SimpleNamespace(
+            provider='sendgrid',
+            provider_message_id='sendgrid-message',
+            status_code=202,
+        )
+
+
 def test_delivery_service_claim_records_skips_throttled_domains() -> None:
     db = FakeDb()
     blocked = EmailSendRecord(
@@ -605,6 +620,52 @@ def test_delivery_service_uses_resolved_mta_submission_provider(monkeypatch) -> 
     assert provider.port == 2525
     assert provider.provider_name == 'managed_smtp'
     assert attempt.metadata_json['mta_submission_provider'] == 'managed_smtp'
+
+
+def test_delivery_service_uses_sendgrid_provider_for_sendgrid_route(monkeypatch) -> None:
+    monkeypatch.setattr(delivery_module, 'SendGridEmailProvider', CaptureSendGridProvider)
+    CaptureSendGridProvider.calls = []
+    service = DeliveryService.__new__(DeliveryService)
+    service.settings = SimpleNamespace(
+        email_provider='console',
+        sendgrid_api_key='SG.route-specific-key',
+    )
+    service.provider = FailingProvider()
+    attempt = SimpleNamespace(
+        route_type='sendgrid',
+        metadata_json={
+            'delivery_route_mode': 'third_party_provider',
+            'route_mode_provider': 'sendgrid',
+        },
+    )
+
+    provider = service._submission_provider_for_attempt(attempt)
+
+    assert isinstance(provider, CaptureSendGridProvider)
+    assert provider.api_key == 'SG.route-specific-key'
+    assert attempt.metadata_json['submission_provider'] == 'sendgrid'
+
+
+def test_delivery_service_attempt_event_metadata_includes_route_mode_and_provider() -> None:
+    service = DeliveryService.__new__(DeliveryService)
+    attempt = SimpleNamespace(
+        metadata_json={
+            'submission_provider': 'sendgrid',
+            'delivery_route_mode': 'third_party_provider',
+            'route_mode_provider': 'sendgrid',
+            'route_mode_ip_pool_name': None,
+            'route_mode_mta_ip_pool_id': None,
+            'mta_route_resolved': True,
+            'mta_route_domain': 'email-engine.app',
+        }
+    )
+
+    metadata = service._attempt_event_metadata(attempt)
+
+    assert metadata['submission_provider'] == 'sendgrid'
+    assert metadata['delivery_route_mode'] == 'third_party_provider'
+    assert metadata['route_mode_provider'] == 'sendgrid'
+    assert metadata['mta_route_resolved'] is True
 
 
 def test_delivery_service_blocks_managed_smtp_without_submission_auth() -> None:

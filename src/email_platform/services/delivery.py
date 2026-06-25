@@ -15,7 +15,13 @@ from email_platform.models.entities import (
     EmailSendRecord,
     EmailSendStatus,
 )
-from email_platform.providers.email import EmailMessage, SmtpEmailProvider, build_email_provider
+from email_platform.providers.email import (
+    ConsoleEmailProvider,
+    EmailMessage,
+    SendGridEmailProvider,
+    SmtpEmailProvider,
+    build_email_provider,
+)
 from email_platform.schemas.contracts import (
     DeliveryRunRead,
     EventCreate,
@@ -103,7 +109,7 @@ class DeliveryService:
                     smtp_response=f'Provider accepted message with status {result.status_code}',
                     metadata_json={
                         'status_code': result.status_code,
-                        **self._managed_smtp_event_metadata(attempt),
+                        **self._attempt_event_metadata(attempt),
                     },
                 )
                 sent_count += 1
@@ -121,7 +127,7 @@ class DeliveryService:
                             'send_record_id': str(record.id),
                             'send_job_id': str(record.send_job_id),
                             'source': 'delivery_worker',
-                            **self._managed_smtp_event_metadata(attempt),
+                            **self._attempt_event_metadata(attempt),
                         },
                     )
                 )
@@ -547,6 +553,17 @@ class DeliveryService:
         }
         return {key: value for key, value in attempt.metadata_json.items() if key in keys}
 
+    def _attempt_event_metadata(self, attempt: DeliveryAttempt) -> dict[str, object]:
+        keys = {
+            'submission_provider',
+            'delivery_route_mode',
+            'route_mode_provider',
+            'route_mode_ip_pool_name',
+            'route_mode_mta_ip_pool_id',
+        }
+        metadata = {key: value for key, value in attempt.metadata_json.items() if key in keys}
+        return {**metadata, **self._managed_smtp_event_metadata(attempt)}
+
     def _sender_domain(self) -> str | None:
         from_email = str(getattr(getattr(self, 'settings', None), 'default_from_email', '') or '')
         if '@' not in from_email:
@@ -561,7 +578,7 @@ class DeliveryService:
 
     def _submission_provider_for_attempt(self, attempt: DeliveryAttempt):
         if attempt.route_type != 'managed_smtp':
-            return self.provider
+            return self._route_submission_provider_for_attempt(attempt)
         if attempt.metadata_json.get('mta_route_resolved') is not True:
             return self.provider
         host = attempt.metadata_json.get('mta_submission_host')
@@ -578,6 +595,28 @@ class DeliveryService:
             port=int(port) if port else None,
             provider_name='managed_smtp',
         )
+
+    def _route_submission_provider_for_attempt(self, attempt: DeliveryAttempt):
+        route_type = attempt.route_type
+        if route_type == 'console':
+            attempt.metadata_json = {**attempt.metadata_json, 'submission_provider': 'console'}
+            if getattr(self.settings, 'email_provider', None) == 'console':
+                return self.provider
+            return ConsoleEmailProvider()
+        if route_type == 'sendgrid':
+            attempt.metadata_json = {**attempt.metadata_json, 'submission_provider': 'sendgrid'}
+            if getattr(self.settings, 'email_provider', None) == 'sendgrid':
+                return self.provider
+            api_key = getattr(self.settings, 'sendgrid_api_key', None)
+            if not api_key:
+                raise ValueError('SENDGRID_API_KEY is required for sendgrid route')
+            return SendGridEmailProvider(api_key)
+        if route_type == 'smtp_relay':
+            attempt.metadata_json = {**attempt.metadata_json, 'submission_provider': 'smtp_relay'}
+            if getattr(self.settings, 'email_provider', None) == 'smtp':
+                return self.provider
+            return SmtpEmailProvider(self.settings, provider_name='smtp_relay')
+        raise ValueError(f'Unsupported delivery route provider={route_type}')
 
     def _complete_attempt(
         self,
