@@ -274,6 +274,14 @@ class DeliveryService:
             metadata_json['max_per_minute'] = selected_route.max_per_minute
         if selected_route.max_concurrent is not None:
             metadata_json['max_concurrent'] = selected_route.max_concurrent
+        if getattr(selected_route, 'delivery_route_mode', None):
+            metadata_json['delivery_route_mode'] = selected_route.delivery_route_mode
+        if getattr(selected_route, 'route_mode_provider', None):
+            metadata_json['route_mode_provider'] = selected_route.route_mode_provider
+        if getattr(selected_route, 'route_mode_ip_pool_name', None):
+            metadata_json['route_mode_ip_pool_name'] = selected_route.route_mode_ip_pool_name
+        if getattr(selected_route, 'route_mode_mta_ip_pool_id', None):
+            metadata_json['route_mode_mta_ip_pool_id'] = selected_route.route_mode_mta_ip_pool_id
         if selected_route.route_type == 'managed_smtp':
             metadata_json.update(self._managed_smtp_route_resolution_metadata(record, selected_route))
         attempt = DeliveryAttempt(

@@ -155,6 +155,10 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
                     smtp_response_code=250,
                     smtp_response='Provider accepted message with status 250',
                     metadata_json={
+                        'delivery_route_mode': 'managed_smtp_direct',
+                        'route_mode_provider': 'scaleway',
+                        'route_mode_ip_pool_name': 'scaleway-internal-test',
+                        'route_mode_mta_ip_pool_id': 'ip-pool-scaleway-internal-test',
                         'mta_provider': 'scaleway',
                         'mta_route_domain': 'email-engine.app',
                         'mta_route_sender_domain': 'email-engine.app',
@@ -246,6 +250,10 @@ def test_campaign_test_send_uses_delivery_worker_path(monkeypatch) -> None:
     assert result['to_email'] == 'davidtesterwex@gmail.com'
     assert result['route_type'] == 'managed_smtp'
     assert result['route_key'] == 'managed-smtp-scaleway-primary'
+    assert result['delivery_route_mode'] == 'managed_smtp_direct'
+    assert result['route_mode_provider'] == 'scaleway'
+    assert result['route_mode_ip_pool_name'] == 'scaleway-internal-test'
+    assert result['route_mode_mta_ip_pool_id'] == 'ip-pool-scaleway-internal-test'
     assert result['mta_provider'] == 'scaleway'
     assert result['mta_route_domain'] == 'email-engine.app'
     assert result['mta_route_sender_domain'] == 'email-engine.app'

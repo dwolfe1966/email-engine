@@ -57,6 +57,10 @@ class FakeRouteService:
             max_per_minute=None,
             max_concurrent=None,
             source='settings',
+            delivery_route_mode=None,
+            route_mode_provider=None,
+            route_mode_ip_pool_name=None,
+            route_mode_mta_ip_pool_id=None,
         )
 
     def managed_smtp_identity_for_record(self, record, sender_domain=None):
@@ -225,6 +229,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
             max_per_minute=25,
             max_concurrent=2,
             source='domain_policy',
+            delivery_route_mode='managed_smtp_direct',
+            route_mode_provider='scaleway',
+            route_mode_ip_pool_name='scaleway-internal-test',
+            route_mode_mta_ip_pool_id=str(pool_id),
         )
     )
     service.managed_smtp_routing_service = FakeManagedSmtpRoutingService(
@@ -280,6 +288,10 @@ def test_delivery_service_starts_managed_smtp_attempt_with_resolved_mta_context(
     attempt = service._start_attempt(record)
 
     assert attempt.route_type == 'managed_smtp'
+    assert attempt.metadata_json['delivery_route_mode'] == 'managed_smtp_direct'
+    assert attempt.metadata_json['route_mode_provider'] == 'scaleway'
+    assert attempt.metadata_json['route_mode_ip_pool_name'] == 'scaleway-internal-test'
+    assert attempt.metadata_json['route_mode_mta_ip_pool_id'] == str(pool_id)
     assert attempt.metadata_json['mta_route_resolved'] is True
     assert attempt.metadata_json['mta_route_domain'] == 'example.com'
     assert attempt.metadata_json['mta_route_sender_domain'] == 'email-engine.app'

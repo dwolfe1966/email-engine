@@ -64,6 +64,10 @@ class SelectedDeliveryRoute:
     max_per_minute: int | None = None
     max_concurrent: int | None = None
     source: str = 'fallback'
+    delivery_route_mode: str | None = None
+    route_mode_provider: str | None = None
+    route_mode_ip_pool_name: str | None = None
+    route_mode_mta_ip_pool_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1364,6 +1368,7 @@ class DeliveryRouteService:
             if policy and policy.route_id:
                 route = self.db.get(DeliveryRoute, policy.route_id)
                 if route and route.status == DeliveryRouteStatus.active:
+                    route_mode = self._policy_route_mode(policy, route)
                     return SelectedDeliveryRoute(
                         route_type=route.route_type.value,
                         route_key=route.name,
@@ -1375,6 +1380,10 @@ class DeliveryRouteService:
                         max_per_minute=policy.max_per_minute,
                         max_concurrent=policy.max_concurrent,
                         source='domain_policy',
+                        delivery_route_mode=self._metadata_string(route_mode, 'mode'),
+                        route_mode_provider=self._metadata_string(route_mode, 'provider'),
+                        route_mode_ip_pool_name=self._metadata_string(route_mode, 'ip_pool_name'),
+                        route_mode_mta_ip_pool_id=self._metadata_string(route_mode, 'mta_ip_pool_id'),
                     )
 
         configured_type = self._configured_route_type(settings.email_provider)
@@ -1403,6 +1412,27 @@ class DeliveryRouteService:
             domain=domain,
             source='settings',
         )
+
+    def _policy_route_mode(
+        self,
+        policy: DomainDeliveryPolicy,
+        route: DeliveryRoute,
+    ) -> dict[str, object]:
+        metadata = getattr(policy, 'metadata_json', None) or {}
+        route_mode = metadata.get('delivery_route_mode')
+        if isinstance(route_mode, dict):
+            return route_mode
+        default_mode = (
+            'managed_smtp_pool'
+            if route.route_type == DeliveryRouteType.managed_smtp
+            else 'third_party_provider'
+        )
+        return {
+            'mode': default_mode,
+            'provider': self._default_provider_for_route_mode(default_mode, route),
+            'ip_pool_name': self._metadata_string(metadata, 'ip_pool'),
+            'mta_ip_pool_id': self._metadata_string(metadata, 'mta_ip_pool_id'),
+        }
 
     def claim_decision(
         self,

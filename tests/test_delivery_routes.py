@@ -459,6 +459,8 @@ def test_delivery_route_selector_prefers_matching_domain_policy_route() -> None:
     assert selected.max_per_minute == 25
     assert selected.max_concurrent == 2
     assert selected.source == 'domain_policy'
+    assert selected.delivery_route_mode == 'managed_smtp_pool'
+    assert selected.route_mode_provider == 'managed_smtp'
 
 
 def test_delivery_route_selector_can_match_sender_domain_for_managed_smtp_route() -> None:
@@ -478,6 +480,14 @@ def test_delivery_route_selector_can_match_sender_domain_for_managed_smtp_route(
         max_per_minute=10,
         max_concurrent=2,
         paused_until=None,
+        metadata_json={
+            'delivery_route_mode': {
+                'mode': 'managed_smtp_direct',
+                'provider': 'scaleway',
+                'ip_pool_name': 'scaleway-internal-test',
+                'mta_ip_pool_id': str(uuid4()),
+            }
+        },
     )
     service = DeliveryRouteService(FakeDb(scalar_results=[policy], get_result=route))
 
@@ -493,6 +503,10 @@ def test_delivery_route_selector_can_match_sender_domain_for_managed_smtp_route(
     assert selected.domain_policy_id == policy_id
     assert selected.domain == 'email-engine.app'
     assert selected.source == 'domain_policy'
+    assert selected.delivery_route_mode == 'managed_smtp_direct'
+    assert selected.route_mode_provider == 'scaleway'
+    assert selected.route_mode_ip_pool_name == 'scaleway-internal-test'
+    assert selected.route_mode_mta_ip_pool_id
 
 
 def test_delivery_route_selector_ignores_paused_domain_policy() -> None:
