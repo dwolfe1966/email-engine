@@ -301,6 +301,7 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
         'mta_rule_hit_provider_preference',
         'mta_rule_hit_provider_preference_mode',
         'mta_provider_preference_fallback_used',
+        'submission_provider',
         'mta_node_skipped_reason',
         'mta_route_block_code',
     }
@@ -404,6 +405,7 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "metadata.get('mta_node_selection_priority')",
         "metadata.get('mta_node_selection_weight')",
         "DeliveryAttempt.metadata_json['submission_provider'].astext",
+        "'submission_provider': submission_provider",
         "metadata.get('submission_provider')",
         "metadata.get('mta_submission_provider')",
         "metadata.get('mta_submission_host')",

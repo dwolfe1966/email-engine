@@ -2996,6 +2996,7 @@ def _delivery_attempt_evidence_filters(
     send_record_id: UUID | None = None,
     provider: str | None = None,
     status: str | None = None,
+    submission_provider: str | None = None,
     mta_ip_pool_id: UUID | None = None,
     mta_node_id: UUID | None = None,
     mta_provider: str | None = None,
@@ -3023,6 +3024,14 @@ def _delivery_attempt_evidence_filters(
         filters.append(DeliveryAttempt.provider == provider)
     if status:
         filters.append(DeliveryAttempt.status == status)
+    if submission_provider:
+        filters.append(
+            func.coalesce(
+                DeliveryAttempt.metadata_json['submission_provider'].astext,
+                DeliveryAttempt.metadata_json['mta_submission_provider'].astext,
+            )
+            == submission_provider
+        )
     metadata_filters = {
         'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
         'mta_node_id': str(mta_node_id) if mta_node_id else None,
@@ -3123,6 +3132,7 @@ def list_delivery_attempts(
     send_record_id: UUID | None = None,
     provider: str | None = None,
     status: str | None = None,
+    submission_provider: str | None = None,
     mta_ip_pool_id: UUID | None = None,
     mta_node_id: UUID | None = None,
     mta_provider: str | None = None,
@@ -3147,6 +3157,7 @@ def list_delivery_attempts(
         send_record_id=send_record_id,
         provider=provider,
         status=status,
+        submission_provider=submission_provider,
         mta_ip_pool_id=mta_ip_pool_id,
         mta_node_id=mta_node_id,
         mta_provider=mta_provider,
@@ -3191,6 +3202,7 @@ def summarize_delivery_attempt_evidence(
     send_record_id: UUID | None = None,
     provider: str | None = None,
     status: str | None = None,
+    submission_provider: str | None = None,
     mta_ip_pool_id: UUID | None = None,
     mta_node_id: UUID | None = None,
     mta_provider: str | None = None,
@@ -3213,6 +3225,7 @@ def summarize_delivery_attempt_evidence(
         send_record_id=send_record_id,
         provider=provider,
         status=status,
+        submission_provider=submission_provider,
         mta_ip_pool_id=mta_ip_pool_id,
         mta_node_id=mta_node_id,
         mta_provider=mta_provider,
@@ -3458,6 +3471,7 @@ def export_delivery_attempt_evidence_csv(
     send_record_id: UUID | None = None,
     provider: str | None = None,
     status: str | None = None,
+    submission_provider: str | None = None,
     mta_ip_pool_id: UUID | None = None,
     mta_node_id: UUID | None = None,
     mta_provider: str | None = None,
@@ -3481,6 +3495,7 @@ def export_delivery_attempt_evidence_csv(
         send_record_id=send_record_id,
         provider=provider,
         status=status,
+        submission_provider=submission_provider,
         mta_ip_pool_id=mta_ip_pool_id,
         mta_node_id=mta_node_id,
         mta_provider=mta_provider,
@@ -3520,6 +3535,7 @@ def export_delivery_attempt_evidence_csv(
     active_filter_values = {
         'provider': provider,
         'status': status,
+        'submission_provider': submission_provider,
         'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
         'mta_node_id': str(mta_node_id) if mta_node_id else None,
         'mta_provider': mta_provider,

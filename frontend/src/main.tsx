@@ -10405,6 +10405,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     mta_rule_hit_provider_preference: '',
     mta_rule_hit_provider_preference_mode: '',
     mta_provider_preference_fallback_used: '',
+    submission_provider: '',
     mta_node_skipped_reason: '',
     mta_route_block_code: '',
   });
@@ -16321,6 +16322,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               <option value="true">fallback used</option>
               <option value="false">preferred provider used</option>
             </select>
+          </label>
+          <label>
+            Submission provider
+            <input value={deliveryAttemptFilters.submission_provider} onChange={(event) => updateDeliveryAttemptFilter('submission_provider', event.target.value)} placeholder="sendgrid" />
           </label>
           <label>
             Skipped reason

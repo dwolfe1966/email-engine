@@ -973,6 +973,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Fallback availability',
         'provider_preference_blocked',
         'provider_fallback_available',
+        'Submission provider',
         'mta_route_block_code',
         'Active delivery attempt evidence filters',
         'Active evidence filters',
