@@ -1959,6 +1959,11 @@ class CampaignTestSendResponse(SendResponse):
     unsubscribe_url: str | None = None
     route_type: str | None = None
     route_key: str | None = None
+    submission_provider: str | None = None
+    delivery_route_mode: str | None = None
+    route_mode_provider: str | None = None
+    route_mode_ip_pool_name: str | None = None
+    route_mode_mta_ip_pool_id: str | None = None
     mta_provider: str | None = None
     mta_route_domain: str | None = None
     mta_route_sender_domain: str | None = None
@@ -2083,6 +2088,11 @@ class CampaignProofRouteRead(BaseModel):
     status: str
     route_type: str | None = None
     route_key: str | None = None
+    submission_provider: str | None = None
+    delivery_route_mode: str | None = None
+    route_mode_provider: str | None = None
+    route_mode_ip_pool_name: str | None = None
+    route_mode_mta_ip_pool_id: str | None = None
     mta_route_status: MtaRouteStatus
     mta_provider: str | None = None
     mta_route_send_type: str | None = None

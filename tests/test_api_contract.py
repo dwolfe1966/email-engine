@@ -236,6 +236,11 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
     assert {
         'route_type',
         'route_key',
+        'submission_provider',
+        'delivery_route_mode',
+        'route_mode_provider',
+        'route_mode_ip_pool_name',
+        'route_mode_mta_ip_pool_id',
         'mta_route_resolved',
         'mta_route_status',
         'mta_route_send_type',
@@ -428,6 +433,11 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
     assert {
         'delivery_attempt_id',
         'send_record_id',
+        'submission_provider',
+        'delivery_route_mode',
+        'route_mode_provider',
+        'route_mode_ip_pool_name',
+        'route_mode_mta_ip_pool_id',
         'mta_route_status',
         'mta_route_send_type',
         'mta_rule_hit_name',

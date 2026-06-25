@@ -438,6 +438,11 @@ type CampaignWorkflowStatus = {
     status: string;
     route_type: string | null;
     route_key: string | null;
+    submission_provider: string | null;
+    delivery_route_mode: string | null;
+    route_mode_provider: string | null;
+    route_mode_ip_pool_name: string | null;
+    route_mode_mta_ip_pool_id: string | null;
     mta_route_status: 'resolved' | 'blocked' | 'attempted' | 'not_attempted';
     mta_provider: string | null;
     mta_route_send_type: string | null;
@@ -638,6 +643,11 @@ type CampaignTestSendResult = {
   send_record_status?: string | null;
   route_type?: string | null;
   route_key?: string | null;
+  submission_provider?: string | null;
+  delivery_route_mode?: string | null;
+  route_mode_provider?: string | null;
+  route_mode_ip_pool_name?: string | null;
+  route_mode_mta_ip_pool_id?: string | null;
   mta_provider?: string | null;
   mta_route_domain?: string | null;
   mta_route_sender_domain?: string | null;
@@ -2712,7 +2722,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const proofSendRouteLabel = lastTestSendResult
     ? [
       lastTestSendResult.route_type || lastTestSendResult.provider,
-      lastTestSendResult.mta_provider || lastTestSendResult.route_key,
+      lastTestSendResult.route_mode_provider || lastTestSendResult.mta_provider || lastTestSendResult.route_key,
+      lastTestSendResult.delivery_route_mode || '',
     ].filter(Boolean).join(' / ')
     : '';
   const proofSendSummary = lastTestSendResult
@@ -2746,6 +2757,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const latestProofRouteDetail = latestProofRoute
     ? [
       latestProofRoute.route_type || 'proof route',
+      latestProofRoute.submission_provider || latestProofRoute.route_mode_provider || '',
+      latestProofRoute.delivery_route_mode || '',
       latestProofRoute.mta_submission_host || latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')
@@ -3269,6 +3282,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Status</span><strong>{lastTestSendResult.status_code}</strong></div>
               <div><span>Record state</span><strong>{lastTestSendResult.send_record_status || '-'}</strong></div>
               <div><span>Route</span><strong>{proofSendRouteLabel || '-'}</strong></div>
+              <div><span>Mode</span><strong>{lastTestSendResult.delivery_route_mode || '-'}</strong><small>{lastTestSendResult.submission_provider || lastTestSendResult.route_mode_provider || ''}</small></div>
               <div><span>Route status</span><strong>{lastTestSendResult.mta_route_status || (lastTestSendResult.mta_route_resolved ? 'resolved' : '-')}</strong></div>
               <div><span>Decision</span><strong>{lastTestSendResult.mta_route_decision_basis ? lastTestSendResult.mta_route_decision_basis.replace(/_/g, ' ') : '-'}</strong></div>
               <div><span>Rule hit</span><strong>{lastTestSendResult.mta_rule_hit_name || lastTestSendResult.mta_routing_rule_name || '-'}</strong><small>{lastTestSendResult.mta_rule_hit_provider_preference?.length ? `providers ${lastTestSendResult.mta_rule_hit_provider_preference.join(', ')}` : lastTestSendResult.mta_rule_hit_source || lastTestSendResult.mta_routing_rule_source || ''}</small></div>

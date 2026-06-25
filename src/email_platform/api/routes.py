@@ -2460,12 +2460,40 @@ def get_campaign_workflow_status(
             proof_route_status = 'blocked'
         else:
             proof_route_status = 'attempted'
+        proof_submission_provider = proof_metadata.get('submission_provider') or proof_metadata.get(
+            'mta_submission_provider'
+        )
         latest_proof_route = CampaignProofRouteRead(
             delivery_attempt_id=latest_proof_attempt.id,
             send_record_id=latest_proof_attempt.send_record_id,
             status=latest_proof_attempt.status,
             route_type=latest_proof_attempt.route_type,
             route_key=latest_proof_attempt.route_key,
+            submission_provider=(
+                str(proof_submission_provider)
+                if proof_submission_provider is not None
+                else None
+            ),
+            delivery_route_mode=(
+                str(proof_metadata.get('delivery_route_mode'))
+                if proof_metadata.get('delivery_route_mode') is not None
+                else None
+            ),
+            route_mode_provider=(
+                str(proof_metadata.get('route_mode_provider'))
+                if proof_metadata.get('route_mode_provider') is not None
+                else None
+            ),
+            route_mode_ip_pool_name=(
+                str(proof_metadata.get('route_mode_ip_pool_name'))
+                if proof_metadata.get('route_mode_ip_pool_name') is not None
+                else None
+            ),
+            route_mode_mta_ip_pool_id=(
+                str(proof_metadata.get('route_mode_mta_ip_pool_id'))
+                if proof_metadata.get('route_mode_mta_ip_pool_id') is not None
+                else None
+            ),
             mta_route_status=proof_route_status,
             mta_provider=(
                 str(proof_metadata.get('mta_provider'))

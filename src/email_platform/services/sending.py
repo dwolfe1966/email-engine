@@ -204,6 +204,8 @@ class SendingService:
             'to_email': to_email,
             'route_type': attempt.route_type if attempt else None,
             'route_key': attempt.route_key if attempt else None,
+            'submission_provider': attempt_metadata.get('submission_provider')
+            or attempt_metadata.get('mta_submission_provider'),
             'delivery_route_mode': attempt_metadata.get('delivery_route_mode'),
             'route_mode_provider': attempt_metadata.get('route_mode_provider'),
             'route_mode_ip_pool_name': attempt_metadata.get('route_mode_ip_pool_name'),
