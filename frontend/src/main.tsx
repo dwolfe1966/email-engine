@@ -2808,6 +2808,40 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')
     : 'Refresh readiness after proof send to load persisted route evidence.';
+  const latestProofRouteEvidence = latestProofRoute
+    ? {
+      status: latestProofRoute.mta_route_status,
+      route_type: latestProofRoute.route_type,
+      route_mode: latestProofRoute.delivery_route_mode,
+      submission_provider: latestProofRoute.submission_provider || latestProofRoute.route_mode_provider,
+      decision_basis: latestProofRoute.mta_route_decision_basis,
+      routing_rule: latestProofRoute.mta_rule_hit_name || latestProofRoute.mta_routing_rule_name,
+      routing_rule_source: latestProofRoute.mta_rule_hit_source || latestProofRoute.mta_routing_rule_source,
+      provider_preference_mode: latestProofRoute.mta_rule_hit_provider_preference_mode,
+      provider_preference: latestProofRoute.mta_rule_hit_provider_preference || latestProofRoute.mta_preferred_providers,
+      provider_fallback_used: latestProofRoute.mta_provider_preference_fallback_used,
+      provider_fallback_available: latestProofRoute.mta_provider_preference_fallback_available,
+      provider_fallback_provider: latestProofRoute.mta_provider_preference_fallback_provider,
+      pool: latestProofRoute.mta_ip_pool_name || latestProofRoute.route_mode_ip_pool_name,
+      pool_source: latestProofRoute.mta_ip_pool_selection_source || latestProofRoute.mta_rule_hit_pool_source,
+      node: latestProofRoute.mta_node_name,
+      node_candidates: latestProofRoute.mta_node_candidate_count,
+      node_skipped: latestProofRoute.mta_node_skipped_count,
+      capacity_status: latestProofRoute.mta_pool_capacity_status,
+      available_nodes: latestProofRoute.mta_pool_available_node_count,
+      required_available_nodes: latestProofRoute.mta_pool_required_available_node_count,
+      rate_limit_scope: latestProofRoute.mta_rate_limit_scope,
+      rate_limit_recent_count: latestProofRoute.mta_rate_limit_recent_count,
+      rate_limit_max_per_minute: latestProofRoute.mta_rate_limit_max_per_minute,
+      submission_host: latestProofRoute.mta_submission_host,
+      submission_port: latestProofRoute.mta_submission_port,
+      public_ipv4: latestProofRoute.mta_public_ipv4,
+      block_code: latestProofRoute.mta_route_block_code,
+      block_message: latestProofRoute.mta_route_block_message,
+      smtp_response_code: latestProofRoute.smtp_response_code,
+      detail: latestProofRouteDetail,
+    }
+    : null;
   const proofRouteAvailable = Boolean(lastTestSendResult || latestProofRoute);
   const activeProofRouteDetail = lastTestSendResult ? proofSendSummary : latestProofRouteDetail;
   const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
@@ -3095,6 +3129,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             audience: selectedAudience || { id: audienceId },
             performance: selectedCampaignPerformance,
             workflow_status: workflowStatus,
+            latest_proof_route_evidence: latestProofRouteEvidence,
             last_test_send: lastTestSendResult,
             last_launch_result: lastLaunchResult,
             validation: workflowStatus?.validation || { errors: validationErrors, warnings: validationWarnings },
