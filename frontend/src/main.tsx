@@ -10545,6 +10545,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
   const selectedDomainRouteMode = selectedDomainPolicy?.metadata_json?.delivery_route_mode as Record<string, unknown> | undefined;
+  const selectedDomainRouteModeAuditLog = Array.isArray(selectedDomainPolicy?.metadata_json?.delivery_route_mode_audit_log)
+    ? selectedDomainPolicy.metadata_json.delivery_route_mode_audit_log as Record<string, unknown>[]
+    : [];
+  const latestDomainRouteModeAudit = selectedDomainRouteModeAuditLog[selectedDomainRouteModeAuditLog.length - 1];
   const selectedDeliveryRoute = deliveryRoutes.find((routeItem) => routeItem.id === selectedDomainPolicy?.route_id);
   const routeModeOptions = [
     { value: 'managed_smtp_pool', label: 'MTA Pool' },
@@ -12653,6 +12657,17 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Domain policy: ${selectedDomainPolicy?.domain || route?.domain || '-'}`,
       `Route ID: ${selectedDomainPolicy?.route_id || route?.delivery_route_id || '-'}`,
       `Status: ${managedSmtpRouteResolution?.ok ? 'ready' : 'blocked'}`,
+      '',
+      'Route mode switch',
+      `mode=${String(selectedDomainRouteMode?.mode || '-')}`,
+      `route_name=${String(selectedDomainRouteMode?.route_name || selectedDeliveryRoute?.name || '-')}`,
+      `route_type=${String(selectedDomainRouteMode?.route_type || selectedDeliveryRoute?.route_type || '-')}`,
+      `provider=${String(selectedDomainRouteMode?.provider || '-')}`,
+      `ip_pool=${String(selectedDomainRouteMode?.ip_pool_name || selectedDomainPolicy?.metadata_json?.ip_pool || '-')}`,
+      `operator=${String(selectedDomainRouteMode?.operator || latestDomainRouteModeAudit?.operator || '-')}`,
+      `reason=${String(selectedDomainRouteMode?.reason || latestDomainRouteModeAudit?.reason || '-')}`,
+      `updated_at=${String(selectedDomainRouteMode?.updated_at || latestDomainRouteModeAudit?.updated_at || '-')}`,
+      latestDomainRouteModeAudit?.previous ? `previous=${JSON.stringify(latestDomainRouteModeAudit.previous)}` : 'previous=-',
       '',
       'Resolver input',
       `send_type=${route?.send_type || 'internal_test'}`,
@@ -15812,6 +15827,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <span>{selectedDeliveryRoute ? `${selectedDeliveryRoute.name} / ${selectedDeliveryRoute.route_type}` : 'No active route selected'}</span>
           <span>{String(selectedDomainRouteMode?.provider || domainRouteModeForm.provider || '-')}</span>
           <span>{String(selectedDomainRouteMode?.ip_pool_name || selectedDomainPolicy?.metadata_json?.ip_pool || 'no pool')}</span>
+          <span>{latestDomainRouteModeAudit ? `last switch ${String(latestDomainRouteModeAudit.updated_at || selectedDomainRouteMode?.updated_at || '-')}` : 'no switch audit'}</span>
+          <span>{latestDomainRouteModeAudit ? String(latestDomainRouteModeAudit.reason || selectedDomainRouteMode?.reason || '-') : 'no reason'}</span>
         </div>
         <div className="domain-compliance-strip" aria-label="Managed SMTP domain compliance strip">
           {domainComplianceItems.map((item) => (
