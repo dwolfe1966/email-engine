@@ -11,6 +11,9 @@ def proof_attempt(
     status: str = 'submitted',
     smtp_response_code: int | None = 250,
     route_resolved: bool | None = True,
+    provider: str = 'managed_smtp',
+    route_type: str = 'managed_smtp',
+    route_key: str = 'managed-smtp-scaleway-primary',
 ) -> DeliveryAttempt:
     metadata = {}
     if route_resolved is not None:
@@ -20,9 +23,9 @@ def proof_attempt(
         send_job_id=uuid4(),
         campaign_id=uuid4(),
         attempt_number=1,
-        provider='managed_smtp',
-        route_type='managed_smtp',
-        route_key='managed-smtp-scaleway-primary',
+        provider=provider,
+        route_type=route_type,
+        route_key=route_key,
         status=status,
         smtp_response_code=smtp_response_code,
         metadata_json=metadata,
@@ -37,6 +40,20 @@ def service_with_latest_attempt(attempt: DeliveryAttempt | None) -> CampaignServ
 
 def test_campaign_launch_proof_gate_accepts_successful_managed_smtp_attempt() -> None:
     service = service_with_latest_attempt(proof_attempt())
+
+    service._assert_latest_proof_route_ok(uuid4())
+
+
+def test_campaign_launch_proof_gate_accepts_successful_sendgrid_attempt() -> None:
+    service = service_with_latest_attempt(
+        proof_attempt(
+            provider='sendgrid',
+            route_type='sendgrid',
+            route_key='sendgrid-primary',
+            route_resolved=None,
+            smtp_response_code=202,
+        )
+    )
 
     service._assert_latest_proof_route_ok(uuid4())
 

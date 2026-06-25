@@ -78,6 +78,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'lastTestSendResult',
         'latest_proof_route',
         'latestProofRouteDetail',
+        'latestProofRouteOk',
         'Latest proof route',
         'delivery_route_mode',
         'route_mode_provider',

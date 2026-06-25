@@ -2733,14 +2733,18 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || '',
     ].filter(Boolean).join(' | ')
     : '';
+  const latestProofRouteOk = workflowStatus?.latest_proof_route
+    ? (
+      workflowStatus.latest_proof_route.route_type !== 'managed_smtp'
+      || workflowStatus.latest_proof_route.mta_route_status === 'resolved'
+    )
+      && workflowStatus.latest_proof_route.status !== 'failed'
+      && (!workflowStatus.latest_proof_route.smtp_response_code || workflowStatus.latest_proof_route.smtp_response_code < 400)
+    : false;
   const proofSendOk = Boolean(
     lastTestSendResult
       ? lastTestSendResult.status_code < 400 && lastTestSendResult.mta_route_status !== 'blocked'
-      : workflowStatus?.latest_proof_route
-        ? workflowStatus.latest_proof_route.mta_route_status === 'resolved'
-          && workflowStatus.latest_proof_route.status !== 'failed'
-          && (!workflowStatus.latest_proof_route.smtp_response_code || workflowStatus.latest_proof_route.smtp_response_code < 400)
-        : false
+      : latestProofRouteOk
   );
   const proofAuditTarget = lastTestSendResult
     ? {
