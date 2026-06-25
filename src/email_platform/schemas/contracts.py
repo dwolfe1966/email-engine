@@ -2095,6 +2095,7 @@ class CampaignProofRouteRead(BaseModel):
     route_mode_mta_ip_pool_id: str | None = None
     mta_route_status: MtaRouteStatus
     mta_provider: str | None = None
+    mta_ip_pool_name: str | None = None
     mta_route_send_type: str | None = None
     mta_rule_hit_send_type: str | None = None
     mta_rule_hit_sender_domain: str | None = None
@@ -2121,7 +2122,11 @@ class CampaignProofRouteRead(BaseModel):
     mta_rate_limit_max_per_minute: int | None = None
     mta_rate_limit_recent_count: int | None = None
     mta_submission_host: str | None = None
+    mta_submission_port: int | None = None
     mta_hostname: str | None = None
+    mta_public_ipv4: str | None = None
+    mta_route_block_code: str | None = None
+    mta_route_block_message: str | None = None
     smtp_response_code: int | None = None
     smtp_response: str | None = None
     error_message: str | None = None

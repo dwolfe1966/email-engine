@@ -2526,6 +2526,11 @@ def get_campaign_workflow_status(
                 if proof_metadata.get('mta_provider') is not None
                 else None
             ),
+            mta_ip_pool_name=(
+                str(proof_metadata.get('mta_ip_pool_name'))
+                if proof_metadata.get('mta_ip_pool_name') is not None
+                else None
+            ),
             mta_route_send_type=(
                 str(proof_metadata.get('mta_route_send_type'))
                 if proof_metadata.get('mta_route_send_type') is not None
@@ -2620,9 +2625,25 @@ def get_campaign_workflow_status(
                 if proof_metadata.get('mta_submission_host') is not None
                 else None
             ),
+            mta_submission_port=proof_metadata_int('mta_submission_port'),
             mta_hostname=(
                 str(proof_metadata.get('mta_hostname'))
                 if proof_metadata.get('mta_hostname') is not None
+                else None
+            ),
+            mta_public_ipv4=(
+                str(proof_metadata.get('mta_public_ipv4'))
+                if proof_metadata.get('mta_public_ipv4') is not None
+                else None
+            ),
+            mta_route_block_code=(
+                str(proof_metadata.get('mta_route_block_code'))
+                if proof_metadata.get('mta_route_block_code') is not None
+                else None
+            ),
+            mta_route_block_message=(
+                str(proof_metadata.get('mta_route_block_message'))
+                if proof_metadata.get('mta_route_block_message') is not None
                 else None
             ),
             smtp_response_code=latest_proof_attempt.smtp_response_code,

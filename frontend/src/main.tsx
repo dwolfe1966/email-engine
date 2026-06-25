@@ -445,6 +445,7 @@ type CampaignWorkflowStatus = {
     route_mode_mta_ip_pool_id: string | null;
     mta_route_status: 'resolved' | 'blocked' | 'attempted' | 'not_attempted';
     mta_provider: string | null;
+    mta_ip_pool_name: string | null;
     mta_route_send_type: string | null;
     mta_rule_hit_send_type: string | null;
     mta_rule_hit_sender_domain: string | null;
@@ -471,7 +472,11 @@ type CampaignWorkflowStatus = {
     mta_rate_limit_max_per_minute: number | null;
     mta_rate_limit_recent_count: number | null;
     mta_submission_host: string | null;
+    mta_submission_port: number | null;
     mta_hostname: string | null;
+    mta_public_ipv4: string | null;
+    mta_route_block_code: string | null;
+    mta_route_block_message: string | null;
     smtp_response_code: number | null;
     smtp_response: string | null;
     error_message: string | null;
@@ -2784,9 +2789,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.mta_provider_preference_fallback_used === true ? 'fallback used' : '',
       latestProofRoute.mta_provider_preference_fallback_provider ? `fallback ${latestProofRoute.mta_provider_preference_fallback_provider}` : '',
       latestProofRoute.mta_node_name ? `node ${latestProofRoute.mta_node_name}` : '',
+      latestProofRoute.mta_ip_pool_name ? `pool ${latestProofRoute.mta_ip_pool_name}` : '',
       latestProofRoute.mta_pool_capacity_status ? `capacity ${latestProofRoute.mta_pool_capacity_status}` : '',
       latestProofRoute.mta_rate_limit_scope ? `rate ${latestProofRoute.mta_rate_limit_recent_count ?? 0}/${latestProofRoute.mta_rate_limit_max_per_minute ?? '-'} ${latestProofRoute.mta_rate_limit_scope}` : '',
-      latestProofRoute.mta_submission_host || latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
+      latestProofRoute.mta_route_block_code ? `block ${latestProofRoute.mta_route_block_code}` : '',
+      latestProofRoute.mta_submission_host ? `${latestProofRoute.mta_submission_host}:${latestProofRoute.mta_submission_port || '-'}` : latestProofRoute.mta_hostname || latestProofRoute.route_key || '',
+      latestProofRoute.mta_public_ipv4 || '',
       latestProofRoute.smtp_response_code ? `SMTP ${latestProofRoute.smtp_response_code}` : '',
     ].filter(Boolean).join(' | ')
     : 'Refresh readiness after proof send to load persisted route evidence.';

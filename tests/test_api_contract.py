@@ -243,6 +243,7 @@ def test_campaign_test_send_response_exposes_managed_smtp_route_status() -> None
         'route_mode_mta_ip_pool_id',
         'mta_route_resolved',
         'mta_route_status',
+        'mta_ip_pool_name',
         'mta_route_send_type',
         'mta_rule_hit_send_type',
         'mta_rule_hit_sender_domain',
@@ -463,6 +464,10 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
         'mta_rate_limit_max_per_minute',
         'mta_rate_limit_recent_count',
         'mta_submission_host',
+        'mta_submission_port',
+        'mta_public_ipv4',
+        'mta_route_block_code',
+        'mta_route_block_message',
         'smtp_response_code',
     }.issubset(proof_route_properties.keys())
     assert set(proof_route_properties['mta_route_status']['enum']) == {
