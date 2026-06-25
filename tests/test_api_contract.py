@@ -7,7 +7,13 @@ from sqlalchemy.exc import OperationalError
 
 from email_platform.api.compat import _template_create_payload
 from email_platform.api.operation_feedback import with_operation_feedback
+from email_platform.api.routes import (
+    _campaign_proof_route_block_code,
+    _campaign_proof_route_block_message,
+    _campaign_proof_route_status,
+)
 from email_platform.main import app
+from email_platform.models.entities import DeliveryAttempt
 from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateValidationRequest
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
@@ -481,6 +487,49 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
         'attempted',
         'not_attempted',
     }
+
+
+def test_campaign_proof_route_status_blocks_unresolved_managed_smtp() -> None:
+    attempt = DeliveryAttempt(
+        send_record_id=uuid4(),
+        send_job_id=uuid4(),
+        campaign_id=uuid4(),
+        attempt_number=1,
+        provider='managed_smtp',
+        route_type='managed_smtp',
+        route_key='managed-smtp-scaleway-primary',
+        status='submitted',
+        metadata_json={},
+    )
+    metadata = attempt.metadata_json or {}
+    route_status = _campaign_proof_route_status(attempt, metadata)
+
+    assert route_status == 'blocked'
+    assert (
+        _campaign_proof_route_block_code(attempt, metadata, route_status)
+        == 'managed_smtp_route_unresolved'
+    )
+    assert _campaign_proof_route_block_message(attempt, metadata, route_status)
+
+
+def test_campaign_proof_route_status_allows_attempted_third_party_route() -> None:
+    attempt = DeliveryAttempt(
+        send_record_id=uuid4(),
+        send_job_id=uuid4(),
+        campaign_id=uuid4(),
+        attempt_number=1,
+        provider='sendgrid',
+        route_type='sendgrid',
+        route_key='sendgrid-primary',
+        status='submitted',
+        metadata_json={},
+    )
+    metadata = attempt.metadata_json or {}
+    route_status = _campaign_proof_route_status(attempt, metadata)
+
+    assert route_status == 'attempted'
+    assert _campaign_proof_route_block_code(attempt, metadata, route_status) is None
+    assert _campaign_proof_route_block_message(attempt, metadata, route_status) is None
 
 
 def test_api_tester_page() -> None:

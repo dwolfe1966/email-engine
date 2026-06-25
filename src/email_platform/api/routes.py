@@ -1247,6 +1247,57 @@ def _list(value: object) -> list[object]:
     return value if isinstance(value, list) else []
 
 
+def _campaign_proof_route_status(
+    attempt: DeliveryAttempt,
+    metadata: Mapping[str, object],
+) -> str:
+    route_resolved = metadata.get('mta_route_resolved')
+    if route_resolved is True:
+        return 'resolved'
+    if route_resolved is False or attempt.status == 'failed':
+        return 'blocked'
+    if str(attempt.route_type or '') == 'managed_smtp':
+        return 'blocked'
+    return 'attempted'
+
+
+def _campaign_proof_route_block_code(
+    attempt: DeliveryAttempt,
+    metadata: Mapping[str, object],
+    route_status: str,
+) -> str | None:
+    block_code = metadata.get('mta_route_block_code')
+    if block_code is not None:
+        return str(block_code)
+    if (
+        route_status == 'blocked'
+        and str(attempt.route_type or '') == 'managed_smtp'
+        and metadata.get('mta_route_resolved') is not True
+    ):
+        return 'managed_smtp_route_unresolved'
+    return None
+
+
+def _campaign_proof_route_block_message(
+    attempt: DeliveryAttempt,
+    metadata: Mapping[str, object],
+    route_status: str,
+) -> str | None:
+    block_message = metadata.get('mta_route_block_message')
+    if block_message is not None:
+        return str(block_message)
+    if (
+        route_status == 'blocked'
+        and str(attempt.route_type or '') == 'managed_smtp'
+        and metadata.get('mta_route_resolved') is not True
+    ):
+        return (
+            'Managed SMTP proof route did not resolve to a selected provider, pool, '
+            'or node.'
+        )
+    return None
+
+
 def _deterministic_campaign_analysis(
     payload: AICampaignAnalysisRequest,
 ) -> AICampaignAnalysisRead:
@@ -2523,15 +2574,17 @@ def get_campaign_workflow_status(
     latest_proof_route = None
     if latest_proof_attempt:
         proof_metadata = latest_proof_attempt.metadata_json or {}
-        route_resolved = proof_metadata.get('mta_route_resolved')
-        if route_resolved is True:
-            proof_route_status = 'resolved'
-        elif route_resolved is False:
-            proof_route_status = 'blocked'
-        elif latest_proof_attempt.status == 'failed':
-            proof_route_status = 'blocked'
-        else:
-            proof_route_status = 'attempted'
+        proof_route_status = _campaign_proof_route_status(latest_proof_attempt, proof_metadata)
+        proof_route_block_code = _campaign_proof_route_block_code(
+            latest_proof_attempt,
+            proof_metadata,
+            proof_route_status,
+        )
+        proof_route_block_message = _campaign_proof_route_block_message(
+            latest_proof_attempt,
+            proof_metadata,
+            proof_route_status,
+        )
         proof_submission_provider = proof_metadata.get('submission_provider') or proof_metadata.get(
             'mta_submission_provider'
         )
@@ -2734,14 +2787,10 @@ def get_campaign_workflow_status(
                 else None
             ),
             mta_route_block_code=(
-                str(proof_metadata.get('mta_route_block_code'))
-                if proof_metadata.get('mta_route_block_code') is not None
-                else None
+                proof_route_block_code
             ),
             mta_route_block_message=(
-                str(proof_metadata.get('mta_route_block_message'))
-                if proof_metadata.get('mta_route_block_message') is not None
-                else None
+                proof_route_block_message
             ),
             smtp_response_code=latest_proof_attempt.smtp_response_code,
             smtp_response=latest_proof_attempt.smtp_response,
