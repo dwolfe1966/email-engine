@@ -1257,6 +1257,9 @@ def _deterministic_campaign_analysis(
     audience = _mapping(context.get('audience_preview'))
     analytics = _mapping(context.get('analytics'))
     latest_send_record = _mapping(context.get('latest_send_record'))
+    proof_route = _mapping(
+        context.get('latest_proof_route_evidence') or context.get('latest_proof_route')
+    )
     recommendations: list[AICampaignRecommendationRead] = []
 
     def add(
@@ -1291,6 +1294,31 @@ def _deterministic_campaign_analysis(
     open_rate = _number(analytics.get('open_rate'))
     click_rate = _number(analytics.get('click_rate'))
     bounce_rate = _number(analytics.get('bounce_rate'))
+    proof_route_status = str(
+        proof_route.get('status') or proof_route.get('mta_route_status') or ''
+    ).lower()
+    proof_route_type = str(proof_route.get('route_type') or '')
+    proof_route_mode = str(
+        proof_route.get('route_mode') or proof_route.get('delivery_route_mode') or ''
+    )
+    proof_route_provider = str(
+        proof_route.get('submission_provider')
+        or proof_route.get('route_mode_provider')
+        or proof_route.get('mta_provider')
+        or ''
+    )
+    proof_route_pool = str(
+        proof_route.get('pool') or proof_route.get('mta_ip_pool_name') or ''
+    )
+    proof_route_node = str(
+        proof_route.get('node') or proof_route.get('mta_node_name') or ''
+    )
+    proof_route_block_code = str(
+        proof_route.get('block_code') or proof_route.get('mta_route_block_code') or ''
+    )
+    proof_route_block_message = str(
+        proof_route.get('block_message') or proof_route.get('mta_route_block_message') or ''
+    )
 
     if not template:
         add(
@@ -1322,6 +1350,31 @@ def _deterministic_campaign_analysis(
             'The campaign audience preview returned no matched contacts.',
             'Open Audience Builder, preview contacts, and adjust constraints until matched contacts are visible.',
             0.94,
+        )
+    if proof_route and (
+        proof_route_status in {'blocked', 'not_attempted'}
+        or bool(proof_route_block_code)
+        or (proof_route_type == 'managed_smtp' and proof_route_status != 'resolved')
+    ):
+        route_parts = [
+            proof_route_status or 'unresolved',
+            proof_route_mode,
+            proof_route_provider,
+            proof_route_pool,
+            proof_route_node,
+            proof_route_block_code,
+        ]
+        add(
+            'resolve_campaign_route',
+            'delivery',
+            'high',
+            'Resolve campaign route before launch',
+            'Proof routing evidence shows '
+            + ' / '.join(part for part in route_parts if part)
+            + (f': {proof_route_block_message}' if proof_route_block_message else '.'),
+            'Open Delivery Manager, inspect the proof send route decision, and fix the '
+            'provider, pool, node, or domain routing rule before launch.',
+            0.95,
         )
     if not latest_send_record:
         add(
@@ -1395,6 +1448,22 @@ def _deterministic_campaign_analysis(
         f'Analytics: {sent_count} sent, {opened_count} opened, {clicked_count} clicked, {failed_count} failed.',
         f'{len(recommendations)} recommendation(s) generated.',
     ]
+    if proof_route:
+        summary.append(
+            'Proof route: '
+            + ' / '.join(
+                part
+                for part in [
+                    proof_route_status or 'unknown',
+                    proof_route_mode,
+                    proof_route_provider,
+                    proof_route_pool,
+                    proof_route_node,
+                ]
+                if part
+            )
+            + '.'
+        )
     if payload.goals:
         summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
     return AICampaignAnalysisRead(

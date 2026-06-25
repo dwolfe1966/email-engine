@@ -638,6 +638,16 @@ def test_ai_campaign_analysis_contract() -> None:
                     'bounce_rate': 0.02,
                 },
                 'latest_send_record': None,
+                'latest_proof_route_evidence': {
+                    'status': 'blocked',
+                    'route_type': 'managed_smtp',
+                    'route_mode': 'managed_smtp_pool',
+                    'submission_provider': 'managed_smtp',
+                    'pool': 'scaleway-primary',
+                    'node': None,
+                    'block_code': 'pool_capacity_unavailable',
+                    'block_message': 'No available MTA node in selected pool.',
+                },
             },
             'goals': ['Assess launch readiness'],
         },
@@ -651,6 +661,7 @@ def test_ai_campaign_analysis_contract() -> None:
     codes = {item['code'] for item in data['recommendations']}
     assert 'fix_launch_validation' in codes
     assert 'repair_audience_targeting' in codes
+    assert 'resolve_campaign_route' in codes
     assert 'triage_delivery_risk' in codes
 
 
