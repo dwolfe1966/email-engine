@@ -3288,7 +3288,10 @@ def summarize_delivery_attempt_evidence(
         'mta_node_selection_priority'
     ].astext
     node_selection_weight_expr = DeliveryAttempt.metadata_json['mta_node_selection_weight'].astext
-    submission_provider_expr = DeliveryAttempt.metadata_json['mta_submission_provider'].astext
+    submission_provider_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['submission_provider'].astext,
+        DeliveryAttempt.metadata_json['mta_submission_provider'].astext,
+    )
     submission_host_expr = DeliveryAttempt.metadata_json['mta_submission_host'].astext
     submission_port_expr = DeliveryAttempt.metadata_json['mta_submission_port'].astext
     mta_hostname_expr = DeliveryAttempt.metadata_json['mta_hostname'].astext
@@ -3619,7 +3622,8 @@ def export_delivery_attempt_evidence_csv(
                 'route pool': metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id'),
                 'route node': metadata.get('mta_node_name') or metadata.get('mta_node_id'),
                 'submission host': metadata.get('mta_submission_host'),
-                'submission provider': metadata.get('mta_submission_provider'),
+                'submission provider': metadata.get('submission_provider')
+                or metadata.get('mta_submission_provider'),
             }
             missing_dimensions = [
                 label
@@ -3672,7 +3676,9 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_route_block_message') or '',
                 metadata.get('mta_node_selection_priority') or '',
                 metadata.get('mta_node_selection_weight') or '',
-                metadata.get('mta_submission_provider') or '',
+                metadata.get('submission_provider')
+                or metadata.get('mta_submission_provider')
+                or '',
                 metadata.get('mta_submission_host') or '',
                 metadata.get('mta_submission_port') or '',
                 metadata.get('mta_hostname') or '',

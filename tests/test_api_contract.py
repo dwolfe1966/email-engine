@@ -398,6 +398,8 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "metadata.get('mta_route_block_message')",
         "metadata.get('mta_node_selection_priority')",
         "metadata.get('mta_node_selection_weight')",
+        "DeliveryAttempt.metadata_json['submission_provider'].astext",
+        "metadata.get('submission_provider')",
         "metadata.get('mta_submission_provider')",
         "metadata.get('mta_submission_host')",
         "metadata.get('mta_submission_port')",
