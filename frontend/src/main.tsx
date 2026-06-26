@@ -15227,6 +15227,14 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     });
   }
 
+  function deliveryAiRecommendationAction(item: NonNullable<AIWorkflowAnalysis['recommendations']>[number]) {
+    if (item.category !== 'routing' && !item.code.includes('_route')) return null;
+    return {
+      label: 'Load Route Evidence',
+      run: loadDeliveryAttempts,
+    };
+  }
+
   return (
     <section className="page-grid">
       <section className="metric-grid full-span compact-metrics">
@@ -16405,14 +16413,20 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           ) : null}
           {aiDeliveryRecommendations?.length ? (
             <div className="recommendation-list">
-              {aiDeliveryRecommendations.slice(0, 5).map((item) => (
-                <article key={item.code}>
-                  <span className="pill">{item.priority}</span>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
-                  <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
-                </article>
-              ))}
+              {aiDeliveryRecommendations.slice(0, 5).map((item) => {
+                const recommendationAction = deliveryAiRecommendationAction(item);
+                return (
+                  <article key={item.code}>
+                    <span className="pill">{item.priority}</span>
+                    <strong>{item.title}</strong>
+                    <p>{item.detail}</p>
+                    <small>{item.suggested_action || item.suggested_instruction || 'Review recommendation.'}</small>
+                    {recommendationAction ? (
+                      <button className="link-button" type="button" onClick={recommendationAction.run} disabled={busy}>{recommendationAction.label}</button>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="ai-empty-state">
