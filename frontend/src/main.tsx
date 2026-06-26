@@ -12408,6 +12408,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const rollups = deliveryAttemptEvidenceRollups
       .map((item) => `- ${item.label}: ${item.value} (${item.detail})`)
       .join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     const attempts = deliveryAttempts.slice(0, 8).map((attempt) => {
       const metadata = attempt.metadata_json || {};
       const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
@@ -12470,6 +12477,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Rule performance: ${rulePerformanceValue} (${rulePerformanceDetail})`,
       `Submission path: ${submissionPathValue} (${submissionPathDetail})`,
       `Evidence completeness: ${evidenceCompletenessValue} (${evidenceCompletenessDetail})`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Summary',
       rollups,
