@@ -10665,6 +10665,18 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   const sentRecords = countRecordsByStatus(sendRecords, acceptedDeliveryStatuses);
   const activeJobs = sendJobs.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length;
   const selectedJob = sendJobs.find((job) => job.id === selectedJobId);
+  const selectedJobProofRoute = selectedJob?.metadata_json?.latest_proof_route as Record<string, unknown> | undefined;
+  const selectedJobProofRouteDetail = selectedJobProofRoute
+    ? [
+      selectedJobProofRoute.mta_route_status || selectedJobProofRoute.status || '',
+      selectedJobProofRoute.delivery_route_mode || '',
+      selectedJobProofRoute.submission_provider || selectedJobProofRoute.route_mode_provider || '',
+      selectedJobProofRoute.route_mode_ip_pool_name || selectedJobProofRoute.mta_ip_pool_name || '',
+      selectedJobProofRoute.mta_node_name || '',
+      selectedJobProofRoute.mta_submission_host || selectedJobProofRoute.route_key || '',
+      selectedJobProofRoute.mta_route_block_code ? `block ${selectedJobProofRoute.mta_route_block_code}` : '',
+    ].filter(Boolean).join(' | ')
+    : '';
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
   const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
   const selectedDomainRouteMode = selectedDomainPolicy?.metadata_json?.delivery_route_mode as Record<string, unknown> | undefined;
@@ -16260,6 +16272,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <div><span>Job</span><strong>{selectedJob ? selectedJob.id.slice(0, 8) : '-'}</strong></div>
             <div><span>Job status</span><strong>{selectedJob?.status || '-'}</strong></div>
             <div><span>Requested</span><strong>{formatInt(selectedJob?.requested_count)}</strong></div>
+            <div><span>Job proof route</span><strong>{selectedJobProofRouteDetail || '-'}</strong></div>
             <div><span>Record</span><strong>{selectedRecord ? selectedRecord.id.slice(0, 8) : '-'}</strong></div>
             <div><span>Recipient</span><strong>{selectedRecord?.to_email || '-'}</strong></div>
             <div><span>Record status</span><strong>{selectedRecord?.status || '-'}</strong></div>
