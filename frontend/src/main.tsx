@@ -2650,6 +2650,19 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const isCreatingCampaign = !isPersistedCampaign;
   const campaignPerformanceById = new Map(campaigns.map((campaign) => [campaign.campaign_id, campaign]));
   const selectedCampaignPerformance = selectedCampaignId ? campaignPerformanceById.get(selectedCampaignId) : null;
+  const latestJob = workflowStatus?.latest_send_job;
+  const latestJobProofRoute = latestJob?.metadata_json?.latest_proof_route as Record<string, unknown> | undefined;
+  const latestJobProofRouteDetail = latestJobProofRoute
+    ? [
+      latestJobProofRoute.mta_route_status || latestJobProofRoute.status || '',
+      latestJobProofRoute.delivery_route_mode || '',
+      latestJobProofRoute.submission_provider || latestJobProofRoute.route_mode_provider || '',
+      latestJobProofRoute.route_mode_ip_pool_name || latestJobProofRoute.mta_ip_pool_name || '',
+      latestJobProofRoute.mta_node_name || '',
+      latestJobProofRoute.mta_submission_host || latestJobProofRoute.route_key || '',
+      latestJobProofRoute.mta_route_block_code ? `block ${latestJobProofRoute.mta_route_block_code}` : '',
+    ].filter(Boolean).join(' | ')
+    : '';
 
   useEffect(() => {
     if (!selectedCampaign) return;
@@ -2690,9 +2703,12 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     },
     {
       label: 'Delivery',
-      ready: Boolean(workflowStatus?.latest_send_job || selectedCampaignPerformance?.sent_count),
-      detail: workflowStatus?.latest_send_job
-        ? `${workflowStatus.latest_send_job.status}: ${formatInt(workflowStatus.latest_send_job.queued_count)} queued.`
+      ready: Boolean(latestJob || selectedCampaignPerformance?.sent_count),
+      detail: latestJob
+        ? [
+          `${latestJob.status}: ${formatInt(latestJob.queued_count)} queued.`,
+          latestJobProofRouteDetail ? `Proof route ${latestJobProofRouteDetail}.` : '',
+        ].filter(Boolean).join(' ')
         : selectedCampaignPerformance
           ? `${formatInt(selectedCampaignPerformance.sent_count)} sent so far.`
           : 'No delivery job visible yet.',
@@ -2702,7 +2718,6 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   const readinessScore = Math.round((readyCount / Math.max(readinessCards.length, 1)) * 100);
   const validationErrors = workflowStatus?.validation?.errors || [];
   const validationWarnings = workflowStatus?.validation?.warnings || [];
-  const latestJob = workflowStatus?.latest_send_job;
   const latestRequested = Number(latestJob?.requested_count || selectedCampaignPerformance?.requested_count || 0);
   const latestProcessed = Number((selectedCampaignPerformance?.sent_count || 0) + (selectedCampaignPerformance?.failed_count || 0) + (latestJob?.suppressed_count || 0));
   const latestProgressPct = latestRequested ? Math.min(100, Math.round((latestProcessed / latestRequested) * 100)) : 0;
@@ -2991,7 +3006,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     {
       label: 'Send engine handoff',
       value: latestJob ? latestJob.status : lastLaunchResult ? 'Dry-run' : 'Pending',
-      detail: latestJob ? `${formatInt(latestJob.queued_count)} queued in latest job.` : lastLaunchResult ? `${formatInt(lastLaunchResult.queued_count)} queued in dry-run result.` : 'Run dry-run launch before production queueing.',
+      detail: latestJob
+        ? [
+          `${formatInt(latestJob.queued_count)} queued in latest job.`,
+          latestJobProofRouteDetail ? `Proof route ${latestJobProofRouteDetail}.` : '',
+        ].filter(Boolean).join(' ')
+        : lastLaunchResult
+          ? `${formatInt(lastLaunchResult.queued_count)} queued in dry-run result.`
+          : 'Run dry-run launch before production queueing.',
       tone: latestJob || lastLaunchResult ? 'good' : 'warn',
     },
     {
