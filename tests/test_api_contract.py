@@ -489,6 +489,14 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
     }
 
 
+def test_campaign_launch_response_exposes_latest_proof_route() -> None:
+    client = TestClient(app)
+    schemas = client.get('/openapi.json').json()['components']['schemas']
+    launch_properties = schemas['CampaignLaunchRead']['properties']
+
+    assert 'latest_proof_route' in launch_properties
+
+
 def test_campaign_proof_route_status_blocks_unresolved_managed_smtp() -> None:
     attempt = DeliveryAttempt(
         send_record_id=uuid4(),

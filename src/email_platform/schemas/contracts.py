@@ -428,6 +428,7 @@ class CampaignLaunchRead(BaseModel):
     queued_count: int
     suppressed_count: int
     dry_run: bool
+    latest_proof_route: JsonObject | None = None
 
 
 class CampaignValidationRead(BaseModel):

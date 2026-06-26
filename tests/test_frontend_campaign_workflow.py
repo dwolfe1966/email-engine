@@ -80,6 +80,9 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'latestJobProofRouteDetail',
         "metadata_json?.latest_proof_route",
         'Proof route ${latestJobProofRouteDetail}',
+        'lastLaunchProofRoute',
+        'lastLaunchProofRouteDetail',
+        'lastLaunchResult?.latest_proof_route',
         'latest_proof_route',
         'latestProofRouteDetail',
         'latestProofRouteEvidence',
@@ -186,6 +189,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'lastLaunchResult.requested_count',
         'lastLaunchResult.queued_count',
         'lastLaunchResult.suppressed_count',
+        '<span>Proof route</span>',
         'launch-result-card',
     ]
 

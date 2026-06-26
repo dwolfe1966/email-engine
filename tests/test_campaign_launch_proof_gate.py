@@ -76,7 +76,7 @@ def test_launch_job_metadata_snapshots_managed_smtp_proof_route() -> None:
         },
     )
 
-    metadata = service._launch_job_metadata(True, attempt)
+    metadata = service._launch_job_metadata(True, service._proof_attempt_metadata(attempt))
 
     assert metadata['dry_run'] is True
     proof_route = metadata['latest_proof_route']
@@ -104,7 +104,10 @@ def test_launch_job_metadata_snapshots_sendgrid_proof_route() -> None:
         },
     )
 
-    proof_route = service._launch_job_metadata(False, attempt)['latest_proof_route']
+    proof_route = service._launch_job_metadata(
+        False,
+        service._proof_attempt_metadata(attempt),
+    )['latest_proof_route']
 
     assert proof_route['route_type'] == 'sendgrid'
     assert proof_route['submission_provider'] == 'sendgrid'

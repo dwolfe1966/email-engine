@@ -237,6 +237,7 @@ class CampaignService:
         if not payload.dry_run and campaign.status != CampaignStatus.scheduled:
             raise ValueError('Campaign must be approved before queue launch.')
         proof_attempt = self._assert_latest_proof_route_ok(campaign.id)
+        proof_route_metadata = self._proof_attempt_metadata(proof_attempt)
 
         rule_tree = self._rule_tree(campaign, payload)
         audience_snapshot_id: UUID | None = None
@@ -256,7 +257,7 @@ class CampaignService:
             requested_count=requested_count,
             queued_count=0,
             suppressed_count=0,
-            metadata_json=self._launch_job_metadata(payload.dry_run, proof_attempt),
+            metadata_json=self._launch_job_metadata(payload.dry_run, proof_route_metadata),
         )
         self.db.add(job)
         self.db.flush()
@@ -291,6 +292,7 @@ class CampaignService:
             queued_count=job.queued_count,
             suppressed_count=job.suppressed_count,
             dry_run=payload.dry_run,
+            latest_proof_route=proof_route_metadata,
         )
 
     def _assert_latest_proof_route_ok(self, campaign_id: UUID) -> DeliveryAttempt:
@@ -313,11 +315,11 @@ class CampaignService:
     def _launch_job_metadata(
         self,
         dry_run: bool,
-        proof_attempt: DeliveryAttempt,
+        proof_route_metadata: dict[str, object],
     ) -> dict[str, object]:
         return {
             'dry_run': dry_run,
-            'latest_proof_route': self._proof_attempt_metadata(proof_attempt),
+            'latest_proof_route': proof_route_metadata,
         }
 
     def _proof_attempt_metadata(self, attempt: DeliveryAttempt) -> dict[str, object]:

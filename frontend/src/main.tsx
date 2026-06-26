@@ -652,6 +652,7 @@ type CampaignLaunchResult = {
   queued_count: number;
   suppressed_count: number;
   dry_run: boolean;
+  latest_proof_route: Record<string, unknown> | null;
 };
 
 type CampaignTestSendResult = {
@@ -2663,6 +2664,18 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestJobProofRoute.mta_route_block_code ? `block ${latestJobProofRoute.mta_route_block_code}` : '',
     ].filter(Boolean).join(' | ')
     : '';
+  const lastLaunchProofRoute = lastLaunchResult?.latest_proof_route || null;
+  const lastLaunchProofRouteDetail = lastLaunchProofRoute
+    ? [
+      lastLaunchProofRoute.mta_route_status || lastLaunchProofRoute.status || '',
+      lastLaunchProofRoute.delivery_route_mode || '',
+      lastLaunchProofRoute.submission_provider || lastLaunchProofRoute.route_mode_provider || '',
+      lastLaunchProofRoute.route_mode_ip_pool_name || lastLaunchProofRoute.mta_ip_pool_name || '',
+      lastLaunchProofRoute.mta_node_name || '',
+      lastLaunchProofRoute.mta_submission_host || lastLaunchProofRoute.route_key || '',
+      lastLaunchProofRoute.mta_route_block_code ? `block ${lastLaunchProofRoute.mta_route_block_code}` : '',
+    ].filter(Boolean).join(' | ')
+    : '';
 
   useEffect(() => {
     if (!selectedCampaign) return;
@@ -3379,6 +3392,9 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Requested</span><strong>{formatInt(lastLaunchResult.requested_count)}</strong></div>
               <div><span>Queued</span><strong>{formatInt(lastLaunchResult.queued_count)}</strong></div>
               <div><span>Suppressed</span><strong>{formatInt(lastLaunchResult.suppressed_count)}</strong></div>
+              {lastLaunchProofRouteDetail ? (
+                <div><span>Proof route</span><strong>{lastLaunchProofRouteDetail}</strong></div>
+              ) : null}
               <a href="#delivery">Open delivery</a>
             </div>
           ) : null}
