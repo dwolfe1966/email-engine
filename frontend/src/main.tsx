@@ -10678,7 +10678,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ].filter(Boolean).join(' | ')
     : '';
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
-  const selectedRecordRouteAttempt = deliveryAttempts.find((attempt) => (
+  const attemptHasRouteEvidence = (attempt: DeliveryAttemptRead) => (
     attempt.send_record_id === selectedRecordId
     && (
       attempt.metadata_json?.mta_route_resolved !== undefined
@@ -10686,7 +10686,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       || attempt.metadata_json?.mta_route_block_code
       || attempt.metadata_json?.delivery_route_mode
     )
-  ));
+  );
+  const selectedRecordRouteAttempt = deliveryAttempts.find(attemptHasRouteEvidence);
   const selectedRecordRouteEvidence = selectedRecordRouteAttempt?.metadata_json as Record<string, unknown> | undefined;
   const selectedRecordRouteEvidenceDetail = selectedRecordRouteEvidence
     ? [
@@ -15184,6 +15185,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   async function reviewDeliveryWithAi() {
     await runDeliveryOperation('Running AI Delivery Review', async () => {
+      let aiSelectedRecordRouteAttempt = selectedRecordRouteAttempt;
+      let aiSelectedRecordRouteEvidence = selectedRecordRouteEvidence;
+      if (selectedRecordId && !aiSelectedRecordRouteEvidence) {
+        const { items } = await refreshDeliveryAttempts();
+        aiSelectedRecordRouteAttempt = items.find(attemptHasRouteEvidence);
+        aiSelectedRecordRouteEvidence = aiSelectedRecordRouteAttempt?.metadata_json as Record<string, unknown> | undefined;
+      }
       const data = await fetchJson<AIWorkflowAnalysis>('/api/v1/ai/delivery/analyze', {
         method: 'POST',
         body: JSON.stringify({
@@ -15194,8 +15202,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             selected_job: selectedJob || null,
             selected_job_proof_route_evidence: selectedJobProofRoute || null,
             selected_record: selectedRecord || null,
-            selected_record_latest_attempt: selectedRecordRouteAttempt || null,
-            selected_record_route_evidence: selectedRecordRouteEvidence || null,
+            selected_record_latest_attempt: aiSelectedRecordRouteAttempt || null,
+            selected_record_route_evidence: aiSelectedRecordRouteEvidence || null,
             triage: {
               title: deliveryTriageAction.title,
               detail: deliveryTriageAction.detail,
