@@ -15229,6 +15229,36 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
 
   function deliveryAiRecommendationAction(item: NonNullable<AIWorkflowAnalysis['recommendations']>[number]) {
     if (item.category !== 'routing' && !item.code.includes('_route')) return null;
+    if (!deliveryAttempts.length) {
+      return {
+        label: 'Load Route Evidence',
+        run: loadDeliveryAttempts,
+      };
+    }
+    if (summaryTopPool.count) {
+      return {
+        label: 'Focus Pool Controls',
+        run: loadEvidenceMtaPoolControls,
+      };
+    }
+    if (summaryTopRule.count && selectedDomainPolicy?.route_id) {
+      return {
+        label: 'Select Matched Rule',
+        run: loadEvidenceManagedSmtpRoutingRule,
+      };
+    }
+    if (summaryTopProvider.count) {
+      return {
+        label: 'Filter Provider Feedback',
+        run: loadEvidenceProviderFeedbackEvents,
+      };
+    }
+    if (selectedDomainPolicy?.route_id) {
+      return {
+        label: 'Replay Resolver Matrix',
+        run: previewEvidenceRouteMatrix,
+      };
+    }
     return {
       label: 'Load Route Evidence',
       run: loadDeliveryAttempts,
