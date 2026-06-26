@@ -929,6 +929,45 @@ def test_ai_delivery_analysis_accepts_selected_job_proof_route_context() -> None
     assert 'resolve_selected_job_route' in codes
 
 
+def test_ai_delivery_analysis_accepts_selected_record_route_context() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/delivery/analyze',
+        json={
+            'delivery_context': {
+                'jobs': {'items': [{'id': 'job-a', 'status': 'completed'}]},
+                'records': {'items': []},
+                'selected_record': {
+                    'id': 'record-a',
+                    'status': 'failed',
+                    'provider': 'managed_smtp',
+                    'error_message': 'Managed SMTP route blocked.',
+                },
+                'selected_record_route_evidence': {
+                    'mta_route_resolved': False,
+                    'delivery_route_mode': 'managed_smtp_pool',
+                    'submission_provider': 'managed_smtp',
+                    'mta_ip_pool_name': 'scaleway-primary',
+                    'mta_node_name': 'mta-node-1',
+                    'mta_route_block_code': 'POOL_CAPACITY_EXHAUSTED',
+                    'mta_route_block_message': 'IP pool has no available sending capacity.',
+                },
+            },
+            'goals': ['Review selected record route'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    expected_summary = (
+        'Selected record route: blocked / managed_smtp_pool / managed_smtp / '
+        'scaleway-primary / mta-node-1.'
+    )
+    assert any(expected_summary == item for item in data['summary'])
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'resolve_selected_record_route' in codes
+
+
 def test_ai_journey_analysis_contract() -> None:
     client = TestClient(app)
     response = client.post(

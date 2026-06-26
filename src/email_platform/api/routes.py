@@ -1692,6 +1692,12 @@ def _deterministic_delivery_analysis(
         context.get('selected_job_proof_route_evidence')
         or selected_job_metadata.get('latest_proof_route')
     )
+    selected_record = _mapping(context.get('selected_record'))
+    selected_record_latest_attempt = _mapping(context.get('selected_record_latest_attempt'))
+    selected_record_route_evidence = _mapping(
+        context.get('selected_record_route_evidence')
+        or selected_record_latest_attempt.get('metadata_json')
+    )
     recommendations: list[AIDeliveryRecommendationRead] = []
 
     def add(
@@ -1759,6 +1765,45 @@ def _deterministic_delivery_analysis(
     proof_route_block_message = str(
         selected_job_proof_route.get('mta_route_block_message') or ''
     )
+    record_route_resolved = selected_record_route_evidence.get('mta_route_resolved')
+    record_route_status = str(
+        selected_record_route_evidence.get('mta_route_status')
+        or (
+            'resolved'
+            if record_route_resolved is True
+            else 'blocked' if record_route_resolved is False else ''
+        )
+    ).lower()
+    record_route_mode = str(selected_record_route_evidence.get('delivery_route_mode') or '')
+    record_route_provider = str(
+        selected_record_route_evidence.get('submission_provider')
+        or selected_record_route_evidence.get('mta_submission_provider')
+        or selected_record_route_evidence.get('route_mode_provider')
+        or selected_record_route_evidence.get('mta_provider')
+        or selected_record.get('provider')
+        or selected_record_latest_attempt.get('provider')
+        or ''
+    )
+    record_route_pool = str(
+        selected_record_route_evidence.get('route_mode_ip_pool_name')
+        or selected_record_route_evidence.get('mta_ip_pool_name')
+        or selected_record_route_evidence.get('mta_ip_pool_id')
+        or ''
+    )
+    record_route_node = str(
+        selected_record_route_evidence.get('mta_node_name')
+        or selected_record_route_evidence.get('mta_node_id')
+        or ''
+    )
+    record_route_block_code = str(
+        selected_record_route_evidence.get('mta_route_block_code') or ''
+    )
+    record_route_block_message = str(
+        selected_record_route_evidence.get('mta_route_block_message')
+        or selected_record_latest_attempt.get('error_message')
+        or selected_record.get('error_message')
+        or ''
+    )
 
     if queued_records or stuck_jobs:
         add(
@@ -1791,6 +1836,28 @@ def _deterministic_delivery_analysis(
             + (f': {proof_route_block_message}' if proof_route_block_message else '.'),
             'Open route evidence, inspect the selected provider, pool, and node, then rerun proof before retrying delivery.',
             0.93,
+        )
+    if selected_record_route_evidence and (
+        record_route_status == 'blocked' or bool(record_route_block_code)
+    ):
+        route_parts = [
+            record_route_status or 'blocked',
+            record_route_mode,
+            record_route_provider,
+            record_route_pool,
+            record_route_node,
+            record_route_block_code,
+        ]
+        add(
+            'resolve_selected_record_route',
+            'routing',
+            'high',
+            'Resolve selected record route',
+            'Selected record route evidence shows '
+            + ' / '.join(part for part in route_parts if part)
+            + (f': {record_route_block_message}' if record_route_block_message else '.'),
+            'Open delivery attempts for this record, inspect the route block evidence, then fix the pool, node, rule, or provider before retrying.',
+            0.94,
         )
     if sending_records:
         add(
@@ -1879,6 +1946,22 @@ def _deterministic_delivery_analysis(
                     proof_route_provider,
                     proof_route_pool,
                     proof_route_node,
+                ]
+                if part
+            )
+            + '.'
+        )
+    if selected_record_route_evidence:
+        summary.append(
+            'Selected record route: '
+            + ' / '.join(
+                part
+                for part in [
+                    record_route_status or 'unknown',
+                    record_route_mode,
+                    record_route_provider,
+                    record_route_pool,
+                    record_route_node,
                 ]
                 if part
             )

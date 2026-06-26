@@ -10678,6 +10678,30 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ].filter(Boolean).join(' | ')
     : '';
   const selectedRecord = sendRecords.find((record) => record.id === selectedRecordId);
+  const selectedRecordRouteAttempt = deliveryAttempts.find((attempt) => (
+    attempt.send_record_id === selectedRecordId
+    && (
+      attempt.metadata_json?.mta_route_resolved !== undefined
+      || attempt.metadata_json?.mta_route_status
+      || attempt.metadata_json?.mta_route_block_code
+      || attempt.metadata_json?.delivery_route_mode
+    )
+  ));
+  const selectedRecordRouteEvidence = selectedRecordRouteAttempt?.metadata_json as Record<string, unknown> | undefined;
+  const selectedRecordRouteEvidenceDetail = selectedRecordRouteEvidence
+    ? [
+      selectedRecordRouteEvidence.mta_route_status
+        || (selectedRecordRouteEvidence.mta_route_resolved === true
+          ? 'resolved'
+          : selectedRecordRouteEvidence.mta_route_resolved === false ? 'blocked' : ''),
+      selectedRecordRouteEvidence.delivery_route_mode || '',
+      selectedRecordRouteEvidence.submission_provider || selectedRecordRouteEvidence.mta_submission_provider || selectedRecordRouteEvidence.mta_provider || '',
+      selectedRecordRouteEvidence.route_mode_ip_pool_name || selectedRecordRouteEvidence.mta_ip_pool_name || '',
+      selectedRecordRouteEvidence.mta_node_name || '',
+      selectedRecordRouteEvidence.mta_submission_host || selectedRecordRouteAttempt?.route_key || '',
+      selectedRecordRouteEvidence.mta_route_block_code ? `block ${selectedRecordRouteEvidence.mta_route_block_code}` : '',
+    ].filter(Boolean).join(' | ')
+    : '';
   const selectedDomainPolicy = domainPolicies.find((policy) => policy.id === selectedDomainPolicyId);
   const selectedDomainRouteMode = selectedDomainPolicy?.metadata_json?.delivery_route_mode as Record<string, unknown> | undefined;
   const selectedDomainRouteModeAuditLog = Array.isArray(selectedDomainPolicy?.metadata_json?.delivery_route_mode_audit_log)
@@ -15170,6 +15194,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             selected_job: selectedJob || null,
             selected_job_proof_route_evidence: selectedJobProofRoute || null,
             selected_record: selectedRecord || null,
+            selected_record_latest_attempt: selectedRecordRouteAttempt || null,
+            selected_record_route_evidence: selectedRecordRouteEvidence || null,
             triage: {
               title: deliveryTriageAction.title,
               detail: deliveryTriageAction.detail,
@@ -16277,6 +16303,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <div><span>Record</span><strong>{selectedRecord ? selectedRecord.id.slice(0, 8) : '-'}</strong></div>
             <div><span>Recipient</span><strong>{selectedRecord?.to_email || '-'}</strong></div>
             <div><span>Record status</span><strong>{selectedRecord?.status || '-'}</strong></div>
+            <div><span>Record route</span><strong>{selectedRecordRouteEvidenceDetail || '-'}</strong></div>
           </div>
         </section>
       ) : null}
