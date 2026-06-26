@@ -307,7 +307,18 @@ class CampaignService:
             and attempt.smtp_response_code >= 400
         )
         if route_blocked or managed_smtp_unresolved or smtp_failed or attempt.status == 'failed':
-            raise ValueError('Resolve proof routing before dry-run launch.')
+            raise ValueError(self._proof_route_error_message(attempt))
+
+    def _proof_route_error_message(self, attempt: DeliveryAttempt) -> str:
+        metadata = attempt.metadata_json or {}
+        detail_parts = [
+            str(metadata.get('mta_route_block_code') or ''),
+            str(metadata.get('mta_route_block_message') or attempt.error_message or ''),
+        ]
+        detail = ': '.join(part for part in detail_parts if part)
+        if detail:
+            return f'Resolve proof routing before dry-run launch. {detail}'
+        return 'Resolve proof routing before dry-run launch.'
 
     def _latest_campaign_test_attempt(self, campaign_id: UUID) -> DeliveryAttempt | None:
         jobs = list(

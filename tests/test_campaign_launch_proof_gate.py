@@ -14,8 +14,9 @@ def proof_attempt(
     provider: str = 'managed_smtp',
     route_type: str = 'managed_smtp',
     route_key: str = 'managed-smtp-scaleway-primary',
+    metadata: dict[str, object] | None = None,
 ) -> DeliveryAttempt:
-    metadata = {}
+    metadata = dict(metadata or {})
     if route_resolved is not None:
         metadata['mta_route_resolved'] = route_resolved
     return DeliveryAttempt(
@@ -77,6 +78,26 @@ def test_campaign_launch_proof_gate_rejects_unresolved_managed_smtp_route() -> N
 
     with pytest.raises(ValueError, match='Resolve proof routing'):
         service._assert_latest_proof_route_ok(uuid4())
+
+
+def test_campaign_launch_proof_gate_includes_route_block_evidence() -> None:
+    service = service_with_latest_attempt(
+        proof_attempt(
+            route_resolved=False,
+            metadata={
+                'mta_route_block_code': 'NO_HEALTHY_MTA_NODE',
+                'mta_route_block_message': 'No active MTA node is available.',
+            },
+        )
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        service._assert_latest_proof_route_ok(uuid4())
+
+    assert str(exc_info.value) == (
+        'Resolve proof routing before dry-run launch. '
+        'NO_HEALTHY_MTA_NODE: No active MTA node is available.'
+    )
 
 
 def test_campaign_launch_proof_gate_rejects_failed_smtp_response() -> None:
