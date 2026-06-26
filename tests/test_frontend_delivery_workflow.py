@@ -32,6 +32,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'selectedJobProofRouteDetail',
         "selectedJob?.metadata_json?.latest_proof_route",
         'Job proof route',
+        'selected_job_proof_route_evidence',
         'providerFootprint',
         'deliveryFoundationItems',
         'Send Engine Foundation',

@@ -896,6 +896,39 @@ def test_ai_delivery_analysis_contract() -> None:
     assert 'avoid_blind_retries' in codes
 
 
+def test_ai_delivery_analysis_accepts_selected_job_proof_route_context() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/delivery/analyze',
+        json={
+            'delivery_context': {
+                'jobs': {'items': [{'id': 'job-a', 'status': 'completed'}]},
+                'records': {'items': []},
+                'selected_job_proof_route_evidence': {
+                    'mta_route_status': 'blocked',
+                    'delivery_route_mode': 'managed_smtp_pool',
+                    'submission_provider': 'managed_smtp',
+                    'route_mode_ip_pool_name': 'scaleway-primary',
+                    'mta_node_name': 'mta-node-1',
+                    'mta_route_block_code': 'NO_HEALTHY_MTA_NODE',
+                    'mta_route_block_message': 'No active MTA node is available.',
+                },
+            },
+            'goals': ['Review selected job route'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    expected_summary = (
+        'Selected job proof route: blocked / managed_smtp_pool / managed_smtp / '
+        'scaleway-primary / mta-node-1.'
+    )
+    assert any(expected_summary == item for item in data['summary'])
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'resolve_selected_job_route' in codes
+
+
 def test_ai_journey_analysis_contract() -> None:
     client = TestClient(app)
     response = client.post(

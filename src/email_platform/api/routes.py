@@ -1686,6 +1686,12 @@ def _deterministic_delivery_analysis(
         if isinstance(item, Mapping)
     ]
     run = _mapping(context.get('last_run'))
+    selected_job = _mapping(context.get('selected_job'))
+    selected_job_metadata = _mapping(selected_job.get('metadata_json'))
+    selected_job_proof_route = _mapping(
+        context.get('selected_job_proof_route_evidence')
+        or selected_job_metadata.get('latest_proof_route')
+    )
     recommendations: list[AIDeliveryRecommendationRead] = []
 
     def add(
@@ -1731,6 +1737,28 @@ def _deterministic_delivery_analysis(
         job for job in jobs
         if str(job.get('status')) in {'queued', 'sending'} and _number(job.get('queued_count')) > 0
     ]
+    proof_route_status = str(
+        selected_job_proof_route.get('mta_route_status')
+        or selected_job_proof_route.get('status')
+        or ''
+    ).lower()
+    proof_route_mode = str(selected_job_proof_route.get('delivery_route_mode') or '')
+    proof_route_provider = str(
+        selected_job_proof_route.get('submission_provider')
+        or selected_job_proof_route.get('route_mode_provider')
+        or selected_job_proof_route.get('mta_provider')
+        or ''
+    )
+    proof_route_pool = str(
+        selected_job_proof_route.get('route_mode_ip_pool_name')
+        or selected_job_proof_route.get('mta_ip_pool_name')
+        or ''
+    )
+    proof_route_node = str(selected_job_proof_route.get('mta_node_name') or '')
+    proof_route_block_code = str(selected_job_proof_route.get('mta_route_block_code') or '')
+    proof_route_block_message = str(
+        selected_job_proof_route.get('mta_route_block_message') or ''
+    )
 
     if queued_records or stuck_jobs:
         add(
@@ -1741,6 +1769,28 @@ def _deterministic_delivery_analysis(
             f'{queued_records} queued record(s) and {len(stuck_jobs)} active queued job(s) are visible.',
             'Run Process Queued for this campaign or send job, then reload records and verify progress.',
             0.94,
+        )
+    if selected_job_proof_route and (
+        proof_route_status == 'blocked' or bool(proof_route_block_code)
+    ):
+        route_parts = [
+            proof_route_status or 'blocked',
+            proof_route_mode,
+            proof_route_provider,
+            proof_route_pool,
+            proof_route_node,
+            proof_route_block_code,
+        ]
+        add(
+            'resolve_selected_job_route',
+            'routing',
+            'high',
+            'Resolve selected job route',
+            'Selected job proof route shows '
+            + ' / '.join(part for part in route_parts if part)
+            + (f': {proof_route_block_message}' if proof_route_block_message else '.'),
+            'Open route evidence, inspect the selected provider, pool, and node, then rerun proof before retrying delivery.',
+            0.93,
         )
     if sending_records:
         add(
@@ -1818,6 +1868,22 @@ def _deterministic_delivery_analysis(
         f'Provider counts: {provider_summary}.',
         f'{len(recommendations)} recommendation(s) generated.',
     ]
+    if selected_job_proof_route:
+        summary.append(
+            'Selected job proof route: '
+            + ' / '.join(
+                part
+                for part in [
+                    proof_route_status or 'unknown',
+                    proof_route_mode,
+                    proof_route_provider,
+                    proof_route_pool,
+                    proof_route_node,
+                ]
+                if part
+            )
+            + '.'
+        )
     if payload.goals:
         summary.append(f'Goal focus: {"; ".join(payload.goals[:3])}.')
     return AIDeliveryAnalysisRead(summary=summary, recommendations=recommendations)

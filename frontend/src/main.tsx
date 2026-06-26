@@ -15168,8 +15168,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             records: { items: sendRecords },
             progress,
             selected_job: selectedJob || null,
+            selected_job_proof_route_evidence: selectedJobProofRoute || null,
             selected_record: selectedRecord || null,
-              triage: {
+            triage: {
               title: deliveryTriageAction.title,
               detail: deliveryTriageAction.detail,
               queued_records: queuedRecords,
