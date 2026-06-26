@@ -14063,6 +14063,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const params = new URLSearchParams({ limit: '5000' });
     if (selectedRecordId) params.set('send_record_id', selectedRecordId);
     else if (selectedJobId) params.set('send_job_id', selectedJobId);
+    if (selectedJobId) params.set('selected_job_id', selectedJobId);
+    if (selectedJobProofRouteDetail) params.set('selected_job_proof_route', selectedJobProofRouteDetail);
+    if (selectedRecordId) params.set('selected_record_id', selectedRecordId);
+    if (selectedRecordRouteEvidenceDetail) params.set('selected_record_route', selectedRecordRouteEvidenceDetail);
+    if (selectedRecordRouteAttempt?.id) params.set('selected_record_route_attempt_id', selectedRecordRouteAttempt.id);
     Object.entries(deliveryAttemptFilters).forEach(([key, value]) => {
       const trimmed = deliveryFilterValue(value);
       if (trimmed) params.set(key, trimmed);

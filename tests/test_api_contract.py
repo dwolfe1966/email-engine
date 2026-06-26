@@ -367,9 +367,17 @@ def test_delivery_attempt_evidence_export_exposes_limit_contract() -> None:
         '/api/v1/delivery-attempts/evidence-export.csv'
     ]['get']['parameters']
     limit_param = next(item for item in params if item['name'] == 'limit')
+    names = {item['name'] for item in params}
 
     assert limit_param['schema']['maximum'] == 5000
     assert limit_param['schema']['minimum'] == 1
+    assert {
+        'selected_job_id',
+        'selected_record_id',
+        'selected_job_proof_route',
+        'selected_record_route',
+        'selected_record_route_attempt_id',
+    }.issubset(names)
 
 
 def test_delivery_attempt_evidence_export_includes_provider_preference_columns() -> None:
@@ -402,6 +410,11 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "'skipped_reasons'",
         "'skipped_nodes_json'",
         "'missing_evidence_dimensions'",
+        "'selected_job_id'",
+        "'selected_job_proof_route'",
+        "'selected_record_id'",
+        "'selected_record_route'",
+        "'selected_record_route_attempt_id'",
         "metadata.get('mta_rule_hit_provider_preference_mode')",
         "metadata.get('mta_provider_preference_fallback_used')",
         "metadata.get('mta_provider_preference_fallback_provider')",

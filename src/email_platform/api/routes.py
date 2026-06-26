@@ -3883,6 +3883,11 @@ def export_delivery_attempt_evidence_csv(
     mta_provider_preference_fallback_used: bool | None = None,
     mta_node_skipped_reason: str | None = None,
     mta_route_block_code: str | None = None,
+    selected_job_id: str | None = None,
+    selected_record_id: str | None = None,
+    selected_job_proof_route: str | None = None,
+    selected_record_route: str | None = None,
+    selected_record_route_attempt_id: str | None = None,
     limit: DeliveryAttemptExportLimit = 5000,
 ) -> Response:
     filters = _delivery_attempt_evidence_filters(
@@ -3963,6 +3968,11 @@ def export_delivery_attempt_evidence_csv(
         str(total_matching > exported_count).lower(),
         export_scope,
         export_filters or 'none',
+        selected_job_id or str(send_job_id or ''),
+        selected_job_proof_route or '',
+        selected_record_id or str(send_record_id or ''),
+        selected_record_route or '',
+        selected_record_route_attempt_id or '',
     ]
     output = io.StringIO()
     writer = csv.writer(output)
@@ -3975,6 +3985,11 @@ def export_delivery_attempt_evidence_csv(
             'export_truncated',
             'export_scope',
             'export_filters',
+            'selected_job_id',
+            'selected_job_proof_route',
+            'selected_record_id',
+            'selected_record_route',
+            'selected_record_route_attempt_id',
             'attempt_id',
             'send_record_id',
             'send_job_id',
