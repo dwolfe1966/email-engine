@@ -236,7 +236,7 @@ class CampaignService:
             raise ValueError('; '.join(validation.errors or validation.warnings))
         if not payload.dry_run and campaign.status != CampaignStatus.scheduled:
             raise ValueError('Campaign must be approved before queue launch.')
-        self._assert_latest_proof_route_ok(campaign.id)
+        proof_attempt = self._assert_latest_proof_route_ok(campaign.id)
 
         rule_tree = self._rule_tree(campaign, payload)
         audience_snapshot_id: UUID | None = None
@@ -256,7 +256,7 @@ class CampaignService:
             requested_count=requested_count,
             queued_count=0,
             suppressed_count=0,
-            metadata_json={'dry_run': payload.dry_run},
+            metadata_json=self._launch_job_metadata(payload.dry_run, proof_attempt),
         )
         self.db.add(job)
         self.db.flush()
@@ -293,7 +293,7 @@ class CampaignService:
             dry_run=payload.dry_run,
         )
 
-    def _assert_latest_proof_route_ok(self, campaign_id: UUID) -> None:
+    def _assert_latest_proof_route_ok(self, campaign_id: UUID) -> DeliveryAttempt:
         attempt = self._latest_campaign_test_attempt(campaign_id)
         if not attempt:
             raise ValueError('Run a successful campaign proof send before dry-run or launch.')
@@ -308,6 +308,62 @@ class CampaignService:
         )
         if route_blocked or managed_smtp_unresolved or smtp_failed or attempt.status == 'failed':
             raise ValueError(self._proof_route_error_message(attempt))
+        return attempt
+
+    def _launch_job_metadata(
+        self,
+        dry_run: bool,
+        proof_attempt: DeliveryAttempt,
+    ) -> dict[str, object]:
+        return {
+            'dry_run': dry_run,
+            'latest_proof_route': self._proof_attempt_metadata(proof_attempt),
+        }
+
+    def _proof_attempt_metadata(self, attempt: DeliveryAttempt) -> dict[str, object]:
+        metadata = attempt.metadata_json or {}
+        submission_provider = metadata.get('submission_provider') or metadata.get(
+            'mta_submission_provider'
+        )
+        route_status = self._proof_attempt_route_status(attempt)
+        proof_route: dict[str, object] = {
+            'delivery_attempt_id': str(attempt.id) if attempt.id else None,
+            'send_record_id': str(attempt.send_record_id),
+            'status': attempt.status,
+            'route_type': attempt.route_type,
+            'route_key': attempt.route_key,
+            'submission_provider': submission_provider,
+            'mta_route_status': route_status,
+            'smtp_response_code': attempt.smtp_response_code,
+        }
+        for key in [
+            'delivery_route_mode',
+            'route_mode_provider',
+            'route_mode_ip_pool_name',
+            'route_mode_mta_ip_pool_id',
+            'mta_provider',
+            'mta_ip_pool_name',
+            'mta_node_name',
+            'mta_submission_host',
+            'mta_submission_port',
+            'mta_public_ipv4',
+            'mta_route_block_code',
+            'mta_route_block_message',
+        ]:
+            if key in metadata:
+                proof_route[key] = metadata[key]
+        return proof_route
+
+    def _proof_attempt_route_status(self, attempt: DeliveryAttempt) -> str:
+        metadata = attempt.metadata_json or {}
+        route_resolved = metadata.get('mta_route_resolved')
+        if route_resolved is True:
+            return 'resolved'
+        if route_resolved is False or attempt.status == 'failed':
+            return 'blocked'
+        if str(attempt.route_type or '') == 'managed_smtp':
+            return 'blocked'
+        return 'attempted'
 
     def _proof_route_error_message(self, attempt: DeliveryAttempt) -> str:
         metadata = attempt.metadata_json or {}

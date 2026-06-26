@@ -59,6 +59,60 @@ def test_campaign_launch_proof_gate_accepts_successful_sendgrid_attempt() -> Non
     service._assert_latest_proof_route_ok(uuid4())
 
 
+def test_launch_job_metadata_snapshots_managed_smtp_proof_route() -> None:
+    service = service_with_latest_attempt(None)
+    attempt = proof_attempt(
+        metadata={
+            'mta_submission_provider': 'managed_smtp',
+            'delivery_route_mode': 'managed_smtp_pool',
+            'route_mode_provider': 'managed_smtp',
+            'route_mode_ip_pool_name': 'scaleway-primary',
+            'route_mode_mta_ip_pool_id': 'pool-scaleway-primary',
+            'mta_ip_pool_name': 'scaleway-primary',
+            'mta_node_name': 'mta-node-1',
+            'mta_submission_host': 'mta.scaleway.example',
+            'mta_submission_port': 587,
+            'mta_public_ipv4': '203.0.113.10',
+        },
+    )
+
+    metadata = service._launch_job_metadata(True, attempt)
+
+    assert metadata['dry_run'] is True
+    proof_route = metadata['latest_proof_route']
+    assert proof_route['route_type'] == 'managed_smtp'
+    assert proof_route['submission_provider'] == 'managed_smtp'
+    assert proof_route['mta_route_status'] == 'resolved'
+    assert proof_route['delivery_route_mode'] == 'managed_smtp_pool'
+    assert proof_route['route_mode_ip_pool_name'] == 'scaleway-primary'
+    assert proof_route['mta_node_name'] == 'mta-node-1'
+    assert proof_route['mta_submission_host'] == 'mta.scaleway.example'
+
+
+def test_launch_job_metadata_snapshots_sendgrid_proof_route() -> None:
+    service = service_with_latest_attempt(None)
+    attempt = proof_attempt(
+        provider='sendgrid',
+        route_type='sendgrid',
+        route_key='sendgrid-primary',
+        route_resolved=None,
+        smtp_response_code=202,
+        metadata={
+            'submission_provider': 'sendgrid',
+            'delivery_route_mode': 'third_party_provider',
+            'route_mode_provider': 'sendgrid',
+        },
+    )
+
+    proof_route = service._launch_job_metadata(False, attempt)['latest_proof_route']
+
+    assert proof_route['route_type'] == 'sendgrid'
+    assert proof_route['submission_provider'] == 'sendgrid'
+    assert proof_route['mta_route_status'] == 'attempted'
+    assert proof_route['delivery_route_mode'] == 'third_party_provider'
+    assert proof_route['route_mode_provider'] == 'sendgrid'
+
+
 def test_campaign_launch_proof_gate_requires_a_proof_attempt() -> None:
     service = service_with_latest_attempt(None)
 
