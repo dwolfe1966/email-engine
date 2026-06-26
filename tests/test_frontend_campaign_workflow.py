@@ -84,6 +84,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'latestProofRouteDetail',
         'latestProofRouteEvidence',
         'latest_proof_route_evidence',
+        'latest_launch_job_proof_route_evidence',
         'latestProofRouteOk',
         'proofRouteAvailable',
         'activeProofRouteDetail',

@@ -1312,7 +1312,9 @@ def _deterministic_campaign_analysis(
         context.get('latest_send_record') or workflow_status.get('latest_send_record')
     )
     proof_route = _mapping(
-        context.get('latest_proof_route_evidence') or context.get('latest_proof_route')
+        context.get('latest_proof_route_evidence')
+        or context.get('latest_launch_job_proof_route_evidence')
+        or context.get('latest_proof_route')
     )
     recommendations: list[AICampaignRecommendationRead] = []
 
@@ -1362,7 +1364,10 @@ def _deterministic_campaign_analysis(
         or ''
     )
     proof_route_pool = str(
-        proof_route.get('pool') or proof_route.get('mta_ip_pool_name') or ''
+        proof_route.get('pool')
+        or proof_route.get('mta_ip_pool_name')
+        or proof_route.get('route_mode_ip_pool_name')
+        or ''
     )
     proof_route_node = str(
         proof_route.get('node') or proof_route.get('mta_node_name') or ''
