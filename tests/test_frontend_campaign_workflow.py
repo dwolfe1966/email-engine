@@ -82,6 +82,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'Proof route ${latestJobProofRouteDetail}',
         'lastLaunchProofRoute',
         'lastLaunchProofRouteDetail',
+        'latestLaunchJobProofRouteEvidence',
         'lastLaunchResult?.latest_proof_route',
         'latest_proof_route',
         'latestProofRouteDetail',

@@ -2665,6 +2665,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     ].filter(Boolean).join(' | ')
     : '';
   const lastLaunchProofRoute = lastLaunchResult?.latest_proof_route || null;
+  const latestLaunchJobProofRouteEvidence = lastLaunchProofRoute || latestJobProofRoute || null;
   const lastLaunchProofRouteDetail = lastLaunchProofRoute
     ? [
       lastLaunchProofRoute.mta_route_status || lastLaunchProofRoute.status || '',
@@ -3170,7 +3171,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
             performance: selectedCampaignPerformance,
             workflow_status: workflowStatus,
             latest_proof_route_evidence: latestProofRouteEvidence,
-            latest_launch_job_proof_route_evidence: latestJobProofRoute || null,
+            latest_launch_job_proof_route_evidence: latestLaunchJobProofRouteEvidence,
             last_test_send: lastTestSendResult,
             last_launch_result: lastLaunchResult,
             validation: workflowStatus?.validation || { errors: validationErrors, warnings: validationWarnings },
