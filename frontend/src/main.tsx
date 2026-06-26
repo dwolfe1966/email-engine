@@ -2845,6 +2845,10 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     : null;
   const proofRouteAvailable = Boolean(lastTestSendResult || latestProofRoute);
   const activeProofRouteDetail = lastTestSendResult ? proofSendSummary : latestProofRouteDetail;
+  const proofRoutingBlockerMessage = [
+    'Resolve proof routing before dry-run launch.',
+    activeProofRouteDetail,
+  ].filter(Boolean).join(' ');
   const canDryRunLaunch = Boolean(selectedCampaignId && proofSendOk && !operationBusy);
   const campaignTriageAction = !selectedCampaignId
     ? {
@@ -3108,7 +3112,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
   async function dryRunLaunch() {
     await runOperation('Running dry-run launch', async () => {
       if (!selectedCampaignId) throw new Error('Create or select a campaign first.');
-      if (!proofSendOk) throw new Error('Resolve proof routing before dry-run launch.');
+      if (!proofSendOk) throw new Error(proofRoutingBlockerMessage);
       const data = await fetchJson<CampaignLaunchResult>(`/api/v1/campaigns/${selectedCampaignId}/launch`, {
         method: 'POST',
         body: JSON.stringify({ audience_id: audienceId || null, variables: parsedVariables(), dry_run: true }),
