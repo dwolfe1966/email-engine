@@ -100,6 +100,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'capacity ${latestProofRoute.mta_pool_capacity_status}',
         'rate ${latestProofRoute.mta_rate_limit_recent_count',
         'block ${latestProofRoute.mta_route_block_code}',
+        'issue ${latestProofRoute.mta_route_block_message}',
         "latestProofRoute.mta_submission_host ? `${latestProofRoute.mta_submission_host}:${latestProofRoute.mta_submission_port",
         'latestProofRoute.mta_public_ipv4',
         'decision_basis',
