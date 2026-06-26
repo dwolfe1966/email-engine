@@ -13037,12 +13037,22 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  received_at=${event.received_at}`,
       ].join('\n');
     }).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Provider Feedback Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
       `Active filters: ${activeFilters}`,
       `Loaded events: ${formatInt(providerFeedbackEvents.length)} / ${formatInt(providerFeedbackTotal)}`,
       `Review signals: ${formatInt(providerFeedbackWarningCount)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Events',
       events || '- no provider feedback events loaded',
@@ -13077,6 +13087,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Generated at', new Date().toISOString()],
       ['Active filters', activeFilters],
       ['Loaded rows', providerFeedbackEvents.length, 'Total matching rows', providerFeedbackTotal],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       ['id', 'provider', 'source', 'event_name', 'email', 'provider_message_id', 'idempotency_key', 'received_at', 'payload_json', 'metadata_json'],
       ...providerFeedbackEvents.map((event) => [
