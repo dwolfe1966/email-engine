@@ -736,6 +736,10 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Run AI Review',
         'delivery-ai-review-panel',
         'delivery-ai-summary',
+        'AI delivery route evidence',
+        'Job route:',
+        'Record route:',
+        'Attempt evidence:',
         'No AI delivery review loaded',
     ]
 
@@ -790,6 +794,9 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'Delivery Attempt Audit',
         'Load Attempt Audit',
         'Run AI Review',
+        'Job route:',
+        'Record route:',
+        'Attempt evidence:',
         'Provider Feedback Evidence',
         'Managed SMTP Readiness',
         'Managed SMTP Deployment',

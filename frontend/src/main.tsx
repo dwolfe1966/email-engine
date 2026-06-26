@@ -16393,6 +16393,11 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             </div>
             <button className="link-button" type="button" onClick={reviewDeliveryWithAi} disabled={busy}>Run AI Review</button>
           </div>
+          <div className="delivery-ai-summary" aria-label="AI delivery route evidence">
+            <span>Job route: {selectedJobProofRouteDetail || 'not loaded'}</span>
+            <span>Record route: {selectedRecordRouteEvidenceDetail || 'not loaded'}</span>
+            <span>Attempt evidence: {formatInt(deliveryAttempts.length)} row(s)</span>
+          </div>
           {aiDeliverySummary.length ? (
             <div className="delivery-ai-summary">
               {aiDeliverySummary.slice(0, 4).map((item) => <span key={item}>{item}</span>)}
