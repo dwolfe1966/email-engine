@@ -14024,6 +14024,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  blockers=${item.blocker_labels.join(', ') || item.blockers.join(', ') || '-'}`,
       `  next_action=${item.next_action || '-'}`,
     ].join('\n')).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Provider Readiness Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -14036,6 +14043,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Provider accounts: ${formatInt(summary?.provider_accounts.total || 0)} total / ${formatInt(summary?.provider_accounts.active || 0)} active`,
       `MTA nodes: ${formatInt(summary?.nodes.total || 0)} total / ${formatInt(summary?.nodes.active || 0)} active`,
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Provider readiness',
       providers || '- no provider readiness loaded',
