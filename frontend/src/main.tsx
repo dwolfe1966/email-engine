@@ -12848,6 +12848,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       const reasonCode = String(item.reason || item.code || item.status || 'skipped');
       return `- ${nodeName}: ${reasonCode}`;
     }).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Route Resolution Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -12899,6 +12906,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       route ? `selected_weight=${route.mta_node_selection_weight ?? '-'}` : null,
       route ? `skipped_count=${formatInt(route.mta_node_skipped_count)}` : null,
       skippedNodes || '- no skipped nodes reported',
+      '',
+      'Selected route proof',
+      selectedRouteProof,
     ].filter((line) => line !== null).join('\n');
   }
 
