@@ -12947,6 +12947,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         route ? `  provider=${route.provider || '-'}` : null,
       ].filter(Boolean).join('\n');
     }).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Resolver Matrix',
       `Generated at: ${new Date().toISOString()}`,
@@ -12956,6 +12963,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       '',
       'Input',
       managedSmtpRouteMatrixInput || '-',
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Rows',
       rows || '- no matrix rows loaded',
@@ -12982,6 +12992,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Domain policy', selectedDomainPolicy?.domain || ''],
       ['Route ID', selectedDomainPolicy?.route_id || ''],
       ['Summary', `${formatInt(managedSmtpRouteMatrix.ok_count)} / ${formatInt(managedSmtpRouteMatrix.total)} ready`, 'Blocked', managedSmtpRouteMatrix.blocked_count],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       ['row', 'label', 'send_type', 'sender_domain', 'recipient_domain', 'status', 'routing_rule', 'pool', 'node', 'provider', 'block_code', 'block_message', 'block_details'],
       ...managedSmtpRouteMatrix.results.map((item) => {
