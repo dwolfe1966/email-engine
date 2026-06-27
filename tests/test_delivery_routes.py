@@ -509,6 +509,108 @@ def test_delivery_route_selector_can_match_sender_domain_for_managed_smtp_route(
     assert selected.route_mode_mta_ip_pool_id
 
 
+def test_delivery_route_selector_preserves_route_mode_matrix_for_platform_switching() -> None:
+    managed_pool_id = uuid4()
+    scaleway_pool_id = uuid4()
+    scenarios = [
+        {
+            'name': 'pool',
+            'route': SimpleNamespace(
+                id=uuid4(),
+                name='managed-pool-primary',
+                route_type=DeliveryRouteType.managed_smtp,
+                status=DeliveryRouteStatus.active,
+            ),
+            'metadata': {'ip_pool': 'warmup-pool', 'mta_ip_pool_id': str(managed_pool_id)},
+            'expected_type': 'managed_smtp',
+            'expected_key': 'managed-pool-primary',
+            'expected_mode': 'managed_smtp_pool',
+            'expected_provider': 'managed_smtp',
+            'expected_pool': 'warmup-pool',
+            'expected_pool_id': str(managed_pool_id),
+        },
+        {
+            'name': 'scaleway-direct',
+            'route': SimpleNamespace(
+                id=uuid4(),
+                name='scaleway-direct-primary',
+                route_type=DeliveryRouteType.managed_smtp,
+                status=DeliveryRouteStatus.active,
+            ),
+            'metadata': {
+                'delivery_route_mode': {
+                    'mode': 'managed_smtp_direct',
+                    'provider': 'scaleway',
+                    'ip_pool_name': 'scaleway-internal-test',
+                    'mta_ip_pool_id': str(scaleway_pool_id),
+                }
+            },
+            'expected_type': 'managed_smtp',
+            'expected_key': 'scaleway-direct-primary',
+            'expected_mode': 'managed_smtp_direct',
+            'expected_provider': 'scaleway',
+            'expected_pool': 'scaleway-internal-test',
+            'expected_pool_id': str(scaleway_pool_id),
+        },
+        {
+            'name': 'sendgrid',
+            'route': SimpleNamespace(
+                id=uuid4(),
+                name='sendgrid-primary',
+                route_type=DeliveryRouteType.sendgrid,
+                status=DeliveryRouteStatus.active,
+            ),
+            'metadata': {
+                'delivery_route_mode': {
+                    'mode': 'third_party_provider',
+                    'provider': 'sendgrid',
+                    'ip_pool_name': None,
+                }
+            },
+            'expected_type': 'sendgrid',
+            'expected_key': 'sendgrid-primary',
+            'expected_mode': 'third_party_provider',
+            'expected_provider': 'sendgrid',
+            'expected_pool': None,
+            'expected_pool_id': None,
+        },
+    ]
+
+    for scenario in scenarios:
+        policy = SimpleNamespace(
+            id=uuid4(),
+            domain='email-engine.app',
+            route_id=scenario['route'].id,
+            warmup_stage='stage_1',
+            max_per_minute=25,
+            max_concurrent=2,
+            paused_until=None,
+            metadata_json=scenario['metadata'],
+        )
+
+        class RouteModeMatrixDb(FakeDb):
+            def get(self, model, item_id):
+                if item_id == scenario['route'].id:
+                    return scenario['route']
+                return None
+
+        service = DeliveryRouteService(RouteModeMatrixDb(scalar_results=[policy]))
+
+        selected = service.select_for_record(
+            SimpleNamespace(to_email='recipient@gmail.com'),
+            SimpleNamespace(email_provider='sendgrid'),
+            sender_domain='email-engine.app',
+        )
+
+        assert selected.route_type == scenario['expected_type'], scenario['name']
+        assert selected.route_key == scenario['expected_key'], scenario['name']
+        assert selected.source == 'domain_policy', scenario['name']
+        assert selected.delivery_route_mode == scenario['expected_mode'], scenario['name']
+        assert selected.route_mode_provider == scenario['expected_provider'], scenario['name']
+        assert selected.route_mode_ip_pool_name == scenario['expected_pool'], scenario['name']
+        assert selected.route_mode_mta_ip_pool_id == scenario['expected_pool_id'], scenario['name']
+
+
 def test_delivery_route_selector_ignores_paused_domain_policy() -> None:
     policy = SimpleNamespace(
         id=uuid4(),
