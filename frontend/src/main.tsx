@@ -13445,6 +13445,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .join(', ') || 'none';
     const warningCount = mtaNodeEvents.filter((event) => ['warning', 'error', 'critical'].includes(event.severity)).length;
     const runtimeApplyEvents = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event));
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     const events = mtaNodeEvents.slice(0, 12).map((event) => {
       const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
       const configApply = mtaNodeEventConfigApply(event);
@@ -13469,6 +13476,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Review signals: ${formatInt(warningCount)}`,
       `Runtime config apply events: ${formatInt(runtimeApplyEvents.length)}`,
       '',
+      'Selected route proof',
+      selectedRouteProof,
+      '',
       'Events',
       events || '- no MTA node events loaded',
     ].join('\n');
@@ -13489,6 +13499,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       .map(([key, value]) => `${key}=${deliveryFilterValue(value)}`)
       .join(', ') || 'none';
     const applyEvents = mtaNodeEvents.filter((event) => mtaNodeEventConfigApply(event));
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     const events = applyEvents.slice(0, 12).map((event) => {
       const node = managedSmtpDeploymentSummary?.recent_nodes.find((item) => item.node.id === event.mta_node_id)?.node;
       const configApply = mtaNodeEventConfigApply(event);
@@ -13507,6 +13524,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Generated at: ${new Date().toISOString()}`,
       `Active filters: ${activeFilters}`,
       `Loaded apply events: ${formatInt(applyEvents.length)} / ${formatInt(mtaNodeEvents.length)} loaded MTA event(s)`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Apply events',
       events || '- no runtime config apply events loaded',
@@ -13538,6 +13558,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Generated at', new Date().toISOString()],
       ['Active filters', activeFilters],
       ['Loaded apply rows', applyEvents.length, 'Loaded MTA event rows', mtaNodeEvents.length],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       ['id', 'mta_node_id', 'node_name', 'node_hostname', 'severity', 'observed_at', 'received_at', 'runtime_config_apply', 'runtime_config_detail', 'config_apply_json'],
       ...applyEvents.map((event) => {
@@ -13582,6 +13604,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Generated at', new Date().toISOString()],
       ['Active filters', activeFilters],
       ['Loaded rows', mtaNodeEvents.length, 'Total matching rows', mtaNodeEventTotal],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       ['id', 'mta_node_id', 'node_name', 'node_hostname', 'event_type', 'severity', 'summary', 'observed_at', 'received_at', 'runtime_config_apply', 'runtime_config_detail', 'payload_json'],
       ...mtaNodeEvents.map((event) => {
