@@ -13143,6 +13143,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  result_keys=${Object.keys(check.result_json || {}).join(', ') || '-'}`,
       `  created_at=${check.created_at}`,
     ].join('\n')).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Readiness Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13155,6 +13162,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Notification: ${readinessNotification ? `${readinessNotification.severity} should_notify=${readinessNotification.should_notify} dedupe=${readinessNotification.dedupe_key}` : '-'}`,
       `Latest check: ${latestReadinessCheck ? `${latestReadinessCheck.status} ${latestReadinessCheck.created_at}` : '-'}`,
       `Latest pass: ${latestSuccessfulReadiness ? latestSuccessfulReadiness.created_at : '-'}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Checks',
       checks || '- no readiness checks loaded',
@@ -13187,6 +13197,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Status counts', `ok=${readinessSummary?.ok_count || 0}`, `warning=${readinessSummary?.warning_count || 0}`, `failed=${readinessSummary?.failed_count || 0}`],
       ['Trend', readinessTrend?.trend || '', 'failure_rate', readinessTrend ? formatPct(readinessTrend.failure_rate) : ''],
       ['Alert', readinessAlerts?.alert_status || readinessTrend?.alert_status || '', 'Reasons', (readinessAlerts?.alert_reasons || readinessTrend?.alert_reasons || []).join(', ')],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       ['id', 'source', 'check_type', 'status', 'domain', 'host', 'summary', 'created_at', 'result_json'],
       ...readinessChecks.map((check) => [
