@@ -13286,6 +13286,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         ].join('\n')).join('\n');
     const provider = firstManagedSmtpProvider;
     const node = firstManagedSmtpNode?.node;
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP First Send Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13307,6 +13314,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
       `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
       `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Checklist',
       items || '- no first-send checklist loaded',
@@ -13333,6 +13343,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  value=${item.value || '-'}`,
       `  detail=${item.detail || '-'}`,
     ].join('\n')).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Controlled Seed Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13355,6 +13372,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
       `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
       `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Runbook',
       '- Load First Send Evidence immediately before the seed.',
