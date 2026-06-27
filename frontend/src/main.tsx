@@ -12559,6 +12559,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
   function buildManagedSmtpControlledExpansionPack() {
     const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
     const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Controlled Expansion Review Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -12584,6 +12591,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Selected membership: ${selectedMtaIpPoolNode ? mtaNodeNameForPoolMembership(selectedMtaIpPoolNode) : '-'} status=${selectedMtaIpPoolNode?.status || '-'} priority=${selectedMtaIpPoolNode?.priority || '-'} weight=${selectedMtaIpPoolNode?.weight || '-'}`,
       `Pool operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPool?.metadata_json).length)}`,
       `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Next action',
       controlledExpansionReady
@@ -12631,6 +12641,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       evidence_completeness: {
         value: evidenceCompletenessValue,
         detail: evidenceCompletenessDetail,
+      },
+      selected_route_proof: {
+        selected_job_id: selectedJobId || null,
+        selected_job_proof_route: selectedJobProofRouteDetail || null,
+        selected_record_id: selectedRecordId || null,
+        selected_record_route: selectedRecordRouteEvidenceDetail || null,
+        selected_record_route_attempt_id: selectedRecordRouteAttempt?.id || null,
       },
       domain: selectedDomainPolicy?.domain || domainDashboard?.domain || null,
       warmup_stage: selectedDomainPolicy?.warmup_stage || domainDashboard?.warmup_stage || null,
@@ -12684,6 +12701,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const poolAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPool?.metadata_json);
     const membershipAuditEntries = formatMtaControlAuditEvidence(selectedMtaIpPoolNode?.metadata_json);
     const gateEvidence = buildWarmupGateEvidence();
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     const auditEntries = warmupAuditLog.slice(-8).map((entry) => {
       const item = entry as Record<string, unknown>;
       const storedGateEvidence = item.gate_evidence && typeof item.gate_evidence === 'object'
@@ -12730,6 +12754,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Membership operator audit entries: ${formatInt(mtaControlAuditEntries(selectedMtaIpPoolNode?.metadata_json).length)}`,
       `Gate evidence snapshot: ${Object.keys(gateEvidence).join(', ') || '-'}`,
       `Throttle: ${domainDashboard?.throttle_status || '-'} max_per_minute=${selectedDomainPolicy?.max_per_minute || domainDashboard?.max_per_minute || '-'} max_concurrent=${selectedDomainPolicy?.max_concurrent || domainDashboard?.max_concurrent || '-'}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Operator guidance',
       warmupReviewValue === 'Advance ready'
