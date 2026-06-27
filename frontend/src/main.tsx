@@ -13707,6 +13707,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     ].join('\n')).join('\n');
     const rows = formatMaintenanceRows(maintenanceResults);
     const filteredRows = formatMaintenanceRows(maintenanceFilteredResults);
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Maintenance Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13717,6 +13724,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Gate evidence rows: ${formatInt(maintenanceGateEvidenceRows.length)} / ${formatInt(maintenanceWarmupRows.length)}`,
       `Visible filter: ${maintenanceSelectedFilter.label} (${formatInt(maintenanceFilteredResults.length)} / ${formatInt(maintenanceResults.length)} row(s))`,
       'Export scope: Full maintenance run; visible filter is included for operator context only',
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       `Filtered policy results (${maintenanceSelectedFilter.label})`,
       filteredRows || '- no policy rows match the selected maintenance filter',
@@ -13764,6 +13774,8 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['Gate evidence rows', maintenanceGateEvidenceRows.length, 'Warmup rows', maintenanceWarmupRows.length],
       ['Visible filter', maintenanceSelectedFilter.label, 'Filtered rows', maintenanceFilteredResults.length, 'Total rows', maintenanceResults.length],
       ['Export scope', 'Full maintenance run', 'Visible filter is included for operator context only'],
+      ['Selected job', selectedJobId || '', 'Selected job proof route', selectedJobProofRouteDetail || ''],
+      ['Selected record', selectedRecordId || '', 'Selected record route', selectedRecordRouteEvidenceDetail || '', 'Selected record route attempt', selectedRecordRouteAttempt?.id || ''],
       [],
       [`Filtered policy results (${maintenanceSelectedFilter.label})`],
       maintenanceFilteredResults.length ? maintenanceCsvHeader : ['no policy rows match the selected maintenance filter'],
@@ -14136,6 +14148,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const activeHold = activeComplianceHold && typeof activeComplianceHold === 'object'
       ? activeComplianceHold as Record<string, unknown>
       : null;
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     const authRecords = (domainAuthVerification?.records || []).map((record) => [
       `- ${record.record_type} ${record.name}`,
       `  status=${record.status}`,
@@ -14181,6 +14200,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `IP pool: ${domainDashboard?.ip_pool || '-'}`,
       `Send records: ${formatInt(domainDashboard?.send_record_count || 0)}`,
       `Audit entries: ${formatInt(complianceAuditLog.length)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Authentication DNS records',
       authRecords || '- no authentication verification loaded',
