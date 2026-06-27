@@ -13889,6 +13889,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const bootstrap = lastManagedSmtpBootstrap;
     const route = bootstrap?.route_resolution.route;
     const reason = bootstrap?.route_resolution.reason;
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Bootstrap Profile Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13953,6 +13960,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       'Domain authentication verification',
       `status=${domainAuthVerificationValue}`,
       `detail=${domainAuthVerificationDetail}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'AWS DNS/rDNS checklist',
       awsDnsActivationItems.map((item) => `- ${item.label}: ${item.value} (${item.detail})`).join('\n'),
