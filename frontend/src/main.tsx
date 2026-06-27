@@ -14057,11 +14057,21 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const health = selectedMtaIpPoolHealth;
     const poolAuditEntries = formatMtaControlAuditEvidence(pool?.metadata_json);
     const membershipAuditEntries = formatMtaControlAuditEvidence(membership?.metadata_json);
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Pool Controls Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
       `Pools loaded: ${formatInt(mtaIpPools.length)} / ${formatInt(mtaIpPoolTotal)}`,
       `Memberships loaded: ${formatInt(mtaIpPoolNodes.length)} / ${formatInt(mtaIpPoolNodeTotal)}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Selected pool',
       `id=${pool?.id || '-'}`,
