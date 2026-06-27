@@ -10715,6 +10715,57 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     { value: 'managed_smtp_direct', label: 'Scaleway MTA' },
     { value: 'third_party_provider', label: '3rd Party Provider' },
   ];
+  const routeModeGuidance = {
+    managed_smtp_pool: {
+      label: 'MTA Pool',
+      value: 'Pool balanced',
+      detail: 'Uses managed SMTP routing with IP pool capacity, node health, and fallback evidence.',
+      family: 'Managed SMTP route',
+      providerDetail: 'Provider comes from managed SMTP route rules and pool membership.',
+      poolDetail: 'Pool is required for route resolution and warmup controls.',
+    },
+    managed_smtp_direct: {
+      label: 'Scaleway MTA',
+      value: 'Direct owned MTA',
+      detail: 'Uses a managed SMTP route constrained to the selected provider and IP pool.',
+      family: 'Managed SMTP route',
+      providerDetail: 'Provider should match the owned MTA provider, usually scaleway.',
+      poolDetail: 'Pool names the Scaleway IP set used for direct routing.',
+    },
+    third_party_provider: {
+      label: '3rd Party Provider',
+      value: 'Provider adapter',
+      detail: 'Uses a non-managed delivery route such as SendGrid; managed IP pool selection is ignored.',
+      family: 'Third-party route',
+      providerDetail: 'Provider should match the external adapter, usually sendgrid.',
+      poolDetail: 'IP pool is not sent when saving a third-party route mode.',
+    },
+  };
+  const selectedRouteModeGuidance = routeModeGuidance[domainRouteModeForm.mode as keyof typeof routeModeGuidance] || routeModeGuidance.managed_smtp_pool;
+  const routeModeSwitcherItems = [
+    {
+      label: 'Selected mode',
+      value: selectedRouteModeGuidance.value,
+      detail: selectedRouteModeGuidance.detail,
+    },
+    {
+      label: 'Route family',
+      value: selectedRouteModeGuidance.family,
+      detail: domainRouteModeForm.mode === 'third_party_provider'
+        ? 'Only non-managed routes are available in the delivery route picker.'
+        : 'Only managed SMTP routes are available in the delivery route picker.',
+    },
+    {
+      label: 'Provider',
+      value: domainRouteModeForm.provider || '-',
+      detail: selectedRouteModeGuidance.providerDetail,
+    },
+    {
+      label: 'IP pool',
+      value: domainRouteModeForm.mode === 'third_party_provider' ? 'Not used' : domainRouteModeForm.ip_pool_name || '-',
+      detail: selectedRouteModeGuidance.poolDetail,
+    },
+  ];
 
   useEffect(() => {
     if (!selectedDomainPolicy) return;
@@ -16198,8 +16249,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             Route mode
             <select value={domainRouteModeForm.mode} onChange={(event) => {
               const mode = event.target.value;
-              updateDomainRouteModeForm('mode', mode);
-              updateDomainRouteModeForm('provider', mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp');
+              setDomainRouteModeForm((current) => ({
+                ...current,
+                mode,
+                route_id: '',
+                provider: mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp',
+                ip_pool_name: mode === 'third_party_provider' ? '' : current.ip_pool_name || 'scaleway-internal-test',
+              }));
             }}>
               {routeModeOptions.map((option) => (
                 <option value={option.value} key={option.value}>{option.label}</option>
@@ -16232,6 +16288,15 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
             <input value={domainDashboard?.recommendations?.[0] || 'Load the reputation dashboard for domain-specific guidance.'} readOnly />
           </label>
           <button className="ghost" type="button" onClick={saveDomainRouteMode} disabled={busy || !selectedDomainPolicyId || !domainRouteModeForm.route_id}>Save Route Mode</button>
+        </div>
+        <div className="domain-compliance-strip route-mode-readiness-strip" aria-label="Route mode readiness summary">
+          {routeModeSwitcherItems.map((item) => (
+            <div className="domain-compliance-item" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
         </div>
         <div className="delivery-ai-summary" aria-label="Domain route mode switcher">
           <span>Route switch</span>
