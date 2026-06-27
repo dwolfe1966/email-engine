@@ -13649,6 +13649,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  runtime_config_detail=${formatRuntimeConfigApplyDetail(mtaNodeEventConfigApply(latestRuntimeConfigApplyEventForNode(item.node.id)))}`,
       `  queue=${formatInt(item.agent_queue_depth)} total / ${formatInt(item.agent_deferred_count)} deferred`,
     ].join('\n')).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Deployment Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13664,6 +13671,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Submission auth: credentials=${summary?.submission_credentials_configured ? 'configured' : 'missing'} tls=${summary?.submission_tls_enabled ? 'enabled' : 'disabled'}`,
       `Agent coverage: ${formatInt(summary?.fleet_health.stale_agent_nodes || 0)} stale, ${formatInt(summary?.fleet_health.missing_agent_nodes || 0)} missing, ${formatInt(summary?.fleet_health.config_drift_nodes || 0)} config drift, ${formatInt(summary?.fleet_health.host_update_required_nodes || 0)} host update required`,
       `Queue pressure: ${formatInt(summary?.fleet_health.queue_depth || 0)} queued, ${formatInt(summary?.fleet_health.deferred_count || 0)} deferred`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Providers',
       providers || '- no provider readiness loaded',
@@ -13833,6 +13843,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `  queue=${formatInt(item.agent_queue_depth || 0)} total / ${formatInt(item.agent_deferred_count || 0)} deferred`,
       `  next_action=${managedSmtpNodeNextAction(item)}`,
     ].join('\n')).join('\n');
+    const selectedRouteProof = [
+      `Selected job: ${selectedJobId || '-'}`,
+      `Selected job proof route: ${selectedJobProofRouteDetail || '-'}`,
+      `Selected record: ${selectedRecordId || '-'}`,
+      `Selected record route: ${selectedRecordRouteEvidenceDetail || '-'}`,
+      `Selected record route attempt: ${selectedRecordRouteAttempt?.id || '-'}`,
+    ].join('\n');
     return [
       'Managed SMTP Fleet Health Evidence Pack',
       `Generated at: ${new Date().toISOString()}`,
@@ -13850,6 +13867,9 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       `Postfix logs: bounce=${formatInt(fleet?.agent_log_bounce_nodes || 0)} deferred=${formatInt(fleet?.agent_log_deferred_nodes || 0)} warning=${formatInt(fleet?.agent_log_warning_nodes || 0)}`,
       `Queue pressure: depth=${formatInt(fleet?.queue_depth || 0)} deferred=${formatInt(fleet?.deferred_count || 0)} active=${formatInt(fleet?.active_queue_count || 0)}`,
       `Action counts: ${JSON.stringify(fleet?.operator_next_action_label_counts || {})}`,
+      '',
+      'Selected route proof',
+      selectedRouteProof,
       '',
       'Recent nodes',
       nodes || '- no MTA node rows loaded',
