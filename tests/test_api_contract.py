@@ -830,6 +830,51 @@ def test_ai_campaign_analysis_accepts_launch_job_proof_route_context() -> None:
     assert 'resolve_campaign_route' not in codes
 
 
+def test_ai_campaign_analysis_accepts_scaleway_direct_proof_route_context() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/campaigns/analyze',
+        json={
+            'campaign_context': {
+                'campaign': {'id': 'campaign-a', 'name': 'Scaleway direct test', 'status': 'draft'},
+                'template': {'id': 'template-a', 'name': 'Direct route template'},
+                'validation': {'ok': True, 'errors': [], 'warnings': []},
+                'audience': {'id': 'audience-a', 'name': 'Warm leads', 'estimated_count': 250},
+                'performance': {'sent_count': 0, 'opened_count': 0, 'clicked_count': 0},
+                'workflow_status': {
+                    'latest_send_record': {
+                        'id': 'record-a',
+                        'status': 'submitted',
+                        'provider': 'managed_smtp',
+                    },
+                },
+                'latest_launch_job_proof_route_evidence': {
+                    'mta_route_status': 'resolved',
+                    'route_type': 'managed_smtp',
+                    'delivery_route_mode': 'managed_smtp_direct',
+                    'submission_provider': 'scaleway',
+                    'route_mode_ip_pool_name': 'scaleway-internal-test',
+                    'mta_node_name': 'scaleway-mta-1',
+                },
+            },
+            'goals': ['Assess launch readiness'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    expected_summary = (
+        'Proof route: resolved / managed_smtp_direct / scaleway / '
+        'scaleway-internal-test / scaleway-mta-1.'
+    )
+    assert any(
+        expected_summary == item
+        for item in data['summary']
+    )
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'resolve_campaign_route' not in codes
+
+
 def test_ai_audience_analysis_contract() -> None:
     client = TestClient(app)
     response = client.post(
