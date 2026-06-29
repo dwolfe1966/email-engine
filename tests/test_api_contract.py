@@ -14,7 +14,11 @@ from email_platform.api.routes import (
 )
 from email_platform.main import app
 from email_platform.models.entities import DeliveryAttempt
-from email_platform.schemas.contracts import TemplatePreviewRequest, TemplateValidationRequest
+from email_platform.schemas.contracts import (
+    CampaignProofRouteRead,
+    TemplatePreviewRequest,
+    TemplateValidationRequest,
+)
 from email_platform.services.documents import document_to_html, html_to_document
 from email_platform.services.templates import SAMPLE_TEMPLATES, TemplateService
 
@@ -500,6 +504,79 @@ def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
         'attempted',
         'not_attempted',
     }
+
+
+def test_campaign_workflow_status_direct_scaleway_proof_route_payload() -> None:
+    attempt = DeliveryAttempt(
+        id=uuid4(),
+        send_record_id=uuid4(),
+        send_job_id=uuid4(),
+        campaign_id=uuid4(),
+        attempt_number=1,
+        provider='managed_smtp',
+        route_type='managed_smtp',
+        route_key='managed-smtp-scaleway-primary',
+        status='submitted',
+        smtp_response_code=250,
+        metadata_json={
+            'mta_route_resolved': True,
+            'mta_submission_provider': 'scaleway',
+            'delivery_route_mode': 'managed_smtp_direct',
+            'route_mode_provider': 'scaleway',
+            'route_mode_ip_pool_name': 'scaleway-internal-test',
+            'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
+            'mta_provider': 'scaleway',
+            'mta_ip_pool_name': 'scaleway-internal-test',
+            'mta_node_name': 'scaleway-mta-1',
+            'mta_submission_host': 'scaleway-mta-1.email-engine.app',
+            'mta_submission_port': 587,
+            'mta_public_ipv4': '203.0.113.20',
+        },
+    )
+    metadata = attempt.metadata_json or {}
+    route_status = _campaign_proof_route_status(attempt, metadata)
+    proof_route = CampaignProofRouteRead(
+        delivery_attempt_id=attempt.id,
+        send_record_id=attempt.send_record_id,
+        status=attempt.status,
+        route_type=attempt.route_type,
+        route_key=attempt.route_key,
+        submission_provider=str(metadata['mta_submission_provider']),
+        delivery_route_mode=str(metadata['delivery_route_mode']),
+        route_mode_provider=str(metadata['route_mode_provider']),
+        route_mode_ip_pool_name=str(metadata['route_mode_ip_pool_name']),
+        route_mode_mta_ip_pool_id=str(metadata['route_mode_mta_ip_pool_id']),
+        mta_route_status=route_status,
+        mta_provider=str(metadata['mta_provider']),
+        mta_ip_pool_name=str(metadata['mta_ip_pool_name']),
+        mta_node_name=str(metadata['mta_node_name']),
+        mta_submission_host=str(metadata['mta_submission_host']),
+        mta_submission_port=int(metadata['mta_submission_port']),
+        mta_public_ipv4=str(metadata['mta_public_ipv4']),
+        mta_route_block_code=_campaign_proof_route_block_code(attempt, metadata, route_status),
+        mta_route_block_message=_campaign_proof_route_block_message(
+            attempt,
+            metadata,
+            route_status,
+        ),
+        smtp_response_code=attempt.smtp_response_code,
+    )
+
+    data = proof_route.model_dump(mode='json')
+    assert data['mta_route_status'] == 'resolved'
+    assert data['submission_provider'] == 'scaleway'
+    assert data['delivery_route_mode'] == 'managed_smtp_direct'
+    assert data['route_mode_provider'] == 'scaleway'
+    assert data['route_mode_ip_pool_name'] == 'scaleway-internal-test'
+    assert data['route_mode_mta_ip_pool_id'] == 'pool-scaleway-internal-test'
+    assert data['mta_provider'] == 'scaleway'
+    assert data['mta_ip_pool_name'] == 'scaleway-internal-test'
+    assert data['mta_node_name'] == 'scaleway-mta-1'
+    assert data['mta_submission_host'] == 'scaleway-mta-1.email-engine.app'
+    assert data['mta_submission_port'] == 587
+    assert data['mta_public_ipv4'] == '203.0.113.20'
+    assert data['mta_route_block_code'] is None
+    assert data['mta_route_block_message'] is None
 
 
 def test_campaign_launch_response_exposes_latest_proof_route() -> None:
