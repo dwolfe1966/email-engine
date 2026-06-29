@@ -95,6 +95,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'Latest proof route',
         'delivery_route_mode',
         'route_mode_provider',
+        'route_mode_mta_ip_pool_id',
         'submission_provider',
         "latestProofRoute.mta_route_decision_basis ? latestProofRoute.mta_route_decision_basis.replace",
         'latestProofRoute.mta_rule_hit_name || latestProofRoute.mta_routing_rule_name',
