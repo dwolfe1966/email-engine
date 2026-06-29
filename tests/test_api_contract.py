@@ -1064,6 +1064,38 @@ def test_ai_delivery_analysis_accepts_selected_job_proof_route_context() -> None
     assert 'resolve_selected_job_route' in codes
 
 
+def test_ai_delivery_analysis_accepts_scaleway_direct_selected_job_route() -> None:
+    client = TestClient(app)
+    response = client.post(
+        '/api/v1/ai/delivery/analyze',
+        json={
+            'delivery_context': {
+                'jobs': {'items': [{'id': 'job-a', 'status': 'completed'}]},
+                'records': {'items': []},
+                'selected_job_proof_route_evidence': {
+                    'mta_route_status': 'resolved',
+                    'delivery_route_mode': 'managed_smtp_direct',
+                    'submission_provider': 'scaleway',
+                    'route_mode_ip_pool_name': 'scaleway-internal-test',
+                    'mta_node_name': 'scaleway-mta-1',
+                },
+            },
+            'goals': ['Review selected job route'],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    expected_summary = (
+        'Selected job proof route: resolved / managed_smtp_direct / scaleway / '
+        'scaleway-internal-test / scaleway-mta-1.'
+    )
+    assert any(expected_summary == item for item in data['summary'])
+    codes = {item['code'] for item in data['recommendations']}
+    assert 'resolve_selected_job_route' not in codes
+    assert 'delivery_state_clear' in codes
+
+
 def test_ai_delivery_analysis_accepts_selected_record_route_context() -> None:
     client = TestClient(app)
     response = client.post(
