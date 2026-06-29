@@ -89,6 +89,44 @@ def test_launch_job_metadata_snapshots_managed_smtp_proof_route() -> None:
     assert proof_route['mta_submission_host'] == 'mta.scaleway.example'
 
 
+def test_launch_job_metadata_snapshots_scaleway_direct_proof_route() -> None:
+    service = service_with_latest_attempt(None)
+    attempt = proof_attempt(
+        metadata={
+            'mta_submission_provider': 'scaleway',
+            'delivery_route_mode': 'managed_smtp_direct',
+            'route_mode_provider': 'scaleway',
+            'route_mode_ip_pool_name': 'scaleway-internal-test',
+            'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
+            'mta_provider': 'scaleway',
+            'mta_ip_pool_name': 'scaleway-internal-test',
+            'mta_node_name': 'scaleway-mta-1',
+            'mta_submission_host': 'scaleway-mta-1.email-engine.app',
+            'mta_submission_port': 587,
+            'mta_public_ipv4': '203.0.113.20',
+        },
+    )
+
+    proof_route = service._launch_job_metadata(
+        False,
+        service._proof_attempt_metadata(attempt),
+    )['latest_proof_route']
+
+    assert proof_route['route_type'] == 'managed_smtp'
+    assert proof_route['route_key'] == 'managed-smtp-scaleway-primary'
+    assert proof_route['submission_provider'] == 'scaleway'
+    assert proof_route['mta_route_status'] == 'resolved'
+    assert proof_route['delivery_route_mode'] == 'managed_smtp_direct'
+    assert proof_route['route_mode_provider'] == 'scaleway'
+    assert proof_route['route_mode_ip_pool_name'] == 'scaleway-internal-test'
+    assert proof_route['route_mode_mta_ip_pool_id'] == 'pool-scaleway-internal-test'
+    assert proof_route['mta_provider'] == 'scaleway'
+    assert proof_route['mta_ip_pool_name'] == 'scaleway-internal-test'
+    assert proof_route['mta_node_name'] == 'scaleway-mta-1'
+    assert proof_route['mta_submission_host'] == 'scaleway-mta-1.email-engine.app'
+    assert proof_route['mta_public_ipv4'] == '203.0.113.20'
+
+
 def test_launch_job_metadata_snapshots_sendgrid_proof_route() -> None:
     service = service_with_latest_attempt(None)
     attempt = proof_attempt(
