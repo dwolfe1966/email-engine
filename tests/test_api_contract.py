@@ -420,6 +420,7 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         "'selected_record_id'",
         "'selected_record_route'",
         "'selected_record_route_attempt_id'",
+        'len(header) - len(export_context)',
         "metadata.get('mta_rule_hit_provider_preference_mode')",
         "metadata.get('mta_provider_preference_fallback_used')",
         "metadata.get('mta_provider_preference_fallback_provider')",
