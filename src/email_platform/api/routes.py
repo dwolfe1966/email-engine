@@ -1359,6 +1359,7 @@ def _deterministic_campaign_analysis(
     )
     proof_route_provider = str(
         proof_route.get('submission_provider')
+        or proof_route.get('mta_submission_provider')
         or proof_route.get('route_mode_provider')
         or proof_route.get('mta_provider')
         or ''

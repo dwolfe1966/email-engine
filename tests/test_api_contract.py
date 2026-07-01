@@ -933,7 +933,7 @@ def test_ai_campaign_analysis_accepts_scaleway_direct_proof_route_context() -> N
                     'mta_route_status': 'resolved',
                     'route_type': 'managed_smtp',
                     'delivery_route_mode': 'managed_smtp_direct',
-                    'submission_provider': 'scaleway',
+                    'mta_submission_provider': 'scaleway',
                     'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
                     'mta_node_name': 'scaleway-mta-1',
                 },
