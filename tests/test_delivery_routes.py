@@ -771,6 +771,7 @@ def test_approve_controlled_expansion_writes_policy_metadata_and_audit_log() -> 
 
 
 def test_set_domain_policy_route_mode_switches_to_scaleway_direct() -> None:
+    pool_id = uuid4()
     policy = SimpleNamespace(
         id=uuid4(),
         domain='email-engine.app',
@@ -801,6 +802,7 @@ def test_set_domain_policy_route_mode_switches_to_scaleway_direct() -> None:
             route_id=route.id,
             provider='scaleway',
             ip_pool_name='scaleway-internal-test',
+            mta_ip_pool_id=pool_id,
             operator='ops@example.com',
             reason='switch to scaleway mta',
         ),
@@ -812,7 +814,9 @@ def test_set_domain_policy_route_mode_switches_to_scaleway_direct() -> None:
     assert route_mode['mode'] == 'managed_smtp_direct'
     assert route_mode['provider'] == 'scaleway'
     assert route_mode['ip_pool_name'] == 'scaleway-internal-test'
+    assert route_mode['mta_ip_pool_id'] == str(pool_id)
     assert policy.metadata_json['ip_pool'] == 'scaleway-internal-test'
+    assert policy.metadata_json['mta_ip_pool_id'] == str(pool_id)
     assert policy.metadata_json['delivery_route_mode_audit_log'][-1]['action'] == 'switch'
     assert db.committed
 
