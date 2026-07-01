@@ -2814,6 +2814,13 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
         deliveryAttemptId: latestProofRoute.delivery_attempt_id,
       }
       : null;
+  const latestProofRoutePool = latestProofRoute
+    ? latestProofRoute.mta_ip_pool_name
+      || latestProofRoute.route_mode_ip_pool_name
+      || latestProofRoute.route_mode_mta_ip_pool_id
+      || latestProofRoute.mta_ip_pool_id
+      || ''
+    : '';
   const latestProofRouteDetail = latestProofRoute
     ? [
       latestProofRoute.route_type || 'proof route',
@@ -2828,7 +2835,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       latestProofRoute.mta_provider_preference_fallback_used === true ? 'fallback used' : '',
       latestProofRoute.mta_provider_preference_fallback_provider ? `fallback ${latestProofRoute.mta_provider_preference_fallback_provider}` : '',
       latestProofRoute.mta_node_name ? `node ${latestProofRoute.mta_node_name}` : '',
-      latestProofRoute.mta_ip_pool_name ? `pool ${latestProofRoute.mta_ip_pool_name}` : '',
+      latestProofRoutePool ? `pool ${latestProofRoutePool}` : '',
       latestProofRoute.mta_pool_capacity_status ? `capacity ${latestProofRoute.mta_pool_capacity_status}` : '',
       latestProofRoute.mta_rate_limit_scope ? `rate ${latestProofRoute.mta_rate_limit_recent_count ?? 0}/${latestProofRoute.mta_rate_limit_max_per_minute ?? '-'} ${latestProofRoute.mta_rate_limit_scope}` : '',
       latestProofRoute.mta_route_block_code ? `block ${latestProofRoute.mta_route_block_code}` : '',
@@ -2852,7 +2859,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       provider_fallback_used: latestProofRoute.mta_provider_preference_fallback_used,
       provider_fallback_available: latestProofRoute.mta_provider_preference_fallback_available,
       provider_fallback_provider: latestProofRoute.mta_provider_preference_fallback_provider,
-      pool: latestProofRoute.mta_ip_pool_name || latestProofRoute.route_mode_ip_pool_name || latestProofRoute.route_mode_mta_ip_pool_id || latestProofRoute.mta_ip_pool_id,
+      pool: latestProofRoutePool,
       pool_source: latestProofRoute.mta_ip_pool_selection_source || latestProofRoute.mta_rule_hit_pool_source,
       node: latestProofRoute.mta_node_name,
       node_candidates: latestProofRoute.mta_node_candidate_count,
