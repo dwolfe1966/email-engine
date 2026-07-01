@@ -16311,7 +16311,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <span>{routeModeOptions.find((option) => option.value === (selectedDomainRouteMode?.mode || domainRouteModeForm.mode))?.label || 'MTA Pool'}</span>
           <span>{selectedDeliveryRoute ? `${selectedDeliveryRoute.name} / ${selectedDeliveryRoute.route_type}` : 'No active route selected'}</span>
           <span>{String(selectedDomainRouteMode?.provider || domainRouteModeForm.provider || '-')}</span>
-          <span>{String(selectedDomainRouteMode?.ip_pool_name || selectedDomainPolicy?.metadata_json?.ip_pool || 'no pool')}</span>
+          <span>{String(selectedDomainRouteMode?.ip_pool_name || selectedDomainRouteMode?.mta_ip_pool_id || selectedDomainPolicy?.metadata_json?.ip_pool || selectedDomainPolicy?.metadata_json?.mta_ip_pool_id || 'no pool')}</span>
           <span>{latestDomainRouteModeAudit ? `last switch ${String(latestDomainRouteModeAudit.updated_at || selectedDomainRouteMode?.updated_at || '-')}` : 'no switch audit'}</span>
           <span>{latestDomainRouteModeAudit ? String(latestDomainRouteModeAudit.reason || selectedDomainRouteMode?.reason || '-') : 'no reason'}</span>
         </div>

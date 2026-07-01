@@ -643,6 +643,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'MTA pool ID',
         'mta_ip_pool_id',
         'optional pool UUID',
+        "selectedDomainRouteMode?.mta_ip_pool_id",
         'Save Route Mode',
         'Saving domain route mode',
         'Saved route mode',
