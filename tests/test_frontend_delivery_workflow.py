@@ -782,6 +782,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Load Attempt Audit',
         'Run AI Review',
         'Load Route Evidence',
+        'attemptRoutePoolValue',
+        'attemptRoutePoolLabel',
         'Focus Pool Controls',
         'Select Matched Rule',
         'Filter Provider Feedback',

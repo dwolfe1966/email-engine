@@ -10846,6 +10846,13 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const [label, count] = Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0] || ['-', 0];
     return { label, count };
   };
+  const attemptRoutePoolValue = (metadata: DeliveryAttemptRead['metadata_json']) => (
+    metadata?.mta_ip_pool_name
+    || metadata?.route_mode_ip_pool_name
+    || metadata?.route_mode_mta_ip_pool_id
+    || metadata?.mta_ip_pool_id
+  );
+  const attemptRoutePoolLabel = (metadata: DeliveryAttemptRead['metadata_json']) => String(attemptRoutePoolValue(metadata) || '-');
   function missingAttemptEvidenceDimensions(metadata: DeliveryAttemptRead['metadata_json']) {
     if (metadata?.mta_route_resolved !== true) return [];
     const submissionProvider = metadata.submission_provider || metadata.mta_submission_provider;
@@ -10859,7 +10866,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['pool source', metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source],
       ['provider preference', metadata.mta_rule_hit_provider_preference],
       ['route provider', metadata.mta_provider],
-      ['route pool', metadata.mta_ip_pool_name || metadata.route_mode_ip_pool_name || metadata.route_mode_mta_ip_pool_id || metadata.mta_ip_pool_id],
+      ['route pool', attemptRoutePoolValue(metadata)],
       ['route node', metadata.mta_node_name || metadata.mta_node_id],
       ['submission host', metadata.mta_submission_host],
       ['submission provider', submissionProvider],
@@ -10874,7 +10881,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     const routeState = metadata.mta_route_status
       || (metadata.mta_route_resolved === true ? 'resolved' : metadata.mta_route_resolved === false ? 'blocked' : 'not attempted');
     const rule = String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-');
-    const pool = String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-');
+    const pool = attemptRoutePoolLabel(metadata);
     const node = String(metadata.mta_node_name || metadata.mta_node_id || '-');
     const provider = String(metadata.mta_provider || '-');
     const block = metadata.mta_route_block_code
@@ -10904,7 +10911,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return 'not resolved';
   }));
   const topAttemptProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_provider || '-')));
-  const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.route_mode_ip_pool_name || attempt.metadata_json?.route_mode_mta_ip_pool_id || attempt.metadata_json?.mta_ip_pool_id || '-')));
+  const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => attemptRoutePoolLabel(attempt.metadata_json)));
   const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
   const topAttemptSendType = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_send_type || attempt.metadata_json?.mta_route_send_type || '-')));
   const topAttemptSenderDomain = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_sender_domain || attempt.metadata_json?.mta_route_sender_domain || '-')));
@@ -12490,7 +12497,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  sender_domain=${String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-')}`,
         `  recipient_domain=${String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-')}`,
         `  provider=${String(metadata.mta_provider || '-')}`,
-        `  pool=${String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-')}`,
+        `  pool=${attemptRoutePoolLabel(metadata)}`,
         `  node=${String(metadata.mta_node_name || metadata.mta_node_id || '-')}`,
         `  rule=${String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-')}`,
         `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
@@ -12565,7 +12572,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
         `  sender_domain=${String(metadata.mta_rule_hit_sender_domain || metadata.mta_route_sender_domain || '-')}`,
         `  recipient_domain=${String(metadata.mta_rule_hit_recipient_domain || metadata.mta_route_recipient_domain || '-')}`,
         `  provider=${String(metadata.mta_provider || attempt.provider || '-')}`,
-        `  pool=${String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-')}`,
+        `  pool=${attemptRoutePoolLabel(metadata)}`,
         `  node=${String(metadata.mta_node_name || metadata.mta_node_id || '-')}`,
         `  rule=${String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-')}`,
         `  rule_source=${String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-')}`,
@@ -16936,7 +16943,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
               const dkimSelector = String(metadata.dkim_selector || '-');
               const envelopeFrom = String(metadata.envelope_from || metadata.bounce_domain || '-');
               const mtaProvider = String(metadata.mta_provider || '-');
-              const mtaPool = String(metadata.mta_ip_pool_name || metadata.mta_ip_pool_id || '-');
+              const mtaPool = attemptRoutePoolLabel(metadata);
               const mtaNode = String(metadata.mta_node_name || metadata.mta_node_id || '-');
               const ruleHit = String(metadata.mta_rule_hit_name || metadata.mta_routing_rule_name || '-');
               const ruleSource = String(metadata.mta_rule_hit_source || metadata.mta_routing_rule_source || '-');
