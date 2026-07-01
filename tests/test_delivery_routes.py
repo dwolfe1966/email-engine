@@ -883,6 +883,8 @@ def test_set_domain_policy_route_mode_switches_to_sendgrid_and_clears_pool() -> 
             mode='third_party_provider',
             route_id=route.id,
             provider='sendgrid',
+            ip_pool_name='scaleway-internal-test',
+            mta_ip_pool_id=uuid4(),
             operator='ops@example.com',
         ),
     )
@@ -892,6 +894,8 @@ def test_set_domain_policy_route_mode_switches_to_sendgrid_and_clears_pool() -> 
     route_mode = policy.metadata_json['delivery_route_mode']
     assert route_mode['mode'] == 'third_party_provider'
     assert route_mode['provider'] == 'sendgrid'
+    assert route_mode['ip_pool_name'] is None
+    assert route_mode['mta_ip_pool_id'] is None
     assert 'ip_pool' not in policy.metadata_json
     assert 'mta_ip_pool_id' not in policy.metadata_json
 

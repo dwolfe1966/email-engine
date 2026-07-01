@@ -716,7 +716,8 @@ class DeliveryRouteService:
         route = self.get(payload.route_id)
         if not route:
             raise ValueError('Delivery route not found')
-        if payload.mode in {'managed_smtp_pool', 'managed_smtp_direct'}:
+        managed_route_mode = payload.mode in {'managed_smtp_pool', 'managed_smtp_direct'}
+        if managed_route_mode:
             if route.route_type != DeliveryRouteType.managed_smtp:
                 raise ValueError('Managed SMTP route mode requires a managed_smtp delivery route')
         elif route.route_type == DeliveryRouteType.managed_smtp:
@@ -732,8 +733,8 @@ class DeliveryRouteService:
             'provider': (
                 payload.provider or self._default_provider_for_route_mode(payload.mode, route)
             ).strip().lower(),
-            'ip_pool_name': payload.ip_pool_name.strip() if payload.ip_pool_name else None,
-            'mta_ip_pool_id': str(payload.mta_ip_pool_id) if payload.mta_ip_pool_id else None,
+            'ip_pool_name': payload.ip_pool_name.strip() if managed_route_mode and payload.ip_pool_name else None,
+            'mta_ip_pool_id': str(payload.mta_ip_pool_id) if managed_route_mode and payload.mta_ip_pool_id else None,
             'operator': payload.operator,
             'reason': payload.reason,
             'updated_at': datetime.utcnow().isoformat(),
@@ -748,7 +749,7 @@ class DeliveryRouteService:
             }
         )
         metadata['delivery_route_mode_audit_log'] = audit_log[-50:]
-        if payload.mode in {'managed_smtp_pool', 'managed_smtp_direct'}:
+        if managed_route_mode:
             if payload.ip_pool_name:
                 metadata['ip_pool'] = payload.ip_pool_name.strip()
             if payload.mta_ip_pool_id:
