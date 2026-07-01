@@ -10859,7 +10859,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       ['pool source', metadata.mta_rule_hit_pool_source || metadata.mta_ip_pool_selection_source],
       ['provider preference', metadata.mta_rule_hit_provider_preference],
       ['route provider', metadata.mta_provider],
-      ['route pool', metadata.mta_ip_pool_name || metadata.mta_ip_pool_id],
+      ['route pool', metadata.mta_ip_pool_name || metadata.route_mode_ip_pool_name || metadata.route_mode_mta_ip_pool_id || metadata.mta_ip_pool_id],
       ['route node', metadata.mta_node_name || metadata.mta_node_id],
       ['submission host', metadata.mta_submission_host],
       ['submission provider', submissionProvider],
@@ -10904,7 +10904,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     return 'not resolved';
   }));
   const topAttemptProvider = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_provider || '-')));
-  const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.mta_ip_pool_id || '-')));
+  const topAttemptPool = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_ip_pool_name || attempt.metadata_json?.route_mode_ip_pool_name || attempt.metadata_json?.route_mode_mta_ip_pool_id || attempt.metadata_json?.mta_ip_pool_id || '-')));
   const topAttemptRule = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_name || attempt.metadata_json?.mta_routing_rule_name || '-')));
   const topAttemptSendType = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_send_type || attempt.metadata_json?.mta_route_send_type || '-')));
   const topAttemptSenderDomain = summarizeAttemptEvidence(deliveryAttempts.map((attempt) => String(attempt.metadata_json?.mta_rule_hit_sender_domain || attempt.metadata_json?.mta_route_sender_domain || '-')));

@@ -1232,6 +1232,7 @@ def test_built_esp_bundle_includes_delivery_triage_panel() -> None:
         'selection_weight',
         'delivery_route_mode',
         'route_mode_provider',
+        'route_mode_ip_pool_name',
         'route_mode_mta_ip_pool_id',
         'route_mode_pool',
         'Job proof route',
