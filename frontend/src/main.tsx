@@ -10547,6 +10547,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     route_id: '',
     provider: 'scaleway',
     ip_pool_name: 'scaleway-internal-test',
+    mta_ip_pool_id: '',
   });
   const [domainDashboard, setDomainDashboard] = useState<DomainReputationDashboardRead | null>(null);
   const [domainAuthVerification, setDomainAuthVerification] = useState<DomainAuthenticationVerificationRead | null>(null);
@@ -10762,7 +10763,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
     },
     {
       label: 'IP pool',
-      value: domainRouteModeForm.mode === 'third_party_provider' ? 'Not used' : domainRouteModeForm.ip_pool_name || '-',
+      value: domainRouteModeForm.mode === 'third_party_provider' ? 'Not used' : domainRouteModeForm.ip_pool_name || domainRouteModeForm.mta_ip_pool_id || '-',
       detail: selectedRouteModeGuidance.poolDetail,
     },
   ];
@@ -10776,6 +10777,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
       route_id: String(routeMode?.route_id || selectedDomainPolicy.route_id || ''),
       provider: String(routeMode?.provider || (mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp')),
       ip_pool_name: String(routeMode?.ip_pool_name || selectedDomainPolicy.metadata_json?.ip_pool || ''),
+      mta_ip_pool_id: String(routeMode?.mta_ip_pool_id || selectedDomainPolicy.metadata_json?.mta_ip_pool_id || ''),
     });
   }, [selectedDomainPolicyId, selectedDomainPolicy?.metadata_json, selectedDomainPolicy?.route_id]);
 
@@ -15084,6 +15086,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           route_id: domainRouteModeForm.route_id,
           provider: deliveryFilterValue(domainRouteModeForm.provider) || null,
           ip_pool_name: domainRouteModeForm.mode === 'third_party_provider' ? null : deliveryFilterValue(domainRouteModeForm.ip_pool_name) || null,
+          mta_ip_pool_id: domainRouteModeForm.mode === 'third_party_provider' ? null : deliveryFilterValue(domainRouteModeForm.mta_ip_pool_id) || null,
           operator: 'esp_admin',
           reason: `switch_to_${domainRouteModeForm.mode}`,
         }),
@@ -16255,6 +16258,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
                 route_id: '',
                 provider: mode === 'third_party_provider' ? 'sendgrid' : mode === 'managed_smtp_direct' ? 'scaleway' : 'managed_smtp',
                 ip_pool_name: mode === 'third_party_provider' ? '' : current.ip_pool_name || 'scaleway-internal-test',
+                mta_ip_pool_id: mode === 'third_party_provider' ? '' : current.mta_ip_pool_id,
               }));
             }}>
               {routeModeOptions.map((option) => (
@@ -16282,6 +16286,10 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           <label>
             IP pool
             <input value={domainRouteModeForm.ip_pool_name} onChange={(event) => updateDomainRouteModeForm('ip_pool_name', event.target.value)} placeholder="scaleway-internal-test" disabled={domainRouteModeForm.mode === 'third_party_provider'} />
+          </label>
+          <label>
+            MTA pool ID
+            <input value={domainRouteModeForm.mta_ip_pool_id} onChange={(event) => updateDomainRouteModeForm('mta_ip_pool_id', event.target.value)} placeholder="optional pool UUID" disabled={domainRouteModeForm.mode === 'third_party_provider'} />
           </label>
           <label className="wide-field">
             Latest recommendation
