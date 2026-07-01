@@ -2782,6 +2782,14 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       lastTestSendResult.delivery_route_mode || '',
     ].filter(Boolean).join(' / ')
     : '';
+  const lastTestSendPool = lastTestSendResult
+    ? lastTestSendResult.mta_ip_pool_name
+      || lastTestSendResult.route_mode_ip_pool_name
+      || lastTestSendResult.route_mode_mta_ip_pool_id
+      || lastTestSendResult.mta_ip_pool_id
+      || lastTestSendResult.route_type
+      || ''
+    : '';
   const proofSendSummary = lastTestSendResult
     ? [
       `${lastTestSendResult.status_code} from ${lastTestSendResult.provider}`,
@@ -3423,7 +3431,7 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
               <div><span>Rule inputs</span><strong>{lastTestSendResult.mta_rule_hit_send_type || lastTestSendResult.mta_route_send_type || '-'}</strong><small>{`${lastTestSendResult.mta_rule_hit_sender_domain || lastTestSendResult.mta_route_sender_domain || '-'} -> ${lastTestSendResult.mta_rule_hit_recipient_domain || lastTestSendResult.mta_route_recipient_domain || '-'}`}</small></div>
               <div><span>Provider ID</span><strong>{lastTestSendResult.provider_message_id || '-'}</strong></div>
               <div><span>MTA</span><strong>{lastTestSendResult.mta_submission_host || lastTestSendResult.mta_hostname || lastTestSendResult.mta_node_name || lastTestSendResult.route_key || '-'}</strong></div>
-              <div><span>Pool</span><strong>{lastTestSendResult.mta_ip_pool_name || lastTestSendResult.route_type || '-'}</strong><small>{lastTestSendResult.mta_ip_pool_selection_source ? `from ${lastTestSendResult.mta_ip_pool_selection_source.replace(/_/g, ' ')}` : ''}</small></div>
+              <div><span>Pool</span><strong>{lastTestSendPool || '-'}</strong><small>{lastTestSendResult.mta_ip_pool_selection_source ? `from ${lastTestSendResult.mta_ip_pool_selection_source.replace(/_/g, ' ')}` : ''}</small></div>
               <div><span>Candidates</span><strong>{lastTestSendResult.mta_node_candidate_count ?? '-'}</strong><small>priority {lastTestSendResult.mta_node_selection_priority ?? '-'} / weight {lastTestSendResult.mta_node_selection_weight ?? '-'} / skipped {lastTestSendResult.mta_node_skipped_count ?? '-'}</small></div>
               <div><span>DKIM</span><strong>{lastTestSendResult.dkim_selector || (lastTestSendResult.dkim_signing_ready ? 'ready' : '-')}</strong></div>
               <div><span>Envelope</span><strong>{lastTestSendResult.envelope_from || lastTestSendResult.bounce_domain || '-'}</strong></div>

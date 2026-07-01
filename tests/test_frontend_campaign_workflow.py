@@ -125,6 +125,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'setLastLaunchResult(data)',
         'Dry-run result',
         'Launch result',
+        'lastTestSendPool',
         'Test send result',
         'test-send-result-card',
         'mta_hostname',
