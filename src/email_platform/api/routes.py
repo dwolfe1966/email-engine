@@ -1753,6 +1753,7 @@ def _deterministic_delivery_analysis(
     proof_route_mode = str(selected_job_proof_route.get('delivery_route_mode') or '')
     proof_route_provider = str(
         selected_job_proof_route.get('submission_provider')
+        or selected_job_proof_route.get('mta_submission_provider')
         or selected_job_proof_route.get('route_mode_provider')
         or selected_job_proof_route.get('mta_provider')
         or ''
