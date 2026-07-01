@@ -1367,6 +1367,8 @@ def _deterministic_campaign_analysis(
         proof_route.get('pool')
         or proof_route.get('mta_ip_pool_name')
         or proof_route.get('route_mode_ip_pool_name')
+        or proof_route.get('route_mode_mta_ip_pool_id')
+        or proof_route.get('mta_ip_pool_id')
         or ''
     )
     proof_route_node = str(
@@ -1758,6 +1760,8 @@ def _deterministic_delivery_analysis(
     proof_route_pool = str(
         selected_job_proof_route.get('route_mode_ip_pool_name')
         or selected_job_proof_route.get('mta_ip_pool_name')
+        or selected_job_proof_route.get('route_mode_mta_ip_pool_id')
+        or selected_job_proof_route.get('mta_ip_pool_id')
         or ''
     )
     proof_route_node = str(selected_job_proof_route.get('mta_node_name') or '')
@@ -1787,6 +1791,7 @@ def _deterministic_delivery_analysis(
     record_route_pool = str(
         selected_record_route_evidence.get('route_mode_ip_pool_name')
         or selected_record_route_evidence.get('mta_ip_pool_name')
+        or selected_record_route_evidence.get('route_mode_mta_ip_pool_id')
         or selected_record_route_evidence.get('mta_ip_pool_id')
         or ''
     )

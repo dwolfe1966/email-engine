@@ -930,7 +930,7 @@ def test_ai_campaign_analysis_accepts_scaleway_direct_proof_route_context() -> N
                     'route_type': 'managed_smtp',
                     'delivery_route_mode': 'managed_smtp_direct',
                     'submission_provider': 'scaleway',
-                    'route_mode_ip_pool_name': 'scaleway-internal-test',
+                    'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
                     'mta_node_name': 'scaleway-mta-1',
                 },
             },
@@ -942,7 +942,7 @@ def test_ai_campaign_analysis_accepts_scaleway_direct_proof_route_context() -> N
     data = response.json()
     expected_summary = (
         'Proof route: resolved / managed_smtp_direct / scaleway / '
-        'scaleway-internal-test / scaleway-mta-1.'
+        'pool-scaleway-internal-test / scaleway-mta-1.'
     )
     assert any(
         expected_summary == item
@@ -1076,7 +1076,7 @@ def test_ai_delivery_analysis_accepts_scaleway_direct_selected_job_route() -> No
                     'mta_route_status': 'resolved',
                     'delivery_route_mode': 'managed_smtp_direct',
                     'submission_provider': 'scaleway',
-                    'route_mode_ip_pool_name': 'scaleway-internal-test',
+                    'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
                     'mta_node_name': 'scaleway-mta-1',
                 },
             },
@@ -1088,7 +1088,7 @@ def test_ai_delivery_analysis_accepts_scaleway_direct_selected_job_route() -> No
     data = response.json()
     expected_summary = (
         'Selected job proof route: resolved / managed_smtp_direct / scaleway / '
-        'scaleway-internal-test / scaleway-mta-1.'
+        'pool-scaleway-internal-test / scaleway-mta-1.'
     )
     assert any(expected_summary == item for item in data['summary'])
     codes = {item['code'] for item in data['recommendations']}
@@ -1152,7 +1152,7 @@ def test_ai_delivery_analysis_accepts_scaleway_direct_selected_record_route() ->
                     'mta_route_resolved': True,
                     'delivery_route_mode': 'managed_smtp_direct',
                     'mta_submission_provider': 'scaleway',
-                    'route_mode_ip_pool_name': 'scaleway-internal-test',
+                    'route_mode_mta_ip_pool_id': 'pool-scaleway-internal-test',
                     'mta_node_name': 'scaleway-mta-1',
                 },
             },
@@ -1164,7 +1164,7 @@ def test_ai_delivery_analysis_accepts_scaleway_direct_selected_record_route() ->
     data = response.json()
     expected_summary = (
         'Selected record route: resolved / managed_smtp_direct / scaleway / '
-        'scaleway-internal-test / scaleway-mta-1.'
+        'pool-scaleway-internal-test / scaleway-mta-1.'
     )
     assert any(expected_summary == item for item in data['summary'])
     codes = {item['code'] for item in data['recommendations']}
