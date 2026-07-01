@@ -4009,6 +4009,7 @@ def export_delivery_attempt_evidence_csv(
             'recipient_domain',
             'mta_provider',
             'ip_pool',
+            'route_mode_pool',
             'mta_node',
             'routing_rule',
             'rule_source',
@@ -4045,7 +4046,7 @@ def export_delivery_attempt_evidence_csv(
         ]
     )
     if not attempts:
-        writer.writerow([*export_context, *([''] * 47)])
+        writer.writerow([*export_context, *([''] * 48)])
     for attempt in attempts:
         metadata = attempt.metadata_json or {}
         provider_preference = metadata.get('mta_rule_hit_provider_preference')
@@ -4079,7 +4080,12 @@ def export_delivery_attempt_evidence_csv(
                 or metadata.get('mta_ip_pool_selection_source'),
                 'provider preference': metadata.get('mta_rule_hit_provider_preference'),
                 'route provider': metadata.get('mta_provider'),
-                'route pool': metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id'),
+                'route pool': (
+                    metadata.get('mta_ip_pool_name')
+                    or metadata.get('route_mode_ip_pool_name')
+                    or metadata.get('route_mode_mta_ip_pool_id')
+                    or metadata.get('mta_ip_pool_id')
+                ),
                 'route node': metadata.get('mta_node_name') or metadata.get('mta_node_id'),
                 'submission host': metadata.get('mta_submission_host'),
                 'submission provider': metadata.get('submission_provider')
@@ -4113,6 +4119,9 @@ def export_delivery_attempt_evidence_csv(
                 or '',
                 metadata.get('mta_provider') or '',
                 metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id') or '',
+                metadata.get('route_mode_ip_pool_name')
+                or metadata.get('route_mode_mta_ip_pool_id')
+                or '',
                 metadata.get('mta_node_name') or metadata.get('mta_node_id') or '',
                 metadata.get('mta_rule_hit_name') or metadata.get('mta_routing_rule_name') or '',
                 metadata.get('mta_rule_hit_source')
