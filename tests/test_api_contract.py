@@ -464,6 +464,16 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
     ]:
         assert token in source
 
+    route_pool_start = source.index('route_pool = (')
+    route_mode_pool = source.index("metadata.get('route_mode_ip_pool_name')", route_pool_start)
+    direct_pool = source.index("metadata.get('mta_ip_pool_name')", route_pool_start)
+    assert route_mode_pool < direct_pool
+
+    route_provider_start = source.index('route_provider = metadata.get')
+    route_mode_provider = source.index("metadata.get('route_mode_provider')", route_provider_start)
+    direct_provider = source.index("metadata.get('mta_provider')", route_provider_start)
+    assert route_mode_provider < direct_provider
+
 
 def test_campaign_workflow_status_exposes_latest_proof_route() -> None:
     client = TestClient(app)

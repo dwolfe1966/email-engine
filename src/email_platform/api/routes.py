@@ -4083,8 +4083,8 @@ def export_delivery_attempt_evidence_csv(
         )
         skipped_nodes_json = json.dumps(skipped_node_items, separators=(',', ':')) if skipped_node_items else ''
         route_pool = (
-            metadata.get('mta_ip_pool_name')
-            or metadata.get('route_mode_ip_pool_name')
+            metadata.get('route_mode_ip_pool_name')
+            or metadata.get('mta_ip_pool_name')
             or metadata.get('route_mode_mta_ip_pool_id')
             or metadata.get('mta_ip_pool_id')
             or ''
@@ -4094,7 +4094,7 @@ def export_delivery_attempt_evidence_csv(
             or metadata.get('route_mode_mta_ip_pool_id')
             or ''
         )
-        route_provider = metadata.get('mta_provider') or metadata.get('route_mode_provider') or ''
+        route_provider = metadata.get('route_mode_provider') or metadata.get('mta_provider') or ''
         missing_dimensions = []
         if metadata.get('mta_route_resolved') is True:
             missing_dimension_values = {
