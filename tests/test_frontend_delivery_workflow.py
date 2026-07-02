@@ -784,6 +784,8 @@ def assert_delivery_triage_contract(source: str) -> None:
         'Load Route Evidence',
         'attemptRoutePoolValue',
         'attemptRoutePoolLabel',
+        'attemptRouteProviderValue',
+        'attemptRouteProviderLabel',
         'Focus Pool Controls',
         'Select Matched Rule',
         'Filter Provider Feedback',
