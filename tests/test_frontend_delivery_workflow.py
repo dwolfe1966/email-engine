@@ -36,6 +36,7 @@ def assert_delivery_triage_contract(source: str) -> None:
         'selectedRecordRouteAttempt',
         'selectedRecordRouteEvidence',
         'selectedRecordRouteEvidenceDetail',
+        'selectedRecordRouteEvidence.route_mode_provider',
         'selected_record_latest_attempt',
         'selected_record_route_evidence',
         'Record route',

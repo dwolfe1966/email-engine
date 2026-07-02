@@ -10712,7 +10712,7 @@ function DeliveryPage({ sendJobs, sendRecords, campaigns, route, onRefresh, onOp
           ? 'resolved'
           : selectedRecordRouteEvidence.mta_route_resolved === false ? 'blocked' : ''),
       selectedRecordRouteEvidence.delivery_route_mode || '',
-      selectedRecordRouteEvidence.submission_provider || selectedRecordRouteEvidence.mta_submission_provider || selectedRecordRouteEvidence.mta_provider || '',
+      selectedRecordRouteEvidence.submission_provider || selectedRecordRouteEvidence.mta_submission_provider || selectedRecordRouteEvidence.route_mode_provider || selectedRecordRouteEvidence.mta_provider || '',
       selectedRecordRouteEvidence.route_mode_ip_pool_name || selectedRecordRouteEvidence.mta_ip_pool_name || selectedRecordRouteEvidence.route_mode_mta_ip_pool_id || selectedRecordRouteEvidence.mta_ip_pool_id || '',
       selectedRecordRouteEvidence.mta_node_name || '',
       selectedRecordRouteEvidence.mta_submission_host || selectedRecordRouteAttempt?.route_key || '',
