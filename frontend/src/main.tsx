@@ -2783,8 +2783,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
     ].filter(Boolean).join(' / ')
     : '';
   const lastTestSendPool = lastTestSendResult
-    ? lastTestSendResult.mta_ip_pool_name
-      || lastTestSendResult.route_mode_ip_pool_name
+    ? lastTestSendResult.route_mode_ip_pool_name
+      || lastTestSendResult.mta_ip_pool_name
       || lastTestSendResult.route_mode_mta_ip_pool_id
       || lastTestSendResult.mta_ip_pool_id
       || lastTestSendResult.route_type

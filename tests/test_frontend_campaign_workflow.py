@@ -204,7 +204,12 @@ def assert_campaign_next_step_contract(source: str) -> None:
 
 
 def test_campaign_workspace_source_has_guided_next_step_action() -> None:
-    assert_campaign_next_step_contract(frontend_source())
+    source = frontend_source()
+    assert_campaign_next_step_contract(source)
+    pool_start = source.index('const lastTestSendPool = lastTestSendResult')
+    route_mode_pool = source.index('lastTestSendResult.route_mode_ip_pool_name', pool_start)
+    direct_pool = source.index('lastTestSendResult.mta_ip_pool_name', pool_start)
+    assert route_mode_pool < direct_pool
 
 
 def test_built_esp_bundle_includes_campaign_guided_next_step_action() -> None:
