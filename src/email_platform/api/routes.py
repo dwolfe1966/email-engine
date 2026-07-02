@@ -1366,8 +1366,8 @@ def _deterministic_campaign_analysis(
     )
     proof_route_pool = str(
         proof_route.get('pool')
-        or proof_route.get('mta_ip_pool_name')
         or proof_route.get('route_mode_ip_pool_name')
+        or proof_route.get('mta_ip_pool_name')
         or proof_route.get('route_mode_mta_ip_pool_id')
         or proof_route.get('mta_ip_pool_id')
         or ''
