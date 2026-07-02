@@ -3655,6 +3655,8 @@ def summarize_delivery_attempt_evidence(
     provider_expr = DeliveryAttempt.metadata_json['mta_provider'].astext
     pool_expr = func.coalesce(
         DeliveryAttempt.metadata_json['mta_ip_pool_name'].astext,
+        DeliveryAttempt.metadata_json['route_mode_ip_pool_name'].astext,
+        DeliveryAttempt.metadata_json['route_mode_mta_ip_pool_id'].astext,
         DeliveryAttempt.metadata_json['mta_ip_pool_id'].astext,
     )
     rule_expr = func.coalesce(

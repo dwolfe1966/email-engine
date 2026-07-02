@@ -364,6 +364,10 @@ def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
         'top_missing_evidence_dimensions',
     }.issubset(schema['properties'].keys())
 
+    source = (ROOT / 'src' / 'email_platform' / 'api' / 'routes.py').read_text()
+    assert "DeliveryAttempt.metadata_json['route_mode_ip_pool_name'].astext" in source
+    assert "DeliveryAttempt.metadata_json['route_mode_mta_ip_pool_id'].astext" in source
+
 
 def test_delivery_attempt_evidence_export_exposes_limit_contract() -> None:
     client = TestClient(app)
