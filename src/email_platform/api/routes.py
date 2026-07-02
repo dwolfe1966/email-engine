@@ -3435,8 +3435,15 @@ def _delivery_attempt_evidence_filters(
             )
             == submission_provider
         )
+    if mta_ip_pool_id:
+        filters.append(
+            func.coalesce(
+                DeliveryAttempt.metadata_json['mta_ip_pool_id'].astext,
+                DeliveryAttempt.metadata_json['route_mode_mta_ip_pool_id'].astext,
+            )
+            == str(mta_ip_pool_id)
+        )
     metadata_filters = {
-        'mta_ip_pool_id': str(mta_ip_pool_id) if mta_ip_pool_id else None,
         'mta_node_id': str(mta_node_id) if mta_node_id else None,
         'mta_provider': mta_provider,
         'mta_route_send_type': mta_route_send_type,

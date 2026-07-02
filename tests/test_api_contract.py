@@ -319,6 +319,10 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
     assert expected.issubset(list_names)
     assert expected.issubset(summary_names)
 
+    source = (ROOT / 'src' / 'email_platform' / 'api' / 'routes.py').read_text()
+    assert "DeliveryAttempt.metadata_json['mta_ip_pool_id'].astext" in source
+    assert "DeliveryAttempt.metadata_json['route_mode_mta_ip_pool_id'].astext" in source
+
 
 def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
     client = TestClient(app)
