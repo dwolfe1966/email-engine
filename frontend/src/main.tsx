@@ -2823,8 +2823,8 @@ function CampaignsPage({ campaigns, campaignItems, templates, audiences, route, 
       }
       : null;
   const latestProofRoutePool = latestProofRoute
-    ? latestProofRoute.mta_ip_pool_name
-      || latestProofRoute.route_mode_ip_pool_name
+    ? latestProofRoute.route_mode_ip_pool_name
+      || latestProofRoute.mta_ip_pool_name
       || latestProofRoute.route_mode_mta_ip_pool_id
       || latestProofRoute.mta_ip_pool_id
       || ''

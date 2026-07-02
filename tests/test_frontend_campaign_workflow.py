@@ -91,6 +91,7 @@ def assert_campaign_next_step_contract(source: str) -> None:
         'latest_launch_job_proof_route_evidence',
         'latestProofRouteOk',
         'latestProofRoutePool',
+        'latestProofRoute.route_mode_ip_pool_name',
         'proofRouteAvailable',
         'activeProofRouteDetail',
         'Latest proof route',
