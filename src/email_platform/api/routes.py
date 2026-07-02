@@ -4063,6 +4063,18 @@ def export_delivery_attempt_evidence_csv(
             if isinstance(item, dict) and item.get('reason')
         )
         skipped_nodes_json = json.dumps(skipped_node_items, separators=(',', ':')) if skipped_node_items else ''
+        route_pool = (
+            metadata.get('mta_ip_pool_name')
+            or metadata.get('route_mode_ip_pool_name')
+            or metadata.get('route_mode_mta_ip_pool_id')
+            or metadata.get('mta_ip_pool_id')
+            or ''
+        )
+        route_mode_pool = (
+            metadata.get('route_mode_ip_pool_name')
+            or metadata.get('route_mode_mta_ip_pool_id')
+            or ''
+        )
         missing_dimensions = []
         if metadata.get('mta_route_resolved') is True:
             missing_dimension_values = {
@@ -4081,12 +4093,7 @@ def export_delivery_attempt_evidence_csv(
                 or metadata.get('mta_ip_pool_selection_source'),
                 'provider preference': metadata.get('mta_rule_hit_provider_preference'),
                 'route provider': metadata.get('mta_provider'),
-                'route pool': (
-                    metadata.get('mta_ip_pool_name')
-                    or metadata.get('route_mode_ip_pool_name')
-                    or metadata.get('route_mode_mta_ip_pool_id')
-                    or metadata.get('mta_ip_pool_id')
-                ),
+                'route pool': route_pool,
                 'route node': metadata.get('mta_node_name') or metadata.get('mta_node_id'),
                 'submission host': metadata.get('mta_submission_host'),
                 'submission provider': metadata.get('submission_provider')
@@ -4119,10 +4126,8 @@ def export_delivery_attempt_evidence_csv(
                 or metadata.get('mta_route_recipient_domain')
                 or '',
                 metadata.get('mta_provider') or '',
-                metadata.get('mta_ip_pool_name') or metadata.get('mta_ip_pool_id') or '',
-                metadata.get('route_mode_ip_pool_name')
-                or metadata.get('route_mode_mta_ip_pool_id')
-                or '',
+                route_pool,
+                route_mode_pool,
                 metadata.get('mta_node_name') or metadata.get('mta_node_id') or '',
                 metadata.get('mta_rule_hit_name') or metadata.get('mta_routing_rule_name') or '',
                 metadata.get('mta_rule_hit_source')
