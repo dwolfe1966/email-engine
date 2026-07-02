@@ -322,6 +322,7 @@ def test_delivery_attempt_list_exposes_route_evidence_filters() -> None:
     source = (ROOT / 'src' / 'email_platform' / 'api' / 'routes.py').read_text()
     assert "DeliveryAttempt.metadata_json['mta_ip_pool_id'].astext" in source
     assert "DeliveryAttempt.metadata_json['route_mode_mta_ip_pool_id'].astext" in source
+    assert "DeliveryAttempt.metadata_json['route_mode_provider'].astext" in source
 
 
 def test_delivery_attempt_evidence_summary_schema_exposes_rollups() -> None:
@@ -431,6 +432,7 @@ def test_delivery_attempt_evidence_export_includes_provider_preference_columns()
         'len(header) - len(export_context)',
         'route_pool = (',
         'route_mode_pool = (',
+        'route_provider = metadata.get',
         "metadata.get('mta_rule_hit_provider_preference_mode')",
         "metadata.get('mta_provider_preference_fallback_used')",
         "metadata.get('mta_provider_preference_fallback_provider')",

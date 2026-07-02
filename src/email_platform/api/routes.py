@@ -3443,9 +3443,16 @@ def _delivery_attempt_evidence_filters(
             )
             == str(mta_ip_pool_id)
         )
+    if mta_provider:
+        filters.append(
+            func.coalesce(
+                DeliveryAttempt.metadata_json['mta_provider'].astext,
+                DeliveryAttempt.metadata_json['route_mode_provider'].astext,
+            )
+            == mta_provider
+        )
     metadata_filters = {
         'mta_node_id': str(mta_node_id) if mta_node_id else None,
-        'mta_provider': mta_provider,
         'mta_route_send_type': mta_route_send_type,
         'mta_route_sender_domain': mta_route_sender_domain,
         'mta_route_recipient_domain': mta_route_recipient_domain,
@@ -3659,7 +3666,10 @@ def summarize_delivery_attempt_evidence(
         else_='not resolved',
     )
     route_status_expr = DeliveryAttempt.metadata_json['mta_route_status'].astext
-    provider_expr = DeliveryAttempt.metadata_json['mta_provider'].astext
+    provider_expr = func.coalesce(
+        DeliveryAttempt.metadata_json['mta_provider'].astext,
+        DeliveryAttempt.metadata_json['route_mode_provider'].astext,
+    )
     pool_expr = func.coalesce(
         DeliveryAttempt.metadata_json['mta_ip_pool_name'].astext,
         DeliveryAttempt.metadata_json['route_mode_ip_pool_name'].astext,
@@ -4084,6 +4094,7 @@ def export_delivery_attempt_evidence_csv(
             or metadata.get('route_mode_mta_ip_pool_id')
             or ''
         )
+        route_provider = metadata.get('mta_provider') or metadata.get('route_mode_provider') or ''
         missing_dimensions = []
         if metadata.get('mta_route_resolved') is True:
             missing_dimension_values = {
@@ -4101,7 +4112,7 @@ def export_delivery_attempt_evidence_csv(
                 'pool source': metadata.get('mta_rule_hit_pool_source')
                 or metadata.get('mta_ip_pool_selection_source'),
                 'provider preference': metadata.get('mta_rule_hit_provider_preference'),
-                'route provider': metadata.get('mta_provider'),
+                'route provider': route_provider,
                 'route pool': route_pool,
                 'route node': metadata.get('mta_node_name') or metadata.get('mta_node_id'),
                 'submission host': metadata.get('mta_submission_host'),
@@ -4134,7 +4145,7 @@ def export_delivery_attempt_evidence_csv(
                 metadata.get('mta_rule_hit_recipient_domain')
                 or metadata.get('mta_route_recipient_domain')
                 or '',
-                metadata.get('mta_provider') or '',
+                route_provider,
                 route_pool,
                 route_mode_pool,
                 metadata.get('mta_node_name') or metadata.get('mta_node_id') or '',
